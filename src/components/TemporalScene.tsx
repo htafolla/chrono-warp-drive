@@ -41,9 +41,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
       
       position.needsUpdate = true;
       
-      // Rotate based on phase
-      meshRef.current.rotation.z = phase * 0.1;
-      meshRef.current.position.y = index * 0.1 - 1;
+      // Enhanced wave plane positioning and rotation
+      meshRef.current.rotation.z = phase * 0.05;
+      meshRef.current.position.y = index * 0.3 - 2; // Better spacing between planes
       
     } catch (error) {
       console.error('WavePlane animation error:', error);
@@ -51,7 +51,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
   });
 
   return (
-    <mesh ref={meshRef} position={[0, index * 0.1 - 1, 0]}>
+    <mesh ref={meshRef} position={[0, index * 0.3 - 2, 0]}>
       <planeGeometry 
         ref={geometryRef} 
         args={[8, 8, 32, 32]} 
@@ -66,31 +66,6 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
   );
 }
 
-function TemporalOrb({ phases }: { phases: number[] }) {
-  const orbRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
-    if (!orbRef.current) return;
-    
-    const oscillation = harmonicOscillator(state.clock.elapsedTime);
-    const phaseAvg = phases.reduce((sum, p) => sum + p, 0) / phases.length;
-    
-    orbRef.current.scale.setScalar(1 + oscillation * 0.2);
-    orbRef.current.rotation.y = phaseAvg;
-    orbRef.current.rotation.x = state.clock.elapsedTime * 0.5;
-  });
-
-  return (
-    <mesh ref={orbRef} position={[0, 2, 0]}>
-      <sphereGeometry args={[0.5, 32, 32]} />
-      <meshPhongMaterial 
-        color="#3b82f6"
-        emissive="#7c3aed"
-        emissiveIntensity={0.3}
-      />
-    </mesh>
-  );
-}
 
 interface TemporalSceneProps {
   phases: number[];
@@ -102,20 +77,18 @@ interface TemporalSceneProps {
 export function TemporalScene({ phases, isotope, cycle, fractalToggle }: TemporalSceneProps) {
   return (
     <div className="w-full h-full bg-background rounded-lg overflow-hidden">
-      <Canvas camera={{ position: [5, 5, 10], fov: 60 }}>
-        {/* Lighting */}
-        <ambientLight intensity={0.4} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
+      <Canvas camera={{ position: [8, 6, 12], fov: 65 }}>
+        {/* Enhanced lighting for better wave plane visibility */}
+        <ambientLight intensity={0.6} />
+        <pointLight position={[10, 10, 10]} intensity={1.2} />
         <directionalLight 
-          position={[-5, 5, 5]} 
-          intensity={0.8}
+          position={[-8, 8, 8]} 
+          intensity={1.0}
           color="#ffffff"
         />
+        <pointLight position={[0, -5, 5]} intensity={0.5} color="#7c3aed" />
         
-        {/* Central temporal orb */}
-        <TemporalOrb phases={phases} />
-        
-        {/* Wave planes for each spectrum band */}
+        {/* Wave planes for each spectrum band - improved spacing */}
         {SPECTRUM_BANDS.map((band, index) => (
           <WavePlane
             key={band.band}
@@ -133,8 +106,8 @@ export function TemporalScene({ phases, isotope, cycle, fractalToggle }: Tempora
           enablePan={true}
           enableZoom={true}
           enableRotate={true}
-          maxDistance={20}
-          minDistance={3}
+          maxDistance={25}
+          minDistance={4}
         />
       </Canvas>
       
