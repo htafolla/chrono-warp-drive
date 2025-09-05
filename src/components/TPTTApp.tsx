@@ -108,10 +108,10 @@ export function TPTTApp() {
       <div className="container mx-auto p-6">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">
-            Temporal Photonic Transpondent Transporter
+            BLURRN
           </h1>
           <p className="text-muted-foreground">
-            Prototype v3.6 - Chrono-Transport via Light Manipulation
+            Temporal Photonic Transpondent Transporter
           </p>
         </header>
 
