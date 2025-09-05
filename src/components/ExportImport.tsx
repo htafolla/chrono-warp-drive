@@ -233,7 +233,7 @@ export function ExportImport({ currentState, onImport }: ExportImportProps) {
   };
 
   return (
-    <Card className="cosmic-glow">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           Temporal State Management
