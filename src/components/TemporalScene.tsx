@@ -84,8 +84,8 @@ function TemporalOrb({ phases }: { phases: number[] }) {
     <mesh ref={orbRef} position={[0, 2, 0]}>
       <sphereGeometry args={[0.5, 32, 32]} />
       <meshPhongMaterial 
-        color="hsl(var(--primary))"
-        emissive="hsl(var(--primary))"
+        color="#1e293b"
+        emissive="#1e293b"
         emissiveIntensity={0.3}
       />
     </mesh>
@@ -109,7 +109,7 @@ export function TemporalScene({ phases, isotope, cycle, fractalToggle }: Tempora
         <directionalLight 
           position={[-5, 5, 5]} 
           intensity={0.8}
-          color="hsl(var(--primary))"
+          color="#ffffff"
         />
         
         {/* Central temporal orb */}

@@ -4,6 +4,7 @@ import { Dashboard } from './Dashboard';
 import { TemporalScene } from './TemporalScene';
 import { ControlPanel } from './ControlPanel';
 import { SpectrumAnalyzer } from './SpectrumAnalyzer';
+import { ErrorBoundary } from './ErrorBoundary';
 import { 
   PHI, 
   ISOTOPES, 
@@ -98,12 +99,14 @@ export function TPTTApp() {
 
           <TabsContent value="simulation" className="space-y-4">
             <div className="h-[600px] w-full">
-              <TemporalScene 
-                phases={phases}
-                isotope={isotope}
-                cycle={cycle}
-                fractalToggle={fractalToggle}
-              />
+              <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-muted-foreground">3D scene failed to load</div>}>
+                <TemporalScene 
+                  phases={phases}
+                  isotope={isotope}
+                  cycle={cycle}
+                  fractalToggle={fractalToggle}
+                />
+              </ErrorBoundary>
             </div>
           </TabsContent>
 
