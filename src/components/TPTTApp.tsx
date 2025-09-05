@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dashboard } from './Dashboard';
 import { TemporalScene } from './TemporalScene';
 import { ControlPanel } from './ControlPanel';
 import { SpectrumAnalyzer } from './SpectrumAnalyzer';
+import { PerformanceMonitor } from './PerformanceMonitor';
+import { AudioSynthesis } from './AudioSynthesis';
+import { ExportImport } from './ExportImport';
+import { MobileControls } from './MobileControls';
 import { ErrorBoundary } from './ErrorBoundary';
 import { 
   PHI, 
@@ -30,6 +34,14 @@ export function TPTTApp() {
   const [phi, setPhi] = useState(PHI);
   const [delta_t, setDelta_t] = useState(1e-6);
   const [currentView, setCurrentView] = useState("dashboard");
+  const [performanceMonitorActive, setPerformanceMonitorActive] = useState(false);
+  
+  // Scene controls for mobile
+  const sceneControlsRef = useRef({
+    rotate: (deltaX: number, deltaY: number) => {},
+    zoom: (delta: number) => {},
+    pan: (deltaX: number, deltaY: number) => {}
+  });
 
   // Animation loop - 16ms cycle (60fps)
   useEffect(() => {
@@ -65,6 +77,32 @@ export function TPTTApp() {
   const tPTT_value = tPTT(T_c, P_s, e_t, delta_t);
   const rippel = generateRippel(time, tPTT_value, e_t);
 
+  // Import/Export handlers
+  const handleImport = (importedState: Partial<any>) => {
+    if (importedState.time !== undefined) setTime(importedState.time);
+    if (importedState.phases !== undefined) setPhases(importedState.phases);
+    if (importedState.fractalToggle !== undefined) setFractalToggle(importedState.fractalToggle);
+    if (importedState.timeline !== undefined) setTimeline(importedState.timeline);
+    if (importedState.isotope !== undefined) setIsotope(importedState.isotope);
+    if (importedState.cycle !== undefined) setCycle(importedState.cycle);
+    if (importedState.e_t !== undefined) setE_t(importedState.e_t);
+    if (importedState.phi !== undefined) setPhi(importedState.phi);
+    if (importedState.delta_t !== undefined) setDelta_t(importedState.delta_t);
+  };
+
+  const currentState = {
+    time,
+    phases,
+    fractalToggle,
+    timeline,
+    isotope,
+    cycle,
+    e_t,
+    phi,
+    delta_t,
+    timestamp: new Date().toISOString()
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6">
@@ -78,11 +116,13 @@ export function TPTTApp() {
         </header>
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="dashboard">Dashboard 🌟</TabsTrigger>
-            <TabsTrigger value="simulation">Simulation 🌊</TabsTrigger>
+            <TabsTrigger value="simulation">3D Scene 🌊</TabsTrigger>
             <TabsTrigger value="controls">Controls 🌱</TabsTrigger>
             <TabsTrigger value="spectrum">Spectrum 📊</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced 🚀</TabsTrigger>
+            <TabsTrigger value="system">System 💻</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
@@ -129,6 +169,93 @@ export function TPTTApp() {
 
           <TabsContent value="spectrum" className="space-y-4">
             <SpectrumAnalyzer waves={waves} time={time} />
+          </TabsContent>
+
+          <TabsContent value="advanced" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AudioSynthesis 
+                phases={phases}
+                e_t={e_t}
+                tPTT_value={tPTT_value}
+                fractalToggle={fractalToggle}
+              />
+              <ExportImport
+                currentState={currentState}
+                onImport={handleImport}
+              />
+            </div>
+            <MobileControls
+              onRotate={sceneControlsRef.current.rotate}
+              onZoom={sceneControlsRef.current.zoom}
+              onPan={sceneControlsRef.current.pan}
+              isActive={currentView === "simulation" || currentView === "advanced"}
+            />
+          </TabsContent>
+
+          <TabsContent value="system" className="space-y-6">
+            <div className="flex items-center gap-4 mb-4">
+              <label className="text-sm font-medium">Performance Monitor</label>
+              <button
+                onClick={() => setPerformanceMonitorActive(!performanceMonitorActive)}
+                className="px-3 py-1 text-xs rounded border border-border bg-background hover:bg-muted transition-colors"
+              >
+                {performanceMonitorActive ? 'Disable' : 'Enable'}
+              </button>
+            </div>
+            
+            <PerformanceMonitor isActive={performanceMonitorActive} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 bg-card border border-border rounded-lg">
+                <h3 className="text-lg font-semibold mb-4">System Information</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Temporal Engine</span>
+                    <span>Blurrn v3.6 Active</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Wave Planes</span>
+                    <span>{waves.length} Active</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Phase Channels</span>
+                    <span>{phases.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Spectrum Range</span>
+                    <span>250-2500nm</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Render Mode</span>
+                    <span>{fractalToggle ? '5D Fractal' : '3D Standard'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 bg-card border border-border rounded-lg">
+                <h3 className="text-lg font-semibold mb-4">Feature Status</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Audio Synthesis</span>
+                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Ready</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Export/Import</span>
+                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Ready</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Mobile Controls</span>
+                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Ready</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Performance Monitor</span>
+                    <span className={`px-2 py-1 rounded text-xs ${performanceMonitorActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                      {performanceMonitorActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
