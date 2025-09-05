@@ -253,10 +253,11 @@ export function MobileControls({ onRotate, onZoom, onPan, isActive }: MobileCont
 
         {/* Device Optimization */}
         <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-          <div className="text-xs text-primary font-medium">
+          <div className="text-xs text-primary font-medium flex items-center gap-2">
+            <Smartphone className="h-3 w-3" />
             {deviceType === 'mobile' 
-              ? '📱 Mobile Optimized: Reduced particle count for better performance'
-              : '📱 Tablet Optimized: Enhanced touch precision for detailed interaction'
+              ? 'Mobile Optimized: Reduced particle count for better performance'
+              : 'Tablet Optimized: Enhanced touch precision for detailed interaction'
             }
           </div>
         </div>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Sparkles } from 'lucide-react';
 import { FREQ } from '@/lib/temporalCalculator';
 
 interface AudioSynthesisProps {
@@ -257,8 +257,9 @@ export function AudioSynthesis({ phases, e_t, tPTT_value, fractalToggle }: Audio
 
         {transportReady && (
           <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-            <div className="text-sm font-medium text-primary">
-              🌠 Transport Ready - Harmonic Resonance Achieved
+            <div className="text-sm font-medium text-primary flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Transport Ready - Harmonic Resonance Achieved
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               Temporal frequencies aligned for chrono-transport activation

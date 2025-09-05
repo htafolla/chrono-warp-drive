@@ -9,6 +9,7 @@ import { AudioSynthesis } from './AudioSynthesis';
 import { ExportImport } from './ExportImport';
 import { MobileControls } from './MobileControls';
 import { ErrorBoundary } from './ErrorBoundary';
+import { Star, Waves, Sprout, BarChart3, Rocket, Laptop } from 'lucide-react';
 import { 
   PHI, 
   ISOTOPES, 
@@ -117,12 +118,30 @@ export function TPTTApp() {
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
           <TabsList className="grid w-full grid-cols-6 mb-6">
-            <TabsTrigger value="dashboard">Dashboard 🌟</TabsTrigger>
-            <TabsTrigger value="simulation">3D Scene 🌊</TabsTrigger>
-            <TabsTrigger value="controls">Controls 🌱</TabsTrigger>
-            <TabsTrigger value="spectrum">Spectrum 📊</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced 🚀</TabsTrigger>
-            <TabsTrigger value="system">System 💻</TabsTrigger>
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <Star className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="simulation" className="flex items-center gap-2">
+              <Waves className="h-4 w-4" />
+              3D Scene
+            </TabsTrigger>
+            <TabsTrigger value="controls" className="flex items-center gap-2">
+              <Sprout className="h-4 w-4" />
+              Controls
+            </TabsTrigger>
+            <TabsTrigger value="spectrum" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Spectrum
+            </TabsTrigger>
+            <TabsTrigger value="advanced" className="flex items-center gap-2">
+              <Rocket className="h-4 w-4" />
+              Advanced
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex items-center gap-2">
+              <Laptop className="h-4 w-4" />
+              System
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
