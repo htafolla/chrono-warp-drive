@@ -60,7 +60,8 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
         color={band.color}
         wireframe
         transparent
-        opacity={0.7}
+        opacity={0.8}
+        wireframeLinewidth={3}
       />
     </mesh>
   );
