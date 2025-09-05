@@ -43,7 +43,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
       
       // Enhanced wave plane positioning and rotation
       meshRef.current.rotation.z = phase * 0.05;
-      meshRef.current.position.y = index * 0.3 - 2; // Better spacing between planes
+      meshRef.current.position.y = (index - 3.5) * 0.4; // Center the waves around y=0
       
     } catch (error) {
       console.error('WavePlane animation error:', error);
@@ -51,7 +51,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
   });
 
   return (
-    <mesh ref={meshRef} position={[0, index * 0.3 - 2, 0]}>
+    <mesh ref={meshRef} position={[0, (index - 3.5) * 0.4, 0]}>
       <planeGeometry 
         ref={geometryRef} 
         args={[8, 8, 32, 32]} 
@@ -78,7 +78,7 @@ interface TemporalSceneProps {
 export function TemporalScene({ phases, isotope, cycle, fractalToggle }: TemporalSceneProps) {
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="temporal-scene">
-      <Canvas camera={{ position: [5, 4, 8], fov: 75 }}>
+      <Canvas camera={{ position: [6, 0, 8], fov: 85 }}>
         {/* Enhanced lighting for better wave plane visibility */}
         <ambientLight intensity={0.6} />
         <pointLight position={[10, 10, 10]} intensity={1.2} />
