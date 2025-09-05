@@ -22,6 +22,8 @@ export function AudioSynthesis({ phases, e_t, tPTT_value, fractalToggle }: Audio
   const [volume, setVolume] = useState([0.3]);
   const [harmonicMode, setHarmonicMode] = useState(false);
   const [audioSupported, setAudioSupported] = useState(true);
+  const [transportReady, setTransportReady] = useState(false);
+  const [transportReadyCount, setTransportReadyCount] = useState(0);
 
   useEffect(() => {
     // Initialize Web Audio API
@@ -60,6 +62,20 @@ export function AudioSynthesis({ phases, e_t, tPTT_value, fractalToggle }: Audio
       updateFrequencies();
     }
   }, [phases, e_t, fractalToggle, isPlaying]);
+
+  // Stabilize transport ready state to prevent flicker
+  useEffect(() => {
+    const isCurrentlyReady = tPTT_value > 1e12;
+    
+    if (isCurrentlyReady) {
+      setTransportReadyCount(prev => Math.min(prev + 1, 10));
+    } else {
+      setTransportReadyCount(prev => Math.max(prev - 1, 0));
+    }
+    
+    // Only show transport ready if it's been stable for multiple cycles
+    setTransportReady(transportReadyCount >= 5);
+  }, [tPTT_value, transportReadyCount]);
 
   const startAudio = async () => {
     if (!audioContextRef.current || !gainNodeRef.current) return;
@@ -168,8 +184,6 @@ export function AudioSynthesis({ phases, e_t, tPTT_value, fractalToggle }: Audio
       </Card>
     );
   }
-
-  const transportReady = tPTT_value > 1e12;
 
   return (
     <Card className="cosmic-glow">
