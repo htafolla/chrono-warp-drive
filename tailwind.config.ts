@@ -61,6 +61,16 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// BLURRN Time Machine - Exact Hex Color Palette
+				blurrn: {
+					background: 'hsl(var(--blurrn-background))', // #0F172A
+					'wave-blue': 'hsl(var(--blurrn-wave-blue))', // #00C4FF
+					'wave-purple': 'hsl(var(--blurrn-wave-purple))', // #A100FF
+					'wave-green': 'hsl(var(--blurrn-wave-green))', // #00FF7F
+					'text-glow': 'hsl(var(--blurrn-text-glow))', // #E0E0E0
+					'accent-gold': 'hsl(var(--blurrn-accent-gold))', // #FFD700
+					'deep-space': 'hsl(var(--blurrn-deep-space))'
 				}
 			},
 			borderRadius: {
