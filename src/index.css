@@ -8,48 +8,42 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* BLURRN Enhanced Color System */
-    --background: 220 45% 6%; /* Rich deep space navy */
-    --foreground: 180 100% 90%; /* Bright cyan text */
+    /* Cosmic Light Theme (fallback) */
+    --background: 220 13% 18%; /* Deep space background */
+    --foreground: 210 40% 98%; /* Bright text */
 
-    --card: 220 40% 8%;
-    --card-foreground: 180 100% 90%;
+    --card: 220 13% 15%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 40% 8%;
-    --popover-foreground: 180 100% 90%;
+    --popover: 220 13% 15%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 180 100% 55%; /* Enhanced cyan */
-    --primary-foreground: 220 45% 6%;
+    --primary: 217 91% 60%; /* Cosmic blue */
+    --primary-foreground: 220 13% 9%;
 
-    --secondary: 280 100% 75%; /* Enhanced purple */
-    --secondary-foreground: 180 100% 90%;
+    --secondary: 262 83% 58%; /* Cosmic purple */
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 40% 12%;
-    --muted-foreground: 180 60% 70%;
+    --muted: 220 13% 25%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 320 100% 65%; /* Vibrant magenta accent */
-    --accent-foreground: 220 45% 6%;
+    --accent: 142 76% 36%; /* Cosmic green */
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 84% 65%;
-    --destructive-foreground: 180 100% 90%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 180 100% 45%;
-    --input: 220 40% 12%;
-    --ring: 180 100% 55%;
+    --border: 220 13% 25%;
+    --input: 220 13% 25%;
+    --ring: 217 91% 60%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* BLURRN Enhanced Color Palette */
-    --blurrn-cyan: 180 100% 55%;
-    --blurrn-purple: 280 100% 75%;
-    --blurrn-magenta: 320 100% 65%;
-    --blurrn-pink: 340 100% 70%;
-    --blurrn-glow: 180 100% 65%;
-    --deep-space: 220 45% 3%;
-    --deep-navy: 220 50% 8%;
-    --hologram-blue: 200 100% 65%;
-    --energy-pink: 330 100% 68%;
-    --neon-purple: 270 100% 70%;
+    /* Cosmic-specific colors */
+    --cosmic-glow: 217 91% 60%;
+    --temporal-primary: 262 83% 58%;
+    --temporal-secondary: 142 76% 36%;
+    --deep-space: 220 13% 9%;
 
     --sidebar-background: 220 13% 15%;
     --sidebar-foreground: 210 40% 98%;
@@ -62,46 +56,40 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* BLURRN Enhanced Dark Theme */
-    --background: 220 50% 4%; /* Ultra deep space */
-    --foreground: 180 100% 92%; /* Ultra bright cyan */
+    /* Enhanced Cosmic Dark Theme */
+    --background: 220 13% 9%; /* Deep space #0f172a equivalent */
+    --foreground: 210 40% 98%; /* Bright cosmic white */
 
-    --card: 220 45% 6%;
-    --card-foreground: 180 100% 92%;
+    --card: 220 13% 15%; /* #1a202c equivalent */
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 45% 6%;
-    --popover-foreground: 180 100% 92%;
+    --popover: 220 13% 15%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 180 100% 58%; /* Ultra enhanced cyan */
-    --primary-foreground: 220 50% 4%;
+    --primary: 217 91% 60%; /* Bright cosmic blue #3b82f6 */
+    --primary-foreground: 220 13% 9%;
 
-    --secondary: 280 100% 78%; /* Ultra enhanced purple */
-    --secondary-foreground: 180 100% 92%;
+    --secondary: 262 83% 58%; /* Cosmic purple #7c3aed */
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 45% 10%;
-    --muted-foreground: 180 60% 75%;
+    --muted: 220 13% 25%; /* Slightly lighter space */
+    --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 320 100% 68%; /* Ultra vibrant magenta */
-    --accent-foreground: 220 50% 4%;
+    --accent: 142 76% 36%; /* Cosmic green #16a34a */
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 84% 68%;
-    --destructive-foreground: 180 100% 92%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 180 100% 50%;
-    --input: 220 45% 10%;
-    --ring: 180 100% 58%;
+    --border: 220 13% 25%;
+    --input: 220 13% 25%;
+    --ring: 217 91% 60%;
 
-    /* BLURRN Ultra Enhanced Colors */
-    --blurrn-cyan: 180 100% 58%;
-    --blurrn-purple: 280 100% 78%;
-    --blurrn-magenta: 320 100% 68%;
-    --blurrn-pink: 340 100% 72%;
-    --blurrn-glow: 180 100% 68%;
-    --deep-space: 220 50% 2%;
-    --deep-navy: 220 55% 6%;
-    --hologram-blue: 200 100% 68%;
-    --energy-pink: 330 100% 70%;
-    --neon-purple: 270 100% 72%;
+    /* Enhanced cosmic colors for Three.js compatibility */
+    --cosmic-glow: 217 91% 60%;
+    --temporal-primary: 262 83% 58%;
+    --temporal-secondary: 142 76% 36%;
+    --deep-space: 220 13% 9%;
 
     --sidebar-background: 220 13% 15%;
     --sidebar-foreground: 210 40% 98%;
@@ -121,171 +109,48 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    background: 
-      radial-gradient(ellipse at top, hsl(var(--deep-navy)) 0%, hsl(var(--deep-space)) 60%, hsl(220 60% 2%) 100%),
-      linear-gradient(135deg, hsl(320 100% 15% / 0.1) 0%, hsl(280 100% 20% / 0.1) 50%, hsl(180 100% 15% / 0.1) 100%);
-    color: hsl(var(--foreground));
-    overflow-x: hidden;
+    background-color: hsl(220 13% 9%); /* Fallback for cosmic dark theme */
+    color: hsl(210 40% 98%); /* Fallback text color */
   }
 
   html {
-    background: hsl(var(--deep-space));
+    background-color: hsl(220 13% 9%); /* Ensure html background is also dark */
   }
 
-  /* Enhanced multi-color starfield */
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: 
-      radial-gradient(2px 2px at 20px 30px, hsl(var(--blurrn-cyan)), transparent),
-      radial-gradient(2px 2px at 40px 70px, hsl(var(--blurrn-magenta)), transparent),
-      radial-gradient(1px 1px at 90px 40px, hsl(var(--blurrn-pink)), transparent),
-      radial-gradient(1px 1px at 130px 80px, hsl(var(--neon-purple)), transparent),
-      radial-gradient(2px 2px at 160px 30px, hsl(var(--energy-pink)), transparent),
-      radial-gradient(1px 1px at 200px 20px, hsl(var(--hologram-blue)), transparent),
-      radial-gradient(2px 2px at 50px 120px, hsl(var(--blurrn-purple)), transparent);
-    background-repeat: repeat;
-    background-size: 250px 150px;
-    animation: stars-twinkle 25s linear infinite;
-    pointer-events: none;
-    z-index: 0;
+  /* Add cosmic glow effects */
+  .cosmic-glow {
+    box-shadow: 0 0 20px hsl(var(--cosmic-glow) / 0.3), 0 0 40px hsl(var(--cosmic-glow) / 0.1);
+    animation: cosmic-pulse 2s ease-in-out infinite alternate;
   }
 
-  /* Enhanced BLURRN holographic effects */
-  .blurrn-glow {
-    box-shadow: 
-      0 0 15px hsl(var(--blurrn-cyan) / 0.5),
-      0 0 25px hsl(var(--blurrn-magenta) / 0.3),
-      0 0 45px hsl(var(--energy-pink) / 0.2),
-      inset 0 0 15px hsl(var(--blurrn-glow) / 0.2);
-    animation: blurrn-pulse 4s ease-in-out infinite alternate;
+  .temporal-orb {
+    filter: drop-shadow(0 0 10px hsl(var(--temporal-primary) / 0.8));
   }
 
-  .hologram-border {
-    border: 1px solid hsl(var(--blurrn-cyan) / 0.7);
-    border-radius: var(--radius);
-    background: linear-gradient(135deg, 
-      hsl(var(--card)) 0%, 
-      hsl(var(--deep-navy) / 0.9) 30%,
-      hsl(var(--card) / 0.8) 70%, 
-      hsl(var(--card)) 100%);
-    backdrop-filter: blur(15px);
-    position: relative;
-  }
-
-  .hologram-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: var(--radius);
-    background: linear-gradient(45deg, 
-      hsl(var(--blurrn-magenta) / 0.1), 
-      hsl(var(--energy-pink) / 0.1), 
-      hsl(var(--blurrn-cyan) / 0.1));
-    opacity: 0.6;
-    pointer-events: none;
-  }
-
-  /* Enhanced multi-color button styling */
-  .blurrn-button {
-    background: linear-gradient(135deg, 
-      hsl(var(--blurrn-cyan) / 0.25), 
-      hsl(var(--blurrn-magenta) / 0.2),
-      hsl(var(--energy-pink) / 0.15));
-    border: 1px solid hsl(var(--blurrn-cyan) / 0.6);
-    box-shadow: 
-      0 0 15px hsl(var(--blurrn-cyan) / 0.4),
-      0 0 10px hsl(var(--blurrn-magenta) / 0.2),
-      inset 0 0 12px hsl(var(--blurrn-glow) / 0.15);
+  /* Button enhancements for cosmic theme */
+  .cosmic-button {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    border: 1px solid hsl(var(--primary) / 0.5);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    text-shadow: 
-      0 0 10px hsl(var(--blurrn-cyan) / 0.9),
-      0 0 5px hsl(var(--energy-pink) / 0.6);
   }
 
-  .blurrn-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 
-      0 0 25px hsl(var(--blurrn-cyan) / 0.6),
-      0 0 20px hsl(var(--blurrn-magenta) / 0.4),
-      0 12px 35px hsl(var(--energy-pink) / 0.3),
-      inset 0 0 20px hsl(var(--blurrn-glow) / 0.25);
-    background: linear-gradient(135deg, 
-      hsl(var(--blurrn-cyan) / 0.35), 
-      hsl(var(--blurrn-magenta) / 0.3),
-      hsl(var(--energy-pink) / 0.25));
+  .cosmic-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 25px hsl(var(--primary) / 0.3);
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.9), hsl(var(--secondary) / 0.9));
   }
 
-  /* Energy beam effects */
-  .energy-beam {
-    background: linear-gradient(90deg,
-      transparent 0%,
-      hsl(var(--energy-pink) / 0.8) 50%,
-      transparent 100%);
-    height: 2px;
-    animation: energy-flow 2s linear infinite;
-  }
-
-  .plasma-glow {
-    box-shadow:
-      0 0 20px hsl(var(--blurrn-magenta) / 0.6),
-      0 0 40px hsl(var(--energy-pink) / 0.4),
-      0 0 60px hsl(var(--neon-purple) / 0.3);
-    animation: plasma-pulse 3s ease-in-out infinite alternate;
-  }
-
-  /* Smooth transitions */
+  /* Smooth transitions for theme changes */
   * {
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
   }
 
-  /* Animations */
-  @keyframes stars-twinkle {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-100px); }
-  }
-
-  @keyframes blurrn-pulse {
-    0% {
-      box-shadow: 
-        0 0 15px hsl(var(--blurrn-cyan) / 0.5),
-        0 0 25px hsl(var(--blurrn-magenta) / 0.3),
-        0 0 45px hsl(var(--energy-pink) / 0.2);
+  @keyframes cosmic-pulse {
+    from {
+      box-shadow: 0 0 20px hsl(var(--cosmic-glow) / 0.3), 0 0 40px hsl(var(--cosmic-glow) / 0.1);
     }
-    100% {
-      box-shadow: 
-        0 0 20px hsl(var(--blurrn-cyan) / 0.7),
-        0 0 35px hsl(var(--blurrn-magenta) / 0.5),
-        0 0 65px hsl(var(--energy-pink) / 0.3);
+    to {
+      box-shadow: 0 0 30px hsl(var(--cosmic-glow) / 0.5), 0 0 60px hsl(var(--cosmic-glow) / 0.2);
     }
-  }
-
-  @keyframes energy-flow {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-
-  @keyframes plasma-pulse {
-    0% {
-      box-shadow:
-        0 0 20px hsl(var(--blurrn-magenta) / 0.6),
-        0 0 40px hsl(var(--energy-pink) / 0.4),
-        0 0 60px hsl(var(--neon-purple) / 0.3);
-    }
-    100% {
-      box-shadow:
-        0 0 30px hsl(var(--blurrn-magenta) / 0.8),
-        0 0 60px hsl(var(--energy-pink) / 0.6),
-        0 0 90px hsl(var(--neon-purple) / 0.5);
-    }
-  }
-
-  @keyframes hologram-flicker {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.95; }
   }
 }

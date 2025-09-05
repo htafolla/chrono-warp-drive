@@ -104,23 +104,25 @@ export function TPTTApp() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative z-10">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-6">
         <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blurrn-cyan via-blurrn-magenta to-energy-pink bg-clip-text text-transparent mb-2">
-            TEMPORAL CALCULATOR
+          <h1 className="text-4xl font-bold text-foreground mb-2">
+            BLURRN
           </h1>
-          <p className="text-blurrn-glow">Advanced Quantum Energy Analysis System</p>
+          <p className="text-muted-foreground">
+            Temporal Photonic Transpondent Transporter
+          </p>
         </header>
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-8 hologram-border blurrn-glow bg-card/50">
-            <TabsTrigger value="dashboard" className="blurrn-button">Dashboard</TabsTrigger>
-            <TabsTrigger value="simulation" className="blurrn-button">3D Scene</TabsTrigger>
-            <TabsTrigger value="controls" className="blurrn-button">Controls</TabsTrigger>
-            <TabsTrigger value="spectrum" className="blurrn-button">Spectrum</TabsTrigger>
-            <TabsTrigger value="advanced" className="blurrn-button">Advanced</TabsTrigger>
-            <TabsTrigger value="system" className="blurrn-button">System</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-6 mb-6">
+            <TabsTrigger value="dashboard">Dashboard 🌟</TabsTrigger>
+            <TabsTrigger value="simulation">3D Scene 🌊</TabsTrigger>
+            <TabsTrigger value="controls">Controls 🌱</TabsTrigger>
+            <TabsTrigger value="spectrum">Spectrum 📊</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced 🚀</TabsTrigger>
+            <TabsTrigger value="system">System 💻</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
