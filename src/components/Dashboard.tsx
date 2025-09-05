@@ -7,7 +7,7 @@ interface DashboardProps {
   time: number;
   e_t: number;
   tPTT_value: number;
-  rippel: string;
+  rippel: string | number;
   phi: number;
   lightWave: number;
   phases: number[];
@@ -26,103 +26,97 @@ export function Dashboard({
   const phaseSync = phases.reduce((sum, phase) => sum + Math.cos(phase), 0) / phases.length;
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {/* Temporal Metrics */}
-      <Card className="hologram-border blurrn-glow">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <Card className="hologram-border plasma-glow">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-primary">
-            TLGF GOFC
-            <Badge variant={isValidTLM ? "default" : "destructive"} className="blurrn-glow">
-              Q 95 Is 7AM
-            </Badge>
-          </CardTitle>
-          <CardDescription className="text-foreground/70">Destho QavV (Influancia)</CardDescription>
+          <CardTitle className="text-blurrn-cyan">Energy Core</CardTitle>
+          <div className="energy-beam"></div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-between">
-            <span className="text-foreground/70">CONCAT</span>
-            <span className="font-mono text-primary blurrn-glow">{time.toFixed(3)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-foreground/70">5Os35</span>
-            <span className="font-mono text-secondary">{phi.toFixed(3)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-foreground/70">LS{e_t.toFixed(0)} ls25</span>
-            <span className="font-mono text-accent">{e_t.toFixed(3)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-foreground/70">Avoi</span>
-            <span className="font-mono text-primary">{lightWave.toFixed(3)}</span>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Time</span>
+              <span className="text-blurrn-glow font-mono">{time.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Phi</span>
+              <span className="text-energy-pink font-mono">{phi.toFixed(3)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">E_t</span>
+              <span className="text-blurrn-magenta font-mono">{e_t.toFixed(3)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Light Wave</span>
+              <span className="text-neon-purple font-mono">{lightWave.toFixed(3)}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Chrono-Transport Status */}
-      <Card className="hologram-border blurrn-glow">
+      <Card className="hologram-border plasma-glow">
         <CardHeader>
-          <CardTitle className="text-primary">SUNISFQTER</CardTitle>
-          <CardDescription className="text-foreground/70">SELUCT</CardDescription>
+          <CardTitle className="text-blurrn-magenta">Quantum Sync</CardTitle>
+          <div className="energy-beam"></div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-between">
-            <span className="text-foreground/70">Huml</span>
-            <span className="font-mono text-primary blurrn-glow">{tPTT_value.toExponential(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-foreground/70">Siqt</span>
-            <span className="font-mono text-secondary">{phaseSync.toFixed(3)}</span>
-          </div>
-          <div className="mt-4 p-3 hologram-border bg-card/30 rounded-lg">
-            <div className="text-xs text-foreground/60 mb-1">CONTROLS</div>
-            <Badge variant={tPTT_value > 1e12 ? "default" : "secondary"} className="blurrn-glow">
-              {tPTT_value > 1e12 ? "Dsnet" : "Engapi"}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Rippel Generator */}
-      <Card className="md:col-span-2 lg:col-span-1 hologram-border blurrn-glow">
-        <CardHeader>
-          <CardTitle className="text-primary">Saralaz</CardTitle>
-          <CardDescription className="text-foreground/70">Vicllu Hxrts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 hologram-border bg-card/20 rounded-lg font-mono text-sm text-primary blurrn-glow">
-            {rippel}
-          </div>
-          <div className="mt-4 text-xs text-foreground/60">
-            Evergist Gasane ssom
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">tPTT Value</span>
+              <span className="text-blurrn-cyan font-mono">{tPTT_value.toFixed(3)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Phase Sync</span>
+              <span className="text-energy-pink font-mono">{phaseSync.toFixed(3)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Status</span>
+              <Badge 
+                variant={tPTT_value > 0.5 ? "default" : "secondary"}
+                className={tPTT_value > 0.5 ? "bg-blurrn-cyan text-primary-foreground" : "bg-blurrn-magenta text-secondary-foreground"}
+              >
+                {tPTT_value > 0.5 ? "Active" : "Stable"}
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Phase Visualization */}
-      <Card className="md:col-span-2 lg:col-span-3 hologram-border blurrn-glow">
+      <Card className="hologram-border plasma-glow">
         <CardHeader>
-          <CardTitle className="text-primary">Som</CardTitle>
-          <CardDescription className="text-foreground/70">Dacng Salucal</CardDescription>
+          <CardTitle className="text-energy-pink">Ripple Field</CardTitle>
+          <div className="energy-beam"></div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-6">
-            {phases.map((phase, i) => (
-              <div key={i} className="text-center">
-                <div className="text-3xl font-mono mb-3 text-primary blurrn-glow">
-                  {(phase % (2 * Math.PI)).toFixed(2)}
-                </div>
-                <div className="text-sm text-foreground/70 mb-3">
-                  Core {i + 1}
-                </div>
-                <div className="w-full hologram-border rounded-full h-3 mt-2 bg-card/20">
-                  <div 
-                    className="bg-gradient-to-r from-primary to-secondary h-3 rounded-full transition-all duration-100 blurrn-glow"
-                    style={{ width: `${((phase % (2 * Math.PI)) / (2 * Math.PI)) * 100}%` }}
-                  />
-                </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-blurrn-glow mb-2">
+              {typeof rippel === 'string' ? rippel : rippel.toFixed(3)}
+            </div>
+            <div className="text-sm text-muted-foreground">Wave Amplitude</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="hologram-border plasma-glow">
+        <CardHeader>
+          <CardTitle className="text-neon-purple">Phase Matrix</CardTitle>
+          <div className="energy-beam"></div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {phases.map((phase, index) => (
+            <div key={index} className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span>Phase {index + 1}</span>
+                <span>{((phase % (2 * Math.PI)) / (2 * Math.PI) * 100).toFixed(1)}%</span>
               </div>
-            ))}
-          </div>
+              <div className="w-full hologram-border rounded-full h-3 bg-card/20">
+                <div 
+                  className="bg-gradient-to-r from-blurrn-cyan via-blurrn-magenta to-energy-pink h-3 rounded-full transition-all duration-100 blurrn-glow"
+                  style={{ width: `${((phase % (2 * Math.PI)) / (2 * Math.PI)) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>
