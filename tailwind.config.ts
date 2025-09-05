@@ -61,7 +61,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// BLURRN Custom Colors
+				'blurrn-cyan': 'hsl(var(--blurrn-cyan))',
+				'blurrn-purple': 'hsl(var(--blurrn-purple))',
+				'blurrn-magenta': 'hsl(var(--blurrn-magenta))',
+				'blurrn-pink': 'hsl(var(--blurrn-pink))',
+				'blurrn-glow': 'hsl(var(--blurrn-glow))',
+				'deep-space': 'hsl(var(--deep-space))',
+				'deep-navy': 'hsl(var(--deep-navy))',
+				'hologram-blue': 'hsl(var(--hologram-blue))',
+				'energy-pink': 'hsl(var(--energy-pink))',
+				'neon-purple': 'hsl(var(--neon-purple))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
