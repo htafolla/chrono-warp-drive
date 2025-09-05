@@ -76,8 +76,8 @@ interface TemporalSceneProps {
 
 export function TemporalScene({ phases, isotope, cycle, fractalToggle }: TemporalSceneProps) {
   return (
-    <div className="w-full h-full bg-background rounded-lg overflow-hidden" data-testid="temporal-scene">
-      <Canvas camera={{ position: [8, 6, 12], fov: 65 }}>
+    <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="temporal-scene">
+      <Canvas camera={{ position: [5, 4, 8], fov: 75 }}>
         {/* Enhanced lighting for better wave plane visibility */}
         <ambientLight intensity={0.6} />
         <pointLight position={[10, 10, 10]} intensity={1.2} />
