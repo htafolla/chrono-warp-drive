@@ -84,8 +84,8 @@ function TemporalOrb({ phases }: { phases: number[] }) {
     <mesh ref={orbRef} position={[0, 2, 0]}>
       <sphereGeometry args={[0.5, 32, 32]} />
       <meshPhongMaterial 
-        color="#1e293b"
-        emissive="#1e293b"
+        color="#3b82f6"
+        emissive="#7c3aed"
         emissiveIntensity={0.3}
       />
     </mesh>
@@ -139,11 +139,12 @@ export function TemporalScene({ phases, isotope, cycle, fractalToggle }: Tempora
       </Canvas>
       
       {/* Overlay info */}
-      <div className="absolute top-4 left-4 bg-background/80 backdrop-blur-sm rounded-lg p-3">
-        <div className="text-sm text-muted-foreground">
-          Isotope: {isotope.type} | Fractal: {fractalToggle ? "ON" : "OFF"}
+      <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 text-card-foreground cosmic-glow">
+        <div className="text-sm font-medium">
+          <p>Isotope: <span className="text-primary">{isotope.type}</span></p>
+          <p>Fractal: <span className={fractalToggle ? "text-accent" : "text-secondary"}>{fractalToggle ? "ON" : "OFF"}</span></p>
         </div>
-        <div className="text-xs text-muted-foreground mt-1">
+        <div className="text-xs text-muted-foreground mt-2">
           Drag to rotate • Scroll to zoom
         </div>
       </div>
