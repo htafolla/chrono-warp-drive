@@ -4,16 +4,14 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
 
-interface WavePlaneProps {
-  band: typeof SPECTRUM_BANDS[0];
+interface SpectrumBandProps {
   phases: number[];
   isotope: Isotope;
   cycle: number;
   fractalToggle: boolean;
-  index: number;
 }
 
-function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WavePlaneProps) {
+function SpectrumBand({ phases, isotope, cycle, fractalToggle }: SpectrumBandProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   
@@ -23,7 +21,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
     try {
       const geometry = geometryRef.current;
       const position = geometry.attributes.position;
-      const phase = phases[index % phases.length] || 0;
+      const colors = geometry.attributes.color;
       const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
       
       // Update vertices with wave calculations
@@ -31,9 +29,12 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
         const x = position.getX(i);
         const z = position.getZ(i);
         
-        const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
-        const heightValue = Math.max(-2, Math.min(2, 
-          waveValue * Math.sin(x + z + phase) * 0.3
+        // Use the middle spectrum band for wave calculations
+        const middleBand = SPECTRUM_BANDS[Math.floor(SPECTRUM_BANDS.length / 2)];
+        const phase = phases[0] || 0;
+        const waveValue = wave(x, state.clock.elapsedTime, 0, isotope, middleBand.lambda, phaseType);
+        const heightValue = Math.max(-0.5, Math.min(0.5, 
+          waveValue * Math.sin(x * 2 + z + phase) * 0.15
         ));
         
         position.setY(i, heightValue);
@@ -41,26 +42,51 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
       
       position.needsUpdate = true;
       
-      // Enhanced wave plane positioning and rotation
-      meshRef.current.rotation.z = phase * 0.05;
-      meshRef.current.position.y = index * 0.3 - 2; // Better spacing between planes
+      // Gentle rotation animation
+      meshRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 0.1) * 0.02;
       
     } catch (error) {
-      console.error('WavePlane animation error:', error);
+      console.error('SpectrumBand animation error:', error);
     }
   });
 
+  // Create color gradient across the spectrum
+  const createSpectrumGradient = () => {
+    const geometry = new THREE.PlaneGeometry(12, 2, 64, 8);
+    const colors = new Float32Array(geometry.attributes.position.count * 3);
+    
+    for (let i = 0; i < geometry.attributes.position.count; i++) {
+      const x = geometry.attributes.position.getX(i);
+      // Map X position to spectrum colors
+      const normalizedX = (x + 6) / 12; // Normalize from -6 to 6 -> 0 to 1
+      const bandIndex = Math.floor(normalizedX * SPECTRUM_BANDS.length);
+      const band = SPECTRUM_BANDS[Math.min(bandIndex, SPECTRUM_BANDS.length - 1)];
+      
+      // Parse HSL color and convert to RGB
+      const hsl = band.color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+      if (hsl) {
+        const h = parseInt(hsl[1]) / 360;
+        const s = parseInt(hsl[2]) / 100;
+        const l = parseInt(hsl[3]) / 100;
+        const rgb = new THREE.Color().setHSL(h, s, l);
+        
+        colors[i * 3] = rgb.r;
+        colors[i * 3 + 1] = rgb.g;
+        colors[i * 3 + 2] = rgb.b;
+      }
+    }
+    
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    return geometry;
+  };
+
   return (
-    <mesh ref={meshRef} position={[0, index * 0.3 - 2, 0]}>
-      <planeGeometry 
-        ref={geometryRef} 
-        args={[8, 8, 32, 32]} 
-      />
+    <mesh ref={meshRef} position={[0, 0, 0]} geometry={createSpectrumGradient()}>
       <meshPhongMaterial 
-        color={band.color}
-        wireframe
+        vertexColors
         transparent
-        opacity={0.7}
+        opacity={0.9}
+        side={THREE.DoubleSide}
       />
     </mesh>
   );
@@ -88,18 +114,13 @@ export function TemporalScene({ phases, isotope, cycle, fractalToggle }: Tempora
         />
         <pointLight position={[0, -5, 5]} intensity={0.5} color="#7c3aed" />
         
-        {/* Wave planes for each spectrum band - improved spacing */}
-        {SPECTRUM_BANDS.map((band, index) => (
-          <WavePlane
-            key={band.band}
-            band={band}
-            phases={phases}
-            isotope={isotope}
-            cycle={cycle}
-            fractalToggle={fractalToggle}
-            index={index}
-          />
-        ))}
+        {/* Single consolidated spectrum band */}
+        <SpectrumBand
+          phases={phases}
+          isotope={isotope}
+          cycle={cycle}
+          fractalToggle={fractalToggle}
+        />
         
         {/* Controls */}
         <OrbitControls 
