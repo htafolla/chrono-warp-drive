@@ -104,7 +104,7 @@ export function TPTTApp() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground" style={{ backgroundColor: 'hsl(220 13% 9%)', color: 'hsl(210 40% 98%)' }}>
       <div className="container mx-auto p-6">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">

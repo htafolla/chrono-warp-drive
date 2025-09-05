@@ -109,6 +109,12 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    background-color: hsl(220 13% 9%); /* Fallback for cosmic dark theme */
+    color: hsl(210 40% 98%); /* Fallback text color */
+  }
+
+  html {
+    background-color: hsl(220 13% 9%); /* Ensure html background is also dark */
   }
 
   /* Add cosmic glow effects */
