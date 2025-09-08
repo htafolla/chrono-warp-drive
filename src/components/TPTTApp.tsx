@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { Dashboard } from './Dashboard';
 import { TemporalScene } from './TemporalScene';
 import { ControlPanel } from './ControlPanel';
@@ -18,8 +22,16 @@ import {
   wave, 
   tPTT, 
   generateRippel,
-  type Isotope
+  type Isotope,
+  FREQ,
+  C,
+  DELTA_T,
+  PHASE_UPDATE_FACTOR
 } from '@/lib/temporalCalculator';
+import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
+import { SDSSIntegration } from '@/lib/sdssIntegration';
+import { NeuralFusion } from '@/lib/neuralFusion';
+import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 
 export function TPTTApp() {
   // Core temporal state
@@ -33,9 +45,20 @@ export function TPTTApp() {
   
   // User controls
   const [phi, setPhi] = useState(PHI);
-  const [delta_t, setDelta_t] = useState(1e-6);
+  const [delta_t, setDelta_t] = useState(DELTA_T);
   const [currentView, setCurrentView] = useState("dashboard");
   const [performanceMonitorActive, setPerformanceMonitorActive] = useState(false);
+
+  // v4.5 Enhancement state
+  const [spectrumData, setSpectrumData] = useState<SpectrumData | null>(null);
+  const [tpttV4Result, setTpttV4Result] = useState<TPTTv4Result | null>(null);
+  const [isV4Initialized, setIsV4Initialized] = useState(false);
+  const [systemStatus, setSystemStatus] = useState<string>("Initializing BLURRN v4.5...");
+
+  // v4.5 Systems
+  const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
+  const [sdssIntegration] = useState(() => new SDSSIntegration());
+  const [neuralFusion] = useState(() => new NeuralFusion());
   
   // Scene controls for mobile
   const sceneControlsRef = useRef({
@@ -44,41 +67,85 @@ export function TPTTApp() {
     pan: (deltaX: number, deltaY: number) => {}
   });
 
-  // Animation loop - 16ms cycle (60fps)
+  // v4.5 System Initialization
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(prev => prev + 0.016);
-      setCycle(prev => prev + 1);
-      setE_t(prev => Math.max(0.1, Math.min(1.0, prev + (Math.random() - 0.5) * 0.01)));
-      
-      // Update phases using Kuramoto model
-      setPhases(prevPhases => {
-        const omega = [1, 1.1, 0.9]; // Natural frequencies
-        const phaseType = (cycle % PHI) > (PHI / 2) ? "push" : "pull";
+    const initializeV4Systems = async () => {
+      try {
+        setSystemStatus("Initializing SDSS integration...");
+        await sdssIntegration.initialize();
         
-        return prevPhases.map((phase, i) => {
-          const newPhase = phase + kuramoto(prevPhases, omega, time, fractalToggle, isotope, phaseType) * 0.016;
-          return isNaN(newPhase) ? prevPhases[i] : newPhase;
-        });
-      });
+        setSystemStatus("Loading neural fusion engine...");
+        await neuralFusion.initialize();
+        
+        setSystemStatus("Generating initial spectrum data...");
+        const initialSpectrum = sdssIntegration.getRandomSpectrum();
+        setSpectrumData(initialSpectrum);
+        temporalCalcV4.setInputData(initialSpectrum);
+        
+        setSystemStatus("BLURRN v4.5 systems online");
+        setIsV4Initialized(true);
+        
+        toast.success("BLURRN v4.5 systems initialized successfully!");
+      } catch (error) {
+        console.error("v4.5 initialization failed:", error);
+        setSystemStatus(`v4.5 initialization failed: ${error}`);
+        toast.error("Failed to initialize v4.5 systems, using fallback mode");
+      }
+    };
+
+    initializeV4Systems();
+  }, []);
+
+  // Animation loop with v4.5 enhancements
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      setTime(prevTime => prevTime + PHASE_UPDATE_FACTOR);
+      setCycle(prevCycle => prevCycle + 1);
+      setE_t(prevEt => Math.min(prevEt + 0.001, 2.0));
+      
+      const phaseType = cycle % Math.floor(PHI * 10) < 5 ? "push" : "pull";
+      const omega = [FREQ, FREQ * 1.1, FREQ * 0.9];
+      
+      setPhases(prevPhases => 
+        prevPhases.map((phase, i) => {
+          try {
+            const newPhase = kuramoto(prevPhases, omega, time, fractalToggle, isotope, phaseType);
+            return (phase + newPhase * PHASE_UPDATE_FACTOR) % (2 * Math.PI);
+          } catch (error) {
+            console.error(`Phase update error for phase ${i}:`, error);
+            return phase;
+          }
+        })
+      );
+
+      // v4.5 Enhanced calculations
+      if (isV4Initialized && spectrumData) {
+        try {
+          const v4Result = await temporalCalcV4.computeTPTTv4_5();
+          setTpttV4Result(v4Result);
+        } catch (error) {
+          console.warn("v4.5 calculation failed:", error);
+        }
+      }
     }, 16);
 
     return () => clearInterval(interval);
-  }, [time, fractalToggle, isotope, cycle]);
+  }, [time, fractalToggle, isotope, cycle, isV4Initialized, spectrumData]);
 
-  // Calculate derived values
-  const waves = SPECTRUM_BANDS.map((band, i) => {
-    const phaseType = (cycle % PHI) > (PHI / 2) ? "push" : "pull";
-    return wave(0, time, i, isotope, band.lambda, phaseType);
-  });
+  // Enhanced calculations with v4.5 compatibility
+  const waves = spectrumData?.intensities || SPECTRUM_BANDS.map((band, i) => 
+    wave(i, time, Math.floor(timeline), isotope, band.lambda, cycle % 2 === 0 ? "push" : "pull")
+  );
   
-  const lightWave = waves.reduce((sum, w) => sum + w, 0) / waves.length;
-  const T_c = lightWave * 0.1; // Approximate transponder core
-  const P_s = (lightWave * phi) / 0.314; // Photosynthesis-inspired
-  const tPTT_value = tPTT(T_c, P_s, e_t, delta_t);
-  const rippel = generateRippel(time, tPTT_value, e_t);
+  const lightWave = Array.isArray(waves) ? waves.reduce((sum, w) => sum + w) / waves.length : 0;
+  const T_c = Math.sin(time * PHI) + 1;
+  const P_s = (lightWave * phi) / 0.314;
+  
+  // Use v4.5 results if available, fallback to legacy calculation
+  const tPTT_value = tpttV4Result?.tPTT_value || tPTT(T_c, P_s, e_t, delta_t);
+  const rippel = tpttV4Result?.rippel || generateRippel(time, tPTT_value, e_t);
 
-  // Import/Export handlers
+  // Enhanced Import/Export functionality
   const handleImport = (importedState: Partial<any>) => {
     if (importedState.time !== undefined) setTime(importedState.time);
     if (importedState.phases !== undefined) setPhases(importedState.phases);
@@ -89,6 +156,14 @@ export function TPTTApp() {
     if (importedState.e_t !== undefined) setE_t(importedState.e_t);
     if (importedState.phi !== undefined) setPhi(importedState.phi);
     if (importedState.delta_t !== undefined) setDelta_t(importedState.delta_t);
+    
+    // v4.5 specific imports
+    if (importedState.spectrumData && isV4Initialized) {
+      setSpectrumData(importedState.spectrumData);
+      temporalCalcV4.setInputData(importedState.spectrumData);
+    }
+    
+    toast.success("Configuration imported successfully!");
   };
 
   const currentState = {
@@ -101,6 +176,14 @@ export function TPTTApp() {
     e_t,
     phi,
     delta_t,
+    tPTT_value,
+    lightWave,
+    rippel,
+    // v4.5 additions
+    spectrumData,
+    tpttV4Result,
+    isV4Initialized,
+    systemStatus,
     timestamp: new Date().toISOString()
   };
 
@@ -108,11 +191,27 @@ export function TPTTApp() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-6">
         <header className="text-center mb-8">
-          <h1 className="text-4xl font-inter font-semibold text-foreground mb-2">
-            BLURRN
-          </h1>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="h-8 w-8 bg-gradient-to-r from-primary to-primary/60 rounded-full flex items-center justify-center">
+              <div className="h-4 w-4 bg-background rounded-full animate-pulse" />
+            </div>
+            <h1 className="text-4xl font-inter font-semibold text-foreground">
+              BLURRN
+            </h1>
+            <Badge variant="outline" className="text-xs">
+              Temporal Phase Transport
+            </Badge>
+            <Badge variant={isV4Initialized ? "default" : "secondary"} className="text-xs">
+              {isV4Initialized ? "v4.5 SDSS" : "v3.6 Legacy"}
+            </Badge>
+            {spectrumData && (
+              <Badge variant="secondary" className="text-xs">
+                {spectrumData.source}
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">
-            Temporal Photonic Transpondent Transporter
+            {systemStatus}
           </p>
         </header>
 
@@ -153,6 +252,8 @@ export function TPTTApp() {
               phi={phi}
               lightWave={lightWave}
               phases={phases}
+              tpttV4Result={tpttV4Result}
+              isV4Enhanced={isV4Initialized}
             />
           </TabsContent>
 
@@ -187,7 +288,12 @@ export function TPTTApp() {
           </TabsContent>
 
           <TabsContent value="spectrum" className="space-y-4">
-            <SpectrumAnalyzer waves={waves} time={time} />
+            <SpectrumAnalyzer 
+              waves={waves} 
+              time={time} 
+              spectrumData={spectrumData}
+              isV4Enhanced={isV4Initialized}
+            />
           </TabsContent>
 
           <TabsContent value="advanced" className="space-y-6">
@@ -212,69 +318,73 @@ export function TPTTApp() {
           </TabsContent>
 
           <TabsContent value="system" className="space-y-6">
-            <div className="flex items-center gap-4 mb-4">
-              <label className="text-sm font-medium">Performance Monitor</label>
-              <button
-                onClick={() => setPerformanceMonitorActive(!performanceMonitorActive)}
-                className="px-3 py-1 text-xs rounded border border-border bg-background hover:bg-muted transition-colors"
-              >
-                {performanceMonitorActive ? 'Disable' : 'Enable'}
-              </button>
-            </div>
-            
-            <PerformanceMonitor isActive={performanceMonitorActive} />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 bg-card border border-border rounded-lg">
-                <h3 className="text-lg font-semibold mb-4">System Information</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Temporal Engine</span>
-                    <span>Blurrn v3.6 Active</span>
+            <Card>
+              <CardHeader>
+                <CardTitle>System Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium">Engine Status</p>
+                    <p className="text-muted-foreground">{systemStatus}</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Wave Planes</span>
-                    <span>{waves.length} Active</span>
+                  <div>
+                    <p className="font-medium">Core Frequency</p>
+                    <p className="text-muted-foreground">{FREQ} Hz</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Phase Channels</span>
-                    <span>{phases.length}</span>
+                  <div>
+                    <p className="font-medium">Phase Count</p>
+                    <p className="text-muted-foreground">{phases.length} Active</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Spectrum Range</span>
-                    <span>250-2500nm</span>
+                  <div>
+                    <p className="font-medium">Isotope</p>
+                    <p className="text-muted-foreground">{isotope.type}</p>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Render Mode</span>
-                    <span>{fractalToggle ? '5D Fractal' : '3D Standard'}</span>
+                  <div>
+                    <p className="font-medium">Spectrum Source</p>
+                    <p className="text-muted-foreground">{spectrumData?.source || "SYNTHETIC"}</p>
                   </div>
-                </div>
-              </div>
-              
-              <div className="p-6 bg-card border border-border rounded-lg">
-                <h3 className="text-lg font-semibold mb-4">Feature Status</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Audio Synthesis</span>
-                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Ready</span>
+                  <div>
+                    <p className="font-medium">Granularity</p>
+                    <p className="text-muted-foreground">{spectrumData?.granularity.toFixed(2) || "1.00"} Å/pixel</p>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Export/Import</span>
-                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Ready</span>
+                  <div>
+                    <p className="font-medium">Neural Fusion</p>
+                    <p className="text-muted-foreground">{tpttV4Result?.neuralOutput ? "Active" : "Standby"}</p>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Mobile Controls</span>
-                    <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">Ready</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Performance Monitor</span>
-                    <span className={`px-2 py-1 rounded text-xs ${performanceMonitorActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                      {performanceMonitorActive ? 'Active' : 'Inactive'}
-                    </span>
+                  <div>
+                    <p className="font-medium">tPTT Version</p>
+                    <p className="text-muted-foreground">{isV4Initialized ? "v4.5" : "v3.6"}</p>
                   </div>
                 </div>
-              </div>
-            </div>
+                
+                {tpttV4Result?.neuralOutput && (
+                  <div className="pt-4 border-t">
+                    <p className="font-medium text-sm mb-2">Neural Output</p>
+                    <div className="bg-muted p-3 rounded text-xs">
+                      <p><strong>Sequence:</strong> {tpttV4Result.neuralOutput.synapticSequence}</p>
+                      <p><strong>Metamorphosis:</strong> {(tpttV4Result.neuralOutput.metamorphosisIndex * 100).toFixed(1)}%</p>
+                      <p><strong>Confidence:</strong> {(tpttV4Result.neuralOutput.confidenceScore * 100).toFixed(1)}%</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Performance Monitor</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPerformanceMonitorActive(!performanceMonitorActive)}
+                    >
+                      {performanceMonitorActive ? "Disable" : "Enable"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {performanceMonitorActive && <PerformanceMonitor isActive={performanceMonitorActive} />}
           </TabsContent>
         </Tabs>
       </div>

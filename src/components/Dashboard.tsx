@@ -11,6 +11,8 @@ interface DashboardProps {
   phi: number;
   lightWave: number;
   phases: number[];
+  tpttV4Result?: any;
+  isV4Enhanced?: boolean;
 }
 
 export function Dashboard({ 

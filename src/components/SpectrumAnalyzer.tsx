@@ -6,6 +6,8 @@ import { SPECTRUM_BANDS } from '@/lib/temporalCalculator';
 interface SpectrumAnalyzerProps {
   waves: number[];
   time: number;
+  spectrumData?: any;
+  isV4Enhanced?: boolean;
 }
 
 export function SpectrumAnalyzer({ waves, time }: SpectrumAnalyzerProps) {
