@@ -46,14 +46,14 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
           </div>
           <div>
             <p className="text-sm font-medium">Neural Fusion</p>
-            <Badge variant={debugState.v4EnhancedState.neuralFusionActive ? "default" : "outline"}>
-              {debugState.v4EnhancedState.neuralFusionActive ? "Active" : "Standby"}
+            <Badge variant={debugState.neuralFusionDetails.isActive ? "default" : "outline"}>
+              {debugState.neuralFusionDetails.isActive ? "Active" : "Standby"}
             </Badge>
           </div>
           <div>
             <p className="text-sm font-medium">Data Source</p>
             <Badge variant="outline">
-              {debugState.v4EnhancedState.sdssConnectionStatus}
+              {debugState.spectrumAnalysis.fullSpectrumData?.source || "SYNTHETIC"}
             </Badge>
           </div>
           <div>
@@ -88,7 +88,7 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
           <p><strong>tPTT:</strong> {debugState.temporalState.tPTT_value.toFixed(2)}</p>
           <p><strong>E_t:</strong> {debugState.temporalState.e_t.toFixed(3)}</p>
           <p><strong>Cycle:</strong> {debugState.temporalState.cycle}</p>
-          <p><strong>Spectrum Points:</strong> {debugState.v4EnhancedState.spectrumData?.wavelengths.length || 'N/A'}</p>
+          <p><strong>Spectrum Points:</strong> {debugState.spectrumAnalysis.wavelengthRange.count || 'N/A'}</p>
         </div>
 
         {/* Export Actions */}
