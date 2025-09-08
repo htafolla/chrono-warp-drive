@@ -31,7 +31,7 @@ import {
   PHASE_UPDATE_FACTOR
 } from '@/lib/temporalCalculator';
 import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
-import { SDSSIntegration } from '@/lib/sdssIntegration';
+import { PicklesAtlas } from '@/lib/picklesAtlas';
 import { NeuralFusion } from '@/lib/neuralFusion';
 import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 
@@ -59,7 +59,7 @@ export function TPTTApp() {
 
   // v4.5 Systems
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
-  const [sdssIntegration] = useState(() => new SDSSIntegration());
+  const [picklesAtlas] = useState(() => new PicklesAtlas());
   const [neuralFusion] = useState(() => new NeuralFusion());
   
   // Scene controls for mobile
@@ -73,21 +73,21 @@ export function TPTTApp() {
   useEffect(() => {
     const initializeV4Systems = async () => {
       try {
-        setSystemStatus("Initializing SDSS integration...");
-        await sdssIntegration.initialize();
+        setSystemStatus("Initializing Pickles Atlas...");
+        await picklesAtlas.initialize();
         
         setSystemStatus("Loading neural fusion engine...");
         await neuralFusion.initialize();
         
         setSystemStatus("Generating initial spectrum data...");
-        const initialSpectrum = sdssIntegration.getRandomSpectrum();
+        const initialSpectrum = picklesAtlas.getRandomSpectrum();
         setSpectrumData(initialSpectrum);
         temporalCalcV4.setInputData(initialSpectrum);
         
-        setSystemStatus("BLURRN v4.5 systems online");
+        setSystemStatus("BLURRN v4.5 systems online - Pickles Atlas ready");
         setIsV4Initialized(true);
         
-        toast.success("BLURRN v4.5 systems initialized successfully!");
+        toast.success("BLURRN v4.5 systems initialized with Pickles Atlas!");
       } catch (error) {
         console.error("v4.5 initialization failed:", error);
         setSystemStatus(`v4.5 initialization failed: ${error}`);

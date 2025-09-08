@@ -9,7 +9,17 @@ export class NeuralFusion {
 
   async initialize(): Promise<void> {
     try {
+      // Initialize TensorFlow.js with WebGL backend
       await tf.ready();
+      
+      // Set backend to WebGL with CPU fallback
+      try {
+        await tf.setBackend('webgl');
+        console.log('TensorFlow.js WebGL backend initialized');
+      } catch (webglError) {
+        console.warn('WebGL backend failed, falling back to CPU:', webglError);
+        await tf.setBackend('cpu');
+      }
       
       // Initialize spectral analysis model
       this.spectralModel = await this.createSpectralModel();
@@ -22,6 +32,7 @@ export class NeuralFusion {
     } catch (error) {
       console.error('Neural fusion initialization failed:', error);
       this.isInitialized = false;
+      throw error;
     }
   }
 
