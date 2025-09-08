@@ -13,7 +13,9 @@ import { AudioSynthesis } from './AudioSynthesis';
 import { ExportImport } from './ExportImport';
 import { MobileControls } from './MobileControls';
 import { ErrorBoundary } from './ErrorBoundary';
-import { Star, Waves, Sprout, BarChart3, Rocket, Laptop } from 'lucide-react';
+import { DebugExporter } from '@/lib/debugExporter';
+import { DebugInfo } from './DebugInfo';
+import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText } from 'lucide-react';
 import { 
   PHI, 
   ISOTOPES, 
@@ -309,6 +311,7 @@ export function TPTTApp() {
                 onImport={handleImport}
               />
             </div>
+            <DebugInfo currentState={currentState} />
             <MobileControls
               onRotate={sceneControlsRef.current.rotate}
               onZoom={sceneControlsRef.current.zoom}
@@ -370,7 +373,7 @@ export function TPTTApp() {
                 )}
                 
                 <div className="pt-4 border-t">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-medium">Performance Monitor</span>
                     <Button
                       variant="outline"
@@ -379,6 +382,35 @@ export function TPTTApp() {
                     >
                       {performanceMonitorActive ? "Disable" : "Enable"}
                     </Button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <div className="space-y-3">
+                    <span className="text-sm font-medium">Debug Export</span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => DebugExporter.downloadDebugReport(currentState, 'summary')}
+                        className="flex items-center gap-2"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Summary Report
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => DebugExporter.downloadDebugReport(currentState, 'json')}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Full JSON
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Export complete system state for AI debugging assistance
+                    </p>
                   </div>
                 </div>
               </CardContent>
