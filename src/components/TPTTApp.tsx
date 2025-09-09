@@ -277,6 +277,8 @@ export function TPTTApp() {
               phases={phases}
               tpttV4Result={tpttV4Result}
               isV4Enhanced={isV4Initialized}
+              isotope={isotope}
+              fractalToggle={fractalToggle}
             />
           </TabsContent>
 

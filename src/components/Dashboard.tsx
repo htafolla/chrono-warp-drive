@@ -1,8 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { validateTLM } from '@/lib/temporalCalculator';
+import { validateTLM, Isotope } from '@/lib/temporalCalculator';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
+import { TransportSystem } from './TransportSystem';
 import { TPTTv4Result } from '@/types/sdss';
 
 interface DashboardProps {
@@ -15,6 +16,8 @@ interface DashboardProps {
   phases: number[];
   tpttV4Result?: TPTTv4Result | null;
   isV4Enhanced?: boolean;
+  isotope?: Isotope;
+  fractalToggle?: boolean;
 }
 
 export function Dashboard({ 
@@ -26,7 +29,9 @@ export function Dashboard({
   lightWave, 
   phases,
   tpttV4Result,
-  isV4Enhanced 
+  isV4Enhanced,
+  isotope = { type: 'C-12', factor: 1.0 },
+  fractalToggle = false
 }: DashboardProps) {
   const isValidTLM = validateTLM(phi);
   const phaseSync = phases.reduce((sum, phase) => sum + Math.cos(phase), 0) / phases.length;
@@ -121,9 +126,23 @@ export function Dashboard({
           </div>
         </CardContent>
       </Card>
+      </div>
+
+      {/* Transport System - Full Width */}
+      <div className="mt-6">
+        <TransportSystem
+          tPTT_value={tPTT_value}
+          phases={phases}
+          e_t={e_t}
+          neuralOutput={tpttV4Result?.neuralOutput}
+          rippel={rippel}
+          isotope={isotope}
+          fractalToggle={fractalToggle}
+        />
+      </div>
 
       {/* Phase Visualization */}
-      <Card className="md:col-span-2 lg:col-span-3">
+      <Card className="mt-6">
         <CardHeader>
           <CardTitle>Phase Relationships</CardTitle>
           <CardDescription>Real-time phase dynamics</CardDescription>
@@ -149,7 +168,6 @@ export function Dashboard({
           </div>
         </CardContent>
       </Card>
-      </div>
     </div>
   );
 }
