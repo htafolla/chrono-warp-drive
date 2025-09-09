@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager } from '@/lib/memoryManager';
-import { getSafeColor } from '@/lib/colorUtils';
 
 interface LODWavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -73,11 +72,6 @@ export function LODWavePlane({
   useFrame((state) => {
     if (!meshRef.current) return;
     
-    // Debug logging for Phase 9F
-    if (state.clock.elapsedTime % 5 < 0.1) {
-      console.log(`[Phase 9F] WavePlane ${index}: position=${meshRef.current.position.toArray()}, visible=${meshRef.current.visible}, LOD=${currentLOD}`);
-    }
-    
     try {
       const meshPosition = meshRef.current.position;
       const distance = camera.position.distanceTo(meshPosition);
@@ -143,15 +137,12 @@ export function LODWavePlane({
           const x = position.getX(i);
           const z = position.getZ(i);
           
-          // Enhanced wave calculations with stronger amplitude
-          const waveValue = wave(0, state.clock.elapsedTime * 5, index, isotope, band.lambda, phaseType);
+          const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
           const secondaryWave = targetLOD === 'high' ? 
-            Math.sin(x * 0.8 + state.clock.elapsedTime * 3.2) * 0.5 : 0;
-          const tertiaryWave = targetLOD === 'high' ? 
-            Math.cos(z * 0.6 + state.clock.elapsedTime * 2.8) * 0.3 : 0;
+            Math.sin(x * 0.5 + state.clock.elapsedTime * 0.8) * 0.3 : 0;
           
-          const heightValue = Math.max(-6, Math.min(6, 
-            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 1.2 * intensityMultiplier
+          const heightValue = Math.max(-4, Math.min(4, 
+            (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.6 * intensityMultiplier
           ));
           
           position.setY(i, heightValue);
@@ -181,16 +172,12 @@ export function LODWavePlane({
       castShadow={qualitySettings.shadows}
     >
       <meshPhongMaterial 
-        color={getSafeColor(band.color)}
-        wireframe={false}
+        color={band.color}
+        wireframe
         transparent
-        opacity={qualitySettings.quality === 'low' ? 0.8 : 
-                qualitySettings.quality === 'medium' ? 0.6 : 0.5}
-        emissive={getSafeColor(band.color)}
-        emissiveIntensity={qualitySettings.quality === 'low' ? 0.4 : 
-                          qualitySettings.quality === 'medium' ? 0.3 : 
-                          currentLOD === 'high' ? 0.25 : 0.2}
-        side={THREE.DoubleSide}
+        opacity={0.7}
+        emissive={band.color}
+        emissiveIntensity={currentLOD === 'high' ? 0.15 : 0.1}
       />
     </mesh>
   );
