@@ -13,7 +13,8 @@ import {
   CheckCircle, 
   AlertTriangle, 
   Activity,
-  TrendingUp 
+  TrendingUp,
+  Calendar
 } from 'lucide-react';
 
 interface TransportReadinessDisplayProps {
@@ -28,6 +29,18 @@ interface TransportReadinessDisplayProps {
   etaToReady: number; // seconds
   energyTrend: 'increasing' | 'decreasing' | 'stable';
   optimizations: string[];
+  temporal?: {
+    targetMJD: number;
+    targetUTC: Date;
+    temporalOffset: number;
+    yearsAgo: number;
+    emissionEra: string;
+    isCosmicObject: boolean;
+    isPrimordial: boolean;
+    lightTravelTimeYears: number;
+    transportWindow: string;
+    formatted: string;
+  };
   onTransport: () => void;
   onOptimize: (optimization: string) => void;
 }
@@ -44,6 +57,7 @@ export const TransportReadinessDisplay = ({
   etaToReady = 0,
   energyTrend = 'stable',
   optimizations = [],
+  temporal,
   onTransport,
   onOptimize
 }: TransportReadinessDisplayProps) => {
@@ -137,6 +151,63 @@ export const TransportReadinessDisplay = ({
         </div>
 
         <Separator />
+
+        {/* Destination Time Display */}
+        {temporal && (
+          <>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span className="text-sm font-medium">Destination Time</span>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Target Date</span>
+                      <span className="text-sm font-mono">
+                        {temporal.targetUTC.toISOString().split('T')[0]}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Years Ago</span>
+                      <span className="text-sm font-mono">
+                        {temporal.yearsAgo < 1000 
+                          ? `${temporal.yearsAgo.toFixed(0)} years`
+                          : temporal.yearsAgo < 1e6 
+                            ? `${(temporal.yearsAgo/1000).toFixed(1)}K years`
+                            : `${(temporal.yearsAgo/1e6).toFixed(2)}M years`
+                        }
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Emission Era</span>
+                      <Badge 
+                        variant={
+                          temporal.emissionEra === 'Recent' ? 'default' :
+                          temporal.emissionEra === 'Historical' ? 'secondary' :
+                          temporal.emissionEra === 'Geological' ? 'outline' :
+                          'destructive'
+                        }
+                      >
+                        {temporal.emissionEra}
+                      </Badge>
+                    </div>
+                    
+                    <div className="pt-2 text-xs text-muted-foreground">
+                      {temporal.transportWindow}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+          </>
+        )}
 
         {/* Detailed System Metrics */}
         <div className="grid grid-cols-2 gap-3">
