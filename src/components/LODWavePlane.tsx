@@ -48,11 +48,19 @@ export function LODWavePlane({
   const [currentLOD, setCurrentLOD] = React.useState<'high' | 'medium' | 'low' | 'veryLow'>('high');
   const [isVisible, setIsVisible] = React.useState(true);
   
-  // Cache geometries for different LOD levels
+  // Cache geometries for different LOD levels - enhanced for spectrum visibility
   const geometries = useMemo(() => {
     const cache = new Map<string, THREE.PlaneGeometry>();
     
-    Object.entries(LOD_CONFIGS).forEach(([level, config]) => {
+    // Enhanced segment counts for denser wireframe appearance
+    const enhancedConfigs = {
+      high: { segments: 64, maxDistance: 10 }, // Much denser for spectrum-like appearance
+      medium: { segments: 48, maxDistance: 20 },
+      low: { segments: 32, maxDistance: 30 },
+      veryLow: { segments: 24, maxDistance: Infinity }
+    };
+    
+    Object.entries(enhancedConfigs).forEach(([level, config]) => {
       const geometry = new THREE.PlaneGeometry(10, 10, config.segments, config.segments);
       cache.set(level, geometry);
     });
@@ -178,28 +186,38 @@ export function LODWavePlane({
   });
 
   return (
-    <group>
-      {/* Phase 10D: Debug bounds marker */}
-      <mesh position={[0, index * 1.0 - 2, 0]}>
-        <boxGeometry args={[12, 0.1, 12]} />
-        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
+    <group>      
+      {/* Transparent solid plane underneath for depth */}
+      <mesh 
+        position={[0, index * 1.0 - 2, -0.1]} 
+        receiveShadow={qualitySettings.shadows}
+      >
+        <planeGeometry args={[10, 10, 8, 8]} />
+        <meshPhongMaterial 
+          color={getSafeColor(band.color)}
+          transparent
+          opacity={0.15}
+          emissive={getSafeColor(band.color)}
+          emissiveIntensity={0.1}
+          side={THREE.DoubleSide}
+        />
       </mesh>
       
-      {/* Main wave plane */}
+      {/* Enhanced wireframe spectrum plane */}
       <mesh 
         ref={meshRef} 
         position={[0, index * 1.0 - 2, 0]} 
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
-        <planeGeometry args={[10, 10, 48, 48]} />
+        <planeGeometry args={[10, 10, 64, 64]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={true}  // Phase 10C: Force wireframe for debugging
+          wireframe={true}
           transparent
-          opacity={0.9}  // Phase 10C: High opacity for visibility
+          opacity={0.95}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
+          emissiveIntensity={0.8}  // Enhanced emissive for brilliant spectrum appearance
           side={THREE.DoubleSide}
         />
       </mesh>
