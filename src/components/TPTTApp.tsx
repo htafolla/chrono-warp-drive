@@ -21,6 +21,11 @@ import { AnalysisEngine } from './AnalysisEngine';
 import { DebugExporter } from '@/lib/debugExporter';
 import { DebugInfo } from './DebugInfo';
 import { TransportSystem } from './TransportSystem';
+import { EnergySafetySystem } from './EnergySafetySystem';
+import { EnergyVisualization } from './EnergyVisualization';
+import { TransportPredictor } from './TransportPredictor';
+import { AdvancedProgressIndicators } from './AdvancedProgressIndicators';
+import { OptimizationSuggestions } from './OptimizationSuggestions';
 import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText } from 'lucide-react';
 import { 
   PHI, 

@@ -14,6 +14,7 @@ import { EnergyAccelerator } from './EnergyAccelerator';
 import { AdaptiveTPTTCalibrator } from './AdaptiveTPTTCalibrator';
 import { SpectrumIntelligence } from './SpectrumIntelligence';
 import { TransportReadinessDisplay } from './TransportReadinessDisplay';
+import { TransportAnalytics } from './TransportAnalytics';
 import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 
 interface TransportResult {
