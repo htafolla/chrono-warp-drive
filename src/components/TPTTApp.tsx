@@ -61,7 +61,7 @@ export function TPTTApp() {
 
   // Temporal control states
   const [isPlaying, setIsPlaying] = useState(true);
-  const [updateInterval, setUpdateInterval] = useState(1000); // Default 1 second
+  const [updateInterval, setUpdateInterval] = useState(2000); // Default 2 seconds - slower and less jarring
   const [animationMode, setAnimationMode] = useState<'realtime' | 'observation' | 'analysis'>('observation');
   const [nextUpdateIn, setNextUpdateIn] = useState(0);
 
@@ -346,36 +346,28 @@ export function TPTTApp() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="lg:col-span-3">
-                <Dashboard
-                  time={time}
-                  e_t={e_t}
-                  tPTT_value={tPTT_value}
-                  rippel={rippel}
-                  phi={phi}
-                  lightWave={lightWave}
-                  phases={phases}
-                  tpttV4Result={tpttV4Result}
-                  isV4Enhanced={isV4Initialized}
-                  isotope={isotope}
-                  fractalToggle={fractalToggle}
-                />
-              </div>
-              <div className="lg:col-span-1">
-                <TemporalControls
-                  isPlaying={isPlaying}
-                  onPlayPause={handlePlayPause}
-                  updateInterval={updateInterval}
-                  onIntervalChange={handleIntervalChange}
-                  animationMode={animationMode}
-                  onModeChange={handleModeChange}
-                  stellarTimestamp={stellarTimestamp}
-                  spectrumData={spectrumData}
-                  nextUpdateIn={nextUpdateIn}
-                />
-              </div>
-            </div>
+            <Dashboard
+              time={time}
+              e_t={e_t}
+              tPTT_value={tPTT_value}
+              rippel={rippel}
+              phi={phi}
+              lightWave={lightWave}
+              phases={phases}
+              tpttV4Result={tpttV4Result}
+              isV4Enhanced={isV4Initialized}
+              isotope={isotope}
+              fractalToggle={fractalToggle}
+              isPlaying={isPlaying}
+              onPlayPause={handlePlayPause}
+              updateInterval={updateInterval}
+              onIntervalChange={handleIntervalChange}
+              animationMode={animationMode}
+              onModeChange={handleModeChange}
+              stellarTimestamp={stellarTimestamp}
+              spectrumData={spectrumData}
+              nextUpdateIn={nextUpdateIn}
+            />
           </TabsContent>
 
           <TabsContent value="simulation" className="space-y-4">

@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { validateTLM, Isotope, calculatePhaseCoherence } from '@/lib/temporalCalculator';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { TransportSystem } from './TransportSystem';
-import { TPTTv4Result } from '@/types/sdss';
+import { TemporalControls } from './TemporalControls';
+import { TPTTv4Result, SpectrumData } from '@/types/sdss';
 
 interface DashboardProps {
   time: number;
@@ -18,6 +19,16 @@ interface DashboardProps {
   isV4Enhanced?: boolean;
   isotope?: Isotope;
   fractalToggle?: boolean;
+  // Temporal control props
+  isPlaying: boolean;
+  onPlayPause: () => void;
+  updateInterval: number;
+  onIntervalChange: (interval: number) => void;
+  animationMode: 'realtime' | 'observation' | 'analysis';
+  onModeChange: (mode: 'realtime' | 'observation' | 'analysis') => void;
+  stellarTimestamp: string;
+  spectrumData: SpectrumData | null;
+  nextUpdateIn: number;
 }
 
 export function Dashboard({ 
@@ -31,7 +42,17 @@ export function Dashboard({
   tpttV4Result,
   isV4Enhanced,
   isotope = { type: 'C-12', factor: 1.0 },
-  fractalToggle = false
+  fractalToggle = false,
+  // Temporal control props
+  isPlaying,
+  onPlayPause,
+  updateInterval,
+  onIntervalChange,
+  animationMode,
+  onModeChange,
+  stellarTimestamp,
+  spectrumData,
+  nextUpdateIn
 }: DashboardProps) {
   const isValidTLM = validateTLM(phi);
   const phaseSync = calculatePhaseCoherence(phases);
@@ -128,6 +149,21 @@ export function Dashboard({
           </div>
         </CardContent>
       </Card>
+      </div>
+
+      {/* Temporal Controls - Full Width */}
+      <div className="mt-6">
+        <TemporalControls
+          isPlaying={isPlaying}
+          onPlayPause={onPlayPause}
+          updateInterval={updateInterval}
+          onIntervalChange={onIntervalChange}
+          animationMode={animationMode}
+          onModeChange={onModeChange}
+          stellarTimestamp={stellarTimestamp}
+          spectrumData={spectrumData}
+          nextUpdateIn={nextUpdateIn}
+        />
       </div>
 
       {/* Transport System - Full Width */}
