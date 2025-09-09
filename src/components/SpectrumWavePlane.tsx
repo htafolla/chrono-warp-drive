@@ -140,7 +140,7 @@ export function SpectrumWavePlane({
         ref={geometryRef} 
         args={[6, 6, 20, 20]} 
       />
-      {index === 1 ? (
+      {index === 1 || index === 2 ? (
         <meshBasicMaterial 
           color={safeColor}
           transparent={false}
