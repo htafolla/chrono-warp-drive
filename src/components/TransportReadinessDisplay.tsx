@@ -13,7 +13,8 @@ import {
   CheckCircle, 
   AlertTriangle, 
   Activity,
-  TrendingUp 
+  TrendingUp,
+  Calendar
 } from 'lucide-react';
 
 interface TransportReadinessDisplayProps {
@@ -28,6 +29,18 @@ interface TransportReadinessDisplayProps {
   etaToReady: number; // seconds
   energyTrend: 'increasing' | 'decreasing' | 'stable';
   optimizations: string[];
+  temporal?: {
+    targetMJD: number;
+    targetUTC: Date;
+    temporalOffset: number;
+    yearsAgo: number;
+    emissionEra: string;
+    isCosmicObject: boolean;
+    isPrimordial: boolean;
+    lightTravelTimeYears: number;
+    transportWindow: string;
+    formatted: string;
+  };
   onTransport: () => void;
   onOptimize: (optimization: string) => void;
 }
@@ -44,6 +57,7 @@ export const TransportReadinessDisplay = ({
   etaToReady = 0,
   energyTrend = 'stable',
   optimizations = [],
+  temporal,
   onTransport,
   onOptimize
 }: TransportReadinessDisplayProps) => {
@@ -82,6 +96,16 @@ export const TransportReadinessDisplay = ({
     const scores = [phaseCoherence, neuralSync, isotopeResonance, e_t * 50];
     const average = scores.reduce((a, b) => a + b, 0) / scores.length;
     return Math.min(average, 100);
+  };
+
+  const getEraColor = (era: string) => {
+    switch (era) {
+      case 'Recent': return 'default';
+      case 'Historical': return 'secondary';
+      case 'Geological': case 'Deep Time': return 'outline';
+      case 'Cosmic': case 'Primordial': return 'destructive';
+      default: return 'outline';
+    }
   };
 
   const systemHealth = getSystemHealth();
@@ -135,6 +159,43 @@ export const TransportReadinessDisplay = ({
             </div>
           </div>
         </div>
+
+        <Separator />
+
+        {/* Destination Time Display */}
+        {temporal && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span className="text-sm font-medium">Destination Time</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">Target Date</div>
+                <div className="font-mono text-sm">
+                  {new Date(temporal.targetUTC).toISOString().split('T')[0]}
+                </div>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-xs text-muted-foreground mb-1">Years Ago</div>
+                <div className="font-mono text-sm">
+                  {temporal.yearsAgo.toFixed(0)} years
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Emission Era</span>
+                <Badge variant={getEraColor(temporal.emissionEra)}>
+                  {temporal.emissionEra}
+                </Badge>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {temporal.transportWindow}
+              </div>
+            </div>
+          </div>
+        )}
 
         <Separator />
 
