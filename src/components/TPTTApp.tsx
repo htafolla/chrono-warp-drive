@@ -97,6 +97,13 @@ export function TPTTApp() {
   });
   const [currentFPS, setCurrentFPS] = useState(60);
 
+  // Debug mode state
+  const [debugMode, setDebugMode] = useState({
+    showWireframes: false,
+    showBounds: false,
+    showInfo: false
+  });
+
   // Temporal control states
   const [isPlaying, setIsPlaying] = useState(true);
   const [updateInterval, setUpdateInterval] = useState(2000); // Default 2 seconds - slower and less jarring
@@ -648,11 +655,51 @@ export function TPTTApp() {
           <TabsContent value="simulation" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               {/* Performance Controller */}
-              <div className="lg:col-span-1">
+              <div className="lg:col-span-1 space-y-4">
                 <PerformanceController 
                   onSettingsChange={handlePerformanceSettingsChange}
                   currentFPS={currentFPS}
                 />
+                
+                {/* Debug Controls */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Debug Controls</CardTitle>
+                    <CardDescription>Visual debugging options</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Wireframes</label>
+                      <Button
+                        variant={debugMode.showWireframes ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setDebugMode(prev => ({ ...prev, showWireframes: !prev.showWireframes }))}
+                      >
+                        {debugMode.showWireframes ? "ON" : "OFF"}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Bounds</label>
+                      <Button
+                        variant={debugMode.showBounds ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setDebugMode(prev => ({ ...prev, showBounds: !prev.showBounds }))}
+                      >
+                        {debugMode.showBounds ? "ON" : "OFF"}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Info Overlay</label>
+                      <Button
+                        variant={debugMode.showInfo ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setDebugMode(prev => ({ ...prev, showInfo: !prev.showInfo }))}
+                      >
+                        {debugMode.showInfo ? "ON" : "OFF"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
               
               {/* 3D Scene */}
@@ -667,6 +714,7 @@ export function TPTTApp() {
                     time={time}
                     performanceSettings={performanceSettings}
                     onFPSChange={handleFPSChange}
+                    debugMode={debugMode}
                   />
                 </ErrorBoundary>
               </div>

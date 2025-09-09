@@ -101,9 +101,9 @@ export function SpectrumWavePlane({
         color={getSafeColor(band.color)}
         wireframe={false}
         transparent
-        opacity={0.7}
+        opacity={0.9}
         emissive={getSafeColor(band.color)}
-        emissiveIntensity={0.3}
+        emissiveIntensity={0.5}
         side={THREE.DoubleSide}
       />
     </mesh>
