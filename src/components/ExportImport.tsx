@@ -18,6 +18,25 @@ interface TemporalState {
   phi: number;
   delta_t: number;
   timestamp: string;
+  transportSystemState?: {
+    canTransport: boolean;
+    transportReadiness: number;
+    destinationData: {
+      coords: { ra: number; dec: number; z: number };
+      targetMJD: number;
+      targetUTC: string;
+      yearsAgo: number;
+      emissionEra: string;
+      distance: number;
+      stability: number;
+    };
+    stellarTimestamp: {
+      mjd: number;
+      gregorian: string;
+      observatoryCode: string;
+      sessionType: string;
+    };
+  };
 }
 
 interface ExportImportProps {
@@ -336,6 +355,14 @@ export function ExportImport({ currentState, onImport }: ExportImportProps) {
             <div>Isotope: {currentState.isotope.type}</div>
             <div>Fractal: {currentState.fractalToggle ? 'ON' : 'OFF'}</div>
             <div>E_t: {currentState.e_t.toFixed(3)}</div>
+            {currentState.transportSystemState && (
+              <>
+                <div>Transport: {currentState.transportSystemState.canTransport ? 'READY' : 'NOT READY'}</div>
+                <div>Observatory: {currentState.transportSystemState.stellarTimestamp.observatoryCode}</div>
+                <div>Target Era: {currentState.transportSystemState.destinationData.emissionEra}</div>
+                <div>Years Ago: {currentState.transportSystemState.destinationData.yearsAgo.toFixed(0)}</div>
+              </>
+            )}
           </div>
         </div>
       </CardContent>

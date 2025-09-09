@@ -19,6 +19,12 @@ interface SequenceData {
     neuralSequence: string;
     rippelSignature: string;
     temporalHash: string;
+    stellarTimestamp: {
+      mjd: number;
+      gregorian: string;
+      observatoryCode: string;
+      emissionEra: string;
+    };
   };
   transportSequence: {
     energyAccumulation: number[];
@@ -26,18 +32,31 @@ interface SequenceData {
     temporalFoldSequence: string[];
     phaseAlignmentData: number[];
     isotopicResonance: number;
+    destinationLock: {
+      targetMJD: number;
+      targetUTC: string;
+      yearsAgo: number;
+      lightTravelTime: number;
+    };
   };
   postTransportState: {
     finalCoordinates: { ra: number; dec: number; z: number };
     energyResidue: number;
     temporalStability: number;
     verificationHash: string;
+    arrivalTimestamp: {
+      mjd: number;
+      gregorian: string; 
+      temporalAccuracy: number;
+    };
   };
   verificationData: {
     sequenceIntegrity: boolean;
     temporalConsistency: boolean;
     neuralCoherence: boolean;
     energyConservation: boolean;
+    destinationAccuracy: boolean;
+    stellarVerification: boolean;
     overallValidity: boolean;
   };
 }
@@ -118,12 +137,23 @@ export const TransportSequenceVerification = ({
       `Sequence ID,${sequenceData.sequenceId},,`,
       `Timestamp,${sequenceData.timestamp},,`,
       `tPTT Value,${sequenceData.preTransportState.tPTT_value},,`,
+      `Observatory,${sequenceData.preTransportState.stellarTimestamp.observatoryCode},,`,
+      `Pre-Transport MJD,${sequenceData.preTransportState.stellarTimestamp.mjd},,`,      
+      `Emission Era,${sequenceData.preTransportState.stellarTimestamp.emissionEra},,`,
+      `Target MJD,${sequenceData.transportSequence.destinationLock.targetMJD},,`,
+      `Target UTC,${sequenceData.transportSequence.destinationLock.targetUTC},,`,
+      `Years Ago,${sequenceData.transportSequence.destinationLock.yearsAgo},,`,
+      `Light Travel Time,${sequenceData.transportSequence.destinationLock.lightTravelTime},,`,
       `Energy Residue,,${sequenceData.postTransportState.energyResidue},`,
       `Temporal Stability,,${sequenceData.postTransportState.temporalStability},`,
+      `Arrival MJD,,${sequenceData.postTransportState.arrivalTimestamp.mjd},`,
+      `Temporal Accuracy,,${sequenceData.postTransportState.arrivalTimestamp.temporalAccuracy},`,
       `Sequence Integrity,,,${sequenceData.verificationData.sequenceIntegrity}`,
       `Temporal Consistency,,,${sequenceData.verificationData.temporalConsistency}`,
       `Neural Coherence,,,${sequenceData.verificationData.neuralCoherence}`,
       `Energy Conservation,,,${sequenceData.verificationData.energyConservation}`,
+      `Destination Accuracy,,,${sequenceData.verificationData.destinationAccuracy}`,
+      `Stellar Verification,,,${sequenceData.verificationData.stellarVerification}`,
       `Overall Validity,,,${sequenceData.verificationData.overallValidity}`,
       `Final RA,,${sequenceData.postTransportState.finalCoordinates.ra},`,
       `Final DEC,,${sequenceData.postTransportState.finalCoordinates.dec},`,

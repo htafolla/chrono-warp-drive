@@ -62,6 +62,39 @@ export interface DebugState {
     granularity: number;
     spectralBands: any[];
   };
+  transportSystemState: {
+    canTransport: boolean;
+    transportReadiness: number;
+    isTransporting: boolean;
+    destinationData: {
+      coords: { ra: number; dec: number; z: number };
+      targetMJD: number;
+      targetUTC: string;
+      yearsAgo: number;
+      emissionEra: string;
+      distance: number;
+      stability: number;
+      isLocked: boolean;
+    };
+    transportMetrics: {
+      efficiency: number;
+      energyConsumption: number;
+      temporalStability: number;
+      neuralSyncScore: number;
+      anomalies: string[];
+    };
+    phaseCoherence: number;
+    neuralSync: number;
+    isotopeResonance: number;
+    status: string;
+    stellarTimestamp: {
+      mjd: number;
+      gregorian: string;
+      formatted: string;
+      observatoryCode: string;
+      sessionType: string;
+    };
+  };
   neuralFusionDetails: {
     isActive: boolean;
     modelInfo?: {
@@ -187,6 +220,39 @@ export class DebugExporter {
         granularity: appState.spectrumData?.granularity || 1.0,
         spectralBands: appState.spectralBands || []
       },
+      transportSystemState: {
+        canTransport: appState.transportStatus?.canTransport || false,
+        transportReadiness: appState.transportStatus?.transportReadiness || 0,
+        isTransporting: appState.isTransporting || false,
+        destinationData: appState.destinationData || {
+          coords: { ra: 0, dec: 0, z: 0 },
+          targetMJD: 0,
+          targetUTC: "",
+          yearsAgo: 0,
+          emissionEra: "Unknown",
+          distance: 0,
+          stability: 0,
+          isLocked: false
+        },
+        transportMetrics: appState.lastTransport || {
+          efficiency: 0,
+          energyConsumption: 0,
+          temporalStability: 0,
+          neuralSyncScore: 0,
+          anomalies: []
+        },
+        phaseCoherence: appState.transportStatus?.phaseCoherence || 0,
+        neuralSync: appState.transportStatus?.neuralSync || 0,
+        isotopeResonance: appState.transportStatus?.isotopeResonance || 0,
+        status: appState.transportStatus?.status || "offline",
+        stellarTimestamp: appState.stellarTimestamp || {
+          mjd: 0,
+          gregorian: "",
+          formatted: "",
+          observatoryCode: "SYNTHETIC",
+          sessionType: "simulation"
+        }
+      },
       neuralFusionDetails: {
         isActive: !!(appState.tpttV4Result?.neuralOutput),
         modelInfo: appState.neuralModelInfo || undefined,
@@ -275,6 +341,39 @@ ${debug.calculationBreakdown.v4Components ? `
 - Data Points: ${debug.spectrumAnalysis.wavelengthRange.count}
 - Granularity: ${debug.spectrumAnalysis.granularity.toFixed(2)} Å/pixel
 - Intensity Stats: min=${debug.spectrumAnalysis.intensityStats.min.toFixed(2)}, max=${debug.spectrumAnalysis.intensityStats.max.toFixed(2)}, mean=${debug.spectrumAnalysis.intensityStats.mean.toFixed(2)}
+
+## Transport System
+- Status: ${debug.transportSystemState.status.toUpperCase()}
+- Transport Readiness: ${(debug.transportSystemState.transportReadiness * 100).toFixed(1)}%
+- Can Transport: ${debug.transportSystemState.canTransport ? 'YES' : 'NO'}
+- Phase Coherence: ${(debug.transportSystemState.phaseCoherence * 100).toFixed(1)}%
+- Neural Sync: ${(debug.transportSystemState.neuralSync * 100).toFixed(1)}%
+- Isotope Resonance: ${(debug.transportSystemState.isotopeResonance * 100).toFixed(1)}%
+
+## Destination Analysis  
+- Target Coordinates: RA ${debug.transportSystemState.destinationData.coords.ra.toFixed(6)}°, DEC ${debug.transportSystemState.destinationData.coords.dec.toFixed(6)}°
+- Redshift (Z): ${debug.transportSystemState.destinationData.coords.z || 0}
+- Target Date: ${debug.transportSystemState.destinationData.targetUTC || 'N/A'}
+- Target MJD: ${debug.transportSystemState.destinationData.targetMJD.toFixed(2)}
+- Years Ago: ${debug.transportSystemState.destinationData.yearsAgo.toFixed(0)} years
+- Emission Era: ${debug.transportSystemState.destinationData.emissionEra}
+- Distance: ${debug.transportSystemState.destinationData.distance.toFixed(2)} light-years
+- Destination Stability: ${(debug.transportSystemState.destinationData.stability * 100).toFixed(1)}%
+- Coordinates Locked: ${debug.transportSystemState.destinationData.isLocked ? 'YES' : 'NO'}
+
+## Stellar Observation Data
+- Observatory: ${debug.transportSystemState.stellarTimestamp.observatoryCode}
+- Observation MJD: ${debug.transportSystemState.stellarTimestamp.mjd.toFixed(5)}
+- Observation Date: ${debug.transportSystemState.stellarTimestamp.gregorian}
+- Session Type: ${debug.transportSystemState.stellarTimestamp.sessionType}
+- Formatted Timestamp: ${debug.transportSystemState.stellarTimestamp.formatted}
+
+## Last Transport Metrics
+- Transport Efficiency: ${(debug.transportSystemState.transportMetrics.efficiency * 100).toFixed(1)}%
+- Energy Consumption: ${debug.transportSystemState.transportMetrics.energyConsumption.toFixed(2)} units
+- Temporal Stability: ${(debug.transportSystemState.transportMetrics.temporalStability * 100).toFixed(1)}%
+- Neural Sync Score: ${(debug.transportSystemState.transportMetrics.neuralSyncScore * 100).toFixed(1)}%
+- Anomalies Detected: ${debug.transportSystemState.transportMetrics.anomalies.length}
 
 ## Neural Fusion
 - Status: ${debug.neuralFusionDetails.isActive ? 'Active' : 'Inactive'}

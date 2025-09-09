@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Zap, Target, MapPin, Clock, AlertTriangle, CheckCircle, Rocket, Activity, Wifi, Radio, Gauge } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Isotope, calculatePhaseCoherence } from '@/lib/temporalCalculator';
+import { generateStellarTimestamp } from '@/lib/stellarTimestamp';
 import { TransportSequenceVerification } from './TransportSequenceVerification';
 import { EnergyAccelerator } from './EnergyAccelerator';
 import { AdaptiveTPTTCalibrator } from './AdaptiveTPTTCalibrator';
@@ -526,38 +527,60 @@ export const TransportSystem = ({
                 isotopeResonance: transportStatus.isotopeResonance / 100,
                 phaseCoherence: transportStatus.phaseCoherence / 100
               }}
-              onGenerateSequence={async () => ({
-                timestamp: new Date().toISOString(),
-                sequenceId: `SEQ-${Date.now()}`,
-                preTransportState: {
-                  tPTT_value,
-                  phases,
-                  e_t,
-                  neuralSequence: neuralOutput?.synapticSequence || '',
-                  rippelSignature: rippel,
-                  temporalHash: `${Date.now()}`
-                },
-                transportSequence: {
-                  energyAccumulation: [e_t * 0.8, e_t * 0.9, e_t],
-                  neuralSyncProgress: [0.5, 0.7, transportStatus.neuralSync / 100],
-                  temporalFoldSequence: ['init', 'fold', 'complete'],
-                  phaseAlignmentData: phases,
-                  isotopicResonance: transportStatus.isotopeResonance / 100
-                },
-                postTransportState: {
-                  finalCoordinates: lastTransport?.destinationCoords || { ra: 0, dec: 0, z: 0 },
-                  energyResidue: e_t * 0.1,
-                  temporalStability: lastTransport?.temporalStability || 0.8,
-                  verificationHash: `VER-${Date.now()}`
-                },
-                verificationData: {
-                  sequenceIntegrity: true,
-                  temporalConsistency: true,
-                  neuralCoherence: true,
-                  energyConservation: true,
-                  overallValidity: true
-                }
-              })}
+              onGenerateSequence={async () => {
+                const stellarTimestamp = generateStellarTimestamp(spectrumData);
+                return {
+                  timestamp: new Date().toISOString(),
+                  sequenceId: `SEQ-${Date.now()}`,
+                  preTransportState: {
+                    tPTT_value,
+                    phases,
+                    e_t,
+                    neuralSequence: neuralOutput?.synapticSequence || '',
+                    rippelSignature: rippel,
+                    temporalHash: `${Date.now()}`,
+                    stellarTimestamp: {
+                      mjd: stellarTimestamp.mjd,
+                      gregorian: stellarTimestamp.gregorian.toISOString(),
+                      observatoryCode: stellarTimestamp.observatoryCode,
+                      emissionEra: destinationData.temporal.emissionEra || 'Modern Era'
+                    }
+                  },
+                  transportSequence: {
+                    energyAccumulation: [e_t * 0.8, e_t * 0.9, e_t],
+                    neuralSyncProgress: [0.5, 0.7, transportStatus.neuralSync / 100],
+                    temporalFoldSequence: ['init', 'fold', 'complete'],
+                    phaseAlignmentData: phases,
+                    isotopicResonance: transportStatus.isotopeResonance / 100,
+                    destinationLock: {
+                      targetMJD: destinationData.temporal.targetMJD,
+                      targetUTC: destinationData.temporal.targetUTC.toISOString(),
+                      yearsAgo: destinationData.temporal.yearsAgo,
+                      lightTravelTime: parseFloat(destinationData.distance.replace(/[^\d.-]/g, '')) || 0
+                    }
+                  },
+                  postTransportState: {
+                    finalCoordinates: lastTransport?.destinationCoords || { ra: 0, dec: 0, z: 0 },
+                    energyResidue: e_t * 0.1,
+                    temporalStability: lastTransport?.temporalStability || 0.8,
+                    verificationHash: `VER-${Date.now()}`,
+                    arrivalTimestamp: {
+                      mjd: destinationData.temporal.targetMJD,
+                      gregorian: destinationData.temporal.targetUTC.toISOString(),
+                      temporalAccuracy: destinationData.stability
+                    }
+                  },
+                  verificationData: {
+                    sequenceIntegrity: true,
+                    temporalConsistency: true,
+                    neuralCoherence: true,
+                    energyConservation: true,
+                    destinationAccuracy: destinationData.isLocked,
+                    stellarVerification: !!stellarTimestamp.observatoryCode,
+                    overallValidity: true
+                  }
+                };
+              }}
             />
           )}
           

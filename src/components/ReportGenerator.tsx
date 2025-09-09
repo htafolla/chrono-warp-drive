@@ -75,6 +75,42 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
 
       setProgress(70);
 
+      // Transport Analysis Section
+      if (currentState.transportStatus || currentState.destinationData) {
+        pdf.addPage();
+        pdf.setFontSize(16);
+        pdf.text('Transport System Analysis', margin, 30);
+        pdf.setFontSize(10);
+
+        const transportText = [
+          `Transport Status: ${currentState.transportStatus?.status?.toUpperCase() || 'OFFLINE'}`,
+          `Transport Readiness: ${currentState.transportStatus?.transportReadiness ? (currentState.transportStatus.transportReadiness * 100).toFixed(1) + '%' : 'N/A'}`,
+          `Phase Coherence: ${currentState.transportStatus?.phaseCoherence ? (currentState.transportStatus.phaseCoherence * 100).toFixed(1) + '%' : 'N/A'}`,
+          `Neural Synchronization: ${currentState.transportStatus?.neuralSync ? (currentState.transportStatus.neuralSync * 100).toFixed(1) + '%' : 'N/A'}`,
+          '',
+          'Destination Coordinates:',
+          `  RA: ${currentState.destinationData?.coords?.ra?.toFixed(6) || 'N/A'}°`,
+          `  DEC: ${currentState.destinationData?.coords?.dec?.toFixed(6) || 'N/A'}°`,
+          `  Redshift (Z): ${currentState.destinationData?.coords?.z?.toFixed(6) || 'N/A'}`,
+          '',
+          'Temporal Destination:',
+          `  Target Date: ${currentState.destinationData?.targetUTC || 'N/A'}`,
+          `  Target MJD: ${currentState.destinationData?.targetMJD?.toFixed(2) || 'N/A'}`,
+          `  Years Ago: ${currentState.destinationData?.yearsAgo?.toFixed(0) || 'N/A'} years`,
+          `  Emission Era: ${currentState.destinationData?.emissionEra || 'Unknown'}`,
+          `  Distance: ${currentState.destinationData?.distance?.toFixed(2) || 'N/A'} light-years`,
+          '',
+          'Stellar Observation:',
+          `  Observatory: ${currentState.stellarTimestamp?.observatoryCode || 'SYNTHETIC'}`,
+          `  Observation Date: ${currentState.stellarTimestamp?.gregorian || 'N/A'}`,
+          `  Session Type: ${currentState.stellarTimestamp?.sessionType || 'N/A'}`
+        ];
+
+        transportText.forEach((text, index) => {
+          pdf.text(text, margin, 45 + (index * 6));
+        });
+      }
+
       // Neural Analysis Section
       if (neuralFusionData) {
         pdf.addPage();
