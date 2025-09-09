@@ -75,6 +75,51 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
 
       setProgress(70);
 
+      // Performance Optimization Report
+      pdf.addPage();
+      pdf.setFontSize(16);
+      pdf.text('Performance Optimization Report', margin, 30);
+      pdf.setFontSize(10);
+
+      const performanceText = [
+        'System Performance Analysis:',
+        `  Frame Rate: ${currentState.performance?.frameRate || 'N/A'} FPS (Target: 30-60 FPS)`,
+        `  Memory Usage: ${currentState.performance?.memoryUsage ? (currentState.performance.memoryUsage / 1024 / 1024).toFixed(1) + ' MB' : 'N/A'}`,
+        `  Render Time: ${currentState.performance?.renderTime ? currentState.performance.renderTime.toFixed(2) + 'ms' : 'N/A'}`,
+        `  Calculation Time: ${currentState.performance?.calculationTime ? currentState.performance.calculationTime.toFixed(2) + 'ms' : 'N/A'}`,
+        '',
+        'Web Worker Integration:',
+        `  Async Calculations: ${currentState.asyncManager?.isProcessing ? 'Active' : 'Inactive'}`,
+        `  Processed Count: ${currentState.asyncManager?.processedCount || 0}`,
+        `  Queue Length: ${currentState.asyncManager?.queueLength || 0}`,
+        `  Cache Hits: ${currentState.asyncManager?.cacheHits || 0}`,
+        '',
+        'TensorFlow.js Acceleration:',
+        `  Status: ${currentState.tensorFlow?.isLoaded ? 'Ready' : 'Not Available'}`,
+        `  Backend: ${currentState.tensorFlow?.backend || 'Unknown'}`,
+        `  WebGPU Available: ${currentState.tensorFlow?.isWebGPUAvailable ? 'Yes' : 'No'}`,
+        '',
+        'Adaptive Quality System:',
+        `  Current Quality: ${currentState.adaptiveQuality || 'Standard'}`,
+        `  Particle Count: ${currentState.optimizationMetrics?.particleCount || 'N/A'}`,
+        `  Geometry Resolution: ${currentState.optimizationMetrics?.geometryResolution || 'N/A'}`,
+        `  Shadow Mapping: ${currentState.optimizationMetrics?.shadowsEnabled ? 'Enabled' : 'Disabled'}`,
+        '',
+        'Memory Management:',
+        `  Three.js Cleanup: ${currentState.memoryManagement?.disposalActive ? 'Active' : 'Inactive'}`,
+        `  Geometry Pooling: ${currentState.memoryManagement?.poolingEnabled ? 'Enabled' : 'Disabled'}`,
+        `  Particle Recycling: ${currentState.memoryManagement?.particleRecycling ? 'Active' : 'Inactive'}`,
+        '',
+        'Optimization Effectiveness:',
+        `  Performance Improvement: ${currentState.optimizationMetrics?.performanceGain || 'N/A'}`,
+        `  Memory Reduction: ${currentState.optimizationMetrics?.memoryReduction || 'N/A'}`,
+        `  Render Speed Increase: ${currentState.optimizationMetrics?.renderSpeedUp || 'N/A'}`
+      ];
+
+      performanceText.forEach((text, index) => {
+        pdf.text(text, margin, 45 + (index * 6));
+      });
+
       // Transport Analysis Section
       if (currentState.transportStatus || currentState.destinationData) {
         pdf.addPage();
