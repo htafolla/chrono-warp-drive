@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
 import { usePerformanceOptimizer } from '@/contexts/PerformanceContext';
-import { hslToHex, hslToRgb } from '@/lib/colorUtils';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;
@@ -146,9 +145,8 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   useFrame((state) => {
     if (!meshRef.current || !geometryRef.current || !performanceOptimizer) return;
     
-    // Less restrictive frame limiting - allow more animation updates
-    const quality = performanceOptimizer.getAdaptiveQuality();
-    if (quality === 'low' && !performanceOptimizer.shouldProcessFrame()) return;
+    // Frame rate limiting - only update when performance allows
+    if (!performanceOptimizer.shouldProcessFrame()) return;
     
     try {
       const geometry = geometryRef.current;
@@ -162,36 +160,27 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       
       // Adaptive quality - skip vertices based on performance
       const quality = performanceOptimizer.getAdaptiveQuality();
-      const vertexSkip = quality === 'low' ? 3 : quality === 'medium' ? 2 : 1;
+      const vertexSkip = quality === 'low' ? 4 : quality === 'medium' ? 2 : 1;
       
-      // Update vertices with simplified wave calculations
+      // Update vertices with enhanced wave calculations
       for (let i = 0; i < position.count; i += vertexSkip) {
         const x = position.getX(i);
         const z = position.getZ(i);
         
-        // Simplified wave calculation with bounds checking
-        const waveValue = wave(x, state.clock.elapsedTime * 0.8, index, isotope, band.lambda, phaseType);
-        const secondaryWave = Math.sin(z * 0.2 + state.clock.elapsedTime * 1.2) * 0.1;
-        const combinedWave = waveValue * Math.sin(x * 0.3 + z * 0.3 + phase) + secondaryWave;
-        
-        // Enhanced bounds checking with increased amplitude
-        const heightValue = Math.max(-1.0, Math.min(1.0, 
-          combinedWave * 0.8 * intensityMultiplier
+        const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
+        const heightValue = Math.max(-3, Math.min(3, 
+          waveValue * Math.sin(x + z + phase) * 0.4 * intensityMultiplier
         ));
         
-        // Validate height value before setting
-        if (isFinite(heightValue) && !isNaN(heightValue)) {
-          position.setY(i, heightValue);
-        }
+        position.setY(i, heightValue);
       }
       
       position.needsUpdate = true;
       
-      // Enhanced wave plane positioning with better spacing and rotation
-      meshRef.current.rotation.z = phase * 0.02 + Math.sin(state.clock.elapsedTime * 0.15) * 0.012;
-      meshRef.current.rotation.x = Math.PI / 5 + Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.08;
-      meshRef.current.position.y = index * 2.5 - 12 + Math.sin(state.clock.elapsedTime * 0.4 + index) * 0.2;
-      meshRef.current.position.z = Math.sin(index * 0.5) * 0.5; // Add z-separation
+      // Enhanced wave plane positioning and rotation with spectrum influence
+      meshRef.current.rotation.z = phase * 0.05;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1) * 0.1;
+      meshRef.current.position.y = index * 0.4 - 3;
       
     } catch (error) {
       console.error('Enhanced WavePlane animation error:', error);
@@ -210,32 +199,20 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
     };
   }, []);
 
-  // Create material with proper HSL to RGB conversion for visibility
-  const material = useMemo(() => {
-    const rgbColor = hslToHex(band.color);
-    const emissiveRgb = hslToRgb(band.color);
-    
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(rgbColor),
-      emissive: new THREE.Color(emissiveRgb.r * 0.5, emissiveRgb.g * 0.5, emissiveRgb.b * 0.5),
-      emissiveIntensity: 1.2, // Dramatically increased for self-illumination
-      transparent: true,
-      opacity: 0.95, // Near-opaque for strong visibility
-      side: THREE.DoubleSide,
-      roughness: 0.1,
-      metalness: 0.3,
-      blending: THREE.AdditiveBlending, // Add bloom effect
-    });
-    return mat;
-  }, [band.color]);
-
   return (
-    <mesh ref={meshRef} position={[0, index * 2.5 - 12, 0]} castShadow receiveShadow>
+    <mesh ref={meshRef} position={[0, index * 0.4 - 3, 0]}>
       <planeGeometry 
         ref={geometryRef} 
-        args={[12, 12, 12, 12]} 
+        args={[10, 10, 16, 16]} 
       />
-      <primitive object={material} />
+      <meshPhongMaterial 
+        color={band.color}
+        wireframe
+        transparent
+        opacity={0.6}
+        emissive={band.color}
+        emissiveIntensity={0.1}
+      />
     </mesh>
   );
 }
@@ -254,20 +231,18 @@ function PostProcessing({ children }: PostProcessingProps) {
     // Adaptive rendering settings based on performance
     const quality = performanceOptimizer.getAdaptiveQuality();
     
-    // Enhanced tone mapping with dramatic exposure boost
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.8; // Dramatically increased for bright spectrum visibility
+    gl.toneMappingExposure = 1.2;
     
-    // Optimized shadow configuration - reduce artifacts
-    gl.shadowMap.enabled = true;
-    gl.shadowMap.type = quality === 'low' ? THREE.BasicShadowMap : THREE.PCFShadowMap;
-    gl.shadowMap.autoUpdate = true;
+    // Disable shadows for better performance - they're the biggest FPS killer
+    gl.shadowMap.enabled = false;
     
-    // Dark blue/purple gradient background for better contrast
-    gl.setClearColor(0x001122, 1);
-    
-    // Adaptive pixel ratio based on performance
-    gl.setPixelRatio(quality === 'low' ? 1 : Math.min(window.devicePixelRatio, 2));
+    // Adaptive antialias based on performance
+    if (quality === 'low') {
+      gl.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+    } else {
+      gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    }
   }, [gl, performanceOptimizer]);
   
   return <>{children}</>;
@@ -282,12 +257,6 @@ interface EnhancedTemporalSceneProps {
   time: number;
 }
 
-interface DebugState {
-  wireframe: boolean;
-  showColors: boolean;
-  showBounds: boolean;
-}
-
 export function EnhancedTemporalScene({ 
   phases, 
   isotope, 
@@ -297,28 +266,13 @@ export function EnhancedTemporalScene({
   time 
 }: EnhancedTemporalSceneProps) {
   const performanceOptimizer = usePerformanceOptimizer();
-  const [debugState, setDebugState] = React.useState<DebugState>({
-    wireframe: false,
-    showColors: true,
-    showBounds: false
-  });
-
-  // Color preview for debugging
-  const colorPreview = useMemo(() => {
-    return SPECTRUM_BANDS.map(band => ({
-      band: band.band,
-      hsl: band.color,
-      hex: hslToHex(band.color),
-      rgb: hslToRgb(band.color)
-    }));
-  }, []);
   
   // Adaptive star count based on performance
   const starCount = useMemo(() => {
     if (!performanceOptimizer) return 1000;
     const quality = performanceOptimizer.getAdaptiveQuality();
     switch (quality) {
-      case 'high': return 1500;
+      case 'high': return 2000;
       case 'medium': return 1000;
       case 'low': return 500;
       default: return 1000;
@@ -327,64 +281,26 @@ export function EnhancedTemporalScene({
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
-        camera={{ position: [0, 0, 20], fov: 65 }}
+        camera={{ position: [8, 6, 12], fov: 60 }}
         gl={{ antialias: true, alpha: true }}
-        shadows
       >
         <PostProcessing>
-          {/* Enhanced Lighting System for Spectrum Visibility */}
-          <ambientLight intensity={1.0} />
-          
-          {/* Colored rim lighting for each spectrum band */}
-          {SPECTRUM_BANDS.slice(0, 3).map((band, index) => (
-            <pointLight 
-              key={`rim-${index}`}
-              position={[
-                Math.cos(index * 2.1) * 15, 
-                index * 4 - 6, 
-                Math.sin(index * 2.1) * 15
-              ]} 
-              intensity={0.4}
-              color={hslToHex(band.color)}
-              castShadow={false}
-            />
-          ))}
-          
+          {/* Optimized Lighting System - No shadows for better performance */}
+          <ambientLight intensity={0.5} />
+          <pointLight 
+            position={[10, 10, 10]} 
+            intensity={1.2} 
+            color="#ffffff"
+          />
           <directionalLight 
-            position={[8, 12, 8]} 
-            intensity={1.2}
-            castShadow={true}
-            shadow-mapSize-width={512}
-            shadow-mapSize-height={512}
-            shadow-camera-near={0.1}
-            shadow-camera-far={50}
-            shadow-camera-left={-25}
-            shadow-camera-right={25}
-            shadow-camera-top={25}
-            shadow-camera-bottom={-25}
-            shadow-bias={-0.0001}
-          />
-          
-          {/* Moving accent lights following wave patterns */}
-          <pointLight 
-            position={[
-              Math.sin(time * 0.001) * 20, 
-              Math.cos(time * 0.002) * 8, 
-              Math.sin(time * 0.0015) * 15
-            ]} 
-            intensity={0.6}
-            color="#4080ff"
-            castShadow={false}
+            position={[-10, 10, 5]} 
+            intensity={1.0}
+            color="#7c3aed"
           />
           <pointLight 
-            position={[
-              Math.cos(time * 0.0008) * 18, 
-              Math.sin(time * 0.003) * 6, 
-              Math.cos(time * 0.0012) * 12
-            ]} 
-            intensity={0.5}
-            color="#ff6040"
-            castShadow={false}
+            position={[0, -8, 8]} 
+            intensity={0.6} 
+            color="#3b82f6"
           />
           
           {/* Particle System */}
@@ -408,13 +324,13 @@ export function EnhancedTemporalScene({
             />
           ))}
           
-          {/* Adaptive Background Stars - Colorful */}
+          {/* Adaptive Background Stars */}
           <Stars 
-            radius={120} 
-            depth={60} 
+            radius={100} 
+            depth={50} 
             count={starCount} 
-            factor={1.5} 
-            saturation={0.8} 
+            factor={4} 
+            saturation={0} 
             fade
           />
           
@@ -433,90 +349,31 @@ export function EnhancedTemporalScene({
         </PostProcessing>
       </Canvas>
       
-      {/* Enhanced Overlay Info with Debug Controls */}
-      <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-4 text-card-foreground shadow-lg max-w-xs">
+      {/* Enhanced Overlay Info */}
+      <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-4 text-card-foreground shadow-lg">
         <div className="text-sm font-medium space-y-1">
           <p>Isotope: <span className="text-primary font-mono">{isotope.type}</span></p>
           <p>Fractal: <span className={fractalToggle ? "text-accent" : "text-secondary"}>{fractalToggle ? "ON" : "OFF"}</span></p>
           {spectrumData && (
-            <p>Source: <span className="text-blue-400 font-mono text-xs">{spectrumData.source}</span></p>
+            <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
-          <p>Stars: <span className="text-green-400 font-mono">{starCount}</span></p>
-          <p>Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
+          <p>Particles: <span className="text-green-400 font-mono">{starCount}</span></p>
         </div>
-        
-        {/* Debug Controls */}
-        <div className="mt-3 pt-3 border-t border-border/50">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Debug Options:</p>
-          <div className="space-y-1">
-            <label className="flex items-center text-xs cursor-pointer">
-              <input
-                type="checkbox"
-                checked={debugState.wireframe}
-                onChange={(e) => setDebugState(prev => ({ ...prev, wireframe: e.target.checked }))}
-                className="mr-2 scale-75"
-              />
-              Wireframe Mode
-            </label>
-            <label className="flex items-center text-xs cursor-pointer">
-              <input
-                type="checkbox"
-                checked={debugState.showColors}
-                onChange={(e) => setDebugState(prev => ({ ...prev, showColors: e.target.checked }))}
-                className="mr-2 scale-75"
-              />
-              Color Debug
-            </label>
-            <label className="flex items-center text-xs cursor-pointer">
-              <input
-                type="checkbox"
-                checked={debugState.showBounds}
-                onChange={(e) => setDebugState(prev => ({ ...prev, showBounds: e.target.checked }))}
-                className="mr-2 scale-75"
-              />
-              Show Bounds
-            </label>
-          </div>
-        </div>
-        
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
-          <p>• Solid wave surfaces with enhanced colors</p>
-          <p>• Optimized performance & shadows</p>
+          <p>• Enhanced lighting & particles</p>
         </div>
       </div>
       
-      {/* Performance & Status Info */}
+      {/* Performance Info */}
       <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-3 text-card-foreground shadow-lg">
         <div className="text-xs space-y-1">
           <p>Quality: <span className={`font-mono ${performanceOptimizer?.getAdaptiveQuality() === 'high' ? 'text-green-400' : performanceOptimizer?.getAdaptiveQuality() === 'medium' ? 'text-yellow-400' : 'text-red-400'}`}>
             {performanceOptimizer?.getAdaptiveQuality()?.toUpperCase() || 'LOADING'}
           </span></p>
           <p>FPS: <span className="text-blue-400 font-mono">{performanceOptimizer?.getCurrentFPS().toFixed(0) || '---'}</span></p>
-          <p>Material: <span className="text-green-400">Standard</span></p>
-          <p>Shadows: <span className="text-cyan-400">Enhanced</span></p>
-          <p>Stars: <span className="text-purple-400">Colorful</span></p>
-          <p>Spacing: <span className="text-yellow-400">Fixed</span></p>
+          <p>Shadows: <span className="text-red-400">Disabled</span></p>
         </div>
-        
-        {debugState.showColors && (
-          <div className="mt-2 pt-2 border-t border-border/50">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Color Debug:</p>
-            <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto">
-              {colorPreview.map((color, i) => (
-                <div key={i} className="flex items-center text-xs">
-                  <div 
-                    className="w-3 h-3 rounded border border-white/20 mr-1" 
-                    style={{ backgroundColor: color.hex }}
-                  />
-                  <span className="text-white/80 text-[10px] truncate">
-                    {color.band}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
