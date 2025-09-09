@@ -524,6 +524,45 @@ export function TPTTApp() {
               spectrumData={spectrumData}
               nextUpdateIn={nextUpdateIn}
             />
+            
+            {/* Transport System - Enhanced Version */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Rocket className="h-5 w-5" />
+                  Transport System
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TransportSystem
+                  tPTT_value={tPTT_value}
+                  phases={phases}
+                  e_t={e_t}
+                  neuralOutput={tpttV4Result?.neuralOutput}
+                  rippel={rippel}
+                  isotope={isotope}
+                  fractalToggle={fractalToggle}
+                  spectrumData={spectrumData}
+                  energyGrowthRate={energyGrowthRate}
+                  onEnergyGrowthRateChange={setEnergyGrowthRate}
+                  targetE_t={targetE_t}
+                  onTargetE_tChange={setTargetE_t}
+                  isRealtime={autoRealtimeMode}
+                  onRealtimeToggle={handleAutoRealtimeToggle}
+                  energyMomentum={energyMomentum}
+                  neuralBoost={enhancedMetrics.neuralBoost}
+                  spectrumBoost={enhancedMetrics.spectrumBoost}
+                  fractalBonus={enhancedMetrics.fractalBonus}
+                  adaptiveThreshold={enhancedMetrics.adaptiveThreshold}
+                  logReadiness={enhancedMetrics.logReadiness}
+                  etaToReady={enhancedMetrics.etaToReady}
+                  energyTrend={enhancedMetrics.energyTrend}
+                  optimizations={enhancedMetrics.optimizations}
+                  isOptimal={enhancedMetrics.isOptimal}
+                  onOptimizedSpectrumSelect={handleOptimizedSpectrumSelect}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="simulation" className="space-y-4">
@@ -595,43 +634,18 @@ export function TPTTApp() {
                 tPTT_value={tPTT_value}
                 fractalToggle={fractalToggle}
               />
-              {/* Transport System - Enhanced Version */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Transport System</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <TransportSystem
-                      tPTT_value={tPTT_value}
-                      phases={phases}
-                      e_t={e_t}
-                      neuralOutput={tpttV4Result?.neuralOutput}
-                      rippel={rippel}
-                      isotope={isotope}
-                      fractalToggle={fractalToggle}
-                      spectrumData={spectrumData}
-                      energyGrowthRate={energyGrowthRate}
-                      onEnergyGrowthRateChange={setEnergyGrowthRate}
-                      targetE_t={targetE_t}
-                      onTargetE_tChange={setTargetE_t}
-                      isRealtime={autoRealtimeMode}
-                      onRealtimeToggle={handleAutoRealtimeToggle}
-                      energyMomentum={energyMomentum}
-                      neuralBoost={enhancedMetrics.neuralBoost}
-                      spectrumBoost={enhancedMetrics.spectrumBoost}
-                      fractalBonus={enhancedMetrics.fractalBonus}
-                      adaptiveThreshold={enhancedMetrics.adaptiveThreshold}
-                      logReadiness={enhancedMetrics.logReadiness}
-                      etaToReady={enhancedMetrics.etaToReady}
-                      energyTrend={enhancedMetrics.energyTrend}
-                      optimizations={enhancedMetrics.optimizations}
-                      isOptimal={enhancedMetrics.isOptimal}
-                      onOptimizedSpectrumSelect={handleOptimizedSpectrumSelect}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+               {/* Advanced system analytics and enhanced controls */}
+               <Card>
+                 <CardHeader>
+                   <CardTitle>Advanced Analytics</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="text-center py-8 text-muted-foreground">
+                     <p>Transport System moved to main Dashboard</p>
+                     <p className="text-xs mt-2">Additional advanced features will be added here</p>
+                   </div>
+                 </CardContent>
+               </Card>
             </div>
             <MobileControls
               onRotate={sceneControlsRef.current.rotate}
