@@ -186,13 +186,14 @@ export function LODWavePlane({
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
+        <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
           wireframe={false}
           transparent
-          opacity={0.9}
+          opacity={0.85}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.6}
+          emissiveIntensity={0.8}
           side={THREE.DoubleSide}
         />
       </mesh>
