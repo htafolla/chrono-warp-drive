@@ -90,8 +90,17 @@ export function Dashboard({
           </div>
           <div className="mt-4 p-3 bg-muted rounded-lg">
             <div className="text-xs text-muted-foreground mb-1">Transport Status</div>
-            <Badge variant={tPTT_value > 1e12 ? "default" : "secondary"}>
-              {tPTT_value > 1e12 ? "Ready for Transport" : "Charging"}
+            <Badge variant={
+              tPTT_value >= 1e11 ? "default" : 
+              tPTT_value >= 1e10 ? "outline" : 
+              tPTT_value >= 1e9 ? "secondary" : 
+              "destructive"
+            }>
+              {tPTT_value >= 1e11 ? "Ready for Transport" : 
+               tPTT_value >= 1e10 ? "Transport Available" : 
+               tPTT_value >= 1e9 ? "Preparing" : 
+               tPTT_value >= 1e6 ? "Charging" : 
+               "Initializing"}
             </Badge>
           </div>
         </CardContent>
