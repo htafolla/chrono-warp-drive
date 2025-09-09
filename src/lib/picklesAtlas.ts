@@ -292,12 +292,16 @@ export class PicklesAtlas {
   }
 
   getRandomSpectrum(): SpectrumData {
+    console.log("getRandomSpectrum called - initialized:", this.isInitialized, "catalog size:", this.spectrumCatalog.length);
+    
     if (!this.isInitialized || this.spectrumCatalog.length === 0) {
+      console.log("Using fallback spectrum");
       return this.generateFallbackSpectrum();
     }
     
     const deterministicIndex = Math.floor((Math.sin(Date.now() * 0.001) + 1) * 0.5 * this.spectrumCatalog.length);
     const randomSpec = this.spectrumCatalog[deterministicIndex % this.spectrumCatalog.length];
+    console.log("Selected spectrum:", randomSpec.id, "at index:", deterministicIndex % this.spectrumCatalog.length);
     return this.generateSpectrumFromPickles(randomSpec);
   }
 

@@ -133,7 +133,13 @@ export function TPTTApp() {
         await neuralFusion.initialize();
         
         setSystemStatus("Generating initial spectrum data...");
+        console.log("Loading initial spectrum...");
         const initialSpectrum = picklesAtlas.getRandomSpectrum();
+        console.log("Initial spectrum loaded:", initialSpectrum ? {
+          source: initialSpectrum.source,
+          wavelengthCount: initialSpectrum.wavelengths.length,
+          hasIntensities: initialSpectrum.intensities.length > 0
+        } : "null");
         setSpectrumData(initialSpectrum);
         temporalCalcV4.setInputData(initialSpectrum);
         
