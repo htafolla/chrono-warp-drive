@@ -7,7 +7,9 @@ import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
 import { LODWavePlane } from './LODWavePlane';
+import { GroundPlane } from './GroundPlane';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
+import { getSafeColor } from '@/lib/colorUtils';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;
@@ -87,13 +89,17 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
       const phaseIndex = i % phases.length;
       const phase = phases[phaseIndex];
       
-      positions[i3 + 1] += Math.sin(time * 0.01 + phase) * 0.01;
+      positions[i3 + 1] += Math.sin(time * 0.04 + phase) * 0.02;
       
-      // Pulse colors based on spectrum intensity
-      const pulseIntensity = 0.8 + 0.2 * Math.sin(time * 0.005 + phase);
-      colors[i3] *= pulseIntensity;
-      colors[i3 + 1] *= pulseIntensity;
-      colors[i3 + 2] *= pulseIntensity;
+      // Pulse colors based on spectrum intensity - FIX: Use additive pulsing instead of multiplicative
+      const pulseIntensity = 0.8 + 0.4 * Math.sin(time * 0.02 + phase);
+      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.5;
+      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.4;
+      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.2;
+      
+      colors[i3] = baseR * pulseIntensity;
+      colors[i3 + 1] = baseG * pulseIntensity;
+      colors[i3 + 2] = baseB * pulseIntensity;
     }
     
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
@@ -211,12 +217,13 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         args={[10, 10, 48, 48]} 
       />
       <meshPhongMaterial 
-        color={band.color}
-        wireframe
+        color={getSafeColor(band.color)}
+        wireframe={false}
         transparent
-        opacity={0.7}
-        emissive={band.color}
-        emissiveIntensity={0.15}
+        opacity={0.6}
+        emissive={getSafeColor(band.color)}
+        emissiveIntensity={0.2}
+        side={THREE.DoubleSide}
       />
     </mesh>
   );
@@ -315,10 +322,10 @@ export function EnhancedTemporalScene({
             shadow-mapSize-height={512}
             shadow-camera-near={0.5}
             shadow-camera-far={50}
-            shadow-camera-left={-10}
-            shadow-camera-right={10}
-            shadow-camera-top={10}
-            shadow-camera-bottom={-10}
+            shadow-camera-left={-20}
+            shadow-camera-right={20}
+            shadow-camera-top={20}
+            shadow-camera-bottom={-20}
           />
           <pointLight 
             position={[10, 10, 10]} 
@@ -340,6 +347,9 @@ export function EnhancedTemporalScene({
               qualitySettings={performanceSettings}
             />
           )}
+          
+          {/* Ground Plane for Shadow Reception */}
+          <GroundPlane />
           
           {/* Enhanced LOD Wave Planes */}
           {SPECTRUM_BANDS.map((band, index) => (
@@ -367,21 +377,22 @@ export function EnhancedTemporalScene({
                    performanceSettings.quality === 'medium' ? 2000 : 1500} 
             factor={4} 
             saturation={0.4}
-            fade={false}
-            speed={0.1}
+            fade={true}
+            speed={0.05}
           />
           
-          {/* Enhanced Controls with Preset Paths */}
+          {/* Enhanced Controls with Better Camera Position */}
           <OrbitControls 
             enablePan={true}
+            target={[0, 0, 0]}
+            minDistance={5}
+            maxDistance={25}
             enableZoom={true}
             enableRotate={true}
-            maxDistance={30}
-            minDistance={5}
             autoRotate={false}
             autoRotateSpeed={0.5}
             dampingFactor={0.05}
-            enableDamping
+            enableDamping={true}
           />
         </PostProcessing>
       </Canvas>
@@ -397,6 +408,7 @@ export function EnhancedTemporalScene({
           <p>Particles: <span className="text-green-400 font-mono">{performanceSettings.particles ? 750 : 0}</span></p>
           <p>Quality: <span className="text-blue-400 font-mono capitalize">{performanceSettings.quality}</span></p>
           <p>Wave Planes: <span className="text-purple-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
+          <p>Visible Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
         </div>
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
