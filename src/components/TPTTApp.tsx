@@ -8,6 +8,8 @@ import { Dashboard } from './Dashboard';
 import { TemporalScene } from './TemporalScene';
 import { ControlPanel } from './ControlPanel';
 import { SpectrumAnalyzer } from './SpectrumAnalyzer';
+import { SpectrumSelector } from './SpectrumSelector';
+import { RippelDisplay } from './RippelDisplay';
 import { PerformanceMonitor } from './PerformanceMonitor';
 import { AudioSynthesis } from './AudioSynthesis';
 import { ExportImport } from './ExportImport';
@@ -168,6 +170,18 @@ export function TPTTApp() {
     toast.success("Configuration imported successfully!");
   };
 
+  // v4.5 Spectrum selection handler
+  const handleSpectrumSelect = async (selectedSpectrum: SpectrumData) => {
+    try {
+      setSpectrumData(selectedSpectrum);
+      temporalCalcV4.setInputData(selectedSpectrum);
+      toast.success(`Selected ${selectedSpectrum.source} spectrum loaded successfully`);
+    } catch (error) {
+      console.error("Failed to select spectrum:", error);
+      toast.error("Failed to load selected spectrum");
+    }
+  };
+
   const currentState = {
     time,
     phases,
@@ -290,11 +304,31 @@ export function TPTTApp() {
           </TabsContent>
 
           <TabsContent value="spectrum" className="space-y-4">
-            <SpectrumAnalyzer 
-              waves={waves} 
-              time={time} 
-              spectrumData={spectrumData}
-              isV4Enhanced={isV4Initialized}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Spectrum Selection */}
+              <div className="lg:col-span-1">
+                <SpectrumSelector
+                  onSpectrumSelect={handleSpectrumSelect}
+                  currentSpectrum={spectrumData}
+                />
+              </div>
+              
+              {/* Spectrum Analysis */}
+              <div className="lg:col-span-2">
+                <SpectrumAnalyzer 
+                  waves={waves} 
+                  time={time} 
+                  spectrumData={spectrumData}
+                  isV4Enhanced={isV4Initialized}
+                />
+              </div>
+            </div>
+            
+            {/* Rippel Display */}
+            <RippelDisplay
+              tpttResult={tpttV4Result}
+              rippel={rippel}
+              time={time}
             />
           </TabsContent>
 
