@@ -18,11 +18,16 @@ interface PerformanceProviderProps {
 export function PerformanceProvider({ children }: PerformanceProviderProps) {
   const optimizerRef = useRef<PerformanceOptimizer | null>(null);
   const [isReady, setIsReady] = React.useState(false);
+  const initializationRef = useRef(false); // Prevent double initialization in StrictMode
 
   useEffect(() => {
     let isMounted = true;
 
     const initializeOptimizer = async () => {
+      // Prevent multiple initializations in React StrictMode
+      if (initializationRef.current) return;
+      initializationRef.current = true;
+
       try {
         if (!optimizerRef.current) {
           optimizerRef.current = PerformanceOptimizer.getInstance();
@@ -44,7 +49,8 @@ export function PerformanceProvider({ children }: PerformanceProviderProps) {
 
     return () => {
       isMounted = false;
-      // Don't dispose here as it might be used by other components
+      // Reset initialization flag on cleanup for proper re-mounting
+      initializationRef.current = false;
     };
   }, []);
 

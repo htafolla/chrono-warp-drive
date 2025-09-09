@@ -253,7 +253,18 @@ export function TPTTApp() {
       if (intervalId) clearInterval(intervalId);
       if (countdownId) clearInterval(countdownId);
     };
-  }, [time, fractalToggle, isotope, cycle, isV4Initialized, spectrumData, isPlaying, updateInterval, animationMode]);
+  }, [isPlaying, updateInterval, animationMode]); // Removed time, isotope, cycle to prevent infinite loops
+
+  // Separate effect for external parameter changes that should trigger recalculation
+  useEffect(() => {
+    if (isPlaying) {
+      // Batch state updates to prevent cascade re-renders
+      requestAnimationFrame(() => {
+        // Only trigger update if isotope actually changed
+        setTime(prev => prev + 0.1); // Small increment to refresh calculations
+      });
+    }
+  }, [isotope]); // Only isotope affects calculations externally
 
   // Enhanced calculations with v4.5 compatibility
   const waves = spectrumData?.intensities || SPECTRUM_BANDS.map((band, i) => 
