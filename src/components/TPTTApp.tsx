@@ -13,7 +13,7 @@ import { SpectrumSelector } from './SpectrumSelector';
 import { RippelDisplay } from './RippelDisplay';
 import { PerformanceMonitor } from './PerformanceMonitor';
 import { useAsyncCalculations } from './AsyncCalculationManager';
-import { usePerformanceOptimizer } from './PerformanceOptimizer';
+import { usePerformanceOptimizer } from '@/contexts/PerformanceContext';
 import { useTensorFlowInitializer } from './TensorFlowInitializer';
 import { AudioSynthesis } from './AudioSynthesis';
 import { ExportImport } from './ExportImport';
