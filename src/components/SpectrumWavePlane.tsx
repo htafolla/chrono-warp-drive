@@ -105,8 +105,8 @@ export function SpectrumWavePlane({
         position.setY(i, heightValue);
       }
       
-      // Debug log only once per frame for first plane
-      if (index === 0) {
+      // Debug log for first two planes
+      if (index === 0 || index === 1) {
         console.log(`[SpectrumWavePlane ${index}] Wave animation active, waveValue:`, waveValue, 'sample heightValue:',
           Math.max(-2, Math.min(2, (waveValue * Math.sin(0 + 0 + phase)) * 0.8 * intensityMultiplier)));
       }
@@ -116,7 +116,7 @@ export function SpectrumWavePlane({
       // Enhanced positioning and rotation with more dynamic movement
       meshRef.current.rotation.z = phase * 0.05 + Math.sin(state.clock.elapsedTime * 0.2) * 0.03;
       meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.1;
-      meshRef.current.position.y = index * 0.6 - 3;
+      meshRef.current.position.y = index * 1.5 - 3; // Increased spacing for visibility
       meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.15 + index * 0.3) * 0.2;
       
     } catch (error) {
@@ -131,7 +131,7 @@ export function SpectrumWavePlane({
   return (
     <mesh 
       ref={meshRef} 
-      position={[0, index * 0.6 - 3, 0]} 
+      position={[0, index * 1.5 - 3, 0]} 
       receiveShadow={qualitySettings.shadows}
       castShadow={qualitySettings.shadows}
       visible={true}
