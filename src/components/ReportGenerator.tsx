@@ -47,7 +47,7 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
       
       const summaryText = [
         `Temporal Phase: ${currentState.phases[0]?.toFixed(4) || 'N/A'}`,
-        `Isotope Configuration: ${currentState.isotope}`,
+        `Isotope Configuration: ${currentState.isotope?.type || 'N/A'}`,
         `Fractal Enhancement: ${currentState.fractalToggle ? 'Enabled' : 'Disabled'}`,
         `tPTT Value: ${tpttV4Result?.tPTT_value?.toFixed(6) || 'Calculating...'}`,
         `Neural Confidence: ${neuralFusionData?.confidenceScore ? (neuralFusionData.confidenceScore * 100).toFixed(2) + '%' : 'N/A'}`
@@ -249,7 +249,7 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
             </div>
             <div class="data-item">
                 <div class="label">Isotope</div>
-                <div class="value">${currentState.isotope}</div>
+                <div class="value">${currentState.isotope?.type || 'N/A'}</div>
             </div>
             <div class="data-item">
                 <div class="label">Fractal</div>
@@ -400,7 +400,7 @@ ${JSON.stringify(currentState, null, 2)}
           <div className="text-sm font-medium">Current Analysis State</div>
           <div className="text-xs text-muted-foreground space-y-1">
             <div>Time: {currentState.time?.toFixed(4) || 'N/A'}</div>
-            <div>Isotope: {currentState.isotope}</div>
+            <div>Isotope: {currentState.isotope?.type || 'N/A'}</div>
             <div>Fractal: {currentState.fractalToggle ? 'ON' : 'OFF'}</div>
             <div>tPTT: {tpttV4Result?.tPTT_value?.toFixed(6) || 'Calculating...'}</div>
           </div>
