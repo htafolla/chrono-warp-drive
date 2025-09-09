@@ -182,23 +182,26 @@ export function LODWavePlane({
     }
   });
 
+  // Debug logging to understand the issue
+  console.log(`[WavePlane ${index}] Rendering - LOD: ${currentLOD}, Distance: ${currentDistance.toFixed(2)}, Visible: ${isVisible}`);
+  
   return (
     <group>
-      
-      {/* Main wave plane */}
+      {/* Main wave plane - STEP 1: Add back basic geometry */}
       <mesh 
         ref={meshRef} 
         position={[0, index * 1.0 - 2, 0]} 
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
+        <planeGeometry args={[10, 10, 32, 32]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={currentDistance > 25}
+          wireframe={false}
           transparent
-          opacity={Math.max(0.5, currentLOD === 'high' ? 0.8 : currentLOD === 'medium' ? 0.7 : 0.5)}
+          opacity={0.8}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={Math.max(0.3, currentLOD === 'high' ? 0.6 : currentLOD === 'medium' ? 0.5 : 0.3)}
+          emissiveIntensity={0.5}
           side={THREE.DoubleSide}
         />
       </mesh>
