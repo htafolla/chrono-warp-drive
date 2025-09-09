@@ -116,7 +116,7 @@ export function TPTTApp() {
       setPhases(prevPhases => 
         prevPhases.map((phase, i) => {
           try {
-            const newPhase = kuramoto(prevPhases, [omega[i]], time, fractalToggle, isotope, phaseType);
+            const newPhase = kuramoto(prevPhases, omega, time, fractalToggle, isotope, phaseType, i);
             return (phase + newPhase * PHASE_UPDATE_FACTOR) % (2 * Math.PI);
           } catch (error) {
             console.error(`Phase update error for phase ${i}:`, error);

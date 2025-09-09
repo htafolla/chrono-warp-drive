@@ -223,14 +223,21 @@ export class TemporalCalculatorV4 {
   private calculatePhaseCoherence(data: number[]): number {
     if (data.length < 4) return 0;
     
-    // Calculate phase coherence using Hilbert transform approximation
+    // Use standardized Kuramoto order parameter for spectral phases
     const phases = data.map((val, i) => Math.atan2(val, data[(i + 1) % data.length]));
-    const phaseDiffs = phases.map((phase, i) => 
-      Math.abs(phase - phases[(i + 1) % phases.length])
-    );
     
-    const avgPhaseDiff = phaseDiffs.reduce((sum, diff) => sum + diff, 0) / phaseDiffs.length;
-    return Math.exp(-avgPhaseDiff);
+    let sumCos = 0;
+    let sumSin = 0;
+    
+    for (const phase of phases) {
+      sumCos += Math.cos(phase);
+      sumSin += Math.sin(phase);
+    }
+    
+    const avgCos = sumCos / phases.length;
+    const avgSin = sumSin / phases.length;
+    
+    return Math.sqrt(avgCos * avgCos + avgSin * avgSin);
   }
 
   private estimateFractalDimension(data: number[]): number {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { validateTLM, Isotope } from '@/lib/temporalCalculator';
+import { validateTLM, Isotope, calculatePhaseCoherence } from '@/lib/temporalCalculator';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { TransportSystem } from './TransportSystem';
 import { TPTTv4Result } from '@/types/sdss';
@@ -34,7 +34,7 @@ export function Dashboard({
   fractalToggle = false
 }: DashboardProps) {
   const isValidTLM = validateTLM(phi);
-  const phaseSync = phases.reduce((sum, phase) => sum + Math.cos(phase), 0) / phases.length;
+  const phaseSync = calculatePhaseCoherence(phases);
   
   return (
     <div className="space-y-6">

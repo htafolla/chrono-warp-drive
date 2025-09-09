@@ -315,14 +315,19 @@ export class NeuralFusion {
   private calculatePhaseCoherence(phases: number[]): number {
     if (phases.length < 2) return 0;
     
-    // Calculate phase synchronization measure
-    const phaseDiffs = [];
-    for (let i = 1; i < phases.length; i++) {
-      phaseDiffs.push(Math.abs(phases[i] - phases[i-1]));
+    // Use standardized Kuramoto order parameter
+    let sumCos = 0;
+    let sumSin = 0;
+    
+    for (const phase of phases) {
+      sumCos += Math.cos(phase);
+      sumSin += Math.sin(phase);
     }
     
-    const avgDiff = phaseDiffs.reduce((a, b) => a + b) / phaseDiffs.length;
-    return Math.exp(-avgDiff); // Higher coherence = lower phase differences
+    const avgCos = sumCos / phases.length;
+    const avgSin = sumSin / phases.length;
+    
+    return Math.sqrt(avgCos * avgCos + avgSin * avgSin);
   }
 
   dispose(): void {

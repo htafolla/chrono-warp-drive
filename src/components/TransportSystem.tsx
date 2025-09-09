@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Zap, Target, MapPin, Clock, AlertTriangle, CheckCircle, Rocket, Activity, Wifi, Radio, Gauge } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Isotope } from '@/lib/temporalCalculator';
+import { Isotope, calculatePhaseCoherence } from '@/lib/temporalCalculator';
 import { TransportSequenceVerification } from './TransportSequenceVerification';
 
 interface TransportResult {
@@ -53,9 +53,9 @@ export const TransportSystem = ({
   const transportStatus = useMemo(() => {
     const canTransport = tPTT_value >= 1e10;
     const transportReadiness = Math.min(tPTT_value / 1e11, 1) * 100;
-    const phaseSync = phases.reduce((sum, phase) => sum + Math.cos(phase), 0) / phases.length;
+    const phaseSync = calculatePhaseCoherence(phases);
     const neuralSync = neuralOutput?.confidenceScore || 0;
-    const phaseCoherence = Math.abs(phaseSync) * 100;
+    const phaseCoherence = phaseSync * 100;
     const isotopeResonance = isotope.factor * 100;
     
     // Dynamic status determination

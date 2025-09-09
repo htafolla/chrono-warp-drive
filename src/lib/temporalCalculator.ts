@@ -54,25 +54,47 @@ export function kuramoto(
   t: number, 
   fractalToggle: boolean, 
   isotope: Isotope, 
-  phaseType: string
+  phaseType: string,
+  oscillatorIndex: number = 0
 ): number {
   try {
     const phiOffset = phaseType === "push" ? Math.PI / 4 : -Math.PI / 4;
     let sum = 0;
     
-    for (let j = 0; j < N; j++) {
-      if (isNaN(theta[j])) {
-        throw new Error("Phase NaN detected");
+    // Proper Kuramoto coupling: each oscillator couples with all others
+    for (let j = 0; j < Math.min(N, theta.length); j++) {
+      if (j !== oscillatorIndex && !isNaN(theta[j])) {
+        sum += Math.sin(theta[j] - theta[oscillatorIndex] + PHI_DARK + phiOffset + 
+          (fractalToggle ? S * isotope.factor : 0));
       }
-      sum += Math.sin(theta[j] - theta[0] + PHI_DARK + phiOffset + 
-        (fractalToggle ? S * isotope.factor : 0));
     }
     
-    return omega[0] + (K / N) * sum;
+    // Return frequency update for the specific oscillator
+    return omega[oscillatorIndex] + (K / Math.max(N - 1, 1)) * sum;
   } catch (error) {
     console.error("Kuramoto error:", error);
-    return omega[0]; // Fallback
+    return omega[oscillatorIndex] || omega[0]; // Fallback
   }
+}
+
+// Standardized phase coherence calculation using Kuramoto order parameter
+export function calculatePhaseCoherence(phases: number[]): number {
+  if (phases.length < 2) return 0;
+  
+  // Kuramoto order parameter: |⟨e^(iθ)⟩|
+  let sumCos = 0;
+  let sumSin = 0;
+  
+  for (const phase of phases) {
+    sumCos += Math.cos(phase);
+    sumSin += Math.sin(phase);
+  }
+  
+  const avgCos = sumCos / phases.length;
+  const avgSin = sumSin / phases.length;
+  
+  // Order parameter magnitude (0 = incoherent, 1 = perfectly synchronized)
+  return Math.sqrt(avgCos * avgCos + avgSin * avgSin);
 }
 
 // Wave function with isotope modulation
