@@ -21,11 +21,11 @@ interface LODWavePlaneProps {
   };
 }
 
-// Optimized LOD configurations for better performance
+// Smart LOD configurations for visibility and performance balance
 const LOD_CONFIGS = {
-  high: { segments: 32, maxDistance: 8 },
-  medium: { segments: 24, maxDistance: 15 },
-  low: { segments: 16, maxDistance: 25 },
+  high: { segments: 32, maxDistance: 12 },
+  medium: { segments: 24, maxDistance: 20 },
+  low: { segments: 16, maxDistance: 30 },
   veryLow: { segments: 12, maxDistance: Infinity }
 };
 
@@ -44,9 +44,10 @@ export function LODWavePlane({
   const memoryManager = useMemoryManager();
   const { camera } = useThree();
   
-  // Track current LOD level
+  // Track current LOD level and distance for material properties
   const [currentLOD, setCurrentLOD] = React.useState<'high' | 'medium' | 'low' | 'veryLow'>('high');
   const [isVisible, setIsVisible] = React.useState(true);
+  const [currentDistance, setCurrentDistance] = React.useState(0);
   const frameCountRef = useRef(0);
   
   // Cache geometries for different LOD levels
@@ -91,6 +92,9 @@ export function LODWavePlane({
     try {
       const meshPosition = meshRef.current.position;
       const distance = camera.position.distanceTo(meshPosition);
+      
+      // Update distance state for material properties
+      setCurrentDistance(distance);
       
       // Determine appropriate LOD level based on distance and quality settings
       let targetLOD: 'high' | 'medium' | 'low' | 'veryLow' = 'high';
@@ -139,9 +143,12 @@ export function LODWavePlane({
       const intensityMultiplier = spectrumData ? 
         spectrumData.intensities[index % spectrumData.intensities.length] : 1;
       
-      // Optimized wave animations with frame throttling and LOD-based complexity
-      if (shouldUpdate || targetLOD === 'high') {
-        const complexity = targetLOD === 'high' ? 1 : targetLOD === 'medium' ? 0.7 : 0.4;
+      // Smart animation throttling - always animate high quality
+      const shouldThrottle = targetLOD !== 'high' && frameCountRef.current % 2 !== 0;
+      
+      if (!shouldThrottle) {
+        // Maintain minimum visibility standards
+        const complexity = Math.max(0.6, targetLOD === 'high' ? 1 : targetLOD === 'medium' ? 0.8 : 0.6);
         
         for (let i = 0; i < position.count; i++) {
           const x = position.getX(i);
@@ -185,14 +192,13 @@ export function LODWavePlane({
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
-        <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={currentLOD === 'veryLow'}
+          wireframe={currentDistance > 25}
           transparent
-          opacity={currentLOD === 'high' ? 0.8 : currentLOD === 'medium' ? 0.6 : 0.4}
+          opacity={Math.max(0.5, currentLOD === 'high' ? 0.8 : currentLOD === 'medium' ? 0.7 : 0.5)}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={currentLOD === 'high' ? 0.6 : currentLOD === 'medium' ? 0.4 : 0.2}
+          emissiveIntensity={Math.max(0.3, currentLOD === 'high' ? 0.6 : currentLOD === 'medium' ? 0.5 : 0.3)}
           side={THREE.DoubleSide}
         />
       </mesh>
