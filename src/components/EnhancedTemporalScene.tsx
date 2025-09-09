@@ -127,7 +127,7 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
         size={0.1}
         vertexColors
         transparent
-        opacity={0.8}
+        opacity={0.4}
         blending={THREE.AdditiveBlending}
       />
     </points>
@@ -215,8 +215,8 @@ export function EnhancedTemporalScene({
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
         key="enhanced-temporal-canvas"
-        camera={{ position: [5, 3, 10], fov: 60 }}  // Phase 10D: Better camera position for wave plane viewing
-        gl={{ antialias: true, alpha: true }}
+        camera={{ position: [0, 2, 8], fov: 75 }}  // Optimized position for spectrum visibility
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         onCreated={({ gl }) => {
           console.log('[Phase 10F] Canvas created, initializing renderer for spectrum wave debugging');
           gl.toneMapping = THREE.LinearToneMapping;
@@ -224,40 +224,23 @@ export function EnhancedTemporalScene({
         }}
       >
         <PostProcessing>
-          {/* Optimized Lighting System - RGB colors to prevent star conflicts */}
-          <ambientLight intensity={0.2} />
-          <directionalLight 
-            position={[-10, 10, 5]} 
-            intensity={0.8}
-            color="#9333ea"
-            castShadow
-            shadow-mapSize-width={512}
-            shadow-mapSize-height={512}
-            shadow-camera-near={0.5}
-            shadow-camera-far={50}
-            shadow-camera-left={-20}
-            shadow-camera-right={20}
-            shadow-camera-top={20}
-            shadow-camera-bottom={-20}
-          />
-          <pointLight 
-            position={[10, 10, 10]} 
-            intensity={0.6} 
-            color="#0ea5e9"
-          />
-          <pointLight 
-            position={[0, -8, 8]} 
-            intensity={0.4} 
-            color="#10b981"
-          />
+          {/* Optimized Lighting for Spectrum Visibility */}
+          <ambientLight intensity={0.1} />
+          <directionalLight position={[0, 10, 5]} intensity={0.6} castShadow />
+          <pointLight position={[0, 5, 0]} color="#ffffff" intensity={0.4} />
+          <pointLight position={[-5, 0, 5]} color="#4338ca" intensity={0.3} />
+          <pointLight position={[5, 0, 5]} color="#ec4899" intensity={0.3} />
           
-          {/* Performance-Optimized Particle System */}
+          {/* Reduced Particle System to prevent spectrum washout */}
           {performanceSettings.particles && (
             <ParticleSystem 
               spectrumData={spectrumData}
               time={time}
               phases={phases}
-              qualitySettings={performanceSettings}
+              qualitySettings={{
+                ...performanceSettings,
+                quality: performanceSettings.quality // Keep existing but reduce opacity in component
+              }}
             />
           )}
           

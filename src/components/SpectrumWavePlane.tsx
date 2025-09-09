@@ -34,6 +34,14 @@ export function SpectrumWavePlane({
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   const memoryManager = useMemoryManager();
 
+  // Debug logging
+  useEffect(() => {
+    console.log(`[SpectrumWavePlane ${index}] Mounted with band lambda:`, band.lambda, 'color:', band.color);
+    return () => {
+      console.log(`[SpectrumWavePlane ${index}] Unmounting`);
+    };
+  }, [band.lambda, band.color, index]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -51,6 +59,11 @@ export function SpectrumWavePlane({
     
     try {
       const geometry = geometryRef.current;
+      if (!geometry.attributes?.position) {
+        console.warn(`[SpectrumWavePlane ${index}] No position attribute available`);
+        return;
+      }
+      
       const position = geometry.attributes.position;
       const phase = phases[index % phases.length] || 0;
       const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
@@ -66,8 +79,8 @@ export function SpectrumWavePlane({
         
         const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
         const secondaryWave = Math.sin(x * 0.5 + state.clock.elapsedTime * 0.8) * 0.3;
-        const heightValue = Math.max(-4, Math.min(4, 
-          (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.6 * intensityMultiplier
+        const heightValue = Math.max(-2, Math.min(2, 
+          (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.8 * intensityMultiplier
         ));
         
         position.setY(i, heightValue);
@@ -76,36 +89,44 @@ export function SpectrumWavePlane({
       position.needsUpdate = true;
       
       // Enhanced positioning and rotation with more dynamic movement
-      meshRef.current.rotation.z = phase * 0.08 + Math.sin(state.clock.elapsedTime * 0.3) * 0.05;
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.15 + index) * 0.15;
+      meshRef.current.rotation.z = phase * 0.05 + Math.sin(state.clock.elapsedTime * 0.2) * 0.03;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.1;
       meshRef.current.position.y = index * 0.6 - 3;
-      meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.2 + index * 0.5) * 0.3;
+      meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.15 + index * 0.3) * 0.2;
       
     } catch (error) {
-      console.error('SpectrumWavePlane animation error:', error);
+      console.error(`[SpectrumWavePlane ${index}] Animation error:`, error);
     }
   });
 
+  // Get safe color with fallback
+  const safeColor = getSafeColor(band.color) || '#ffffff';
+  
   return (
-    <mesh 
-      ref={meshRef} 
-      position={[0, index * 0.6 - 3, 0]} 
-      receiveShadow={qualitySettings.shadows}
-      castShadow={qualitySettings.shadows}
-    >
-      <planeGeometry 
-        ref={geometryRef} 
-        args={[10, 10, 48, 48]} 
-      />
-      <meshPhongMaterial 
-        color={getSafeColor(band.color)}
-        wireframe={false}
-        transparent
-        opacity={0.9}
-        emissive={getSafeColor(band.color)}
-        emissiveIntensity={0.5}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group>
+      <mesh 
+        ref={meshRef} 
+        position={[0, index * 0.6 - 3, 0]} 
+        receiveShadow={qualitySettings.shadows}
+        castShadow={qualitySettings.shadows}
+      >
+        <planeGeometry 
+          ref={geometryRef} 
+          args={[8, 8, 32, 32]} 
+        />
+        <meshBasicMaterial 
+          color={safeColor}
+          wireframe={false}
+          transparent
+          opacity={0.8}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      
+      {/* Debug bounding box helper */}
+      {process.env.NODE_ENV === 'development' && (
+        <boxHelper args={[meshRef.current, safeColor]} />
+      )}
+    </group>
   );
 }
