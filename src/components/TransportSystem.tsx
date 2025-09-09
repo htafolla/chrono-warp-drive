@@ -91,7 +91,7 @@ export const TransportSystem = ({
       isotopeResonance,
       status,
       statusColor,
-      efficiency: Math.min(transportReadiness * 0.4 + phaseCoherence * 0.3 + neuralSync * 30, 100)
+      efficiency: Math.min(transportReadiness * 0.4 + phaseCoherence * 0.3 + neuralSync * 0.3, 100)
     };
   }, [tPTT_value, phases, neuralOutput, isotope]);
 
