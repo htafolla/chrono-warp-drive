@@ -257,12 +257,12 @@ export class MemoryManager {
       
       const avgFPS = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
       
-      // More aggressive cleanup when FPS is low
-      if (avgFPS < 30 && frameCount % 600 === 0) { // Every 10 seconds when struggling
+      // More conservative cleanup to prevent star disposal
+      if (avgFPS < 20 && frameCount % 1200 === 0) { // Every 20 seconds when severely struggling
         this.forceCleanup();
-      } else if (avgFPS < 45 && frameCount % 1200 === 0) { // Every 20 seconds when below ideal
+      } else if (avgFPS < 30 && frameCount % 1800 === 0) { // Every 30 seconds when struggling
         this.lightCleanup();
-      } else if (frameCount % 1800 === 0) { // Every 30 seconds normally
+      } else if (frameCount % 3600 === 0) { // Every minute normally
         this.lightCleanup();
       }
       
@@ -324,8 +324,14 @@ export class MemoryManager {
     return 'low';
   }
 
-  // Dispose of THREE.js object safely
+  // Dispose of THREE.js object safely - exclude stars from aggressive cleanup
   disposeObject(object: THREE.Object3D): void {
+    // Skip disposal of stars and particle systems to prevent black star issue
+    if (this.isStarOrParticleSystem(object)) {
+      console.log('[STARS DEBUG] Skipping disposal of stars/particle system');
+      return;
+    }
+
     object.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         if (child.geometry) {
@@ -348,6 +354,18 @@ export class MemoryManager {
     if (object.parent) {
       object.parent.remove(object);
     }
+  }
+
+  // Check if object is part of stars or particle system
+  private isStarOrParticleSystem(object: THREE.Object3D): boolean {
+    // Check object name/type patterns
+    const name = object.name?.toLowerCase() || '';
+    const type = object.type?.toLowerCase() || '';
+    
+    return name.includes('star') || 
+           name.includes('particle') || 
+           type.includes('points') ||
+           object.constructor.name.includes('Stars');
   }
 
   private disposeMaterial(material: THREE.Material): void {

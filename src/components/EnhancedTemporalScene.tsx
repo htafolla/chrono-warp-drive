@@ -211,11 +211,14 @@ function PostProcessing({ children }: PostProcessingProps) {
   const { gl, scene, camera } = useThree();
   
   useEffect(() => {
-    // Enhanced rendering settings
-    gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.2;
+    // Fixed rendering settings - prevent star washout
+    gl.toneMapping = THREE.LinearToneMapping;
+    gl.toneMappingExposure = 1.0;
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    
+    // Debug stars issue
+    console.log('[STARS DEBUG] PostProcessing initialized with LinearToneMapping');
   }, [gl]);
   
   return <>{children}</>;
@@ -239,20 +242,34 @@ export function EnhancedTemporalScene({
   time 
 }: EnhancedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
+
+  // Debug stars lifecycle
+  useEffect(() => {
+    console.log('[STARS DEBUG] EnhancedTemporalScene mounted');
+    return () => {
+      console.log('[STARS DEBUG] EnhancedTemporalScene unmounting');
+    };
+  }, []);
   
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
+        key="enhanced-temporal-canvas"
         camera={{ position: [8, 6, 12], fov: 60 }}
         gl={{ antialias: true, alpha: true }}
+        onCreated={({ gl }) => {
+          console.log('[STARS DEBUG] Canvas created, initializing renderer');
+          gl.toneMapping = THREE.LinearToneMapping;
+          gl.toneMappingExposure = 1.0;
+        }}
       >
         <PostProcessing>
-          {/* Phase 7: Further Optimized Lighting System */}
-          <ambientLight intensity={0.6} />
+          {/* Optimized Lighting System - RGB colors to prevent star conflicts */}
+          <ambientLight intensity={0.4} />
           <directionalLight 
             position={[-10, 10, 5]} 
-            intensity={1.2}
-            color="hsl(270, 100%, 60%)"
+            intensity={0.8}
+            color="#9333ea"
             castShadow
             shadow-mapSize-width={512}
             shadow-mapSize-height={512}
@@ -265,13 +282,13 @@ export function EnhancedTemporalScene({
           />
           <pointLight 
             position={[10, 10, 10]} 
-            intensity={0.8} 
-            color="hsl(195, 100%, 50%)"
+            intensity={0.6} 
+            color="#0ea5e9"
           />
           <pointLight 
             position={[0, -8, 8]} 
-            intensity={0.6} 
-            color="hsl(149, 100%, 50%)"
+            intensity={0.4} 
+            color="#10b981"
           />
           
           {/* Particle System */}
@@ -295,13 +312,15 @@ export function EnhancedTemporalScene({
             />
           ))}
           
-          {/* Background Stars - Phase 7 Optimized */}
+          {/* Background Stars - Fixed Black Transition */}
           <Stars 
             radius={100} 
             depth={50} 
             count={3000} 
             factor={4} 
-            saturation={0.2} 
+            saturation={0.4}
+            fade={false}
+            speed={0.1}
           />
           
           {/* Enhanced Controls with Preset Paths */}
