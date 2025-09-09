@@ -22,6 +22,11 @@ interface TransportResult {
   rippelHarmonics: string;
   status: 'success' | 'partial' | 'failed';
   anomalies: string[];
+  temporalDestination?: {
+    targetMJD: number;
+    targetUTC: Date;
+    temporalOffset: number;
+  };
 }
 
 interface TransportSystemProps {
@@ -95,7 +100,7 @@ export const TransportSystem = ({
     };
   }, [tPTT_value, phases, neuralOutput, isotope]);
 
-  // Real-time destination calculation and stability tracking
+  // Real-time destination calculation with space-time coordinates
   const destinationData = useMemo(() => {
     const phaseSum = phases.reduce((sum, phase) => sum + phase, 0);
     const neuralFactor = neuralOutput?.metamorphosisIndex || 0.5;
@@ -113,6 +118,38 @@ export const TransportSystem = ({
     // Determine if coordinates are locked
     const isLocked = stabilityFactor > 0.8 && transportStatus.status === 'ready';
     
+    // Calculate target observation time
+    const currentMJD = (Date.now() - new Date(1858, 10, 17).getTime()) / (24 * 60 * 60 * 1000);
+    
+    // Calculate Local Sidereal Time offset for optimal viewing
+    const lstOffset = (coords.ra / 360) * 1; // Convert RA to fraction of day
+    
+    // Apply temporal variations based on system parameters
+    const temporalVariation = (transportStatus.isotopeResonance / 100 - 0.5) * 10; // ±5 days
+    const neuralTimeShift = neuralFactor * 0.1; // Small neural influence
+    const phaseTimeOffset = (phaseSum % (2 * Math.PI)) / (2 * Math.PI) * 0.5; // Phase influence on time
+    
+    const targetMJD = currentMJD + lstOffset + temporalVariation + neuralTimeShift + phaseTimeOffset;
+    const targetUTC = new Date(new Date(1858, 10, 17).getTime() + targetMJD * 24 * 60 * 60 * 1000);
+    const temporalOffset = targetMJD - currentMJD;
+    
+    // Calculate observability (simplified - assumes object is observable if it's not too far south)
+    const isObservable = coords.dec > -60; // Rough northern hemisphere observability
+    const hoursToOptimal = Math.abs(temporalOffset * 24);
+    
+    let observabilityWindow = "Not observable";
+    if (isObservable) {
+      if (hoursToOptimal < 1) {
+        observabilityWindow = "Optimal viewing now";
+      } else if (hoursToOptimal < 6) {
+        observabilityWindow = `Optimal in ${hoursToOptimal.toFixed(1)}h`;
+      } else if (hoursToOptimal < 24) {
+        observabilityWindow = `Optimal in ${(hoursToOptimal / 24).toFixed(1)} days`;
+      } else {
+        observabilityWindow = `Optimal in ${Math.floor(hoursToOptimal / 24)} days`;
+      }
+    }
+    
     // Format coordinates for display
     const formatRA = (ra: number) => {
       const hours = Math.floor(ra / 15);
@@ -129,6 +166,15 @@ export const TransportSystem = ({
       const arcseconds = ((absDec - degrees) * 60 - arcminutes) * 60;
       return `${sign}${degrees.toString().padStart(2, '0')}° ${arcminutes.toString().padStart(2, '0')}' ${arcseconds.toFixed(1)}"`;
     };
+    
+    const formatTemporal = () => {
+      const dateStr = targetUTC.toISOString().split('T')[0];
+      const timeStr = targetUTC.toTimeString().split(' ')[0];
+      const mjdStr = targetMJD.toFixed(5);
+      const offsetStr = temporalOffset >= 0 ? `+${temporalOffset.toFixed(2)}` : temporalOffset.toFixed(2);
+      
+      return `${dateStr} ${timeStr} UTC (MJD ${mjdStr}, Δt: ${offsetStr}d)`;
+    };
 
     return {
       coords,
@@ -142,9 +188,17 @@ export const TransportSystem = ({
       stability: stabilityFactor,
       variance: coordinateVariance,
       isLocked,
-      distance: coords.z > 0 ? `~${(coords.z * 3000).toFixed(0)} Mpc` : 'Local'
+      distance: coords.z > 0 ? `~${(coords.z * 3000).toFixed(0)} Mpc` : 'Local',
+      temporal: {
+        targetMJD,
+        targetUTC,
+        temporalOffset,
+        isObservable,
+        observabilityWindow,
+        formatted: formatTemporal()
+      }
     };
-  }, [tPTT_value, phases, e_t, neuralOutput, transportStatus.phaseCoherence, transportStatus.neuralSync, transportStatus.status]);
+  }, [tPTT_value, phases, e_t, neuralOutput, transportStatus.phaseCoherence, transportStatus.neuralSync, transportStatus.status, transportStatus.isotopeResonance]);
 
   const calculateTransportDestination = () => {
     return destinationData.coords;
@@ -219,16 +273,25 @@ export const TransportSystem = ({
         neuralSyncScore,
         rippelHarmonics: rippel,
         status: transportStatus,
-        anomalies
+        anomalies,
+        temporalDestination: {
+          targetMJD: destinationData.temporal.targetMJD,
+          targetUTC: destinationData.temporal.targetUTC,
+          temporalOffset: destinationData.temporal.temporalOffset
+        }
       };
 
       setLastTransport(result);
       setTransportHistory(prev => [result, ...prev.slice(0, 9)]); // Keep last 10
 
-      // Show result toast
+      // Show result toast with temporal info
+      const tempInfo = result.temporalDestination 
+        ? ` at ${result.temporalDestination.targetUTC.toISOString().split('T')[0]} (MJD ${result.temporalDestination.targetMJD.toFixed(3)})`
+        : '';
+      
       toast({
         title: `Transport ${transportStatus.toUpperCase()}`,
-        description: `Efficiency: ${(transportEfficiency * 100).toFixed(1)}% | Destination: RA ${destination.ra.toFixed(2)}°`,
+        description: `Efficiency: ${(transportEfficiency * 100).toFixed(1)}% | Destination: RA ${destination.ra.toFixed(2)}°${tempInfo}`,
         variant: transportStatus === 'success' ? 'default' : transportStatus === 'partial' ? 'default' : 'destructive'
       });
 
@@ -455,12 +518,12 @@ export const TransportSystem = ({
             )}
           </div>
 
-          {/* Real-time Destination Preview */}
+          {/* Real-time 4D Destination Preview */}
           <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                <span className="font-medium">Transport Destination</span>
+                <span className="font-medium">4D Space-Time Destination</span>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={destinationData.isLocked ? "default" : "secondary"} className="text-xs">
@@ -472,9 +535,10 @@ export const TransportSystem = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
+              {/* Spatial Coordinates */}
               <div className="space-y-2">
-                <div className="font-medium text-muted-foreground">Celestial Coordinates</div>
+                <div className="font-medium text-muted-foreground">Spatial Coordinates</div>
                 <div className="space-y-1 font-mono">
                   <div className="flex justify-between">
                     <span>RA:</span>
@@ -497,6 +561,25 @@ export const TransportSystem = ({
                 </div>
               </div>
 
+              {/* Temporal Coordinates */}
+              <div className="space-y-2">
+                <div className="font-medium text-muted-foreground">Temporal Coordinates</div>
+                <div className="space-y-1 text-xs">
+                  <div className="font-mono break-all">
+                    {destinationData.temporal.formatted}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className={`${destinationData.temporal.isObservable ? 'text-green-600' : 'text-red-600'}`}>
+                      {destinationData.temporal.observabilityWindow}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {destinationData.temporal.temporalOffset >= 0 ? 'Future' : 'Past'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Data */}
               <div className="space-y-2">
                 <div className="font-medium text-muted-foreground">Navigation Data</div>
                 <div className="space-y-1 text-xs">
@@ -527,7 +610,7 @@ export const TransportSystem = ({
               <Alert className="border-yellow-200 bg-yellow-50/50">
                 <Clock className="w-4 h-4 text-yellow-600" />
                 <AlertDescription className="text-sm text-yellow-800">
-                  Coordinates tracking - target will lock when system reaches optimal coherence
+                  Space-time coordinates tracking - target will lock when system reaches optimal coherence
                 </AlertDescription>
               </Alert>
             )}
@@ -627,7 +710,7 @@ export const TransportSystem = ({
                   <div className="col-span-2">
                     <div className="text-muted-foreground flex items-center gap-1">
                       <MapPin className="w-3 h-3" />
-                      Destination
+                      Spatial Destination
                     </div>
                     <div className="font-mono text-xs">
                       RA {lastTransport.destinationCoords.ra.toFixed(2)}° 
@@ -635,6 +718,21 @@ export const TransportSystem = ({
                       Z {lastTransport.destinationCoords.z.toFixed(4)}
                     </div>
                   </div>
+                  {lastTransport.temporalDestination && (
+                    <div className="col-span-2">
+                      <div className="text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Temporal Destination
+                      </div>
+                      <div className="font-mono text-xs">
+                        {lastTransport.temporalDestination.targetUTC.toISOString().split('T')[0]} 
+                        (MJD {lastTransport.temporalDestination.targetMJD.toFixed(5)})
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Offset: {lastTransport.temporalDestination.temporalOffset >= 0 ? '+' : ''}{lastTransport.temporalDestination.temporalOffset.toFixed(2)} days
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {lastTransport.anomalies.length > 0 && (
