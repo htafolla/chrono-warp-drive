@@ -145,8 +145,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   useFrame((state) => {
     if (!meshRef.current || !geometryRef.current || !performanceOptimizer) return;
     
-    // Frame rate limiting - only update when performance allows
-    if (!performanceOptimizer.shouldProcessFrame()) return;
+    // Less restrictive frame limiting - allow more animation updates
+    const quality = performanceOptimizer.getAdaptiveQuality();
+    if (quality === 'low' && !performanceOptimizer.shouldProcessFrame()) return;
     
     try {
       const geometry = geometryRef.current;
@@ -167,9 +168,10 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         const x = position.getX(i);
         const z = position.getZ(i);
         
-        const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
-        const heightValue = Math.max(-3, Math.min(3, 
-          waveValue * Math.sin(x + z + phase) * 0.4 * intensityMultiplier
+        const waveValue = wave(x, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
+        const secondaryWave = Math.sin(z * 0.5 + state.clock.elapsedTime * 2) * 0.2;
+        const heightValue = Math.max(-2, Math.min(2, 
+          (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.6 * intensityMultiplier
         ));
         
         position.setY(i, heightValue);
@@ -178,9 +180,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       position.needsUpdate = true;
       
       // Enhanced wave plane positioning and rotation with spectrum influence
-      meshRef.current.rotation.z = phase * 0.05;
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1) * 0.1;
-      meshRef.current.position.y = index * 0.4 - 3;
+      meshRef.current.rotation.z = phase * 0.05 + Math.sin(state.clock.elapsedTime * 0.3) * 0.02;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.15;
+      meshRef.current.position.y = index * 0.8 - 4 + Math.sin(state.clock.elapsedTime + index) * 0.3;
       
     } catch (error) {
       console.error('Enhanced WavePlane animation error:', error);
@@ -200,7 +202,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   }, []);
 
   return (
-    <mesh ref={meshRef} position={[0, index * 0.4 - 3, 0]}>
+    <mesh ref={meshRef} position={[0, index * 0.8 - 4, 0]} castShadow receiveShadow>
       <planeGeometry 
         ref={geometryRef} 
         args={[10, 10, 16, 16]} 
@@ -209,9 +211,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         color={band.color}
         wireframe
         transparent
-        opacity={0.6}
+        opacity={0.7}
         emissive={band.color}
-        emissiveIntensity={0.1}
+        emissiveIntensity={0.15}
       />
     </mesh>
   );
@@ -283,24 +285,37 @@ export function EnhancedTemporalScene({
       <Canvas 
         camera={{ position: [8, 6, 12], fov: 60 }}
         gl={{ antialias: true, alpha: true }}
+        shadows
       >
         <PostProcessing>
-          {/* Optimized Lighting System - No shadows for better performance */}
-          <ambientLight intensity={0.5} />
+          {/* Enhanced Lighting System with Shadows */}
+          <ambientLight intensity={0.3} />
           <pointLight 
             position={[10, 10, 10]} 
             intensity={1.2} 
             color="#ffffff"
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
           />
           <directionalLight 
             position={[-10, 10, 5]} 
             intensity={1.0}
             color="#7c3aed"
+            castShadow
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+            shadow-camera-far={50}
+            shadow-camera-left={-10}
+            shadow-camera-right={10}
+            shadow-camera-top={10}
+            shadow-camera-bottom={-10}
           />
           <pointLight 
             position={[0, -8, 8]} 
             intensity={0.6} 
             color="#3b82f6"
+            castShadow
           />
           
           {/* Particle System */}
@@ -372,7 +387,7 @@ export function EnhancedTemporalScene({
             {performanceOptimizer?.getAdaptiveQuality()?.toUpperCase() || 'LOADING'}
           </span></p>
           <p>FPS: <span className="text-blue-400 font-mono">{performanceOptimizer?.getCurrentFPS().toFixed(0) || '---'}</span></p>
-          <p>Shadows: <span className="text-red-400">Disabled</span></p>
+          <p>Shadows: <span className="text-green-400">Enabled</span></p>
         </div>
       </div>
     </div>
