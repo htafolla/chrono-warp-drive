@@ -7,6 +7,7 @@ import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
 import { LODWavePlane } from './LODWavePlane';
+import { GroundPlane } from './GroundPlane';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
 
 interface ParticleSystemProps {
@@ -87,13 +88,17 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
       const phaseIndex = i % phases.length;
       const phase = phases[phaseIndex];
       
-      positions[i3 + 1] += Math.sin(time * 0.01 + phase) * 0.01;
+      positions[i3 + 1] += Math.sin(time * 0.04 + phase) * 0.02;
       
-      // Pulse colors based on spectrum intensity
-      const pulseIntensity = 0.8 + 0.2 * Math.sin(time * 0.005 + phase);
-      colors[i3] *= pulseIntensity;
-      colors[i3 + 1] *= pulseIntensity;
-      colors[i3 + 2] *= pulseIntensity;
+      // Pulse colors based on spectrum intensity - FIX: Use additive pulsing instead of multiplicative
+      const pulseIntensity = 0.8 + 0.4 * Math.sin(time * 0.02 + phase);
+      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.5;
+      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.4;
+      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.2;
+      
+      colors[i3] = baseR * pulseIntensity;
+      colors[i3 + 1] = baseG * pulseIntensity;
+      colors[i3 + 2] = baseB * pulseIntensity;
     }
     
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
@@ -212,9 +217,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       />
       <meshPhongMaterial 
         color={band.color}
-        wireframe
+        wireframe={false}
         transparent
-        opacity={0.7}
+        opacity={0.3}
         emissive={band.color}
         emissiveIntensity={0.15}
       />
@@ -315,10 +320,10 @@ export function EnhancedTemporalScene({
             shadow-mapSize-height={512}
             shadow-camera-near={0.5}
             shadow-camera-far={50}
-            shadow-camera-left={-10}
-            shadow-camera-right={10}
-            shadow-camera-top={10}
-            shadow-camera-bottom={-10}
+            shadow-camera-left={-20}
+            shadow-camera-right={20}
+            shadow-camera-top={20}
+            shadow-camera-bottom={-20}
           />
           <pointLight 
             position={[10, 10, 10]} 
@@ -340,6 +345,9 @@ export function EnhancedTemporalScene({
               qualitySettings={performanceSettings}
             />
           )}
+          
+          {/* Ground Plane for Shadow Reception */}
+          <GroundPlane />
           
           {/* Enhanced LOD Wave Planes */}
           {SPECTRUM_BANDS.map((band, index) => (
@@ -367,8 +375,8 @@ export function EnhancedTemporalScene({
                    performanceSettings.quality === 'medium' ? 2000 : 1500} 
             factor={4} 
             saturation={0.4}
-            fade={false}
-            speed={0.1}
+            fade={true}
+            speed={0.05}
           />
           
           {/* Enhanced Controls with Preset Paths */}

@@ -137,9 +137,9 @@ export function LODWavePlane({
           const x = position.getX(i);
           const z = position.getZ(i);
           
-          const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
-          const secondaryWave = targetLOD === 'high' ? 
-            Math.sin(x * 0.5 + state.clock.elapsedTime * 0.8) * 0.3 : 0;
+        const waveValue = wave(0, state.clock.elapsedTime * 3, index, isotope, band.lambda, phaseType);
+        const secondaryWave = targetLOD === 'high' ? 
+          Math.sin(x * 0.5 + state.clock.elapsedTime * 2.4) * 0.3 : 0;
           
           const heightValue = Math.max(-4, Math.min(4, 
             (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.6 * intensityMultiplier
@@ -173,9 +173,9 @@ export function LODWavePlane({
     >
       <meshPhongMaterial 
         color={band.color}
-        wireframe
+        wireframe={false}
         transparent
-        opacity={0.7}
+        opacity={0.3}
         emissive={band.color}
         emissiveIntensity={currentLOD === 'high' ? 0.15 : 0.1}
       />
