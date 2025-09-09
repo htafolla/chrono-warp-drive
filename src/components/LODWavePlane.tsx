@@ -154,7 +154,7 @@ export function LODWavePlane({
           const tertiaryWave = Math.cos(z * 1.0 + state.clock.elapsedTime * 4.0) * 0.6;
           
           const heightValue = Math.max(-8, Math.min(8, 
-            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 2.4 * intensityMultiplier
+            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 3.6 * intensityMultiplier
           ));
           
           position.setY(i, heightValue);
@@ -179,11 +179,13 @@ export function LODWavePlane({
 
   return (
     <group>
-      {/* Phase 10D: Debug bounds marker */}
-      <mesh position={[0, index * 1.0 - 2, 0]}>
-        <boxGeometry args={[12, 0.1, 12]} />
-        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
-      </mesh>
+      {/* Phase 11C: Optional debug bounds marker (commented for production) */}
+      {false && (
+        <mesh position={[0, index * 1.0 - 2, 0]}>
+          <boxGeometry args={[12, 0.1, 12]} />
+          <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
+        </mesh>
+      )}
       
       {/* Main wave plane */}
       <mesh 
@@ -195,11 +197,11 @@ export function LODWavePlane({
         <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={true}  // Phase 10C: Force wireframe for debugging
+          wireframe={false}  // Phase 11A: Solid surface for visibility
           transparent
-          opacity={0.9}  // Phase 10C: High opacity for visibility
+          opacity={0.75}  // Phase 11A: Optimized opacity for better contrast
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
+          emissiveIntensity={0.8}  // Phase 11A: Strong glow effect
           side={THREE.DoubleSide}
         />
       </mesh>
