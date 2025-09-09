@@ -137,17 +137,21 @@ export function SpectrumWavePlane({
   return (
     <mesh 
       ref={meshRef} 
-      position={[0, index * 3, -5]} 
+      position={[
+        (index % 4) * 10 - 15,  // Spread horizontally: -15, -5, 5, 15
+        Math.floor(index / 4) * 10 - 10,  // Stack vertically: -10, 0, 10
+        -20
+      ]} 
       receiveShadow={qualitySettings.shadows}
       castShadow={qualitySettings.shadows}
       visible={true}
     >
       <planeGeometry 
         ref={geometryRef} 
-        args={[20, 20, 20, 20]} 
+        args={[8, 8, 20, 20]} 
       />
       <meshBasicMaterial 
-        color={index === 0 ? '#ff0000' : index === 1 ? '#00ff00' : index === 2 ? '#0000ff' : '#ffffff'}
+        color={index < 3 ? ['#ff0000', '#00ff00', '#0000ff'][index] : `hsl(${index * 30}, 100%, 50%)`}
         transparent={false}
         opacity={1.0}
         side={THREE.DoubleSide}
