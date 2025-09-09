@@ -137,24 +137,42 @@ export const TransportSystem = ({
     // Calculate historical emission time (when light was emitted)
     const currentMJD = (Date.now() - new Date(1858, 10, 17).getTime()) / (24 * 60 * 60 * 1000);
     
-    // Calculate lookback time based on redshift (Z)
-    // Rough cosmological calculation: t_lookback ≈ 13.8 * Z / (1 + Z) billion years for small Z
-    // For small redshifts: distance ≈ Z * 3000 Mpc, light travel time ≈ Z * 10 billion years
-    const lightTravelTimeYears = coords.z > 0 ? coords.z * 10e9 : 0; // Approximate lookback time in years
+    // Calculate lookback time based on redshift (Z) - more realistic cosmological calculation
+    // For small redshifts: distance ≈ Z * c/H0, light travel time ≈ Z * 14 Gyr (age of universe)
+    // Cap the lookback time to prevent invalid dates
+    const maxLookbackYears = 13.8e9; // Age of universe in years
+    const lightTravelTimeYears = coords.z > 0 ? Math.min(coords.z * 1e10, maxLookbackYears) : 0;
     const lightTravelTimeDays = lightTravelTimeYears * 365.25; // Convert to days
     const lightTravelTimeMJD = lightTravelTimeDays; // MJD offset
     
-    // Apply additional temporal variations based on system parameters
+    // Apply additional temporal variations based on system parameters (much smaller now)
     const temporalVariation = (transportStatus.isotopeResonance / 100 - 0.5) * 365; // ±6 months variation
     const neuralTimeShift = neuralFactor * 30; // Neural influence up to 1 month
     const phaseTimeOffset = (phaseSum % (2 * Math.PI)) / (2 * Math.PI) * 7; // Phase influence up to 1 week
     
-    // Calculate emission time (subtract time to go backwards)
-    const targetMJD = currentMJD - lightTravelTimeMJD - Math.abs(temporalVariation) - Math.abs(neuralTimeShift) - Math.abs(phaseTimeOffset);
-    const targetUTC = new Date(new Date(1858, 10, 17).getTime() + targetMJD * 24 * 60 * 60 * 1000);
+    // Calculate emission time (subtract time to go backwards) with safety bounds
+    let targetMJD = currentMJD - lightTravelTimeMJD - Math.abs(temporalVariation) - Math.abs(neuralTimeShift) - Math.abs(phaseTimeOffset);
+    
+    // Ensure the MJD is within valid JavaScript Date range (roughly -100,000 to +100,000 years from 1970)
+    const minMJD = -36522; // Roughly year 1758 (safe lower bound)
+    const maxMJD = currentMJD + 36522; // Safe upper bound
+    targetMJD = Math.max(minMJD, Math.min(maxMJD, targetMJD));
+    
+    // Create Date object with validation
+    let targetUTC: Date;
+    const targetTime = new Date(1858, 10, 17).getTime() + targetMJD * 24 * 60 * 60 * 1000;
+    
+    if (isNaN(targetTime) || targetTime < -8640000000000000 || targetTime > 8640000000000000) {
+      // If invalid, use a safe fallback date
+      targetUTC = new Date(1900, 0, 1); // Fallback to 1900
+      targetMJD = (targetUTC.getTime() - new Date(1858, 10, 17).getTime()) / (24 * 60 * 60 * 1000);
+    } else {
+      targetUTC = new Date(targetTime);
+    }
+    
     const temporalOffset = targetMJD - currentMJD; // This will be negative (in the past)
     
-    // Calculate historical context
+    // Calculate historical context with the corrected values
     const yearsAgo = Math.abs(temporalOffset / 365.25);
     const isCosmicObject = coords.z > 0.01; // Significant redshift
     const isPrimordial = yearsAgo > 13.8e9; // Before Big Bang (impossible)
@@ -196,6 +214,11 @@ export const TransportSystem = ({
     };
     
     const formatTemporal = () => {
+      // Validate date before formatting
+      if (isNaN(targetUTC.getTime())) {
+        return "Invalid temporal coordinates";
+      }
+      
       const dateStr = targetUTC.toISOString().split('T')[0];
       const timeStr = targetUTC.toTimeString().split(' ')[0];
       const mjdStr = targetMJD.toFixed(5);
