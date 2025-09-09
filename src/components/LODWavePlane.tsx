@@ -187,23 +187,7 @@ export function LODWavePlane({
 
   return (
     <group>      
-      {/* Transparent solid plane underneath for depth */}
-      <mesh 
-        position={[0, index * 1.0 - 2, -0.1]} 
-        receiveShadow={qualitySettings.shadows}
-      >
-        <planeGeometry args={[10, 10, 8, 8]} />
-        <meshPhongMaterial 
-          color={getSafeColor(band.color)}
-          transparent
-          opacity={0.15}
-          emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.1}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      
-      {/* Enhanced wireframe spectrum plane */}
+      {/* Enhanced wireframe spectrum plane - no background block */}
       <mesh 
         ref={meshRef} 
         position={[0, index * 1.0 - 2, 0]} 
@@ -217,7 +201,7 @@ export function LODWavePlane({
           transparent
           opacity={0.95}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.8}  // Enhanced emissive for brilliant spectrum appearance
+          emissiveIntensity={0.8}
           side={THREE.DoubleSide}
         />
       </mesh>
