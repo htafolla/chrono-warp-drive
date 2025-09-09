@@ -6,7 +6,8 @@ import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
-import { LODWavePlane } from './LODWavePlane';
+import { SpectrumWavePlane } from './SpectrumWavePlane';
+import { DebugOverlay } from './DebugOverlay';
 import { GroundPlane } from './GroundPlane';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
 import { getSafeColor } from '@/lib/colorUtils';
@@ -266,6 +267,11 @@ interface EnhancedTemporalSceneProps {
   time: number;
   performanceSettings?: PerformanceSettings;
   onFPSChange?: (fps: number) => void;
+  debugMode?: {
+    showWireframes: boolean;
+    showBounds: boolean;
+    showInfo: boolean;
+  };
 }
 
 function PerformanceMonitor({ onFPSChange }: { onFPSChange?: (fps: number) => void }) {
@@ -286,7 +292,8 @@ export function EnhancedTemporalScene({
   spectrumData = null,
   time,
   performanceSettings = { quality: 'high', shadows: true, particles: true, postProcessing: true },
-  onFPSChange
+  onFPSChange,
+  debugMode = { showWireframes: false, showBounds: false, showInfo: false }
 }: EnhancedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
 
@@ -351,9 +358,9 @@ export function EnhancedTemporalScene({
           {/* Ground Plane for Shadow Reception */}
           <GroundPlane />
           
-          {/* Enhanced LOD Wave Planes */}
+          {/* Clean Spectrum Wave Planes */}
           {SPECTRUM_BANDS.map((band, index) => (
-            <LODWavePlane
+            <SpectrumWavePlane
               key={band.band}
               band={band}
               phases={phases}
@@ -365,6 +372,14 @@ export function EnhancedTemporalScene({
               qualitySettings={performanceSettings}
             />
           ))}
+          
+          {/* Independent Debug Overlay */}
+          <DebugOverlay 
+            showWireframes={debugMode.showWireframes}
+            showBounds={debugMode.showBounds}
+            showInfo={debugMode.showInfo}
+            opacity={0.4}
+          />
           
           {/* Performance Monitor */}
           <PerformanceMonitor onFPSChange={onFPSChange} />
