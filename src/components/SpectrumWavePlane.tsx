@@ -34,18 +34,15 @@ export function SpectrumWavePlane({
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   const memoryManager = useMemoryManager();
 
-  // Debug logging
+  // Debug logging - enhanced for all planes
   useEffect(() => {
-    console.log(`[SpectrumWavePlane ${index}] Mounted with:`, {
-      lambda: band.lambda,
-      color: band.color,
-      position: [0, index * 0.6 - 3, 0],
-      safeColor: getSafeColor(band.color)
-    });
+    console.log(`[SpectrumWavePlane ${index}] MOUNTING with band: ${band.band}, lambda: ${band.lambda}, color: ${band.color}`);
+    console.log(`[SpectrumWavePlane ${index}] Position will be: [0, ${index * 1.5 - 3}, 0]`);
+    console.log(`[SpectrumWavePlane ${index}] Safe color: ${getSafeColor(band.color)}`);
     return () => {
-      console.log(`[SpectrumWavePlane ${index}] Unmounting`);
+      console.log(`[SpectrumWavePlane ${index}] UNMOUNTING`);
     };
-  }, [band.lambda, band.color, index]);
+  }, [band.lambda, band.color, index, band.band]);
 
   // Debug mesh and geometry creation
   useEffect(() => {
@@ -124,9 +121,13 @@ export function SpectrumWavePlane({
     }
   });
 
-  // Get safe color with fallback
+  // Get safe color with fallback - enhanced logging
   const safeColor = getSafeColor(band.color) || '#ffffff';
-  console.log(`[SpectrumWavePlane ${index}] Using color:`, safeColor, 'from:', band.color);
+  
+  // Log only once per component, not on every render
+  useEffect(() => {
+    console.log(`[SpectrumWavePlane ${index}] Final render color: ${safeColor} from: ${band.color}`);
+  }, [safeColor, band.color, index]);
   
   return (
     <mesh 
