@@ -54,19 +54,19 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
     for (let i = 0; i < particleCount; i++) {
       const i3 = i * 3;
       
-      // Distribute particles in spectrum-influenced pattern
-      const radius = 5 + Math.random() * 10;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      // Distribute particles in deterministic spectrum-influenced pattern
+      const radius = 5 + (i / particleCount) * 10;
+      const theta = (i / particleCount) * Math.PI * 2;
+      const phi = Math.acos(2 * (i / particleCount) - 1);
       
       positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
       positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
       positions[i3 + 2] = radius * Math.cos(phi);
       
-      // Color based on spectrum data or default
+      // Color based on spectrum data or deterministic pattern
       const intensity = spectrumData ? 
         spectrumData.intensities[i % spectrumData.intensities.length] : 
-        Math.random();
+        Math.sin((i / particleCount) * Math.PI * 2) * 0.5 + 0.5;
       
       colors[i3] = 0.5 + intensity * 0.5; // Red
       colors[i3 + 1] = 0.3 + intensity * 0.4; // Green  
@@ -91,11 +91,14 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
       
       positions[i3 + 1] += Math.sin(time * 0.04 + phase) * 0.02;
       
-      // Pulse colors based on spectrum intensity - FIX: Use additive pulsing instead of multiplicative
+      // Pulse colors based on spectrum intensity - use deterministic base colors
       const pulseIntensity = 0.8 + 0.4 * Math.sin(time * 0.02 + phase);
-      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.5;
-      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.4;
-      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.2;
+      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || 
+        Math.sin((i / particleCount) * Math.PI * 2) * 0.5 + 0.5) * 0.5;
+      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || 
+        Math.cos((i / particleCount) * Math.PI * 2) * 0.5 + 0.5) * 0.4;
+      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || 
+        Math.sin((i / particleCount) * 4 * Math.PI) * 0.5 + 0.5) * 0.2;
       
       colors[i3] = baseR * pulseIntensity;
       colors[i3 + 1] = baseG * pulseIntensity;
