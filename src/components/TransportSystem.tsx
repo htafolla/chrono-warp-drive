@@ -77,7 +77,29 @@ export const TransportSystem = ({
     const phaseSync = calculatePhaseCoherence(phases);
     const neuralSync = neuralOutput?.confidenceScore || 0;
     const phaseCoherence = phaseSync * 100;
-    const isotopeResonance = isotope.factor * 100;
+    // Dynamic isotope resonance calculation (60-100% based on system conditions)
+    const baseResonance = isotope.factor * 100; // Base 100%
+    const stabilityFactor = phaseCoherence / 100; // 0-1 based on phase coherence
+    const neuralStabilityFactor = neuralSync; // 0-1 based on neural sync
+    const transportStabilityFactor = Math.min(transportReadiness / 100, 1); // 0-1 based on transport readiness
+    
+    // Environmental fluctuations (simulate real-world instability)
+    const timeBasedFluctuation = Math.sin(Date.now() / 10000) * 0.1; // ±10% slow oscillation
+    const randomFluctuation = (Math.random() - 0.5) * 0.05; // ±2.5% random noise
+    
+    // Isotope-specific resonance characteristics
+    const isotopeStability = isotope.type === 'C-12' ? 0.95 : 
+                            isotope.type === 'C-14' ? 0.85 : 0.8;
+    
+    // Combine all factors for dynamic resonance (range: 60-100%)
+    const dynamicResonance = baseResonance * (
+      0.4 * stabilityFactor +           // 40% weight on phase coherence
+      0.3 * neuralStabilityFactor +     // 30% weight on neural sync
+      0.2 * transportStabilityFactor +  // 20% weight on transport readiness
+      0.1 * isotopeStability            // 10% weight on isotope characteristics
+    ) + timeBasedFluctuation * 100 + randomFluctuation * 100;
+    
+    const isotopeResonance = Math.max(60, Math.min(100, dynamicResonance));
     
     // Dynamic status determination
     let status: 'offline' | 'initializing' | 'charging' | 'preparing' | 'ready' | 'critical' = 'offline';
@@ -121,10 +143,31 @@ export const TransportSystem = ({
     const phaseSum = phases.reduce((sum, phase) => sum + phase, 0);
     const neuralFactor = neuralOutput?.metamorphosisIndex || 0.5;
     
+    // Determine data type based on tPTT value and neural factor patterns
+    const isCosmicData = tPTT_value > 1e12 && neuralFactor > 0.8; // High energy, high neural activity
+    const isStellarData = tPTT_value > 1e10 && tPTT_value < 1e12; // Medium energy range
+    const isSyntheticData = tPTT_value < 1e10 || neuralFactor < 0.3; // Low energy or low neural activity
+    
+    // Calculate realistic redshift based on data type
+    let realisticZ: number;
+    if (isSyntheticData) {
+      // Synthetic/laboratory data: essentially zero redshift (local)
+      realisticZ = Math.abs(neuralFactor * 0.0001); // 0 to 0.0001 (local distances)
+    } else if (isStellarData) {
+      // Stellar observations: small redshifts for local stellar distances
+      realisticZ = Math.abs(neuralFactor * 0.001 + tPTT_value / 1e15); // 0.001 to 0.01 range
+    } else if (isCosmicData) {
+      // Cosmic/SDSS data: larger redshifts for distant objects
+      realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14); // 0.01 to 0.5 range
+    } else {
+      // Default: very small redshift
+      realisticZ = Math.abs(neuralFactor * 0.0005);
+    }
+    
     const coords = {
       ra: (phaseSum * 180 / Math.PI) % 360,
       dec: ((e_t * 90) % 180) - 90,
-      z: Math.abs(neuralFactor * tPTT_value / 1e12)
+      z: Math.min(realisticZ, 0.5) // Cap at Z=0.5 to prevent extreme lookback times
     };
 
     // Calculate coordinate stability (how much coords are shifting)
