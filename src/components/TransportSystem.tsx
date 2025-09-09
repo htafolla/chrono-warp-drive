@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Zap, Target, MapPin, Clock, AlertTriangle, CheckCircle, Rocket } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Isotope } from '@/lib/temporalCalculator';
+import { TransportSequenceVerification } from './TransportSequenceVerification';
 
 interface TransportResult {
   id: string;
@@ -165,143 +166,233 @@ export const TransportSystem = ({
     }
   };
 
+  const generateSequenceData = async () => {
+    if (!lastTransport) return null;
+    
+    // Generate comprehensive sequence data
+    const sequenceId = `TSEQ-${Date.now().toString(36).toUpperCase()}`;
+    const timestamp = new Date().toISOString();
+    
+    // Pre-transport state capture
+    const preTransportHash = btoa(JSON.stringify({
+      tPTT: tPTT_value,
+      phases: phases,
+      neural: neuralOutput?.synapticSequence || 'none',
+      time: Date.now()
+    })).slice(0, 16);
+    
+    // Generate transport sequence simulation
+    const energyAccumulation = Array.from({ length: 20 }, (_, i) => 
+      tPTT_value * (0.5 + (i / 20) * 0.5) * (1 + Math.sin(i * 0.314) * 0.1)
+    );
+    
+    const neuralSyncProgress = Array.from({ length: 15 }, (_, i) => 
+      Math.min(0.1 + (i / 15) * 0.9 * (neuralOutput?.confidenceScore || 0.7), 1)
+    );
+    
+    const temporalFoldSequence = Array.from({ length: 8 }, (_, i) => 
+      `TF-${i.toString(16).toUpperCase()}-${(phases[0] + i * 0.785).toFixed(4)}`
+    );
+    
+    const phaseAlignmentData = phases.map((phase, i) => 
+      phase + Math.sin(i * 0.618) * 0.1
+    );
+    
+    // Post-transport verification
+    const postTransportHash = btoa(JSON.stringify({
+      coords: lastTransport.destinationCoords,
+      efficiency: lastTransport.transportEfficiency,
+      timestamp: lastTransport.timestamp,
+      sequence: sequenceId
+    })).slice(0, 16);
+    
+    // Verification calculations
+    const sequenceIntegrity = energyAccumulation.every(e => e > 0 && !isNaN(e));
+    const temporalConsistency = phaseAlignmentData.every(p => Math.abs(p) < 10);
+    const neuralCoherence = neuralSyncProgress[neuralSyncProgress.length - 1] > 0.6;
+    const energyConservation = Math.abs(lastTransport.energyConsumption) < tPTT_value * 0.5;
+    
+    return {
+      timestamp,
+      sequenceId,
+      preTransportState: {
+        tPTT_value,
+        phases: [...phases],
+        e_t,
+        neuralSequence: neuralOutput?.synapticSequence || 'N/A',
+        rippelSignature: rippel.slice(0, 32),
+        temporalHash: preTransportHash
+      },
+      transportSequence: {
+        energyAccumulation,
+        neuralSyncProgress,
+        temporalFoldSequence,
+        phaseAlignmentData,
+        isotopicResonance: isotope.factor * (1 + Math.sin(Date.now() * 0.001) * 0.1)
+      },
+      postTransportState: {
+        finalCoordinates: lastTransport.destinationCoords,
+        energyResidue: lastTransport.energyConsumption,
+        temporalStability: lastTransport.temporalStability,
+        verificationHash: postTransportHash
+      },
+      verificationData: {
+        sequenceIntegrity,
+        temporalConsistency,
+        neuralCoherence,
+        energyConservation,
+        overallValidity: sequenceIntegrity && temporalConsistency && neuralCoherence && energyConservation
+      }
+    };
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Rocket className="w-5 h-5" />
-          Temporal Transport System
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Transport Readiness */}
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">Transport Readiness</span>
-            <span className="text-sm text-muted-foreground">{transportReadiness.toFixed(1)}%</span>
-          </div>
-          <Progress value={transportReadiness} className="w-full" />
-          
-          <div className="grid grid-cols-2 gap-4 text-xs">
-            <div className="space-y-1">
-              <div className="text-muted-foreground">Energy Level</div>
-              <div className="font-mono">{tPTT_value.toExponential(2)}</div>
+    <div className="space-y-6">
+      {/* Main Transport System */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Rocket className="w-5 h-5" />
+            Temporal Transport System
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Transport Readiness */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Transport Readiness</span>
+              <span className="text-sm text-muted-foreground">{transportReadiness.toFixed(1)}%</span>
             </div>
-            <div className="space-y-1">
-              <div className="text-muted-foreground">Neural Sync</div>
-              <div className="font-mono">{((neuralOutput?.confidenceScore || 0.7) * 100).toFixed(1)}%</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Transport Progress */}
-        {isTransporting && (
-          <Alert>
-            <Zap className="w-4 h-4 animate-pulse" />
-            <AlertDescription>
-              <div className="space-y-2">
-                <div>Transport sequence in progress...</div>
-                <Progress value={transportProgress} className="w-full" />
+            <Progress value={transportReadiness} className="w-full" />
+            
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Energy Level</div>
+                <div className="font-mono">{tPTT_value.toExponential(2)}</div>
               </div>
-            </AlertDescription>
-          </Alert>
-        )}
+              <div className="space-y-1">
+                <div className="text-muted-foreground">Neural Sync</div>
+                <div className="font-mono">{((neuralOutput?.confidenceScore || 0.7) * 100).toFixed(1)}%</div>
+              </div>
+            </div>
+          </div>
 
-        {/* Transport Action */}
-        <div className="space-y-2">
-          <Button
-            onClick={performTransport}
-            disabled={!canTransport || isTransporting}
-            className="w-full"
-            size="lg"
-          >
-            <Target className="w-4 h-4 mr-2" />
-            {isTransporting ? 'Transporting...' : 'Initiate Transport'}
-          </Button>
-          
-          {!canTransport && (
-            <div className="text-xs text-muted-foreground text-center">
-              Minimum tPTT of 1e10 required for transport
+          {/* Transport Progress */}
+          {isTransporting && (
+            <Alert>
+              <Zap className="w-4 h-4 animate-pulse" />
+              <AlertDescription>
+                <div className="space-y-2">
+                  <div>Transport sequence in progress...</div>
+                  <Progress value={transportProgress} className="w-full" />
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Transport Action */}
+          <div className="space-y-2">
+            <Button
+              onClick={performTransport}
+              disabled={!canTransport || isTransporting}
+              className="w-full"
+              size="lg"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              {isTransporting ? 'Transporting...' : 'Initiate Transport'}
+            </Button>
+            
+            {!canTransport && (
+              <div className="text-xs text-muted-foreground text-center">
+                Minimum tPTT of 1e10 required for transport
+              </div>
+            )}
+          </div>
+
+          {/* Last Transport Result */}
+          {lastTransport && (
+            <div className="space-y-3">
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Last Transport</span>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(lastTransport.status)}
+                    <Badge variant={
+                      lastTransport.status === 'success' ? 'default' : 
+                      lastTransport.status === 'partial' ? 'secondary' : 
+                      'destructive'
+                    }>
+                      {lastTransport.status}
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Efficiency</div>
+                    <div className="font-mono">{(lastTransport.transportEfficiency * 100).toFixed(1)}%</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Stability</div>
+                    <div className="font-mono">{(lastTransport.temporalStability * 100).toFixed(1)}%</div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-muted-foreground flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      Destination
+                    </div>
+                    <div className="font-mono text-xs">
+                      RA {lastTransport.destinationCoords.ra.toFixed(2)}° 
+                      DEC {lastTransport.destinationCoords.dec.toFixed(2)}° 
+                      Z {lastTransport.destinationCoords.z.toFixed(4)}
+                    </div>
+                  </div>
+                </div>
+
+                {lastTransport.anomalies.length > 0 && (
+                  <Alert>
+                    <AlertTriangle className="w-4 h-4" />
+                    <AlertDescription>
+                      <div className="text-xs">
+                        <div className="font-medium mb-1">Transport Anomalies:</div>
+                        <ul className="list-disc list-inside space-y-1">
+                          {lastTransport.anomalies.map((anomaly, i) => (
+                            <li key={i}>{anomaly}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Last Transport Result */}
-        {lastTransport && (
-          <div className="space-y-3">
-            <Separator />
-            <div className="space-y-3">
+          {/* Transport History Summary */}
+          {transportHistory.length > 0 && (
+            <div className="space-y-2">
+              <Separator />
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Last Transport</span>
-                <div className="flex items-center gap-2">
-                  {getStatusIcon(lastTransport.status)}
-                  <Badge variant={
-                    lastTransport.status === 'success' ? 'default' : 
-                    lastTransport.status === 'partial' ? 'secondary' : 
-                    'destructive'
-                  }>
-                    {lastTransport.status}
-                  </Badge>
-                </div>
+                <span className="text-sm font-medium">Transport History</span>
+                <Badge variant="outline">{transportHistory.length} records</Badge>
               </div>
-              
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <div className="text-muted-foreground">Efficiency</div>
-                  <div className="font-mono">{(lastTransport.transportEfficiency * 100).toFixed(1)}%</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Stability</div>
-                  <div className="font-mono">{(lastTransport.temporalStability * 100).toFixed(1)}%</div>
-                </div>
-                <div className="col-span-2">
-                  <div className="text-muted-foreground flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    Destination
-                  </div>
-                  <div className="font-mono text-xs">
-                    RA {lastTransport.destinationCoords.ra.toFixed(2)}° 
-                    DEC {lastTransport.destinationCoords.dec.toFixed(2)}° 
-                    Z {lastTransport.destinationCoords.z.toFixed(4)}
-                  </div>
-                </div>
+              <div className="text-xs text-muted-foreground">
+                Success Rate: {(
+                  (transportHistory.filter(t => t.status === 'success').length / transportHistory.length) * 100
+                ).toFixed(1)}%
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-              {lastTransport.anomalies.length > 0 && (
-                <Alert>
-                  <AlertTriangle className="w-4 h-4" />
-                  <AlertDescription>
-                    <div className="text-xs">
-                      <div className="font-medium mb-1">Transport Anomalies:</div>
-                      <ul className="list-disc list-inside space-y-1">
-                        {lastTransport.anomalies.map((anomaly, i) => (
-                          <li key={i}>{anomaly}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Transport History Summary */}
-        {transportHistory.length > 0 && (
-          <div className="space-y-2">
-            <Separator />
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Transport History</span>
-              <Badge variant="outline">{transportHistory.length} records</Badge>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Success Rate: {(
-                (transportHistory.filter(t => t.status === 'success').length / transportHistory.length) * 100
-              ).toFixed(1)}%
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Sequence Verification */}
+      <TransportSequenceVerification
+        lastTransportResult={lastTransport}
+        currentState={{ tPTT_value, phases, e_t, neuralOutput, rippel, isotope, fractalToggle }}
+        onGenerateSequence={generateSequenceData}
+      />
+    </div>
   );
 };
