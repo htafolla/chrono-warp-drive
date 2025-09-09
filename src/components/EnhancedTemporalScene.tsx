@@ -4,7 +4,6 @@ import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
-import { usePerformanceOptimizer } from './PerformanceOptimizer';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;
@@ -14,19 +13,7 @@ interface ParticleSystemProps {
 
 function ParticleSystem({ spectrumData, time, phases }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
-  const performanceOptimizer = usePerformanceOptimizer();
-  
-  // Adaptive particle count based on performance
-  const particleCount = useMemo(() => {
-    if (!performanceOptimizer) return 150;
-    const quality = performanceOptimizer.getAdaptiveQuality();
-    switch (quality) {
-      case 'high': return 200;
-      case 'medium': return 150;
-      case 'low': return 100;
-      default: return 150;
-    }
-  }, [performanceOptimizer]);
+  const particleCount = 1000;
   
   const [positions, colors] = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
@@ -58,19 +45,12 @@ function ParticleSystem({ spectrumData, time, phases }: ParticleSystemProps) {
   }, [spectrumData]);
   
   useFrame(() => {
-    if (!pointsRef.current || !performanceOptimizer) return;
-    
-    // Frame rate limiting - only update when performance allows
-    if (!performanceOptimizer.shouldProcessFrame()) return;
+    if (!pointsRef.current) return;
     
     const positions = pointsRef.current.geometry.attributes.position.array as Float32Array;
     const colors = pointsRef.current.geometry.attributes.color.array as Float32Array;
     
-    // Adaptive update rate based on performance
-    const quality = performanceOptimizer.getAdaptiveQuality();
-    const skipFactor = quality === 'low' ? 3 : quality === 'medium' ? 2 : 1;
-    
-    for (let i = 0; i < particleCount; i += skipFactor) {
+    for (let i = 0; i < particleCount; i++) {
       const i3 = i * 3;
       
       // Animate particles based on phases
@@ -89,16 +69,6 @@ function ParticleSystem({ spectrumData, time, phases }: ParticleSystemProps) {
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
     pointsRef.current.geometry.attributes.color.needsUpdate = true;
   });
-  
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pointsRef.current) {
-        pointsRef.current.geometry.dispose();
-        (pointsRef.current.material as THREE.Material).dispose();
-      }
-    };
-  }, []);
   
   return (
     <points ref={pointsRef}>
@@ -140,13 +110,9 @@ interface WavePlaneProps {
 function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectrumData }: WavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const performanceOptimizer = usePerformanceOptimizer();
   
   useFrame((state) => {
-    if (!meshRef.current || !geometryRef.current || !performanceOptimizer) return;
-    
-    // Frame rate limiting - only update when performance allows
-    if (!performanceOptimizer.shouldProcessFrame()) return;
+    if (!meshRef.current || !geometryRef.current) return;
     
     try {
       const geometry = geometryRef.current;
@@ -158,12 +124,8 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       const intensityMultiplier = spectrumData ? 
         spectrumData.intensities[index % spectrumData.intensities.length] : 1;
       
-      // Adaptive quality - skip vertices based on performance
-      const quality = performanceOptimizer.getAdaptiveQuality();
-      const vertexSkip = quality === 'low' ? 4 : quality === 'medium' ? 2 : 1;
-      
       // Update vertices with enhanced wave calculations
-      for (let i = 0; i < position.count; i += vertexSkip) {
+      for (let i = 0; i < position.count; i++) {
         const x = position.getX(i);
         const z = position.getZ(i);
         
@@ -186,24 +148,12 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       console.error('Enhanced WavePlane animation error:', error);
     }
   });
-  
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (geometryRef.current) {
-        geometryRef.current.dispose();
-      }
-      if (meshRef.current) {
-        (meshRef.current.material as THREE.Material).dispose();
-      }
-    };
-  }, []);
 
   return (
     <mesh ref={meshRef} position={[0, index * 0.4 - 3, 0]}>
       <planeGeometry 
         ref={geometryRef} 
-        args={[10, 10, 16, 16]} 
+        args={[10, 10, 48, 48]} 
       />
       <meshPhongMaterial 
         color={band.color}
@@ -222,28 +172,15 @@ interface PostProcessingProps {
 }
 
 function PostProcessing({ children }: PostProcessingProps) {
-  const { gl } = useThree();
-  const performanceOptimizer = usePerformanceOptimizer();
+  const { gl, scene, camera } = useThree();
   
   useEffect(() => {
-    if (!performanceOptimizer) return;
-    
-    // Adaptive rendering settings based on performance
-    const quality = performanceOptimizer.getAdaptiveQuality();
-    
+    // Enhanced rendering settings
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.2;
-    
-    // Disable shadows for better performance - they're the biggest FPS killer
-    gl.shadowMap.enabled = false;
-    
-    // Adaptive antialias based on performance
-    if (quality === 'low') {
-      gl.setPixelRatio(Math.min(window.devicePixelRatio, 1));
-    } else {
-      gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    }
-  }, [gl, performanceOptimizer]);
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+  }, [gl]);
   
   return <>{children}</>;
 }
@@ -265,19 +202,6 @@ export function EnhancedTemporalScene({
   spectrumData = null,
   time 
 }: EnhancedTemporalSceneProps) {
-  const performanceOptimizer = usePerformanceOptimizer();
-  
-  // Adaptive star count based on performance
-  const starCount = useMemo(() => {
-    if (!performanceOptimizer) return 1000;
-    const quality = performanceOptimizer.getAdaptiveQuality();
-    switch (quality) {
-      case 'high': return 2000;
-      case 'medium': return 1000;
-      case 'low': return 500;
-      default: return 1000;
-    }
-  }, [performanceOptimizer]);
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
@@ -285,22 +209,34 @@ export function EnhancedTemporalScene({
         gl={{ antialias: true, alpha: true }}
       >
         <PostProcessing>
-          {/* Optimized Lighting System - No shadows for better performance */}
-          <ambientLight intensity={0.5} />
+          {/* Enhanced Lighting System */}
+          <ambientLight intensity={0.4} />
           <pointLight 
             position={[10, 10, 10]} 
-            intensity={1.2} 
+            intensity={1.5} 
             color="#ffffff"
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
           />
           <directionalLight 
             position={[-10, 10, 5]} 
-            intensity={1.0}
+            intensity={1.2}
             color="#7c3aed"
+            castShadow
           />
           <pointLight 
             position={[0, -8, 8]} 
-            intensity={0.6} 
+            intensity={0.8} 
             color="#3b82f6"
+          />
+          <spotLight
+            position={[0, 15, 0]}
+            angle={0.3}
+            penumbra={1}
+            intensity={1}
+            color="#fbbf24"
+            castShadow
           />
           
           {/* Particle System */}
@@ -324,11 +260,11 @@ export function EnhancedTemporalScene({
             />
           ))}
           
-          {/* Adaptive Background Stars */}
+          {/* Background Stars */}
           <Stars 
             radius={100} 
             depth={50} 
-            count={starCount} 
+            count={5000} 
             factor={4} 
             saturation={0} 
             fade
@@ -357,7 +293,7 @@ export function EnhancedTemporalScene({
           {spectrumData && (
             <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
-          <p>Particles: <span className="text-green-400 font-mono">{starCount}</span></p>
+          <p>Particles: <span className="text-green-400 font-mono">1000</span></p>
         </div>
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
@@ -368,11 +304,9 @@ export function EnhancedTemporalScene({
       {/* Performance Info */}
       <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-3 text-card-foreground shadow-lg">
         <div className="text-xs space-y-1">
-          <p>Quality: <span className={`font-mono ${performanceOptimizer?.getAdaptiveQuality() === 'high' ? 'text-green-400' : performanceOptimizer?.getAdaptiveQuality() === 'medium' ? 'text-yellow-400' : 'text-red-400'}`}>
-            {performanceOptimizer?.getAdaptiveQuality()?.toUpperCase() || 'LOADING'}
-          </span></p>
-          <p>FPS: <span className="text-blue-400 font-mono">{performanceOptimizer?.getCurrentFPS().toFixed(0) || '---'}</span></p>
-          <p>Shadows: <span className="text-red-400">Disabled</span></p>
+          <p>Render: <span className="text-green-400">Enhanced</span></p>
+          <p>Shadows: <span className="text-blue-400">Enabled</span></p>
+          <p>Post-FX: <span className="text-purple-400">Active</span></p>
         </div>
       </div>
     </div>

@@ -3,7 +3,6 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
-import { usePerformanceOptimizer } from './PerformanceOptimizer';
 
 interface WavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -17,13 +16,9 @@ interface WavePlaneProps {
 function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const performanceOptimizer = usePerformanceOptimizer();
   
   useFrame((state) => {
-    if (!meshRef.current || !geometryRef.current || !performanceOptimizer) return;
-    
-    // Frame rate limiting - only update when performance allows
-    if (!performanceOptimizer.shouldProcessFrame()) return;
+    if (!meshRef.current || !geometryRef.current) return;
     
     try {
       const geometry = geometryRef.current;
@@ -31,12 +26,8 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
       const phase = phases[index % phases.length] || 0;
       const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
       
-      // Adaptive quality - skip vertices based on performance
-      const quality = performanceOptimizer.getAdaptiveQuality();
-      const vertexSkip = quality === 'low' ? 4 : quality === 'medium' ? 2 : 1;
-      
       // Update vertices with wave calculations
-      for (let i = 0; i < position.count; i += vertexSkip) {
+      for (let i = 0; i < position.count; i++) {
         const x = position.getX(i);
         const z = position.getZ(i);
         
@@ -58,24 +49,12 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
       console.error('WavePlane animation error:', error);
     }
   });
-  
-  // Memory cleanup
-  useEffect(() => {
-    return () => {
-      if (geometryRef.current) {
-        geometryRef.current.dispose();
-      }
-      if (meshRef.current) {
-        (meshRef.current.material as THREE.Material).dispose();
-      }
-    };
-  }, []);
 
   return (
     <mesh ref={meshRef} position={[0, index * 0.3 - 2, 0]}>
       <planeGeometry 
         ref={geometryRef} 
-        args={[8, 8, 16, 16]} 
+        args={[8, 8, 32, 32]} 
       />
       <meshPhongMaterial 
         color={band.color}
