@@ -12,6 +12,7 @@ import { SpectrumAnalyzer } from './SpectrumAnalyzer';
 import { SpectrumSelector } from './SpectrumSelector';
 import { RippelDisplay } from './RippelDisplay';
 import { PerformanceMonitor } from './PerformanceMonitor';
+import { PerformanceController } from './PerformanceController';
 import { AudioSynthesis } from './AudioSynthesis';
 import { ExportImport } from './ExportImport';
 import { MobileControls } from './MobileControls';
@@ -84,6 +85,17 @@ export function TPTTApp() {
   const [delta_t, setDelta_t] = useState(DELTA_T);
   const [currentView, setCurrentView] = useState("dashboard");
   const [performanceMonitorActive, setPerformanceMonitorActive] = useState(false);
+  
+  // Performance settings state
+  const [performanceSettings, setPerformanceSettings] = useState({
+    quality: 'high' as 'high' | 'medium' | 'low',
+    autoAdjust: true,
+    shadows: true,
+    particles: true,
+    postProcessing: true,
+    targetFPS: 60
+  });
+  const [currentFPS, setCurrentFPS] = useState(60);
 
   // Temporal control states
   const [isPlaying, setIsPlaying] = useState(true);
@@ -352,7 +364,19 @@ export function TPTTApp() {
     }
   }, [autoRealtimeMode, animationMode]);
 
-  // Enhanced spectrum selection with optimization recommendations
+  // Import PerformanceController
+  const handlePerformanceSettingsChange = React.useCallback((settings: typeof performanceSettings) => {
+    setPerformanceSettings(settings);
+    
+    // Apply settings to particle count if needed
+    if (settings.quality === 'low' && settings.particles === false) {
+      // Additional low-performance optimizations could go here
+    }
+  }, []);
+  
+  const handleFPSChange = React.useCallback((fps: number) => {
+    setCurrentFPS(fps);
+  }, []);
   const handleOptimizedSpectrumSelect = React.useCallback((type: string) => {
     // This would integrate with PicklesAtlas to find the best spectrum of requested type
     const randomSpectrum = picklesAtlas.getRandomSpectrum();
@@ -622,17 +646,30 @@ export function TPTTApp() {
           </TabsContent>
 
           <TabsContent value="simulation" className="space-y-4">
-            <div className="h-[600px] w-full">
-              <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-muted-foreground">3D scene failed to load</div>}>
-                <EnhancedTemporalScene 
-                  phases={phases}
-                  isotope={isotope}
-                  cycle={cycle}
-                  fractalToggle={fractalToggle}
-                  spectrumData={spectrumData}
-                  time={time}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              {/* Performance Controller */}
+              <div className="lg:col-span-1">
+                <PerformanceController 
+                  onSettingsChange={handlePerformanceSettingsChange}
+                  currentFPS={currentFPS}
                 />
-              </ErrorBoundary>
+              </div>
+              
+              {/* 3D Scene */}
+              <div className="lg:col-span-3 h-[600px]">
+                <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-muted-foreground">3D scene failed to load</div>}>
+                  <EnhancedTemporalScene 
+                    phases={phases}
+                    isotope={isotope}
+                    cycle={cycle}
+                    fractalToggle={fractalToggle}
+                    spectrumData={spectrumData}
+                    time={time}
+                    performanceSettings={performanceSettings}
+                    onFPSChange={handleFPSChange}
+                  />
+                </ErrorBoundary>
+              </div>
             </div>
           </TabsContent>
 

@@ -1,20 +1,39 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager } from '@/lib/memoryManager';
+import { CustomStars } from './CustomStars';
+import { LODWavePlane } from './LODWavePlane';
+import { useFPSMonitor } from '@/hooks/useFPSMonitor';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;
   time: number;
   phases: number[];
+  qualitySettings?: {
+    quality: 'high' | 'medium' | 'low';
+    particles: boolean;
+  };
 }
 
-function ParticleSystem({ spectrumData, time, phases }: ParticleSystemProps) {
+function ParticleSystem({ spectrumData, time, phases, qualitySettings = { quality: 'high', particles: true } }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
-  const particleCount = 750; // Phase 7 optimization
+  
+  // Dynamic particle count based on performance settings
+  const particleCount = React.useMemo(() => {
+    if (!qualitySettings.particles) return 0;
+    
+    switch (qualitySettings.quality) {
+      case 'high': return 750;
+      case 'medium': return 500;
+      case 'low': return 250;
+      default: return 750;
+    }
+  }, [qualitySettings.quality, qualitySettings.particles]);
+  
   const memoryManager = useMemoryManager();
   
   // Cleanup particles on unmount
@@ -224,6 +243,13 @@ function PostProcessing({ children }: PostProcessingProps) {
   return <>{children}</>;
 }
 
+interface PerformanceSettings {
+  quality: 'high' | 'medium' | 'low';
+  shadows: boolean;
+  particles: boolean;
+  postProcessing: boolean;
+}
+
 interface EnhancedTemporalSceneProps {
   phases: number[];
   isotope: Isotope;
@@ -231,6 +257,18 @@ interface EnhancedTemporalSceneProps {
   fractalToggle: boolean;
   spectrumData?: SpectrumData | null;
   time: number;
+  performanceSettings?: PerformanceSettings;
+  onFPSChange?: (fps: number) => void;
+}
+
+function PerformanceMonitor({ onFPSChange }: { onFPSChange?: (fps: number) => void }) {
+  const fpsData = useFPSMonitor();
+  
+  useEffect(() => {
+    onFPSChange?.(fpsData.current);
+  }, [fpsData.current, onFPSChange]);
+  
+  return null;
 }
 
 export function EnhancedTemporalScene({ 
@@ -239,7 +277,9 @@ export function EnhancedTemporalScene({
   cycle, 
   fractalToggle, 
   spectrumData = null,
-  time 
+  time,
+  performanceSettings = { quality: 'high', shadows: true, particles: true, postProcessing: true },
+  onFPSChange
 }: EnhancedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
 
@@ -291,16 +331,19 @@ export function EnhancedTemporalScene({
             color="#10b981"
           />
           
-          {/* Particle System */}
-          <ParticleSystem 
-            spectrumData={spectrumData}
-            time={time}
-            phases={phases}
-          />
+          {/* Performance-Optimized Particle System */}
+          {performanceSettings.particles && (
+            <ParticleSystem 
+              spectrumData={spectrumData}
+              time={time}
+              phases={phases}
+              qualitySettings={performanceSettings}
+            />
+          )}
           
-          {/* Enhanced Wave Planes */}
+          {/* Enhanced LOD Wave Planes */}
           {SPECTRUM_BANDS.map((band, index) => (
-            <WavePlane
+            <LODWavePlane
               key={band.band}
               band={band}
               phases={phases}
@@ -309,14 +352,19 @@ export function EnhancedTemporalScene({
               fractalToggle={fractalToggle}
               index={index}
               spectrumData={spectrumData}
+              qualitySettings={performanceSettings}
             />
           ))}
           
-          {/* Background Stars - Fixed Black Transition */}
-          <Stars 
+          {/* Performance Monitor */}
+          <PerformanceMonitor onFPSChange={onFPSChange} />
+          
+          {/* Custom Stars - No More Black Transition */}
+          <CustomStars 
             radius={100} 
             depth={50} 
-            count={3000} 
+            count={performanceSettings.quality === 'high' ? 3000 : 
+                   performanceSettings.quality === 'medium' ? 2000 : 1500} 
             factor={4} 
             saturation={0.4}
             fade={false}
@@ -346,13 +394,15 @@ export function EnhancedTemporalScene({
           {spectrumData && (
             <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
-          <p>Particles: <span className="text-green-400 font-mono">750</span></p>
+          <p>Particles: <span className="text-green-400 font-mono">{performanceSettings.particles ? 750 : 0}</span></p>
+          <p>Quality: <span className="text-blue-400 font-mono capitalize">{performanceSettings.quality}</span></p>
           <p>Wave Planes: <span className="text-purple-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
         </div>
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
           <p>• Enhanced lighting & particles</p>
-          <p>• Phase 1: Diagnostic mode active</p>
+          <p>• LOD optimization active</p>
+          <p>• Custom stars (no black transition)</p>
         </div>
       </div>
       
@@ -362,8 +412,8 @@ export function EnhancedTemporalScene({
           <p>Render: <span className="text-green-400">Enhanced</span></p>
           <p>Shadows: <span className="text-blue-400">Enabled</span></p>
           <p>Post-FX: <span className="text-purple-400">Active</span></p>
-          <p>Phase: <span className="text-yellow-400">1 - Diagnostic</span></p>
-          <p>Color Mode: <span className="text-orange-400">HSL Direct</span></p>
+          <p>LOD: <span className="text-yellow-400">Dynamic</span></p>
+          <p>Stars: <span className="text-orange-400">Custom</span></p>
         </div>
       </div>
     </div>
