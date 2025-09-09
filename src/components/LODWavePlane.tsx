@@ -156,14 +156,15 @@ export function LODWavePlane({
           const x = position.getX(i);
           const z = position.getZ(i);
           
-          // Phase 10E: Enhanced wave calculations with dramatic amplitude
-          const waveValue = wave(0, state.clock.elapsedTime * 4, index, isotope, band.lambda, phaseType);
-          const secondaryWave = Math.sin(x * 0.8 + state.clock.elapsedTime * 3.0) * 1.5;
-          const tertiaryWave = Math.cos(z * 0.6 + state.clock.elapsedTime * 2.5) * 1.2;
-          const crossWave = Math.sin(x * z * 0.1 + state.clock.elapsedTime * 1.5) * 0.8;
+          // Enhanced wave calculations with proper surface undulation
+          const waveValue = wave(0, state.clock.elapsedTime * 3, index, isotope, band.lambda, phaseType);
+          const surfaceWave = Math.sin(x * 0.5 + z * 0.5 + phase + state.clock.elapsedTime * 2) * waveValue;
+          const rippleWave = Math.sin(x * 1.2 + state.clock.elapsedTime * 2.5) * 0.8;
+          const crossRipple = Math.cos(z * 1.0 + state.clock.elapsedTime * 2.0) * 0.6;
+          const turbulence = Math.sin(x * z * 0.1 + state.clock.elapsedTime * 1.5) * 0.4;
           
-          const heightValue = Math.max(-6, Math.min(6, 
-            (waveValue * 2.0 + secondaryWave + tertiaryWave + crossWave) * 1.8 * intensityMultiplier
+          const heightValue = Math.max(-4, Math.min(4, 
+            (surfaceWave + rippleWave + crossRipple + turbulence) * 2.5 * intensityMultiplier
           ));
           
           position.setY(i, heightValue);
@@ -195,7 +196,7 @@ export function LODWavePlane({
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
-        <planeGeometry args={[10, 10, 64, 64]} />
+        <planeGeometry args={[10, 10, 96, 96]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
           wireframe={true}
