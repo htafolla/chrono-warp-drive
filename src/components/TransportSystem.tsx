@@ -26,7 +26,23 @@ interface TransportResult {
     targetMJD: number;
     targetUTC: Date;
     temporalOffset: number;
+    yearsAgo?: number;
+    emissionEra?: string;
+    lightTravelTimeYears?: number;
   };
+}
+
+interface TemporalData {
+  targetMJD: number;
+  targetUTC: Date;
+  temporalOffset: number;
+  yearsAgo: number;
+  emissionEra: string;
+  isCosmicObject: boolean;
+  isPrimordial: boolean;
+  lightTravelTimeYears: number;
+  observabilityWindow: string;
+  formatted: string;
 }
 
 interface TransportSystemProps {
@@ -118,36 +134,48 @@ export const TransportSystem = ({
     // Determine if coordinates are locked
     const isLocked = stabilityFactor > 0.8 && transportStatus.status === 'ready';
     
-    // Calculate target observation time
+    // Calculate historical emission time (when light was emitted)
     const currentMJD = (Date.now() - new Date(1858, 10, 17).getTime()) / (24 * 60 * 60 * 1000);
     
-    // Calculate Local Sidereal Time offset for optimal viewing
-    const lstOffset = (coords.ra / 360) * 1; // Convert RA to fraction of day
+    // Calculate lookback time based on redshift (Z)
+    // Rough cosmological calculation: t_lookback ≈ 13.8 * Z / (1 + Z) billion years for small Z
+    // For small redshifts: distance ≈ Z * 3000 Mpc, light travel time ≈ Z * 10 billion years
+    const lightTravelTimeYears = coords.z > 0 ? coords.z * 10e9 : 0; // Approximate lookback time in years
+    const lightTravelTimeDays = lightTravelTimeYears * 365.25; // Convert to days
+    const lightTravelTimeMJD = lightTravelTimeDays; // MJD offset
     
-    // Apply temporal variations based on system parameters
-    const temporalVariation = (transportStatus.isotopeResonance / 100 - 0.5) * 10; // ±5 days
-    const neuralTimeShift = neuralFactor * 0.1; // Small neural influence
-    const phaseTimeOffset = (phaseSum % (2 * Math.PI)) / (2 * Math.PI) * 0.5; // Phase influence on time
+    // Apply additional temporal variations based on system parameters
+    const temporalVariation = (transportStatus.isotopeResonance / 100 - 0.5) * 365; // ±6 months variation
+    const neuralTimeShift = neuralFactor * 30; // Neural influence up to 1 month
+    const phaseTimeOffset = (phaseSum % (2 * Math.PI)) / (2 * Math.PI) * 7; // Phase influence up to 1 week
     
-    const targetMJD = currentMJD + lstOffset + temporalVariation + neuralTimeShift + phaseTimeOffset;
+    // Calculate emission time (subtract time to go backwards)
+    const targetMJD = currentMJD - lightTravelTimeMJD - Math.abs(temporalVariation) - Math.abs(neuralTimeShift) - Math.abs(phaseTimeOffset);
     const targetUTC = new Date(new Date(1858, 10, 17).getTime() + targetMJD * 24 * 60 * 60 * 1000);
-    const temporalOffset = targetMJD - currentMJD;
+    const temporalOffset = targetMJD - currentMJD; // This will be negative (in the past)
     
-    // Calculate observability (simplified - assumes object is observable if it's not too far south)
-    const isObservable = coords.dec > -60; // Rough northern hemisphere observability
-    const hoursToOptimal = Math.abs(temporalOffset * 24);
+    // Calculate historical context
+    const yearsAgo = Math.abs(temporalOffset / 365.25);
+    const isCosmicObject = coords.z > 0.01; // Significant redshift
+    const isPrimordial = yearsAgo > 13.8e9; // Before Big Bang (impossible)
     
-    let observabilityWindow = "Not observable";
-    if (isObservable) {
-      if (hoursToOptimal < 1) {
-        observabilityWindow = "Optimal viewing now";
-      } else if (hoursToOptimal < 6) {
-        observabilityWindow = `Optimal in ${hoursToOptimal.toFixed(1)}h`;
-      } else if (hoursToOptimal < 24) {
-        observabilityWindow = `Optimal in ${(hoursToOptimal / 24).toFixed(1)} days`;
-      } else {
-        observabilityWindow = `Optimal in ${Math.floor(hoursToOptimal / 24)} days`;
-      }
+    let emissionEra = "Recent";
+    if (yearsAgo < 1000) emissionEra = "Historical";
+    else if (yearsAgo < 1e6) emissionEra = "Prehistoric"; 
+    else if (yearsAgo < 1e9) emissionEra = "Geological";
+    else if (yearsAgo < 5e9) emissionEra = "Pre-Solar";
+    else if (yearsAgo < 10e9) emissionEra = "Early Universe";
+    else if (yearsAgo < 13.8e9) emissionEra = "Primordial";
+    else emissionEra = "Impossible Era";
+    
+    let observabilityWindow = "Light already observed";
+    if (isPrimordial) {
+      observabilityWindow = "Impossible - predates universe";
+    } else if (isCosmicObject) {
+      if (yearsAgo > 1e9) observabilityWindow = `Ancient light from ${emissionEra.toLowerCase()}`;
+      else if (yearsAgo > 1e6) observabilityWindow = `Light from ${(yearsAgo/1e6).toFixed(1)}M years ago`;
+      else if (yearsAgo > 1000) observabilityWindow = `Light from ${(yearsAgo/1000).toFixed(1)}K years ago`;
+      else observabilityWindow = `Light from ${yearsAgo.toFixed(0)} years ago`;
     }
     
     // Format coordinates for display
@@ -171,9 +199,14 @@ export const TransportSystem = ({
       const dateStr = targetUTC.toISOString().split('T')[0];
       const timeStr = targetUTC.toTimeString().split(' ')[0];
       const mjdStr = targetMJD.toFixed(5);
-      const offsetStr = temporalOffset >= 0 ? `+${temporalOffset.toFixed(2)}` : temporalOffset.toFixed(2);
+      const yearsAgoStr = yearsAgo < 1000 ? `${yearsAgo.toFixed(0)} years` :
+                         yearsAgo < 1e6 ? `${(yearsAgo/1000).toFixed(1)}K years` :
+                         yearsAgo < 1e9 ? `${(yearsAgo/1e6).toFixed(1)}M years` : 
+                         `${(yearsAgo/1e9).toFixed(1)}B years`;
       
-      return `${dateStr} ${timeStr} UTC (MJD ${mjdStr}, Δt: ${offsetStr}d)`;
+      return coords.z > 0 
+        ? `Emitted: ${dateStr} ${timeStr} UTC (MJD ${mjdStr}) - ${yearsAgoStr} ago`
+        : `${dateStr} ${timeStr} UTC (MJD ${mjdStr})`;
     };
 
     return {
@@ -193,7 +226,11 @@ export const TransportSystem = ({
         targetMJD,
         targetUTC,
         temporalOffset,
-        isObservable,
+        yearsAgo,
+        emissionEra,
+        isCosmicObject,
+        isPrimordial,
+        lightTravelTimeYears,
         observabilityWindow,
         formatted: formatTemporal()
       }
@@ -277,7 +314,10 @@ export const TransportSystem = ({
         temporalDestination: {
           targetMJD: destinationData.temporal.targetMJD,
           targetUTC: destinationData.temporal.targetUTC,
-          temporalOffset: destinationData.temporal.temporalOffset
+          temporalOffset: destinationData.temporal.temporalOffset,
+          yearsAgo: destinationData.temporal.yearsAgo,
+          emissionEra: destinationData.temporal.emissionEra,
+          lightTravelTimeYears: destinationData.temporal.lightTravelTimeYears
         }
       };
 
@@ -286,7 +326,10 @@ export const TransportSystem = ({
 
       // Show result toast with temporal info
       const tempInfo = result.temporalDestination 
-        ? ` at ${result.temporalDestination.targetUTC.toISOString().split('T')[0]} (MJD ${result.temporalDestination.targetMJD.toFixed(3)})`
+        ? ` | Light emitted: ${result.temporalDestination.emissionEra} (${result.temporalDestination.yearsAgo! < 1000 ? 
+            `${result.temporalDestination.yearsAgo!.toFixed(0)} years ago` :
+            result.temporalDestination.yearsAgo! < 1e6 ? `${(result.temporalDestination.yearsAgo!/1000).toFixed(1)}K years ago` :
+            `${(result.temporalDestination.yearsAgo!/1e6).toFixed(1)}M years ago`})`
         : '';
       
       toast({
@@ -569,11 +612,11 @@ export const TransportSystem = ({
                     {destinationData.temporal.formatted}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={`${destinationData.temporal.isObservable ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`${destinationData.temporal.isCosmicObject ? 'text-purple-500' : 'text-green-600'}`}>
                       {destinationData.temporal.observabilityWindow}
                     </span>
                     <span className="text-muted-foreground">
-                      {destinationData.temporal.temporalOffset >= 0 ? 'Future' : 'Past'}
+                      {destinationData.temporal.temporalOffset >= 0 ? 'Future' : 'Historical'}
                     </span>
                   </div>
                 </div>
