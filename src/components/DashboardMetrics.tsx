@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { validateTLM, Isotope, calculatePhaseCoherence } from '@/lib/temporalCalculator';
-import { NeuralFusionDisplay } from './NeuralFusionDisplay';
+
 import { TPTTv4Result, SpectrumData } from '@/types/sdss';
 
 interface DashboardMetricsProps {
@@ -37,14 +37,6 @@ export function DashboardMetrics({
   
   return (
     <div className="space-y-6">
-      {/* Neural Fusion Display */}
-      {isV4Enhanced && (
-        <NeuralFusionDisplay 
-          neuralOutput={tpttV4Result?.neuralOutput || null}
-          isActive={!!tpttV4Result?.neuralOutput}
-        />
-      )}
-      
       {/* Three Main Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Temporal Metrics */}
