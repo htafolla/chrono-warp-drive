@@ -95,16 +95,59 @@ export const TransportSystem = ({
     };
   }, [tPTT_value, phases, neuralOutput, isotope]);
 
-  const calculateTransportDestination = () => {
-    // Use neural output and phases to determine destination
+  // Real-time destination calculation and stability tracking
+  const destinationData = useMemo(() => {
     const phaseSum = phases.reduce((sum, phase) => sum + phase, 0);
     const neuralFactor = neuralOutput?.metamorphosisIndex || 0.5;
     
-    return {
+    const coords = {
       ra: (phaseSum * 180 / Math.PI) % 360,
       dec: ((e_t * 90) % 180) - 90,
       z: Math.abs(neuralFactor * tPTT_value / 1e12)
     };
+
+    // Calculate coordinate stability (how much coords are shifting)
+    const stabilityFactor = Math.min(transportStatus.phaseCoherence / 100 * 0.6 + transportStatus.neuralSync / 100 * 0.4, 1);
+    const coordinateVariance = (1 - stabilityFactor) * 10; // Degrees of variance
+    
+    // Determine if coordinates are locked
+    const isLocked = stabilityFactor > 0.8 && transportStatus.status === 'ready';
+    
+    // Format coordinates for display
+    const formatRA = (ra: number) => {
+      const hours = Math.floor(ra / 15);
+      const minutes = Math.floor((ra % 15) * 4);
+      const seconds = ((ra % 15) * 4 - minutes) * 60;
+      return `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toFixed(1)}s`;
+    };
+    
+    const formatDEC = (dec: number) => {
+      const sign = dec >= 0 ? '+' : '-';
+      const absDec = Math.abs(dec);
+      const degrees = Math.floor(absDec);
+      const arcminutes = Math.floor((absDec - degrees) * 60);
+      const arcseconds = ((absDec - degrees) * 60 - arcminutes) * 60;
+      return `${sign}${degrees.toString().padStart(2, '0')}° ${arcminutes.toString().padStart(2, '0')}' ${arcseconds.toFixed(1)}"`;
+    };
+
+    return {
+      coords,
+      formatted: {
+        ra: formatRA(coords.ra),
+        dec: formatDEC(coords.dec),
+        raDecimal: coords.ra.toFixed(6),
+        decDecimal: coords.dec.toFixed(6),
+        z: coords.z.toExponential(3)
+      },
+      stability: stabilityFactor,
+      variance: coordinateVariance,
+      isLocked,
+      distance: coords.z > 0 ? `~${(coords.z * 3000).toFixed(0)} Mpc` : 'Local'
+    };
+  }, [tPTT_value, phases, e_t, neuralOutput, transportStatus.phaseCoherence, transportStatus.neuralSync, transportStatus.status]);
+
+  const calculateTransportDestination = () => {
+    return destinationData.coords;
   };
 
   const performTransport = async () => {
@@ -408,6 +451,84 @@ export const TransportSystem = ({
                     {transportStatus.status === 'initializing' && 'Transport systems coming online'}
                   </AlertDescription>
                 </div>
+              </Alert>
+            )}
+          </div>
+
+          {/* Real-time Destination Preview */}
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                <span className="font-medium">Transport Destination</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={destinationData.isLocked ? "default" : "secondary"} className="text-xs">
+                  {destinationData.isLocked ? "LOCKED" : "TRACKING"}
+                </Badge>
+                {destinationData.isLocked && (
+                  <Target className="w-3 h-3 text-green-500" />
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <div className="font-medium text-muted-foreground">Celestial Coordinates</div>
+                <div className="space-y-1 font-mono">
+                  <div className="flex justify-between">
+                    <span>RA:</span>
+                    <span className={destinationData.isLocked ? "text-green-500" : "text-yellow-500"}>
+                      {destinationData.formatted.ra}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>DEC:</span>
+                    <span className={destinationData.isLocked ? "text-green-500" : "text-yellow-500"}>
+                      {destinationData.formatted.dec}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Z:</span>
+                    <span className={destinationData.isLocked ? "text-green-500" : "text-yellow-500"}>
+                      {destinationData.formatted.z}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="font-medium text-muted-foreground">Navigation Data</div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>Distance:</span>
+                    <span>{destinationData.distance}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Stability:</span>
+                    <span className={`${
+                      destinationData.stability > 0.8 ? 'text-green-500' :
+                      destinationData.stability > 0.5 ? 'text-yellow-500' : 'text-red-500'
+                    }`}>
+                      {(destinationData.stability * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Variance:</span>
+                    <span className="text-muted-foreground">
+                      ±{destinationData.variance.toFixed(2)}°
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {!destinationData.isLocked && (
+              <Alert className="border-yellow-200 bg-yellow-50/50">
+                <Clock className="w-4 h-4 text-yellow-600" />
+                <AlertDescription className="text-sm text-yellow-800">
+                  Coordinates tracking - target will lock when system reaches optimal coherence
+                </AlertDescription>
               </Alert>
             )}
           </div>
