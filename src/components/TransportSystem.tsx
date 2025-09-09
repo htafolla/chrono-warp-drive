@@ -41,7 +41,7 @@ interface TemporalData {
   isCosmicObject: boolean;
   isPrimordial: boolean;
   lightTravelTimeYears: number;
-  observabilityWindow: string;
+  transportWindow: string;
   formatted: string;
 }
 
@@ -143,27 +143,36 @@ export const TransportSystem = ({
     const phaseSum = phases.reduce((sum, phase) => sum + phase, 0);
     const neuralFactor = neuralOutput?.metamorphosisIndex || 0.5;
     
-    // Determine data type and apply realistic redshift based on source and metadata
-    let realisticZ: number;
+  // Check for actual spectrum metadata to determine transport destination type
+  let realisticZ: number;
+  let lightTravelTimeYears = 0;
+  
+  // Check if spectrum has real stellar metadata from Pickles Atlas
+  const hasRealStellarData = neuralOutput?.spectrumData?.metadata?.distance && neuralOutput?.spectrumData?.metadata?.emissionAge;
+  const isSDSSCosmicData = neuralOutput?.spectrumData?.source === 'SDSS';
+  const isStellarLibraryData = neuralOutput?.spectrumData?.source === 'STELLAR_LIBRARY';
+  
+  if (hasRealStellarData) {
+    // Use real stellar distance and emission age from Pickles Atlas
+    const distance = neuralOutput.spectrumData.metadata.distance;
+    const emissionAge = neuralOutput.spectrumData.metadata.emissionAge;
     
-    // Check if we have stellar library data with distance information
-    const isStellarlibrary = tPTT_value < 1e10 || (neuralOutput?.confidenceScore && neuralOutput.confidenceScore < 0.5);
-    const isStellarData = tPTT_value > 1e10 && tPTT_value < 1e12;
-    const isCosmicData = tPTT_value > 1e12 && neuralFactor > 0.8;
-    
-    if (isStellarlibrary) {
-      // Stellar library data: very small redshifts for local stellar distances
-      realisticZ = Math.abs(neuralFactor * 0.00001 + Math.random() * 0.00005); // 0 to ~0.00006
-    } else if (isStellarData) {
-      // Regular stellar observations: small redshifts for local stellar distances  
-      realisticZ = Math.abs(neuralFactor * 0.001 + tPTT_value / 1e15); // 0.001 to 0.01 range
-    } else if (isCosmicData) {
-      // Cosmic/SDSS data: larger redshifts for distant objects
-      realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14); // 0.01 to 0.5 range
-    } else {
-      // Default: very small redshift for local objects
-      realisticZ = Math.abs(neuralFactor * 0.0001);
-    }
+    // Convert distance to redshift (very small for stellar distances)
+    realisticZ = Math.abs(distance / 299792458 / 3.15e7 / 1e6); // distance in ly / (c * years/sec) / Mpc
+    lightTravelTimeYears = emissionAge;
+  } else if (isStellarLibraryData) {
+    // Stellar library data: small redshifts for local stellar distances
+    realisticZ = Math.abs(neuralFactor * 0.00001 + Math.random() * 0.00005);
+    lightTravelTimeYears = 10 + Math.random() * 1000; // 10-1000 years for stellar library
+  } else if (isSDSSCosmicData) {
+    // SDSS cosmic data: larger redshifts for distant objects
+    realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14);
+    lightTravelTimeYears = realisticZ * 1e10; // Cosmological lookback time
+  } else {
+    // Default synthetic: very small redshift for local objects
+    realisticZ = Math.abs(neuralFactor * 0.0001);
+    lightTravelTimeYears = Math.random() * 100; // 0-100 years for synthetic
+  }
     
     const coords = {
       ra: (phaseSum * 180 / Math.PI) % 360,
@@ -181,12 +190,10 @@ export const TransportSystem = ({
     // Calculate historical emission time (when light was emitted)
     const currentMJD = (Date.now() - new Date(1858, 10, 17).getTime()) / (24 * 60 * 60 * 1000);
     
-    // Calculate lookback time based on redshift (Z) - more realistic cosmological calculation
-    // For small redshifts: distance ≈ Z * c/H0, light travel time ≈ Z * 14 Gyr (age of universe)
-    // Cap the lookback time to prevent invalid dates
+    // Use the calculated light travel time from metadata or computed value
     const maxLookbackYears = 13.8e9; // Age of universe in years
-    const lightTravelTimeYears = coords.z > 0 ? Math.min(coords.z * 1e10, maxLookbackYears) : 0;
-    const lightTravelTimeDays = lightTravelTimeYears * 365.25; // Convert to days
+    const finalLightTravelTimeYears = Math.min(lightTravelTimeYears, maxLookbackYears);
+    const lightTravelTimeDays = finalLightTravelTimeYears * 365.25; // Convert to days
     const lightTravelTimeMJD = lightTravelTimeDays; // MJD offset
     
     // Apply additional temporal variations based on system parameters (much smaller now)
@@ -230,14 +237,21 @@ export const TransportSystem = ({
     else if (yearsAgo < 13.8e9) emissionEra = "Primordial";
     else emissionEra = "Impossible Era";
     
-    let observabilityWindow = "Light already observed";
+    let transportWindow = "Target available";
     if (isPrimordial) {
-      observabilityWindow = "Impossible - predates universe";
+      transportWindow = "Invalid target - predates universe";
     } else if (isCosmicObject) {
-      if (yearsAgo > 1e9) observabilityWindow = `Ancient light from ${emissionEra.toLowerCase()}`;
-      else if (yearsAgo > 1e6) observabilityWindow = `Light from ${(yearsAgo/1e6).toFixed(1)}M years ago`;
-      else if (yearsAgo > 1000) observabilityWindow = `Light from ${(yearsAgo/1000).toFixed(1)}K years ago`;
-      else observabilityWindow = `Light from ${yearsAgo.toFixed(0)} years ago`;
+      if (yearsAgo > 1e9) transportWindow = `Transport to ${emissionEra.toLowerCase()}`;
+      else if (yearsAgo > 1e6) transportWindow = `Transport to ${(yearsAgo/1e6).toFixed(1)}M years ago`;
+      else if (yearsAgo > 1000) transportWindow = `Transport to ${(yearsAgo/1000).toFixed(1)}K years ago`;
+      else transportWindow = `Transport to ${yearsAgo.toFixed(0)} years ago`;
+    } else {
+      // For stellar library data, show as transport target
+      if (hasRealStellarData) {
+        transportWindow = `Target: Light emitted ${yearsAgo.toFixed(0)} years ago`;
+      } else {
+        transportWindow = "Stellar transport target";
+      }
     }
     
     // Format coordinates for display
@@ -297,8 +311,8 @@ export const TransportSystem = ({
         emissionEra,
         isCosmicObject,
         isPrimordial,
-        lightTravelTimeYears,
-        observabilityWindow,
+        lightTravelTimeYears: finalLightTravelTimeYears,
+        transportWindow,
         formatted: formatTemporal()
       }
     };
@@ -680,7 +694,7 @@ export const TransportSystem = ({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className={`${destinationData.temporal.isCosmicObject ? 'text-purple-500' : 'text-green-600'}`}>
-                      {destinationData.temporal.observabilityWindow}
+                      {destinationData.temporal.transportWindow}
                     </span>
                     <span className="text-muted-foreground">
                       {destinationData.temporal.temporalOffset >= 0 ? 'Future' : 'Historical'}
