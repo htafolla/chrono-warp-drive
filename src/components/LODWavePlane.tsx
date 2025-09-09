@@ -192,9 +192,10 @@ export function LODWavePlane({
           color={getSafeColor(band.color)}
           wireframe={false}
           transparent
-          opacity={0.9}  // Phase 10C: High opacity for visibility
+          opacity={0.8}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
+          emissiveIntensity={0.4}
+          shininess={30}
           side={THREE.DoubleSide}
         />
       </mesh>
