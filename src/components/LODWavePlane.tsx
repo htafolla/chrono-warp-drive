@@ -173,11 +173,11 @@ export function LODWavePlane({
       
       // Enhanced positioning and rotation with distance-based optimization
       const rotationIntensity = targetLOD === 'high' ? 1 : 0.5;
-      // Phase 10D: Center wave planes around y=0 for better visibility
+      // Phase 10D: Compress wave planes for better visibility
       meshRef.current.rotation.z = phase * 0.12 * rotationIntensity + 
         Math.sin(state.clock.elapsedTime * 0.5) * 0.08 * rotationIntensity;
       meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.25 + index) * 0.2 * rotationIntensity;
-      meshRef.current.position.y = index * 1.0 - 2; // Center around y=0
+      meshRef.current.position.y = index * 0.6 - 3.3; // Compressed spectrum positioning
       meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.3 + index * 0.8) * 0.5 * rotationIntensity;
       
     } catch (error) {
@@ -190,7 +190,7 @@ export function LODWavePlane({
       {/* Enhanced wireframe spectrum plane - no background block */}
       <mesh 
         ref={meshRef} 
-        position={[0, index * 1.0 - 2, 0]} 
+        position={[0, index * 0.6 - 3.3, 0]} 
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >

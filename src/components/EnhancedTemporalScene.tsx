@@ -381,10 +381,10 @@ export function EnhancedTemporalScene({
             speed={0.05}
           />
           
-          {/* Phase 10D: Enhanced Controls with Wave Plane Focused Target */}
+          {/* Phase 10D: Enhanced Controls with Compressed Spectrum Target */}
           <OrbitControls 
             enablePan={true}
-            target={[0, -1, 0]}  // Focus on wave plane area
+            target={[0, 0.3, 0]}  // Focus on compressed spectrum center
             minDistance={3}
             maxDistance={15}
             enableZoom={true}
