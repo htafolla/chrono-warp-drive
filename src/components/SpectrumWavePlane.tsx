@@ -103,30 +103,23 @@ export function SpectrumWavePlane({
   const safeColor = getSafeColor(band.color) || '#ffffff';
   
   return (
-    <group>
-      <mesh 
-        ref={meshRef} 
-        position={[0, index * 0.6 - 3, 0]} 
-        receiveShadow={qualitySettings.shadows}
-        castShadow={qualitySettings.shadows}
-      >
-        <planeGeometry 
-          ref={geometryRef} 
-          args={[8, 8, 32, 32]} 
-        />
-        <meshBasicMaterial 
-          color={safeColor}
-          wireframe={false}
-          transparent
-          opacity={0.8}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      
-      {/* Debug bounding box helper */}
-      {process.env.NODE_ENV === 'development' && (
-        <boxHelper args={[meshRef.current, safeColor]} />
-      )}
-    </group>
+    <mesh 
+      ref={meshRef} 
+      position={[0, index * 0.6 - 3, 0]} 
+      receiveShadow={qualitySettings.shadows}
+      castShadow={qualitySettings.shadows}
+    >
+      <planeGeometry 
+        ref={geometryRef} 
+        args={[8, 8, 32, 32]} 
+      />
+      <meshBasicMaterial 
+        color={safeColor}
+        wireframe={false}
+        transparent
+        opacity={0.8}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
   );
 }
