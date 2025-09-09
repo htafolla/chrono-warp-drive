@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
 import { usePerformanceOptimizer } from '@/contexts/PerformanceContext';
+import { hslToHex, hslToRgb } from '@/lib/colorUtils';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;
@@ -186,10 +187,10 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       
       position.needsUpdate = true;
       
-      // Improved wave plane positioning with better spacing
+      // Optimized wave plane positioning for all planes visible
       meshRef.current.rotation.z = phase * 0.02 + Math.sin(state.clock.elapsedTime * 0.15) * 0.008;
       meshRef.current.rotation.x = Math.PI / 6 + Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.05;
-      meshRef.current.position.y = index * 2.0 - 6 + Math.sin(state.clock.elapsedTime * 0.4 + index) * 0.15;
+      meshRef.current.position.y = index * 1.5 - 4 + Math.sin(state.clock.elapsedTime * 0.4 + index) * 0.15;
       
     } catch (error) {
       console.error('Enhanced WavePlane animation error:', error);
@@ -208,26 +209,31 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
     };
   }, []);
 
-  // Calculate material colors to avoid black artifacts
-  const baseColor = new THREE.Color(band.color);
-  const emissiveColor = baseColor.clone().multiplyScalar(0.2);
+  // Create material with proper HSL to RGB conversion for visibility
+  const material = useMemo(() => {
+    const rgbColor = hslToHex(band.color);
+    const emissiveRgb = hslToRgb(band.color);
+    
+    const mat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(rgbColor),
+      emissive: new THREE.Color(emissiveRgb.r * 0.3, emissiveRgb.g * 0.3, emissiveRgb.b * 0.3),
+      emissiveIntensity: 0.6, // Increased for better visibility
+      transparent: true,
+      opacity: 0.9, // Increased for more solid appearance
+      side: THREE.DoubleSide,
+      roughness: 0.2,
+      metalness: 0.2,
+    });
+    return mat;
+  }, [band.color]);
 
   return (
-    <mesh ref={meshRef} position={[0, index * 2.0 - 6, 0]} castShadow receiveShadow>
+    <mesh ref={meshRef} position={[0, index * 1.5 - 4, 0]} castShadow receiveShadow>
       <planeGeometry 
         ref={geometryRef} 
         args={[12, 12, 12, 12]} 
       />
-      <meshStandardMaterial 
-        color={baseColor}
-        emissive={emissiveColor}
-        emissiveIntensity={0.4}
-        transparent
-        opacity={0.85}
-        roughness={0.3}
-        metalness={0.1}
-        side={THREE.DoubleSide}
-      />
+      <primitive object={material} />
     </mesh>
   );
 }
@@ -246,19 +252,20 @@ function PostProcessing({ children }: PostProcessingProps) {
     // Adaptive rendering settings based on performance
     const quality = performanceOptimizer.getAdaptiveQuality();
     
+    // Enhanced tone mapping for better visibility
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.2;
+    gl.toneMappingExposure = 1.2; // Increased exposure for brighter scene
     
-    // Enable shadows with performance optimization
+    // Optimized shadow configuration - reduce artifacts
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = quality === 'low' ? THREE.BasicShadowMap : THREE.PCFShadowMap;
+    gl.shadowMap.autoUpdate = true;
     
-    // Adaptive antialias based on performance
-    if (quality === 'low') {
-      gl.setPixelRatio(Math.min(window.devicePixelRatio, 1));
-    } else {
-      gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    }
+    // Clear color for better contrast
+    gl.setClearColor(0x000005, 1);
+    
+    // Adaptive pixel ratio based on performance
+    gl.setPixelRatio(quality === 'low' ? 1 : Math.min(window.devicePixelRatio, 2));
   }, [gl, performanceOptimizer]);
   
   return <>{children}</>;
@@ -290,9 +297,19 @@ export function EnhancedTemporalScene({
   const performanceOptimizer = usePerformanceOptimizer();
   const [debugState, setDebugState] = React.useState<DebugState>({
     wireframe: false,
-    showColors: false,
+    showColors: true,
     showBounds: false
   });
+
+  // Color preview for debugging
+  const colorPreview = useMemo(() => {
+    return SPECTRUM_BANDS.map(band => ({
+      band: band.band,
+      hsl: band.color,
+      hex: hslToHex(band.color),
+      rgb: hslToRgb(band.color)
+    }));
+  }, []);
   
   // Adaptive star count based on performance
   const starCount = useMemo(() => {
@@ -308,46 +325,38 @@ export function EnhancedTemporalScene({
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
-        camera={{ position: [8, 6, 12], fov: 60 }}
+        camera={{ position: [0, 2, 12], fov: 75 }}
         gl={{ antialias: true, alpha: true }}
         shadows
       >
         <PostProcessing>
-          {/* Optimized Lighting System */}
-          <ambientLight intensity={0.4} />
+          {/* Optimized Lighting Setup - Single Primary Shadow Caster */}
+          <ambientLight intensity={0.6} />
           <pointLight 
-            position={[12, 8, 10]} 
-            intensity={1.0} 
-            color="#ffffff"
-            castShadow
-            shadow-mapSize-width={512}
-            shadow-mapSize-height={512}
-            shadow-bias={-0.0005}
-            shadow-camera-near={0.1}
-            shadow-camera-far={25}
+            position={[10, 10, 10]} 
+            intensity={1.0}
+            castShadow={false}
           />
           <directionalLight 
-            position={[-8, 12, 6]} 
-            intensity={0.6}
-            color="#8b5cf6"
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
+            position={[8, 12, 8]} 
+            intensity={0.8}
+            castShadow={true}
+            shadow-mapSize-width={512}
+            shadow-mapSize-height={512}
+            shadow-camera-near={0.1}
             shadow-camera-far={30}
-            shadow-camera-left={-20}
-            shadow-camera-right={20}
-            shadow-camera-top={20}
-            shadow-camera-bottom={-20}
+            shadow-camera-left={-15}
+            shadow-camera-right={15}
+            shadow-camera-top={15}
+            shadow-camera-bottom={-15}
             shadow-bias={-0.0005}
           />
           <spotLight 
-            position={[0, 8, 12]} 
-            intensity={0.3} 
-            color="#06b6d4"
-            angle={Math.PI / 6}
-            penumbra={1}
-            castShadow
-            shadow-bias={-0.0005}
+            position={[0, 15, 0]} 
+            intensity={0.3}
+            castShadow={false}
+            angle={Math.PI / 4}
+            penumbra={0.5}
           />
           
           {/* Particle System */}
@@ -464,15 +473,17 @@ export function EnhancedTemporalScene({
         
         {debugState.showColors && (
           <div className="mt-2 pt-2 border-t border-border/50">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Wave Colors:</p>
-            <div className="grid grid-cols-2 gap-1">
-              {SPECTRUM_BANDS.slice(0, 4).map((band, i) => (
-                <div key={band.band} className="flex items-center text-xs">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Color Debug:</p>
+            <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto">
+              {colorPreview.map((color, i) => (
+                <div key={i} className="flex items-center text-xs">
                   <div 
-                    className="w-2 h-2 rounded-full mr-1" 
-                    style={{ backgroundColor: band.color }}
+                    className="w-3 h-3 rounded border border-white/20 mr-1" 
+                    style={{ backgroundColor: color.hex }}
                   />
-                  <span className="truncate">{band.band}</span>
+                  <span className="text-white/80 text-[10px] truncate">
+                    {color.band}
+                  </span>
                 </div>
               ))}
             </div>
