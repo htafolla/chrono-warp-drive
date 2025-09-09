@@ -248,19 +248,25 @@ export function EnhancedTemporalScene({
           <GroundPlane />
           
           {/* Clean Spectrum Wave Planes */}
-          {SPECTRUM_BANDS.map((band, index) => (
-            <SpectrumWavePlane
-              key={band.band}
-              band={band}
-              phases={phases}
-              isotope={isotope}
-              cycle={cycle}
-              fractalToggle={fractalToggle}
-              index={index}
-              spectrumData={spectrumData}
-              qualitySettings={performanceSettings}
-            />
-          ))}
+          {(() => {
+            console.log('MAPPING SPECTRUM_BANDS:', SPECTRUM_BANDS.length, 'bands');
+            return SPECTRUM_BANDS.map((band, index) => {
+              console.log(`Creating SpectrumWavePlane ${index} for band ${band.band}`);
+              return (
+                <SpectrumWavePlane
+                  key={band.band}
+                  band={band}
+                  phases={phases}
+                  isotope={isotope}
+                  cycle={cycle}
+                  fractalToggle={fractalToggle}
+                  index={index}
+                  spectrumData={spectrumData}
+                  qualitySettings={performanceSettings}
+                />
+              );
+            });
+          })()}
           
           {/* Independent Debug Overlay */}
           <DebugOverlay 
