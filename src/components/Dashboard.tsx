@@ -96,12 +96,14 @@ export function Dashboard({
           <div className="mt-4 p-3 bg-muted rounded-lg">
             <div className="text-xs text-muted-foreground mb-1">Transport Status</div>
             <Badge variant={
-              tPTT_value >= 1e11 ? "default" : 
+              tPTT_value >= 1e12 ? "destructive" :
+              tPTT_value >= 1e11 && Math.abs(phaseSync) > 0.6 ? "default" : 
               tPTT_value >= 1e10 ? "outline" : 
               tPTT_value >= 1e9 ? "secondary" : 
               "destructive"
             }>
-              {tPTT_value >= 1e11 ? "Ready for Transport" : 
+              {tPTT_value >= 1e12 ? "Critical Levels" :
+               tPTT_value >= 1e11 && Math.abs(phaseSync) > 0.6 ? "Ready for Transport" : 
                tPTT_value >= 1e10 ? "Transport Available" : 
                tPTT_value >= 1e9 ? "Preparing" : 
                tPTT_value >= 1e6 ? "Charging" : 
