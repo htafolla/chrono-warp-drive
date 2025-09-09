@@ -14,7 +14,7 @@ interface ParticleSystemProps {
 
 function ParticleSystem({ spectrumData, time, phases }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
-  const particleCount = 1000;
+  const particleCount = 750; // Phase 7 optimization
   const memoryManager = useMemoryManager();
   
   // Cleanup particles on unmount
@@ -247,12 +247,12 @@ export function EnhancedTemporalScene({
         gl={{ antialias: true, alpha: true }}
       >
         <PostProcessing>
-          {/* Phase 3: Optimized Lighting System - Single Shadow Caster */}
+          {/* Phase 7: Further Optimized Lighting System */}
           <ambientLight intensity={0.6} />
           <directionalLight 
             position={[-10, 10, 5]} 
             intensity={1.2}
-            color="#7c3aed"
+            color="hsl(270, 100%, 60%)"
             castShadow
             shadow-mapSize-width={512}
             shadow-mapSize-height={512}
@@ -265,20 +265,13 @@ export function EnhancedTemporalScene({
           />
           <pointLight 
             position={[10, 10, 10]} 
-            intensity={1.0} 
-            color="#ffffff"
+            intensity={0.8} 
+            color="hsl(195, 100%, 50%)"
           />
           <pointLight 
             position={[0, -8, 8]} 
-            intensity={0.8} 
-            color="#3b82f6"
-          />
-          <spotLight
-            position={[0, 15, 0]}
-            angle={0.3}
-            penumbra={1}
-            intensity={0.8}
-            color="#fbbf24"
+            intensity={0.6} 
+            color="hsl(149, 100%, 50%)"
           />
           
           {/* Particle System */}
@@ -302,14 +295,13 @@ export function EnhancedTemporalScene({
             />
           ))}
           
-          {/* Background Stars */}
+          {/* Background Stars - Phase 7 Optimized */}
           <Stars 
             radius={100} 
             depth={50} 
-            count={5000} 
+            count={3000} 
             factor={4} 
-            saturation={0} 
-            fade
+            saturation={0.2} 
           />
           
           {/* Enhanced Controls with Preset Paths */}
@@ -335,7 +327,7 @@ export function EnhancedTemporalScene({
           {spectrumData && (
             <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
-          <p>Particles: <span className="text-green-400 font-mono">1000</span></p>
+          <p>Particles: <span className="text-green-400 font-mono">750</span></p>
           <p>Wave Planes: <span className="text-purple-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
         </div>
         <div className="text-xs text-muted-foreground mt-3 space-y-1">

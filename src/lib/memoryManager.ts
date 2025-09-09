@@ -241,22 +241,43 @@ export class MemoryManager {
   }
 
   private setupCleanupIntervals(): void {
-    // Light cleanup every 30 seconds
+    let lastFrameTime = performance.now();
+    let frameCount = 0;
+    let fpsHistory: number[] = [];
+
+    // Frame-rate based cleanup - Phase 7 optimization
     setInterval(() => {
-      this.frameCount++;
+      frameCount++;
+      const currentTime = performance.now();
+      const deltaTime = currentTime - lastFrameTime;
+      const fps = 1000 / deltaTime;
       
-      if (this.frameCount % 1800 === 0) { // Every 30 seconds at 60fps
+      fpsHistory.push(fps);
+      if (fpsHistory.length > 60) fpsHistory.shift(); // Keep last 60 frames
+      
+      const avgFPS = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
+      
+      // More aggressive cleanup when FPS is low
+      if (avgFPS < 30 && frameCount % 600 === 0) { // Every 10 seconds when struggling
+        this.forceCleanup();
+      } else if (avgFPS < 45 && frameCount % 1200 === 0) { // Every 20 seconds when below ideal
+        this.lightCleanup();
+      } else if (frameCount % 1800 === 0) { // Every 30 seconds normally
         this.lightCleanup();
       }
+      
+      lastFrameTime = currentTime;
     }, 16);
 
-    // Heavy cleanup every 2 minutes
+    // Heavy cleanup every 2 minutes or when memory pressure is high
     setInterval(() => {
       const timeSinceLastCleanup = performance.now() - this.lastCleanup;
-      if (timeSinceLastCleanup > 120000) { // 2 minutes
+      const memPressure = this.getMemoryPressure();
+      
+      if (timeSinceLastCleanup > 120000 || memPressure === 'high' || memPressure === 'critical') {
         this.forceCleanup();
       }
-    }, 120000);
+    }, 60000); // Check every minute
   }
 
   private lightCleanup(): void {
