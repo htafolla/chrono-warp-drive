@@ -168,21 +168,28 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         const x = position.getX(i);
         const z = position.getZ(i);
         
-        const waveValue = wave(x, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
-        const secondaryWave = Math.sin(z * 0.5 + state.clock.elapsedTime * 2) * 0.2;
-        const heightValue = Math.max(-2, Math.min(2, 
-          (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.6 * intensityMultiplier
+        // Simplified wave calculation with bounds checking
+        const waveValue = wave(x, state.clock.elapsedTime * 0.5, index, isotope, band.lambda, phaseType);
+        const secondaryWave = Math.sin(z * 0.3 + state.clock.elapsedTime * 1.5) * 0.15;
+        const combinedWave = waveValue * Math.sin(x * 0.5 + z * 0.5 + phase) + secondaryWave;
+        
+        // Enhanced bounds checking to prevent runaway values
+        const heightValue = Math.max(-1.5, Math.min(1.5, 
+          combinedWave * 0.4 * intensityMultiplier
         ));
         
-        position.setY(i, heightValue);
+        // Validate height value before setting
+        if (isFinite(heightValue) && !isNaN(heightValue)) {
+          position.setY(i, heightValue);
+        }
       }
       
       position.needsUpdate = true;
       
-      // Enhanced wave plane positioning and rotation with spectrum influence
-      meshRef.current.rotation.z = phase * 0.05 + Math.sin(state.clock.elapsedTime * 0.3) * 0.02;
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.15;
-      meshRef.current.position.y = index * 0.8 - 4 + Math.sin(state.clock.elapsedTime + index) * 0.3;
+      // Smoother wave plane positioning and rotation
+      meshRef.current.rotation.z = phase * 0.03 + Math.sin(state.clock.elapsedTime * 0.2) * 0.01;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.08 + index) * 0.1;
+      meshRef.current.position.y = index * 1.2 - 5 + Math.sin(state.clock.elapsedTime * 0.5 + index) * 0.2;
       
     } catch (error) {
       console.error('Enhanced WavePlane animation error:', error);
@@ -202,7 +209,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   }, []);
 
   return (
-    <mesh ref={meshRef} position={[0, index * 0.8 - 4, 0]} castShadow receiveShadow>
+    <mesh ref={meshRef} position={[0, index * 1.2 - 5, 0]} castShadow receiveShadow>
       <planeGeometry 
         ref={geometryRef} 
         args={[10, 10, 16, 16]} 
@@ -211,9 +218,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         color={band.color}
         wireframe
         transparent
-        opacity={0.7}
+        opacity={0.8}
         emissive={band.color}
-        emissiveIntensity={0.15}
+        emissiveIntensity={0.3}
       />
     </mesh>
   );
@@ -236,8 +243,9 @@ function PostProcessing({ children }: PostProcessingProps) {
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.2;
     
-    // Disable shadows for better performance - they're the biggest FPS killer
-    gl.shadowMap.enabled = false;
+    // Enable shadows with performance optimization
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = quality === 'low' ? THREE.BasicShadowMap : THREE.PCFShadowMap;
     
     // Adaptive antialias based on performance
     if (quality === 'low') {
@@ -297,25 +305,28 @@ export function EnhancedTemporalScene({
             castShadow
             shadow-mapSize-width={1024}
             shadow-mapSize-height={1024}
+            shadow-bias={-0.0001}
           />
           <directionalLight 
             position={[-10, 10, 5]} 
-            intensity={1.0}
+            intensity={0.8}
             color="#7c3aed"
             castShadow
             shadow-mapSize-width={2048}
             shadow-mapSize-height={2048}
             shadow-camera-far={50}
-            shadow-camera-left={-10}
-            shadow-camera-right={10}
-            shadow-camera-top={10}
-            shadow-camera-bottom={-10}
+            shadow-camera-left={-15}
+            shadow-camera-right={15}
+            shadow-camera-top={15}
+            shadow-camera-bottom={-15}
+            shadow-bias={-0.0001}
           />
           <pointLight 
-            position={[0, -8, 8]} 
-            intensity={0.6} 
+            position={[0, -5, 8]} 
+            intensity={0.4} 
             color="#3b82f6"
             castShadow
+            shadow-bias={-0.0001}
           />
           
           {/* Particle System */}
@@ -339,13 +350,13 @@ export function EnhancedTemporalScene({
             />
           ))}
           
-          {/* Adaptive Background Stars */}
+          {/* Adaptive Background Stars - Fixed colors */}
           <Stars 
             radius={100} 
             depth={50} 
             count={starCount} 
-            factor={4} 
-            saturation={0} 
+            factor={2} 
+            saturation={0.5} 
             fade
           />
           
@@ -373,10 +384,12 @@ export function EnhancedTemporalScene({
             <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
           <p>Particles: <span className="text-green-400 font-mono">{starCount}</span></p>
+          <p>Wave Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
         </div>
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
-          <p>• Enhanced lighting & particles</p>
+          <p>• Enhanced lighting & shadows</p>
+          <p>• Optimized wave animations</p>
         </div>
       </div>
       
@@ -387,7 +400,8 @@ export function EnhancedTemporalScene({
             {performanceOptimizer?.getAdaptiveQuality()?.toUpperCase() || 'LOADING'}
           </span></p>
           <p>FPS: <span className="text-blue-400 font-mono">{performanceOptimizer?.getCurrentFPS().toFixed(0) || '---'}</span></p>
-          <p>Shadows: <span className="text-green-400">Enabled</span></p>
+          <p>Shadows: <span className="text-green-400">Optimized</span></p>
+          <p>Stars: <span className="text-purple-400">Colored</span></p>
         </div>
       </div>
     </div>
