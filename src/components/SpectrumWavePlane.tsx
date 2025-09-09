@@ -140,12 +140,14 @@ export function SpectrumWavePlane({
         ref={geometryRef} 
         args={[6, 6, 20, 20]} 
       />
-      <meshBasicMaterial 
+      <meshStandardMaterial 
         color={safeColor}
-        wireframe={false}
+        wireframe={index === 0} // Show wireframe for first plane to debug
         transparent={false}
         opacity={1.0}
         side={THREE.DoubleSide}
+        emissive={safeColor}
+        emissiveIntensity={0.2}
       />
     </mesh>
   );
