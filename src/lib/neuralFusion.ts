@@ -166,7 +166,7 @@ export class NeuralFusion {
         input.fractalToggle ? 1 : 0,
         input.spectrumData.granularity / 10, // Normalized granularity
         input.spectrumData.source === 'SDSS' ? 1 : 0,
-        Math.random() // Add some entropy
+        Math.sin(Date.now() * 0.001 + input.isotopeFactor) * 0.5 + 0.5 // Deterministic entropy based on isotope
       ];
 
       // Pad or trim to exactly 8 features
@@ -253,28 +253,29 @@ export class NeuralFusion {
   }
 
   private getFallbackOutput(input: NeuralInput): NeuralOutput {
+    const seed = input.isotopeFactor + input.temporalPhases.reduce((sum, phase) => sum + phase, 0);
     return {
-      synapticSequence: this.getFallbackSynapticSequence(),
-      neuralSpectra: this.generateFallbackSpectra(input.spectrumData.intensities.length),
-      metamorphosisIndex: 0.5 + Math.random() * 0.3,
-      confidenceScore: 0.6 + Math.random() * 0.2
+      synapticSequence: this.getFallbackSynapticSequence(seed),
+      neuralSpectra: this.generateFallbackSpectra(input.spectrumData.intensities.length, seed),
+      metamorphosisIndex: 0.5 + (Math.sin(seed * 3) + 1) * 0.15, // 0.5-0.8 range
+      confidenceScore: 0.6 + (Math.sin(seed * 5) + 1) * 0.1 // 0.6-0.8 range
     };
   }
 
-  private getFallbackSynapticSequence(): string {
+  private getFallbackSynapticSequence(seed: number = 0): string {
     const fallbacks = [
       "neural pathways synchronizing",
-      "quantum field harmonics detected",
+      "quantum field harmonics detected", 
       "temporal flux stabilizing",
       "spectral coherence achieved"
     ];
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    return fallbacks[Math.floor((Math.sin(seed * 2) + 1) * 2) % fallbacks.length];
   }
 
-  private generateFallbackSpectra(size: number): number[] {
+  private generateFallbackSpectra(size: number, seed: number = 0): number[] {
     const spectra: number[] = [];
     for (let i = 0; i < Math.min(size, 100); i++) {
-      spectra.push(Math.random() * 0.8 + 0.1);
+      spectra.push((Math.sin(i * 0.1 + seed) + 1) * 0.4 + 0.1); // 0.1-0.9 range
     }
     return spectra;
   }

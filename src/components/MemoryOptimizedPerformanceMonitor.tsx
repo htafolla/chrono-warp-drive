@@ -91,8 +91,8 @@ export function MemoryOptimizedPerformanceMonitor({
       
       const renderTime = performance.now() - startTime;
       
-      // Mock GPU memory (would need WebGL extension in real scenario)
-      const gpuMemory = Math.min(memoryUsage * 0.8 + Math.random() * 10, 100);
+      // Mock GPU memory (deterministic based on memory usage)
+      const gpuMemory = Math.min(memoryUsage * 0.8 + (Math.sin(now * 0.001) * 5 + 5), 100);
       
       setMetrics({
         fps: clampedFPS,

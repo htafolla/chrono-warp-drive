@@ -121,9 +121,9 @@ export const TransportSystem = ({
     const neuralStabilityFactor = neuralSync;
     const transportStabilityFactor = Math.min(transportReadiness / 100, 1);
     
-    // Environmental fluctuations (simulate real-world instability)
+    // Environmental fluctuations (deterministic simulation of real-world instability)
     const timeBasedFluctuation = Math.sin(Date.now() / 10000) * 0.1;
-    const randomFluctuation = (Math.random() - 0.5) * 0.05;
+    const deterministicFluctuation = (Math.sin(Date.now() / 7000 + isotope.factor) - 0.5) * 0.05;
     
     // Isotope-specific resonance characteristics
     const isotopeStability = isotope.type === 'C-12' ? 0.95 : 
@@ -135,7 +135,7 @@ export const TransportSystem = ({
       0.3 * neuralStabilityFactor +
       0.2 * transportStabilityFactor +
       0.1 * isotopeStability
-    ) + timeBasedFluctuation * 100 + randomFluctuation * 100;
+    ) + timeBasedFluctuation * 100 + deterministicFluctuation * 100;
     
     const isotopeResonance = Math.max(60, Math.min(100, dynamicResonance));
     
@@ -201,9 +201,9 @@ export const TransportSystem = ({
       realisticZ = Math.abs(distance / 299792458 / 3.15e7 / 1e6); // distance in ly / (c * years/sec) / Mpc
       lightTravelTimeYears = emissionAge;
     } else if (isStellarLibraryData) {
-      // Stellar library data: small redshifts for local stellar distances
-      realisticZ = Math.abs(neuralFactor * 0.00001 + Math.random() * 0.00005);
-      lightTravelTimeYears = 10 + Math.random() * 1000; // 10-1000 years for stellar library
+      // Stellar library data: small redshifts for local stellar distances (deterministic)
+      realisticZ = Math.abs(neuralFactor * 0.00001 + (Math.sin(phaseSum + neuralFactor) + 1) * 0.000025);
+      lightTravelTimeYears = 10 + (Math.sin(neuralFactor * 1000) + 1) * 500; // 10-1010 years for stellar library
     } else if (isSDSSCosmicData) {
       // SDSS cosmic data: larger redshifts for distant objects
       realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14);
@@ -211,7 +211,7 @@ export const TransportSystem = ({
     } else {
       // Default synthetic: very small redshift for local objects
       realisticZ = Math.abs(neuralFactor * 0.0001);
-      lightTravelTimeYears = Math.random() * 100; // 0-100 years for synthetic
+      lightTravelTimeYears = (Math.sin(neuralFactor * 50) + 1) * 50; // 0-100 years for synthetic
     }
       
     const coords = {

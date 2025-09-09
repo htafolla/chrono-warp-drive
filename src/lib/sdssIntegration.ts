@@ -105,8 +105,8 @@ export class SDSSIntegration {
       // Add stellar type characteristics
       intensity = this.applyObjectClassModification(intensity, wavelength, sdssObject.class);
       
-      // Add some realistic noise and variations
-      intensity *= (0.9 + Math.random() * 0.2);
+      // Add some realistic noise and variations (deterministic)
+      intensity *= (0.9 + (Math.sin(wavelength * 0.001) + 1) * 0.1);
       
       intensities.push(Math.max(0, intensity));
     }
@@ -197,8 +197,8 @@ export class SDSSIntegration {
       // Add absorption lines
       intensity *= this.addAbsorptionLines(wavelength);
       
-      // Add noise
-      intensity *= (0.95 + Math.random() * 0.1);
+      // Add noise (deterministic)
+      intensity *= (0.95 + (Math.sin(wavelength * 0.002) + 1) * 0.05);
       
       intensities.push(Math.max(0, intensity));
     }
