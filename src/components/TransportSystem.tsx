@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { Zap, Target, MapPin, Clock, AlertTriangle, CheckCircle, Rocket } from 'lucide-react';
+import { Zap, Target, MapPin, Clock, AlertTriangle, CheckCircle, Rocket, Activity, Wifi, Radio, Gauge } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Isotope } from '@/lib/temporalCalculator';
 import { TransportSequenceVerification } from './TransportSequenceVerification';
@@ -49,8 +49,51 @@ export const TransportSystem = ({
   const [transportHistory, setTransportHistory] = useState<TransportResult[]>([]);
   const [lastTransport, setLastTransport] = useState<TransportResult | null>(null);
 
-  const canTransport = tPTT_value >= 1e10;
-  const transportReadiness = Math.min(tPTT_value / 1e11, 1) * 100;
+  // Real-time transport status calculations
+  const transportStatus = useMemo(() => {
+    const canTransport = tPTT_value >= 1e10;
+    const transportReadiness = Math.min(tPTT_value / 1e11, 1) * 100;
+    const phaseSync = phases.reduce((sum, phase) => sum + Math.cos(phase), 0) / phases.length;
+    const neuralSync = neuralOutput?.confidenceScore || 0;
+    const phaseCoherence = Math.abs(phaseSync) * 100;
+    const isotopeResonance = isotope.factor * 100;
+    
+    // Dynamic status determination
+    let status: 'offline' | 'initializing' | 'charging' | 'preparing' | 'ready' | 'critical' = 'offline';
+    let statusColor: 'destructive' | 'secondary' | 'outline' | 'default' = 'destructive';
+    
+    if (tPTT_value < 1e8) {
+      status = 'offline';
+      statusColor = 'destructive';
+    } else if (tPTT_value < 5e9) {
+      status = 'initializing';
+      statusColor = 'secondary';
+    } else if (tPTT_value < 1e10) {
+      status = 'charging';
+      statusColor = 'outline';
+    } else if (transportReadiness < 80) {
+      status = 'preparing';
+      statusColor = 'outline';
+    } else if (phaseCoherence > 60 && neuralSync > 0.7) {
+      status = 'ready';
+      statusColor = 'default';
+    } else if (tPTT_value > 1e12) {
+      status = 'critical';
+      statusColor = 'destructive';
+    }
+
+    return {
+      canTransport,
+      transportReadiness,
+      phaseSync,
+      phaseCoherence,
+      neuralSync: neuralSync * 100,
+      isotopeResonance,
+      status,
+      statusColor,
+      efficiency: Math.min(transportReadiness * 0.4 + phaseCoherence * 0.3 + neuralSync * 30, 100)
+    };
+  }, [tPTT_value, phases, neuralOutput, isotope]);
 
   const calculateTransportDestination = () => {
     // Use neural output and phases to determine destination
@@ -65,7 +108,7 @@ export const TransportSystem = ({
   };
 
   const performTransport = async () => {
-    if (!canTransport) {
+    if (!transportStatus.canTransport) {
       toast({
         title: "Transport Unavailable",
         description: "Insufficient tPTT energy levels for transport initiation.",
@@ -251,30 +294,122 @@ export const TransportSystem = ({
       {/* Main Transport System */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Rocket className="w-5 h-5" />
-            Temporal Transport System
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Rocket className="w-5 h-5" />
+              Temporal Transport System
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={transportStatus.statusColor} className="capitalize">
+                {transportStatus.status}
+              </Badge>
+              {transportStatus.status === 'ready' && (
+                <Activity className="w-4 h-4 text-green-500 animate-pulse" />
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Transport Readiness */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Transport Readiness</span>
-              <span className="text-sm text-muted-foreground">{transportReadiness.toFixed(1)}%</span>
-            </div>
-            <Progress value={transportReadiness} className="w-full" />
-            
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1">
-                <div className="text-muted-foreground">Energy Level</div>
-                <div className="font-mono">{tPTT_value.toExponential(2)}</div>
+          {/* Real-time Transport Status */}
+          <div className="space-y-4">
+            {/* System Readiness */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <Gauge className="w-4 h-4" />
+                  System Readiness
+                </span>
+                <span className={`text-sm font-medium ${
+                  transportStatus.transportReadiness >= 80 ? 'text-green-500' :
+                  transportStatus.transportReadiness >= 50 ? 'text-yellow-500' : 'text-red-500'
+                }`}>
+                  {transportStatus.transportReadiness.toFixed(1)}%
+                </span>
               </div>
-              <div className="space-y-1">
-                <div className="text-muted-foreground">Neural Sync</div>
-                <div className="font-mono">{((neuralOutput?.confidenceScore || 0.7) * 100).toFixed(1)}%</div>
+              <Progress 
+                value={transportStatus.transportReadiness} 
+                className={`w-full transition-all duration-500 ${
+                  transportStatus.transportReadiness >= 80 ? 'bg-green-100' :
+                  transportStatus.transportReadiness >= 50 ? 'bg-yellow-100' : 'bg-red-100'
+                }`}
+              />
+            </div>
+
+            {/* Live Metrics Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1 p-2 rounded border">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Zap className="w-3 h-3" />
+                  Energy Level
+                </div>
+                <div className="font-mono text-sm">{tPTT_value.toExponential(2)}</div>
+                {tPTT_value >= 1e10 && (
+                  <div className="text-xs text-green-500">✓ Transport Ready</div>
+                )}
+              </div>
+              
+              <div className="space-y-1 p-2 rounded border">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Wifi className="w-3 h-3" />
+                  Neural Sync
+                </div>
+                <div className={`font-mono text-sm ${
+                  transportStatus.neuralSync >= 70 ? 'text-green-500' :
+                  transportStatus.neuralSync >= 50 ? 'text-yellow-500' : 'text-red-500'
+                }`}>
+                  {transportStatus.neuralSync.toFixed(1)}%
+                </div>
+              </div>
+              
+              <div className="space-y-1 p-2 rounded border">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Radio className="w-3 h-3" />
+                  Phase Coherence
+                </div>
+                <div className={`font-mono text-sm ${
+                  transportStatus.phaseCoherence >= 60 ? 'text-green-500' :
+                  transportStatus.phaseCoherence >= 40 ? 'text-yellow-500' : 'text-red-500'
+                }`}>
+                  {transportStatus.phaseCoherence.toFixed(1)}%
+                </div>
+              </div>
+              
+              <div className="space-y-1 p-2 rounded border">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Activity className="w-3 h-3" />
+                  Isotope Resonance
+                </div>
+                <div className="font-mono text-sm text-blue-500">
+                  {transportStatus.isotopeResonance.toFixed(1)}%
+                </div>
               </div>
             </div>
+
+            {/* Real-time Status Alert */}
+            {transportStatus.status !== 'offline' && (
+              <Alert className={`border-l-4 ${
+                transportStatus.status === 'ready' ? 'border-l-green-500 bg-green-50/50' :
+                transportStatus.status === 'critical' ? 'border-l-red-500 bg-red-50/50' :
+                transportStatus.status === 'preparing' ? 'border-l-yellow-500 bg-yellow-50/50' :
+                'border-l-blue-500 bg-blue-50/50'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {transportStatus.status === 'ready' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                  {transportStatus.status === 'critical' && <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />}
+                  {transportStatus.status === 'preparing' && <Clock className="w-4 h-4 text-yellow-500" />}
+                  {(transportStatus.status === 'initializing' || transportStatus.status === 'charging') && 
+                    <Zap className="w-4 h-4 text-blue-500 animate-pulse" />}
+                  
+                  <AlertDescription className="font-medium">
+                    {transportStatus.status === 'ready' && 'Transport system ready for operation'}
+                    {transportStatus.status === 'critical' && 'Critical energy levels detected - proceed with caution'}
+                    {transportStatus.status === 'preparing' && 'System preparing for transport capability'}
+                    {transportStatus.status === 'charging' && 'Energy accumulation in progress'}
+                    {transportStatus.status === 'initializing' && 'Transport systems coming online'}
+                  </AlertDescription>
+                </div>
+              </Alert>
+            )}
           </div>
 
           {/* Transport Progress */}
@@ -294,17 +429,48 @@ export const TransportSystem = ({
           <div className="space-y-2">
             <Button
               onClick={performTransport}
-              disabled={!canTransport || isTransporting}
-              className="w-full"
+              disabled={!transportStatus.canTransport || isTransporting}
+              className={`w-full transition-all duration-300 ${
+                transportStatus.status === 'ready' ? 'animate-pulse bg-green-600 hover:bg-green-700' :
+                transportStatus.status === 'critical' ? 'bg-red-600 hover:bg-red-700' :
+                ''
+              }`}
               size="lg"
             >
               <Target className="w-4 h-4 mr-2" />
-              {isTransporting ? 'Transporting...' : 'Initiate Transport'}
+              {isTransporting ? 'Transporting...' : 
+               transportStatus.status === 'ready' ? 'Execute Transport' :
+               transportStatus.status === 'critical' ? 'Emergency Transport' :
+               'Initiate Transport'}
             </Button>
             
-            {!canTransport && (
-              <div className="text-xs text-muted-foreground text-center">
-                Minimum tPTT of 1e10 required for transport
+            {!transportStatus.canTransport && (
+              <div className="text-xs text-center">
+                <div className="text-muted-foreground">
+                  {transportStatus.status === 'offline' ? 'System offline - Minimum tPTT of 1e10 required' :
+                   transportStatus.status === 'initializing' ? 'System initializing - Please wait' :
+                   transportStatus.status === 'charging' ? 'Energy charging - Transport unavailable' :
+                   'System not ready for transport'}
+                </div>
+                {transportStatus.transportReadiness < 100 && (
+                  <div className="text-xs text-blue-500 mt-1">
+                    {(100 - transportStatus.transportReadiness).toFixed(1)}% until full readiness
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Live Transport Prediction */}
+            {transportStatus.canTransport && !isTransporting && (
+              <div className="text-xs text-center space-y-1">
+                <div className="text-green-600 font-medium">
+                  Predicted Efficiency: {transportStatus.efficiency.toFixed(1)}%
+                </div>
+                {transportStatus.status === 'ready' && (
+                  <div className="text-blue-500 animate-pulse">
+                    Optimal transport window active
+                  </div>
+                )}
               </div>
             )}
           </div>
