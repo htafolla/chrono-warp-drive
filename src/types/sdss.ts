@@ -24,12 +24,14 @@ export interface SpectrumData {
   wavelengths: number[]; // Å units, 3800-9200 Å range
   intensities: number[]; // Normalized flux values
   granularity: number; // Å per pixel, target ~1 Å
-  source: 'SDSS' | 'SYNTHETIC';
+  source: 'SDSS' | 'SYNTHETIC' | 'STELLAR_LIBRARY';
   metadata?: {
     objid?: string;
     class?: string;
     redshift?: number;
     snr?: number;
+    distance?: number; // Distance in light years (for stellar library data)
+    emissionAge?: number; // Light travel time in years (for stellar library data)
   };
 }
 

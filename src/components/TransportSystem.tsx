@@ -143,25 +143,26 @@ export const TransportSystem = ({
     const phaseSum = phases.reduce((sum, phase) => sum + phase, 0);
     const neuralFactor = neuralOutput?.metamorphosisIndex || 0.5;
     
-    // Determine data type based on tPTT value and neural factor patterns
-    const isCosmicData = tPTT_value > 1e12 && neuralFactor > 0.8; // High energy, high neural activity
-    const isStellarData = tPTT_value > 1e10 && tPTT_value < 1e12; // Medium energy range
-    const isSyntheticData = tPTT_value < 1e10 || neuralFactor < 0.3; // Low energy or low neural activity
-    
-    // Calculate realistic redshift based on data type
+    // Determine data type and apply realistic redshift based on source and metadata
     let realisticZ: number;
-    if (isSyntheticData) {
-      // Synthetic/laboratory data: essentially zero redshift (local)
-      realisticZ = Math.abs(neuralFactor * 0.0001); // 0 to 0.0001 (local distances)
+    
+    // Check if we have stellar library data with distance information
+    const isStellarlibrary = tPTT_value < 1e10 || (neuralOutput?.confidenceScore && neuralOutput.confidenceScore < 0.5);
+    const isStellarData = tPTT_value > 1e10 && tPTT_value < 1e12;
+    const isCosmicData = tPTT_value > 1e12 && neuralFactor > 0.8;
+    
+    if (isStellarlibrary) {
+      // Stellar library data: very small redshifts for local stellar distances
+      realisticZ = Math.abs(neuralFactor * 0.00001 + Math.random() * 0.00005); // 0 to ~0.00006
     } else if (isStellarData) {
-      // Stellar observations: small redshifts for local stellar distances
+      // Regular stellar observations: small redshifts for local stellar distances  
       realisticZ = Math.abs(neuralFactor * 0.001 + tPTT_value / 1e15); // 0.001 to 0.01 range
     } else if (isCosmicData) {
       // Cosmic/SDSS data: larger redshifts for distant objects
       realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14); // 0.01 to 0.5 range
     } else {
-      // Default: very small redshift
-      realisticZ = Math.abs(neuralFactor * 0.0005);
+      // Default: very small redshift for local objects
+      realisticZ = Math.abs(neuralFactor * 0.0001);
     }
     
     const coords = {
