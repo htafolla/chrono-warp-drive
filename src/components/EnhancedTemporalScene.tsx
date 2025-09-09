@@ -161,21 +161,21 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       
       // Adaptive quality - skip vertices based on performance
       const quality = performanceOptimizer.getAdaptiveQuality();
-      const vertexSkip = quality === 'low' ? 4 : quality === 'medium' ? 2 : 1;
+      const vertexSkip = quality === 'low' ? 3 : quality === 'medium' ? 2 : 1;
       
-      // Update vertices with enhanced wave calculations
+      // Update vertices with simplified wave calculations
       for (let i = 0; i < position.count; i += vertexSkip) {
         const x = position.getX(i);
         const z = position.getZ(i);
         
         // Simplified wave calculation with bounds checking
-        const waveValue = wave(x, state.clock.elapsedTime * 0.5, index, isotope, band.lambda, phaseType);
-        const secondaryWave = Math.sin(z * 0.3 + state.clock.elapsedTime * 1.5) * 0.15;
-        const combinedWave = waveValue * Math.sin(x * 0.5 + z * 0.5 + phase) + secondaryWave;
+        const waveValue = wave(x, state.clock.elapsedTime * 0.8, index, isotope, band.lambda, phaseType);
+        const secondaryWave = Math.sin(z * 0.2 + state.clock.elapsedTime * 1.2) * 0.1;
+        const combinedWave = waveValue * Math.sin(x * 0.3 + z * 0.3 + phase) + secondaryWave;
         
         // Enhanced bounds checking to prevent runaway values
-        const heightValue = Math.max(-1.5, Math.min(1.5, 
-          combinedWave * 0.4 * intensityMultiplier
+        const heightValue = Math.max(-1.0, Math.min(1.0, 
+          combinedWave * 0.3 * intensityMultiplier
         ));
         
         // Validate height value before setting
@@ -186,10 +186,10 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       
       position.needsUpdate = true;
       
-      // Smoother wave plane positioning and rotation
-      meshRef.current.rotation.z = phase * 0.03 + Math.sin(state.clock.elapsedTime * 0.2) * 0.01;
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.08 + index) * 0.1;
-      meshRef.current.position.y = index * 1.2 - 5 + Math.sin(state.clock.elapsedTime * 0.5 + index) * 0.2;
+      // Improved wave plane positioning with better spacing
+      meshRef.current.rotation.z = phase * 0.02 + Math.sin(state.clock.elapsedTime * 0.15) * 0.008;
+      meshRef.current.rotation.x = Math.PI / 6 + Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.05;
+      meshRef.current.position.y = index * 2.0 - 6 + Math.sin(state.clock.elapsedTime * 0.4 + index) * 0.15;
       
     } catch (error) {
       console.error('Enhanced WavePlane animation error:', error);
@@ -208,19 +208,25 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
     };
   }, []);
 
+  // Calculate material colors to avoid black artifacts
+  const baseColor = new THREE.Color(band.color);
+  const emissiveColor = baseColor.clone().multiplyScalar(0.2);
+
   return (
-    <mesh ref={meshRef} position={[0, index * 1.2 - 5, 0]} castShadow receiveShadow>
+    <mesh ref={meshRef} position={[0, index * 2.0 - 6, 0]} castShadow receiveShadow>
       <planeGeometry 
         ref={geometryRef} 
-        args={[10, 10, 16, 16]} 
+        args={[12, 12, 12, 12]} 
       />
-      <meshPhongMaterial 
-        color={band.color}
-        wireframe
+      <meshStandardMaterial 
+        color={baseColor}
+        emissive={emissiveColor}
+        emissiveIntensity={0.4}
         transparent
-        opacity={0.8}
-        emissive={band.color}
-        emissiveIntensity={0.3}
+        opacity={0.85}
+        roughness={0.3}
+        metalness={0.1}
+        side={THREE.DoubleSide}
       />
     </mesh>
   );
@@ -267,6 +273,12 @@ interface EnhancedTemporalSceneProps {
   time: number;
 }
 
+interface DebugState {
+  wireframe: boolean;
+  showColors: boolean;
+  showBounds: boolean;
+}
+
 export function EnhancedTemporalScene({ 
   phases, 
   isotope, 
@@ -276,13 +288,18 @@ export function EnhancedTemporalScene({
   time 
 }: EnhancedTemporalSceneProps) {
   const performanceOptimizer = usePerformanceOptimizer();
+  const [debugState, setDebugState] = React.useState<DebugState>({
+    wireframe: false,
+    showColors: false,
+    showBounds: false
+  });
   
   // Adaptive star count based on performance
   const starCount = useMemo(() => {
     if (!performanceOptimizer) return 1000;
     const quality = performanceOptimizer.getAdaptiveQuality();
     switch (quality) {
-      case 'high': return 2000;
+      case 'high': return 1500;
       case 'medium': return 1000;
       case 'low': return 500;
       default: return 1000;
@@ -296,37 +313,41 @@ export function EnhancedTemporalScene({
         shadows
       >
         <PostProcessing>
-          {/* Enhanced Lighting System with Shadows */}
-          <ambientLight intensity={0.3} />
+          {/* Optimized Lighting System */}
+          <ambientLight intensity={0.4} />
           <pointLight 
-            position={[10, 10, 10]} 
-            intensity={1.2} 
+            position={[12, 8, 10]} 
+            intensity={1.0} 
             color="#ffffff"
+            castShadow
+            shadow-mapSize-width={512}
+            shadow-mapSize-height={512}
+            shadow-bias={-0.0005}
+            shadow-camera-near={0.1}
+            shadow-camera-far={25}
+          />
+          <directionalLight 
+            position={[-8, 12, 6]} 
+            intensity={0.6}
+            color="#8b5cf6"
             castShadow
             shadow-mapSize-width={1024}
             shadow-mapSize-height={1024}
-            shadow-bias={-0.0001}
+            shadow-camera-far={30}
+            shadow-camera-left={-20}
+            shadow-camera-right={20}
+            shadow-camera-top={20}
+            shadow-camera-bottom={-20}
+            shadow-bias={-0.0005}
           />
-          <directionalLight 
-            position={[-10, 10, 5]} 
-            intensity={0.8}
-            color="#7c3aed"
+          <spotLight 
+            position={[0, 8, 12]} 
+            intensity={0.3} 
+            color="#06b6d4"
+            angle={Math.PI / 6}
+            penumbra={1}
             castShadow
-            shadow-mapSize-width={2048}
-            shadow-mapSize-height={2048}
-            shadow-camera-far={50}
-            shadow-camera-left={-15}
-            shadow-camera-right={15}
-            shadow-camera-top={15}
-            shadow-camera-bottom={-15}
-            shadow-bias={-0.0001}
-          />
-          <pointLight 
-            position={[0, -5, 8]} 
-            intensity={0.4} 
-            color="#3b82f6"
-            castShadow
-            shadow-bias={-0.0001}
+            shadow-bias={-0.0005}
           />
           
           {/* Particle System */}
@@ -350,13 +371,13 @@ export function EnhancedTemporalScene({
             />
           ))}
           
-          {/* Adaptive Background Stars - Fixed colors */}
+          {/* Adaptive Background Stars - Colorful */}
           <Stars 
-            radius={100} 
-            depth={50} 
+            radius={120} 
+            depth={60} 
             count={starCount} 
-            factor={2} 
-            saturation={0.5} 
+            factor={1.5} 
+            saturation={0.8} 
             fade
           />
           
@@ -375,34 +396,88 @@ export function EnhancedTemporalScene({
         </PostProcessing>
       </Canvas>
       
-      {/* Enhanced Overlay Info */}
-      <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-4 text-card-foreground shadow-lg">
+      {/* Enhanced Overlay Info with Debug Controls */}
+      <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-4 text-card-foreground shadow-lg max-w-xs">
         <div className="text-sm font-medium space-y-1">
           <p>Isotope: <span className="text-primary font-mono">{isotope.type}</span></p>
           <p>Fractal: <span className={fractalToggle ? "text-accent" : "text-secondary"}>{fractalToggle ? "ON" : "OFF"}</span></p>
           {spectrumData && (
-            <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
+            <p>Source: <span className="text-blue-400 font-mono text-xs">{spectrumData.source}</span></p>
           )}
-          <p>Particles: <span className="text-green-400 font-mono">{starCount}</span></p>
-          <p>Wave Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
+          <p>Stars: <span className="text-green-400 font-mono">{starCount}</span></p>
+          <p>Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
         </div>
+        
+        {/* Debug Controls */}
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Debug Options:</p>
+          <div className="space-y-1">
+            <label className="flex items-center text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={debugState.wireframe}
+                onChange={(e) => setDebugState(prev => ({ ...prev, wireframe: e.target.checked }))}
+                className="mr-2 scale-75"
+              />
+              Wireframe Mode
+            </label>
+            <label className="flex items-center text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={debugState.showColors}
+                onChange={(e) => setDebugState(prev => ({ ...prev, showColors: e.target.checked }))}
+                className="mr-2 scale-75"
+              />
+              Color Debug
+            </label>
+            <label className="flex items-center text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={debugState.showBounds}
+                onChange={(e) => setDebugState(prev => ({ ...prev, showBounds: e.target.checked }))}
+                className="mr-2 scale-75"
+              />
+              Show Bounds
+            </label>
+          </div>
+        </div>
+        
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
-          <p>• Enhanced lighting & shadows</p>
-          <p>• Optimized wave animations</p>
+          <p>• Solid wave surfaces with enhanced colors</p>
+          <p>• Optimized performance & shadows</p>
         </div>
       </div>
       
-      {/* Performance Info */}
+      {/* Performance & Status Info */}
       <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-3 text-card-foreground shadow-lg">
         <div className="text-xs space-y-1">
           <p>Quality: <span className={`font-mono ${performanceOptimizer?.getAdaptiveQuality() === 'high' ? 'text-green-400' : performanceOptimizer?.getAdaptiveQuality() === 'medium' ? 'text-yellow-400' : 'text-red-400'}`}>
             {performanceOptimizer?.getAdaptiveQuality()?.toUpperCase() || 'LOADING'}
           </span></p>
           <p>FPS: <span className="text-blue-400 font-mono">{performanceOptimizer?.getCurrentFPS().toFixed(0) || '---'}</span></p>
-          <p>Shadows: <span className="text-green-400">Optimized</span></p>
-          <p>Stars: <span className="text-purple-400">Colored</span></p>
+          <p>Material: <span className="text-green-400">Standard</span></p>
+          <p>Shadows: <span className="text-cyan-400">Enhanced</span></p>
+          <p>Stars: <span className="text-purple-400">Colorful</span></p>
+          <p>Spacing: <span className="text-yellow-400">Fixed</span></p>
         </div>
+        
+        {debugState.showColors && (
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Wave Colors:</p>
+            <div className="grid grid-cols-2 gap-1">
+              {SPECTRUM_BANDS.slice(0, 4).map((band, i) => (
+                <div key={band.band} className="flex items-center text-xs">
+                  <div 
+                    className="w-2 h-2 rounded-full mr-1" 
+                    style={{ backgroundColor: band.color }}
+                  />
+                  <span className="truncate">{band.band}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
