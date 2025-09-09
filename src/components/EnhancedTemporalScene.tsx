@@ -9,6 +9,7 @@ import { CustomStars } from './CustomStars';
 import { LODWavePlane } from './LODWavePlane';
 import { GroundPlane } from './GroundPlane';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
+import { getSafeColor } from '@/lib/colorUtils';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;
@@ -216,12 +217,13 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         args={[10, 10, 48, 48]} 
       />
       <meshPhongMaterial 
-        color={band.color}
+        color={getSafeColor(band.color)}
         wireframe={false}
         transparent
-        opacity={0.3}
-        emissive={band.color}
-        emissiveIntensity={0.15}
+        opacity={0.6}
+        emissive={getSafeColor(band.color)}
+        emissiveIntensity={0.2}
+        side={THREE.DoubleSide}
       />
     </mesh>
   );
@@ -379,17 +381,18 @@ export function EnhancedTemporalScene({
             speed={0.05}
           />
           
-          {/* Enhanced Controls with Preset Paths */}
+          {/* Enhanced Controls with Better Camera Position */}
           <OrbitControls 
             enablePan={true}
+            target={[0, 0, 0]}
+            minDistance={5}
+            maxDistance={25}
             enableZoom={true}
             enableRotate={true}
-            maxDistance={30}
-            minDistance={5}
             autoRotate={false}
             autoRotateSpeed={0.5}
             dampingFactor={0.05}
-            enableDamping
+            enableDamping={true}
           />
         </PostProcessing>
       </Canvas>
@@ -405,6 +408,7 @@ export function EnhancedTemporalScene({
           <p>Particles: <span className="text-green-400 font-mono">{performanceSettings.particles ? 750 : 0}</span></p>
           <p>Quality: <span className="text-blue-400 font-mono capitalize">{performanceSettings.quality}</span></p>
           <p>Wave Planes: <span className="text-purple-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
+          <p>Visible Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
         </div>
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
