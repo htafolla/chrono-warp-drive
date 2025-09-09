@@ -36,11 +36,28 @@ export function SpectrumWavePlane({
 
   // Debug logging
   useEffect(() => {
-    console.log(`[SpectrumWavePlane ${index}] Mounted with band lambda:`, band.lambda, 'color:', band.color);
+    console.log(`[SpectrumWavePlane ${index}] Mounted with:`, {
+      lambda: band.lambda,
+      color: band.color,
+      position: [0, index * 0.6 - 3, 0],
+      safeColor: getSafeColor(band.color)
+    });
     return () => {
       console.log(`[SpectrumWavePlane ${index}] Unmounting`);
     };
   }, [band.lambda, band.color, index]);
+
+  // Debug mesh and geometry creation
+  useEffect(() => {
+    if (meshRef.current && geometryRef.current) {
+      console.log(`[SpectrumWavePlane ${index}] Mesh and geometry ready:`, {
+        meshPosition: meshRef.current.position.toArray(),
+        geometryBounds: geometryRef.current.boundingBox,
+        visible: meshRef.current.visible,
+        material: meshRef.current.material
+      });
+    }
+  });
 
   // Cleanup on unmount
   useEffect(() => {
@@ -72,18 +89,26 @@ export function SpectrumWavePlane({
       const intensityMultiplier = spectrumData ? 
         spectrumData.intensities[index % spectrumData.intensities.length] : 1;
       
+      // Calculate wave value for debugging (outside loop)
+      const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
+      
       // Enhanced wave calculations with more dramatic movement
       for (let i = 0; i < position.count; i++) {
         const x = position.getX(i);
         const z = position.getZ(i);
         
-        const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
         const secondaryWave = Math.sin(x * 0.5 + state.clock.elapsedTime * 0.8) * 0.3;
         const heightValue = Math.max(-2, Math.min(2, 
           (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.8 * intensityMultiplier
         ));
         
         position.setY(i, heightValue);
+      }
+      
+      // Debug log only once per frame for first plane
+      if (index === 0) {
+        console.log(`[SpectrumWavePlane ${index}] Wave animation active, waveValue:`, waveValue, 'sample heightValue:',
+          Math.max(-2, Math.min(2, (waveValue * Math.sin(0 + 0 + phase)) * 0.8 * intensityMultiplier)));
       }
       
       position.needsUpdate = true;
@@ -101,6 +126,7 @@ export function SpectrumWavePlane({
 
   // Get safe color with fallback
   const safeColor = getSafeColor(band.color) || '#ffffff';
+  console.log(`[SpectrumWavePlane ${index}] Using color:`, safeColor, 'from:', band.color);
   
   return (
     <mesh 
@@ -108,17 +134,20 @@ export function SpectrumWavePlane({
       position={[0, index * 0.6 - 3, 0]} 
       receiveShadow={qualitySettings.shadows}
       castShadow={qualitySettings.shadows}
+      visible={true}
     >
       <planeGeometry 
         ref={geometryRef} 
-        args={[8, 8, 32, 32]} 
+        args={[6, 6, 20, 20]} 
       />
-      <meshBasicMaterial 
+      <meshStandardMaterial 
         color={safeColor}
-        wireframe={false}
-        transparent
-        opacity={0.8}
+        wireframe={index === 0} // Show wireframe for first plane to debug
+        transparent={false}
+        opacity={1.0}
         side={THREE.DoubleSide}
+        emissive={safeColor}
+        emissiveIntensity={0.2}
       />
     </mesh>
   );
