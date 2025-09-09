@@ -12,6 +12,9 @@ import { SpectrumAnalyzer } from './SpectrumAnalyzer';
 import { SpectrumSelector } from './SpectrumSelector';
 import { RippelDisplay } from './RippelDisplay';
 import { PerformanceMonitor } from './PerformanceMonitor';
+import { useAsyncCalculations } from './AsyncCalculationManager';
+import { usePerformanceOptimizer } from './PerformanceOptimizer';
+import { useTensorFlowInitializer } from './TensorFlowInitializer';
 import { AudioSynthesis } from './AudioSynthesis';
 import { ExportImport } from './ExportImport';
 import { MobileControls } from './MobileControls';
@@ -91,6 +94,11 @@ export function TPTTApp() {
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
   const [picklesAtlas] = useState(() => new PicklesAtlas());
   const [neuralFusion] = useState(() => new NeuralFusion());
+  
+  // Performance optimization integration
+  const performanceOptimizer = usePerformanceOptimizer();
+  const { processedSpectrum, neuralData, isProcessing, AsyncManager } = useAsyncCalculations(spectrumData, isV4Initialized);
+  const tensorFlowStatus = useTensorFlowInitializer();
   
   // Scene controls for mobile
   const sceneControlsRef = useRef({
@@ -827,6 +835,10 @@ export function TPTTApp() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Performance optimizations */}
+      <AsyncManager />
+      
     </div>
   );
 }
