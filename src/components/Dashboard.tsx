@@ -168,15 +168,10 @@ export function Dashboard({
 
       {/* Transport System - Full Width */}
       <div className="mt-6">
-        <TransportSystem
-          tPTT_value={tPTT_value}
-          phases={phases}
-          e_t={e_t}
-          neuralOutput={tpttV4Result?.neuralOutput}
-          rippel={rippel}
-          isotope={isotope}
-          fractalToggle={fractalToggle}
-        />
+          {/* Transport System will be available in separate Transport tab */}
+          <div className="text-center text-muted-foreground py-8">
+            Transport System moved to dedicated Transport tab for enhanced functionality
+          </div>
       </div>
 
       {/* Phase Visualization */}

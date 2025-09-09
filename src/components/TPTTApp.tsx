@@ -52,6 +52,13 @@ export function TPTTApp() {
   const [isotope, setIsotope] = useState<Isotope>(ISOTOPES[0]);
   const [cycle, setCycle] = useState(0);
   const [e_t, setE_t] = useState(0.5);
+
+  // Enhanced energy system state
+  const [energyGrowthRate, setEnergyGrowthRate] = useState(1.0);
+  const [energyMomentum, setEnergyMomentum] = useState(0);
+  const [energyHistory, setEnergyHistory] = useState<number[]>([]);
+  const [targetE_t, setTargetE_t] = useState(1.5);
+  const [lastEnergyValues, setLastEnergyValues] = useState<number[]>([]);
   
   // User controls
   const [phi, setPhi] = useState(PHI);
@@ -64,6 +71,7 @@ export function TPTTApp() {
   const [updateInterval, setUpdateInterval] = useState(2000); // Default 2 seconds - slower and less jarring
   const [animationMode, setAnimationMode] = useState<'realtime' | 'observation' | 'analysis'>('observation');
   const [nextUpdateIn, setNextUpdateIn] = useState(0);
+  const [autoRealtimeMode, setAutoRealtimeMode] = useState(false);
 
   // v4.5 Enhancement state
   const [spectrumData, setSpectrumData] = useState<SpectrumData | null>(null);
@@ -127,7 +135,53 @@ export function TPTTApp() {
     const updateSystem = async () => {
       setTime(prevTime => prevTime + PHASE_UPDATE_FACTOR);
       setCycle(prevCycle => prevCycle + 1);
-      setE_t(prevEt => Math.min(prevEt + 0.001, 2.0));
+      
+      // Enhanced E_t calculation with momentum and multipliers
+      setE_t(prevEt => {
+        const baseGrowth = 0.001 * energyGrowthRate;
+        
+        // Neural confidence boost (0-50% additional growth)
+        const neuralBoost = tpttV4Result?.neuralOutput?.confidenceScore || 0;
+        const neuralMultiplier = neuralBoost * 0.5;
+        
+        // Spectrum intensity multiplier (high-energy stars get bonus)
+        let spectrumMultiplier = 1.0;
+        if (spectrumData?.source === 'STELLAR_LIBRARY' && spectrumData.metadata?.distance) {
+          const distance = spectrumData.metadata.distance;
+          if (distance < 50) spectrumMultiplier = 2.0; // Very close high-energy stars
+          else if (distance < 100) spectrumMultiplier = 1.5; // Nearby stars
+          else if (distance < 500) spectrumMultiplier = 1.2; // Local stars
+        }
+        
+        // Fractal toggle bonus (20% as mentioned in the plan)
+        const fractalBonus = fractalToggle ? 0.2 : 0;
+        
+        // Calculate momentum (acceleration effect)
+        const currentMomentum = energyMomentum * 0.1; // Convert to growth multiplier
+        
+        // Total growth calculation
+        const totalGrowth = baseGrowth * (1 + neuralMultiplier + (spectrumMultiplier - 1) + fractalBonus + currentMomentum);
+        
+        const newE_t = Math.min(prevEt + totalGrowth, targetE_t);
+        
+        // Update energy history for momentum calculation
+        setLastEnergyValues(prev => {
+          const newHistory = [...prev, newE_t].slice(-5); // Keep last 5 values
+          return newHistory;
+        });
+        
+        return newE_t;
+      });
+      
+      // Update energy momentum based on acceleration
+      setEnergyMomentum(prev => {
+        if (lastEnergyValues.length >= 3) {
+          const recent = lastEnergyValues.slice(-3);
+          const acceleration = (recent[2] - recent[1]) - (recent[1] - recent[0]);
+          return Math.max(0, Math.min(prev + acceleration * 10, 1.0)); // Cap at 100% momentum
+        }
+        return prev;
+      });
       
       const phaseType = cycle % Math.floor(PHI * 10) < 5 ? "push" : "pull";
       const omega = [FREQ, FREQ * 1.1, FREQ * 0.9];
@@ -263,6 +317,102 @@ export function TPTTApp() {
       setIsPlaying(false);
     }
   }, [updateInterval]);
+
+  // Auto realtime mode when transport is needed
+  const handleAutoRealtimeToggle = React.useCallback(() => {
+    if (autoRealtimeMode) {
+      setAutoRealtimeMode(false);
+      if (animationMode === 'realtime') {
+        setAnimationMode('observation');
+        setUpdateInterval(1000);
+      }
+    } else {
+      setAutoRealtimeMode(true);
+      setAnimationMode('realtime');
+      setUpdateInterval(100); // Fast but not too intensive
+    }
+  }, [autoRealtimeMode, animationMode]);
+
+  // Enhanced spectrum selection with optimization recommendations
+  const handleOptimizedSpectrumSelect = React.useCallback((type: string) => {
+    // This would integrate with PicklesAtlas to find the best spectrum of requested type
+    const randomSpectrum = picklesAtlas.getRandomSpectrum();
+    handleSpectrumSelect(randomSpectrum);
+    toast.success(`Optimized ${type} spectrum loaded for maximum energy efficiency`);
+  }, [picklesAtlas]);
+
+  // Calculate enhanced metrics for new components
+  const enhancedMetrics = React.useMemo(() => {
+    const neuralConfidence = tpttV4Result?.neuralOutput?.confidenceScore || 0;
+    
+    // Calculate spectrum-specific energy boost
+    let spectrumBoost = 0;
+    if (spectrumData?.source === 'STELLAR_LIBRARY' && spectrumData.metadata?.distance) {
+      const distance = spectrumData.metadata.distance;
+      if (distance < 50) spectrumBoost = 1.0; // 100% boost for very close stars
+      else if (distance < 100) spectrumBoost = 0.5; // 50% boost for nearby stars  
+      else if (distance < 500) spectrumBoost = 0.2; // 20% boost for local stars
+    }
+    
+    const fractalBonus = fractalToggle ? 0.2 : 0;
+    
+    // Calculate adaptive threshold based on spectrum type
+    let adaptiveThreshold = 1e10; // Default
+    if (spectrumData?.source === 'STELLAR_LIBRARY' && spectrumData.metadata?.distance) {
+      const distance = spectrumData.metadata.distance;
+      if (distance < 50) adaptiveThreshold = 1e8; // Much lower for high-energy nearby stars
+      else if (distance < 100) adaptiveThreshold = 5e8;
+      else adaptiveThreshold = 1e9;
+    } else if (spectrumData?.source === 'SDSS') {
+      adaptiveThreshold = 2e9; // Higher for cosmic objects
+    }
+    
+    // Apply neural confidence adjustment
+    const neuralMultiplier = 0.5 + (neuralConfidence * 0.5);
+    const finalThreshold = adaptiveThreshold * neuralMultiplier;
+    
+    // Calculate transport readiness with logarithmic scaling
+    const logReadiness = tPTT_value <= 0 ? 0 : 
+      Math.max(0, Math.min(100, (Math.log10(tPTT_value) - Math.log10(finalThreshold)) * 20 + 50));
+    
+    // Calculate ETA to readiness
+    const energyGrowthPerSecond = (0.001 * energyGrowthRate * (updateInterval / 1000)) * 
+                                  (1 + neuralConfidence * 0.5 + spectrumBoost + fractalBonus + energyMomentum * 0.1);
+    const etaToTarget = targetE_t > e_t ? (targetE_t - e_t) / energyGrowthPerSecond : 0;
+    
+    // Energy trend calculation
+    let energyTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
+    if (lastEnergyValues.length >= 2) {
+      const recent = lastEnergyValues.slice(-2);
+      if (recent[1] > recent[0] + 0.001) energyTrend = 'increasing';
+      else if (recent[1] < recent[0] - 0.001) energyTrend = 'decreasing';
+    }
+    
+    // Generate optimization suggestions
+    const optimizations: string[] = [];
+    if (logReadiness < 80) {
+      if (!autoRealtimeMode) optimizations.push("Enable Auto-Realtime Mode");
+      if (energyGrowthRate < 5) optimizations.push("Increase Energy Growth Rate");
+      if (spectrumData?.source !== 'STELLAR_LIBRARY') optimizations.push("Select High-Energy Stellar Spectrum");
+      if (!fractalToggle) optimizations.push("Enable Fractal Enhancement (+20% energy)");
+      if (neuralConfidence < 0.8) optimizations.push("Improve Neural Confidence");
+    }
+    
+    return {
+      neuralBoost: neuralConfidence * 0.5,
+      spectrumBoost,
+      fractalBonus,
+      adaptiveThreshold: finalThreshold,
+      logReadiness,
+      etaToReady: etaToTarget,
+      energyTrend,
+      optimizations,
+      isOptimal: logReadiness >= 95 && neuralConfidence > 0.8 && spectrumBoost > 0.3
+    };
+  }, [
+    tpttV4Result, spectrumData, fractalToggle, tPTT_value, e_t, targetE_t, 
+    energyGrowthRate, energyMomentum, lastEnergyValues, updateInterval, autoRealtimeMode
+  ]);
 
   const currentState = {
     time,

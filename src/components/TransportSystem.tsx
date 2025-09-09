@@ -5,10 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Zap, Target, MapPin, Clock, AlertTriangle, CheckCircle, Rocket, Activity, Wifi, Radio, Gauge } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Isotope, calculatePhaseCoherence } from '@/lib/temporalCalculator';
 import { TransportSequenceVerification } from './TransportSequenceVerification';
+import { EnergyAccelerator } from './EnergyAccelerator';
+import { AdaptiveTPTTCalibrator } from './AdaptiveTPTTCalibrator';
+import { SpectrumIntelligence } from './SpectrumIntelligence';
+import { TransportReadinessDisplay } from './TransportReadinessDisplay';
+import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 
 interface TransportResult {
   id: string;
@@ -32,27 +38,38 @@ interface TransportResult {
   };
 }
 
-interface TemporalData {
-  targetMJD: number;
-  targetUTC: Date;
-  temporalOffset: number;
-  yearsAgo: number;
-  emissionEra: string;
-  isCosmicObject: boolean;
-  isPrimordial: boolean;
-  lightTravelTimeYears: number;
-  transportWindow: string;
-  formatted: string;
-}
-
 interface TransportSystemProps {
   tPTT_value: number;
   phases: number[];
   e_t: number;
-  neuralOutput?: any;
+  neuralOutput?: TPTTv4Result['neuralOutput'];
   rippel: string;
   isotope: Isotope;
   fractalToggle: boolean;
+  spectrumData?: SpectrumData | null;
+  
+  // Enhanced energy system props
+  energyGrowthRate: number;
+  onEnergyGrowthRateChange: (rate: number) => void;
+  targetE_t: number;
+  onTargetE_tChange: (target: number) => void;
+  isRealtime: boolean;
+  onRealtimeToggle: () => void;
+  energyMomentum: number;
+  
+  // Enhanced metrics
+  neuralBoost: number;
+  spectrumBoost: number;
+  fractalBonus: number;
+  adaptiveThreshold: number;
+  logReadiness: number;
+  etaToReady: number;
+  energyTrend: 'increasing' | 'decreasing' | 'stable';
+  optimizations: string[];
+  isOptimal: boolean;
+  
+  // Callbacks
+  onOptimizedSpectrumSelect: (type: string) => void;
 }
 
 export const TransportSystem = ({
@@ -62,7 +79,25 @@ export const TransportSystem = ({
   neuralOutput,
   rippel,
   isotope,
-  fractalToggle
+  fractalToggle,
+  spectrumData,
+  energyGrowthRate,
+  onEnergyGrowthRateChange,
+  targetE_t,
+  onTargetE_tChange,
+  isRealtime,
+  onRealtimeToggle,
+  energyMomentum,
+  neuralBoost,
+  spectrumBoost,
+  fractalBonus,
+  adaptiveThreshold,
+  logReadiness,
+  etaToReady,
+  energyTrend,
+  optimizations,
+  isOptimal,
+  onOptimizedSpectrumSelect
 }: TransportSystemProps) => {
   const { toast } = useToast();
   const [isTransporting, setIsTransporting] = useState(false);
@@ -70,22 +105,23 @@ export const TransportSystem = ({
   const [transportHistory, setTransportHistory] = useState<TransportResult[]>([]);
   const [lastTransport, setLastTransport] = useState<TransportResult | null>(null);
 
-  // Real-time transport status calculations
+  // Enhanced transport status calculations with adaptive thresholds
   const transportStatus = useMemo(() => {
-    const canTransport = tPTT_value >= 1e10;
-    const transportReadiness = Math.min(tPTT_value / 1e11, 1) * 100;
+    const canTransport = tPTT_value >= adaptiveThreshold;
+    const transportReadiness = logReadiness;
     const phaseSync = calculatePhaseCoherence(phases);
     const neuralSync = neuralOutput?.confidenceScore || 0;
     const phaseCoherence = phaseSync * 100;
+    
     // Dynamic isotope resonance calculation (60-100% based on system conditions)
-    const baseResonance = isotope.factor * 100; // Base 100%
-    const stabilityFactor = phaseCoherence / 100; // 0-1 based on phase coherence
-    const neuralStabilityFactor = neuralSync; // 0-1 based on neural sync
-    const transportStabilityFactor = Math.min(transportReadiness / 100, 1); // 0-1 based on transport readiness
+    const baseResonance = isotope.factor * 100;
+    const stabilityFactor = phaseCoherence / 100;
+    const neuralStabilityFactor = neuralSync;
+    const transportStabilityFactor = Math.min(transportReadiness / 100, 1);
     
     // Environmental fluctuations (simulate real-world instability)
-    const timeBasedFluctuation = Math.sin(Date.now() / 10000) * 0.1; // ±10% slow oscillation
-    const randomFluctuation = (Math.random() - 0.5) * 0.05; // ±2.5% random noise
+    const timeBasedFluctuation = Math.sin(Date.now() / 10000) * 0.1;
+    const randomFluctuation = (Math.random() - 0.5) * 0.05;
     
     // Isotope-specific resonance characteristics
     const isotopeStability = isotope.type === 'C-12' ? 0.95 : 
@@ -93,25 +129,27 @@ export const TransportSystem = ({
     
     // Combine all factors for dynamic resonance (range: 60-100%)
     const dynamicResonance = baseResonance * (
-      0.4 * stabilityFactor +           // 40% weight on phase coherence
-      0.3 * neuralStabilityFactor +     // 30% weight on neural sync
-      0.2 * transportStabilityFactor +  // 20% weight on transport readiness
-      0.1 * isotopeStability            // 10% weight on isotope characteristics
+      0.4 * stabilityFactor +
+      0.3 * neuralStabilityFactor +
+      0.2 * transportStabilityFactor +
+      0.1 * isotopeStability
     ) + timeBasedFluctuation * 100 + randomFluctuation * 100;
     
     const isotopeResonance = Math.max(60, Math.min(100, dynamicResonance));
     
-    // Dynamic status determination
+    // Dynamic status determination with adaptive thresholds
     let status: 'offline' | 'initializing' | 'charging' | 'preparing' | 'ready' | 'critical' = 'offline';
     let statusColor: 'destructive' | 'secondary' | 'outline' | 'default' = 'destructive';
     
-    if (tPTT_value < 1e8) {
+    const thresholdRatio = tPTT_value / adaptiveThreshold;
+    
+    if (thresholdRatio < 0.01) {
       status = 'offline';
       statusColor = 'destructive';
-    } else if (tPTT_value < 5e9) {
+    } else if (thresholdRatio < 0.5) {
       status = 'initializing';
       statusColor = 'secondary';
-    } else if (tPTT_value < 1e10) {
+    } else if (thresholdRatio < 1.0) {
       status = 'charging';
       statusColor = 'outline';
     } else if (transportReadiness < 80) {
@@ -120,7 +158,7 @@ export const TransportSystem = ({
     } else if (phaseCoherence > 60 && neuralSync > 0.7) {
       status = 'ready';
       statusColor = 'default';
-    } else if (tPTT_value > 1e12) {
+    } else if (tPTT_value > adaptiveThreshold * 100) {
       status = 'critical';
       statusColor = 'destructive';
     }
@@ -134,99 +172,88 @@ export const TransportSystem = ({
       isotopeResonance,
       status,
       statusColor,
-      efficiency: Math.min(transportReadiness * 0.4 + phaseCoherence * 0.3 + neuralSync * 0.3, 100)
+      efficiency: Math.min(transportReadiness * 0.4 + phaseCoherence * 0.3 + neuralSync * 30, 100),
+      thresholdRatio
     };
-  }, [tPTT_value, phases, neuralOutput, isotope]);
+  }, [tPTT_value, phases, neuralOutput, isotope, adaptiveThreshold, logReadiness]);
 
-  // Real-time destination calculation with space-time coordinates
   const destinationData = useMemo(() => {
     const phaseSum = phases.reduce((sum, phase) => sum + phase, 0);
     const neuralFactor = neuralOutput?.metamorphosisIndex || 0.5;
     
-  // Check for actual spectrum metadata to determine transport destination type
-  let realisticZ: number;
-  let lightTravelTimeYears = 0;
-  
-  // Check if spectrum has real stellar metadata from Pickles Atlas
-  const hasRealStellarData = neuralOutput?.spectrumData?.metadata?.distance && neuralOutput?.spectrumData?.metadata?.emissionAge;
-  const isSDSSCosmicData = neuralOutput?.spectrumData?.source === 'SDSS';
-  const isStellarLibraryData = neuralOutput?.spectrumData?.source === 'STELLAR_LIBRARY';
-  
-  if (hasRealStellarData) {
-    // Use real stellar distance and emission age from Pickles Atlas
-    const distance = neuralOutput.spectrumData.metadata.distance;
-    const emissionAge = neuralOutput.spectrumData.metadata.emissionAge;
+    // Check for actual spectrum metadata to determine transport destination type
+    let realisticZ: number;
+    let lightTravelTimeYears = 0;
     
-    // Convert distance to redshift (very small for stellar distances)
-    realisticZ = Math.abs(distance / 299792458 / 3.15e7 / 1e6); // distance in ly / (c * years/sec) / Mpc
-    lightTravelTimeYears = emissionAge;
-  } else if (isStellarLibraryData) {
-    // Stellar library data: small redshifts for local stellar distances
-    realisticZ = Math.abs(neuralFactor * 0.00001 + Math.random() * 0.00005);
-    lightTravelTimeYears = 10 + Math.random() * 1000; // 10-1000 years for stellar library
-  } else if (isSDSSCosmicData) {
-    // SDSS cosmic data: larger redshifts for distant objects
-    realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14);
-    lightTravelTimeYears = realisticZ * 1e10; // Cosmological lookback time
-  } else {
-    // Default synthetic: very small redshift for local objects
-    realisticZ = Math.abs(neuralFactor * 0.0001);
-    lightTravelTimeYears = Math.random() * 100; // 0-100 years for synthetic
-  }
+    // Check if spectrum has real stellar metadata from Pickles Atlas
+    const hasRealStellarData = spectrumData?.metadata?.distance && spectrumData?.metadata?.emissionAge;
+    const isSDSSCosmicData = spectrumData?.source === 'SDSS';
+    const isStellarLibraryData = spectrumData?.source === 'STELLAR_LIBRARY';
     
+    if (hasRealStellarData) {
+      // Use real stellar distance and emission age from Pickles Atlas
+      const distance = spectrumData!.metadata!.distance!;
+      const emissionAge = spectrumData!.metadata!.emissionAge!;
+      
+      // Convert distance to redshift (very small for stellar distances)
+      realisticZ = Math.abs(distance / 299792458 / 3.15e7 / 1e6); // distance in ly / (c * years/sec) / Mpc
+      lightTravelTimeYears = emissionAge;
+    } else if (isStellarLibraryData) {
+      // Stellar library data: small redshifts for local stellar distances
+      realisticZ = Math.abs(neuralFactor * 0.00001 + Math.random() * 0.00005);
+      lightTravelTimeYears = 10 + Math.random() * 1000; // 10-1000 years for stellar library
+    } else if (isSDSSCosmicData) {
+      // SDSS cosmic data: larger redshifts for distant objects
+      realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14);
+      lightTravelTimeYears = realisticZ * 1e10; // Cosmological lookback time
+    } else {
+      // Default synthetic: very small redshift for local objects
+      realisticZ = Math.abs(neuralFactor * 0.0001);
+      lightTravelTimeYears = Math.random() * 100; // 0-100 years for synthetic
+    }
+      
     const coords = {
       ra: (phaseSum * 180 / Math.PI) % 360,
       dec: ((e_t * 90) % 180) - 90,
       z: Math.min(realisticZ, 0.5) // Cap at Z=0.5 to prevent extreme lookback times
     };
 
-    // Calculate coordinate stability (how much coords are shifting)
+    // Calculate coordinate stability
     const stabilityFactor = Math.min(transportStatus.phaseCoherence / 100 * 0.6 + transportStatus.neuralSync / 100 * 0.4, 1);
-    const coordinateVariance = (1 - stabilityFactor) * 10; // Degrees of variance
-    
-    // Determine if coordinates are locked
+    const coordinateVariance = (1 - stabilityFactor) * 10;
     const isLocked = stabilityFactor > 0.8 && transportStatus.status === 'ready';
     
-    // Calculate historical emission time (when light was emitted)
+    // Calculate temporal data - simplified for the enhanced system
     const currentMJD = (Date.now() - new Date(1858, 10, 17).getTime()) / (24 * 60 * 60 * 1000);
-    
-    // Use the calculated light travel time from metadata or computed value
-    const maxLookbackYears = 13.8e9; // Age of universe in years
+    const maxLookbackYears = 13.8e9;
     const finalLightTravelTimeYears = Math.min(lightTravelTimeYears, maxLookbackYears);
-    const lightTravelTimeDays = finalLightTravelTimeYears * 365.25; // Convert to days
-    const lightTravelTimeMJD = lightTravelTimeDays; // MJD offset
+    const lightTravelTimeDays = finalLightTravelTimeYears * 365.25;
+    const lightTravelTimeMJD = lightTravelTimeDays;
     
-    // Apply additional temporal variations based on system parameters (much smaller now)
-    const temporalVariation = (transportStatus.isotopeResonance / 100 - 0.5) * 365; // ±6 months variation
-    const neuralTimeShift = neuralFactor * 30; // Neural influence up to 1 month
-    const phaseTimeOffset = (phaseSum % (2 * Math.PI)) / (2 * Math.PI) * 7; // Phase influence up to 1 week
+    const temporalVariation = (transportStatus.isotopeResonance / 100 - 0.5) * 365;
+    const neuralTimeShift = neuralFactor * 30;
+    const phaseTimeOffset = (phaseSum % (2 * Math.PI)) / (2 * Math.PI) * 7;
     
-    // Calculate emission time (subtract time to go backwards) with safety bounds
     let targetMJD = currentMJD - lightTravelTimeMJD - Math.abs(temporalVariation) - Math.abs(neuralTimeShift) - Math.abs(phaseTimeOffset);
     
-    // Ensure the MJD is within valid JavaScript Date range (roughly -100,000 to +100,000 years from 1970)
-    const minMJD = -36522; // Roughly year 1758 (safe lower bound)
-    const maxMJD = currentMJD + 36522; // Safe upper bound
+    const minMJD = -36522;
+    const maxMJD = currentMJD + 36522;
     targetMJD = Math.max(minMJD, Math.min(maxMJD, targetMJD));
     
-    // Create Date object with validation
     let targetUTC: Date;
     const targetTime = new Date(1858, 10, 17).getTime() + targetMJD * 24 * 60 * 60 * 1000;
     
     if (isNaN(targetTime) || targetTime < -8640000000000000 || targetTime > 8640000000000000) {
-      // If invalid, use a safe fallback date
-      targetUTC = new Date(1900, 0, 1); // Fallback to 1900
+      targetUTC = new Date(1900, 0, 1);
       targetMJD = (targetUTC.getTime() - new Date(1858, 10, 17).getTime()) / (24 * 60 * 60 * 1000);
     } else {
       targetUTC = new Date(targetTime);
     }
     
-    const temporalOffset = targetMJD - currentMJD; // This will be negative (in the past)
-    
-    // Calculate historical context with the corrected values
+    const temporalOffset = targetMJD - currentMJD;
     const yearsAgo = Math.abs(temporalOffset / 365.25);
-    const isCosmicObject = coords.z > 0.01; // Significant redshift
-    const isPrimordial = yearsAgo > 13.8e9; // Before Big Bang (impossible)
+    const isCosmicObject = coords.z > 0.01;
+    const isPrimordial = yearsAgo > 13.8e9;
     
     let emissionEra = "Recent";
     if (yearsAgo < 1000) emissionEra = "Historical";
@@ -246,59 +273,15 @@ export const TransportSystem = ({
       else if (yearsAgo > 1000) transportWindow = `Transport to ${(yearsAgo/1000).toFixed(1)}K years ago`;
       else transportWindow = `Transport to ${yearsAgo.toFixed(0)} years ago`;
     } else {
-      // For stellar library data, show as transport target
       if (hasRealStellarData) {
         transportWindow = `Target: Light emitted ${yearsAgo.toFixed(0)} years ago`;
       } else {
         transportWindow = "Stellar transport target";
       }
     }
-    
-    // Format coordinates for display
-    const formatRA = (ra: number) => {
-      const hours = Math.floor(ra / 15);
-      const minutes = Math.floor((ra % 15) * 4);
-      const seconds = ((ra % 15) * 4 - minutes) * 60;
-      return `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toFixed(1)}s`;
-    };
-    
-    const formatDEC = (dec: number) => {
-      const sign = dec >= 0 ? '+' : '-';
-      const absDec = Math.abs(dec);
-      const degrees = Math.floor(absDec);
-      const arcminutes = Math.floor((absDec - degrees) * 60);
-      const arcseconds = ((absDec - degrees) * 60 - arcminutes) * 60;
-      return `${sign}${degrees.toString().padStart(2, '0')}° ${arcminutes.toString().padStart(2, '0')}' ${arcseconds.toFixed(1)}"`;
-    };
-    
-    const formatTemporal = () => {
-      // Validate date before formatting
-      if (isNaN(targetUTC.getTime())) {
-        return "Invalid temporal coordinates";
-      }
-      
-      const dateStr = targetUTC.toISOString().split('T')[0];
-      const timeStr = targetUTC.toTimeString().split(' ')[0];
-      const mjdStr = targetMJD.toFixed(5);
-      const yearsAgoStr = yearsAgo < 1000 ? `${yearsAgo.toFixed(0)} years` :
-                         yearsAgo < 1e6 ? `${(yearsAgo/1000).toFixed(1)}K years` :
-                         yearsAgo < 1e9 ? `${(yearsAgo/1e6).toFixed(1)}M years` : 
-                         `${(yearsAgo/1e9).toFixed(1)}B years`;
-      
-      return coords.z > 0 
-        ? `Emitted: ${dateStr} ${timeStr} UTC (MJD ${mjdStr}) - ${yearsAgoStr} ago`
-        : `${dateStr} ${timeStr} UTC (MJD ${mjdStr})`;
-    };
 
     return {
       coords,
-      formatted: {
-        ra: formatRA(coords.ra),
-        dec: formatDEC(coords.dec),
-        raDecimal: coords.ra.toFixed(6),
-        decDecimal: coords.dec.toFixed(6),
-        z: coords.z.toExponential(3)
-      },
       stability: stabilityFactor,
       variance: coordinateVariance,
       isLocked,
@@ -313,22 +296,28 @@ export const TransportSystem = ({
         isPrimordial,
         lightTravelTimeYears: finalLightTravelTimeYears,
         transportWindow,
-        formatted: formatTemporal()
+        formatted: `Emission: ${targetUTC.toISOString().split('T')[0]} (${yearsAgo.toFixed(0)} years ago)`
       }
     };
-  }, [tPTT_value, phases, e_t, neuralOutput, transportStatus.phaseCoherence, transportStatus.neuralSync, transportStatus.status, transportStatus.isotopeResonance]);
+  }, [tPTT_value, phases, e_t, neuralOutput, transportStatus, spectrumData]);
 
-  const calculateTransportDestination = () => {
-    return destinationData.coords;
-  };
-
+  // Enhanced transport function with auto-realtime mode
   const performTransport = async () => {
     if (!transportStatus.canTransport) {
       toast({
         title: "Transport Unavailable",
-        description: "Insufficient tPTT energy levels for transport initiation.",
+        description: `Insufficient tPTT energy. Current: ${tPTT_value.toExponential(2)}, Required: ${adaptiveThreshold.toExponential(2)}`,
         variant: "destructive"
       });
+      
+      // Auto-enable realtime mode if not already enabled
+      if (!isRealtime) {
+        onRealtimeToggle();
+        toast({
+          title: "Auto-Realtime Enabled",
+          description: "Accelerating energy accumulation for faster transport readiness.",
+        });
+      }
       return;
     }
 
@@ -336,30 +325,27 @@ export const TransportSystem = ({
     setTransportProgress(0);
 
     try {
-      // Phase 1: Energy Accumulation
+      // Enhanced transport phases with progress feedback
       setTransportProgress(20);
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Phase 2: Neural Synchronization
       setTransportProgress(50);
       await new Promise(resolve => setTimeout(resolve, 600));
 
-      // Phase 3: Temporal Fold Initiation
       setTransportProgress(80);
       await new Promise(resolve => setTimeout(resolve, 400));
 
-      // Phase 4: Transport Execution
       setTransportProgress(100);
       
-      const origin = { ra: 0, dec: 0, z: 0 }; // Current position
-      const destination = calculateTransportDestination();
+      const origin = { ra: 0, dec: 0, z: 0 };
+      const destination = destinationData.coords;
       
-      // Calculate transport metrics based on current state
+      // Enhanced transport metrics
       const phaseSync = phases.reduce((sum, phase) => sum + Math.cos(phase), 0) / phases.length;
       const neuralConfidence = neuralOutput?.confidenceScore || 0.7;
       
       const transportEfficiency = Math.min(
-        (tPTT_value / 1e11) * 0.4 +
+        (tPTT_value / adaptiveThreshold) * 0.4 +
         Math.abs(phaseSync) * 0.3 +
         neuralConfidence * 0.3,
         1
@@ -369,14 +355,15 @@ export const TransportSystem = ({
       const temporalStability = fractalToggle ? transportEfficiency * 1.2 : transportEfficiency;
       const neuralSyncScore = neuralConfidence * (isotope.type === 'C-14' ? 1.1 : 1.0);
       
-      // Determine anomalies based on conditions
+      // Enhanced anomaly detection
       const anomalies: string[] = [];
       if (transportEfficiency < 0.7) anomalies.push("Suboptimal energy coherence");
       if (Math.abs(phaseSync) < 0.5) anomalies.push("Phase desynchronization detected");
       if (e_t > 0.8) anomalies.push("High entropy interference");
-      if (!fractalToggle && tPTT_value > 5e10) anomalies.push("Fractal enhancement recommended");
+      if (!fractalToggle && tPTT_value > adaptiveThreshold * 5) anomalies.push("Fractal enhancement recommended");
+      if (!isOptimal) anomalies.push("System not optimally configured");
 
-      const transportStatus: TransportResult['status'] = 
+      const transportResultStatus: TransportResult['status'] = 
         transportEfficiency >= 0.8 ? 'success' :
         transportEfficiency >= 0.5 ? 'partial' : 'failed';
 
@@ -390,7 +377,7 @@ export const TransportSystem = ({
         temporalStability,
         neuralSyncScore,
         rippelHarmonics: rippel,
-        status: transportStatus,
+        status: transportResultStatus,
         anomalies,
         temporalDestination: {
           targetMJD: destinationData.temporal.targetMJD,
@@ -403,26 +390,26 @@ export const TransportSystem = ({
       };
 
       setLastTransport(result);
-      setTransportHistory(prev => [result, ...prev.slice(0, 9)]); // Keep last 10
+      setTransportHistory(prev => [result, ...prev.slice(0, 9)]);
 
-      // Show result toast with temporal info
+      // Enhanced result toast
       const tempInfo = result.temporalDestination 
-        ? ` | Light emitted: ${result.temporalDestination.emissionEra} (${result.temporalDestination.yearsAgo! < 1000 ? 
+        ? ` | ${result.temporalDestination.emissionEra} (${result.temporalDestination.yearsAgo! < 1000 ? 
             `${result.temporalDestination.yearsAgo!.toFixed(0)} years ago` :
             result.temporalDestination.yearsAgo! < 1e6 ? `${(result.temporalDestination.yearsAgo!/1000).toFixed(1)}K years ago` :
             `${(result.temporalDestination.yearsAgo!/1e6).toFixed(1)}M years ago`})`
         : '';
       
       toast({
-        title: `Transport ${transportStatus.toUpperCase()}`,
+        title: `Transport ${transportResultStatus.toUpperCase()}`,
         description: `Efficiency: ${(transportEfficiency * 100).toFixed(1)}% | Destination: RA ${destination.ra.toFixed(2)}°${tempInfo}`,
-        variant: transportStatus === 'success' ? 'default' : transportStatus === 'partial' ? 'default' : 'destructive'
+        variant: transportResultStatus === 'success' ? 'default' : 'destructive'
       });
 
     } catch (error) {
       toast({
         title: "Transport Failed",
-        description: "Critical error during transport sequence. Check system integrity.",
+        description: "An error occurred during transport execution.",
         variant: "destructive"
       });
     } finally {
@@ -431,477 +418,154 @@ export const TransportSystem = ({
     }
   };
 
-  const getStatusIcon = (status: TransportResult['status']) => {
-    switch (status) {
-      case 'success': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'partial': return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-      case 'failed': return <AlertTriangle className="w-4 h-4 text-red-500" />;
+  // Handle optimization suggestions
+  const handleOptimization = (optimization: string) => {
+    switch (optimization) {
+      case "Enable Auto-Realtime Mode":
+        onRealtimeToggle();
+        break;
+      case "Increase Energy Growth Rate":
+        onEnergyGrowthRateChange(Math.min(energyGrowthRate + 1, 10));
+        break;
+      case "Select High-Energy Stellar Spectrum":
+        onOptimizedSpectrumSelect('O-Type');
+        break;
+      case "Enable Fractal Enhancement (+20% energy)":
+        // This would need to be passed up to parent component
+        toast({
+          title: "Optimization Applied",
+          description: "Enable Fractal Mode in Controls tab for +20% energy boost.",
+        });
+        break;
+      default:
+        toast({
+          title: "Optimization Suggestion",
+          description: optimization,
+        });
     }
-  };
-
-  const generateSequenceData = async () => {
-    if (!lastTransport) return null;
-    
-    // Generate comprehensive sequence data
-    const sequenceId = `TSEQ-${Date.now().toString(36).toUpperCase()}`;
-    const timestamp = new Date().toISOString();
-    
-    // Pre-transport state capture
-    const preTransportHash = btoa(JSON.stringify({
-      tPTT: tPTT_value,
-      phases: phases,
-      neural: neuralOutput?.synapticSequence || 'none',
-      time: Date.now()
-    })).slice(0, 16);
-    
-    // Generate transport sequence simulation
-    const energyAccumulation = Array.from({ length: 20 }, (_, i) => 
-      tPTT_value * (0.5 + (i / 20) * 0.5) * (1 + Math.sin(i * 0.314) * 0.1)
-    );
-    
-    const neuralSyncProgress = Array.from({ length: 15 }, (_, i) => 
-      Math.min(0.1 + (i / 15) * 0.9 * (neuralOutput?.confidenceScore || 0.7), 1)
-    );
-    
-    const temporalFoldSequence = Array.from({ length: 8 }, (_, i) => 
-      `TF-${i.toString(16).toUpperCase()}-${(phases[0] + i * 0.785).toFixed(4)}`
-    );
-    
-    const phaseAlignmentData = phases.map((phase, i) => 
-      phase + Math.sin(i * 0.618) * 0.1
-    );
-    
-    // Post-transport verification
-    const postTransportHash = btoa(JSON.stringify({
-      coords: lastTransport.destinationCoords,
-      efficiency: lastTransport.transportEfficiency,
-      timestamp: lastTransport.timestamp,
-      sequence: sequenceId
-    })).slice(0, 16);
-    
-    // Verification calculations
-    const sequenceIntegrity = energyAccumulation.every(e => e > 0 && !isNaN(e));
-    const temporalConsistency = phaseAlignmentData.every(p => Math.abs(p) < 10);
-    const neuralCoherence = neuralSyncProgress[neuralSyncProgress.length - 1] > 0.6;
-    const energyConservation = Math.abs(lastTransport.energyConsumption) < tPTT_value * 0.5;
-    
-    return {
-      timestamp,
-      sequenceId,
-      preTransportState: {
-        tPTT_value,
-        phases: [...phases],
-        e_t,
-        neuralSequence: neuralOutput?.synapticSequence || 'N/A',
-        rippelSignature: rippel.slice(0, 32),
-        temporalHash: preTransportHash
-      },
-      transportSequence: {
-        energyAccumulation,
-        neuralSyncProgress,
-        temporalFoldSequence,
-        phaseAlignmentData,
-        isotopicResonance: isotope.factor * (1 + Math.sin(Date.now() * 0.001) * 0.1)
-      },
-      postTransportState: {
-        finalCoordinates: lastTransport.destinationCoords,
-        energyResidue: lastTransport.energyConsumption,
-        temporalStability: lastTransport.temporalStability,
-        verificationHash: postTransportHash
-      },
-      verificationData: {
-        sequenceIntegrity,
-        temporalConsistency,
-        neuralCoherence,
-        energyConservation,
-        overallValidity: sequenceIntegrity && temporalConsistency && neuralCoherence && energyConservation
-      }
-    };
   };
 
   return (
     <div className="space-y-6">
-      {/* Main Transport System */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Rocket className="w-5 h-5" />
-              Temporal Transport System
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={transportStatus.statusColor} className="capitalize">
-                {transportStatus.status}
-              </Badge>
-              {transportStatus.status === 'ready' && (
-                <Activity className="w-4 h-4 text-green-500 animate-pulse" />
-              )}
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Real-time Transport Status */}
-          <div className="space-y-4">
-            {/* System Readiness */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Gauge className="w-4 h-4" />
-                  System Readiness
-                </span>
-                <span className={`text-sm font-medium ${
-                  transportStatus.transportReadiness >= 80 ? 'text-green-500' :
-                  transportStatus.transportReadiness >= 50 ? 'text-yellow-500' : 'text-red-500'
-                }`}>
-                  {transportStatus.transportReadiness.toFixed(1)}%
-                </span>
-              </div>
-              <Progress 
-                value={transportStatus.transportReadiness} 
-                className={`w-full transition-all duration-500 ${
-                  transportStatus.transportReadiness >= 80 ? 'bg-green-100' :
-                  transportStatus.transportReadiness >= 50 ? 'bg-yellow-100' : 'bg-red-100'
-                }`}
-              />
-            </div>
+      <Tabs defaultValue="readiness" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="readiness">Readiness</TabsTrigger>
+          <TabsTrigger value="energy">Energy</TabsTrigger>
+          <TabsTrigger value="calibration">Calibration</TabsTrigger>
+          <TabsTrigger value="spectrum">Spectrum</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
 
-            {/* Live Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1 p-2 rounded border">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Zap className="w-3 h-3" />
-                  Energy Level
-                </div>
-                <div className="font-mono text-sm">{tPTT_value.toExponential(2)}</div>
-                {tPTT_value >= 1e10 && (
-                  <div className="text-xs text-green-500">✓ Transport Ready</div>
-                )}
-              </div>
-              
-              <div className="space-y-1 p-2 rounded border">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Wifi className="w-3 h-3" />
-                  Neural Sync
-                </div>
-                <div className={`font-mono text-sm ${
-                  transportStatus.neuralSync >= 70 ? 'text-green-500' :
-                  transportStatus.neuralSync >= 50 ? 'text-yellow-500' : 'text-red-500'
-                }`}>
-                  {transportStatus.neuralSync.toFixed(1)}%
-                </div>
-              </div>
-              
-              <div className="space-y-1 p-2 rounded border">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Radio className="w-3 h-3" />
-                  Phase Coherence
-                </div>
-                <div className={`font-mono text-sm ${
-                  transportStatus.phaseCoherence >= 60 ? 'text-green-500' :
-                  transportStatus.phaseCoherence >= 40 ? 'text-yellow-500' : 'text-red-500'
-                }`}>
-                  {transportStatus.phaseCoherence.toFixed(1)}%
-                </div>
-              </div>
-              
-              <div className="space-y-1 p-2 rounded border">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Activity className="w-3 h-3" />
-                  Isotope Resonance
-                </div>
-                <div className="font-mono text-sm text-blue-500">
-                  {transportStatus.isotopeResonance.toFixed(1)}%
-                </div>
-              </div>
-            </div>
+        <TabsContent value="readiness" className="space-y-4">
+          <TransportReadinessDisplay
+            tPTT_value={tPTT_value}
+            e_t={e_t}
+            transportReadiness={transportStatus.transportReadiness}
+            phaseCoherence={transportStatus.phaseCoherence}
+            neuralSync={transportStatus.neuralSync}
+            isotopeResonance={transportStatus.isotopeResonance}
+            canTransport={transportStatus.canTransport}
+            isTransporting={isTransporting}
+            etaToReady={etaToReady}
+            energyTrend={energyTrend}
+            optimizations={optimizations}
+            onTransport={performTransport}
+            onOptimize={handleOptimization}
+          />
+        </TabsContent>
 
-            {/* Real-time Status Alert */}
-            {transportStatus.status !== 'offline' && (
-              <Alert className={`border-l-4 ${
-                transportStatus.status === 'ready' ? 'border-l-green-500 bg-green-50/50' :
-                transportStatus.status === 'critical' ? 'border-l-red-500 bg-red-50/50' :
-                transportStatus.status === 'preparing' ? 'border-l-yellow-500 bg-yellow-50/50' :
-                'border-l-blue-500 bg-blue-50/50'
-              }`}>
-                <div className="flex items-center gap-2">
-                  {transportStatus.status === 'ready' && <CheckCircle className="w-4 h-4 text-green-500" />}
-                  {transportStatus.status === 'critical' && <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />}
-                  {transportStatus.status === 'preparing' && <Clock className="w-4 h-4 text-yellow-500" />}
-                  {(transportStatus.status === 'initializing' || transportStatus.status === 'charging') && 
-                    <Zap className="w-4 h-4 text-blue-500 animate-pulse" />}
-                  
-                  <AlertDescription className="font-medium">
-                    {transportStatus.status === 'ready' && 'Transport system ready for operation'}
-                    {transportStatus.status === 'critical' && 'Critical energy levels detected - proceed with caution'}
-                    {transportStatus.status === 'preparing' && 'System preparing for transport capability'}
-                    {transportStatus.status === 'charging' && 'Energy accumulation in progress'}
-                    {transportStatus.status === 'initializing' && 'Transport systems coming online'}
-                  </AlertDescription>
-                </div>
-              </Alert>
-            )}
-          </div>
+        <TabsContent value="energy" className="space-y-4">
+          <EnergyAccelerator
+            e_t={e_t}
+            energyGrowthRate={energyGrowthRate}
+            onGrowthRateChange={onEnergyGrowthRateChange}
+            targetE_t={targetE_t}
+            onTargetChange={onTargetE_tChange}
+            isRealtime={isRealtime}
+            onRealtimeToggle={onRealtimeToggle}
+            energyMomentum={energyMomentum}
+            neuralBoost={neuralBoost}
+            spectrumBoost={spectrumBoost}
+            fractalBonus={fractalBonus}
+            etaSeconds={etaToReady}
+          />
+        </TabsContent>
 
-          {/* Real-time 4D Destination Preview */}
-          <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span className="font-medium">4D Space-Time Destination</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={destinationData.isLocked ? "default" : "secondary"} className="text-xs">
-                  {destinationData.isLocked ? "LOCKED" : "TRACKING"}
-                </Badge>
-                {destinationData.isLocked && (
-                  <Target className="w-3 h-3 text-green-500" />
-                )}
-              </div>
-            </div>
+        <TabsContent value="calibration" className="space-y-4">
+          <AdaptiveTPTTCalibrator
+            tPTT_value={tPTT_value}
+            spectrumData={spectrumData}
+            neuralConfidence={neuralOutput?.confidenceScore || 0}
+            adaptiveThreshold={adaptiveThreshold}
+            transportReadiness={transportStatus.transportReadiness}
+            isOptimal={isOptimal}
+          />
+        </TabsContent>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
-              {/* Spatial Coordinates */}
-              <div className="space-y-2">
-                <div className="font-medium text-muted-foreground">Spatial Coordinates</div>
-                <div className="space-y-1 font-mono">
-                  <div className="flex justify-between">
-                    <span>RA:</span>
-                    <span className={destinationData.isLocked ? "text-green-500" : "text-yellow-500"}>
-                      {destinationData.formatted.ra}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>DEC:</span>
-                    <span className={destinationData.isLocked ? "text-green-500" : "text-yellow-500"}>
-                      {destinationData.formatted.dec}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Z:</span>
-                    <span className={destinationData.isLocked ? "text-green-500" : "text-yellow-500"}>
-                      {destinationData.formatted.z}
-                    </span>
-                  </div>
-                </div>
-              </div>
+        <TabsContent value="spectrum" className="space-y-4">
+          <SpectrumIntelligence
+            currentSpectrum={spectrumData}
+            onRecommendSpectrum={onOptimizedSpectrumSelect}
+            energyBoostFactor={spectrumBoost}
+            distanceScaling={1 + spectrumBoost}
+            stellarAgeFactor={1 + neuralBoost}
+          />
+        </TabsContent>
 
-              {/* Temporal Coordinates */}
-              <div className="space-y-2">
-                <div className="font-medium text-muted-foreground">Temporal Coordinates</div>
-                <div className="space-y-1 text-xs">
-                  <div className="font-mono break-all">
-                    {destinationData.temporal.formatted}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`${destinationData.temporal.isCosmicObject ? 'text-purple-500' : 'text-green-600'}`}>
-                      {destinationData.temporal.transportWindow}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {destinationData.temporal.temporalOffset >= 0 ? 'Future' : 'Historical'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Navigation Data */}
-              <div className="space-y-2">
-                <div className="font-medium text-muted-foreground">Navigation Data</div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span>Distance:</span>
-                    <span>{destinationData.distance}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Stability:</span>
-                    <span className={`${
-                      destinationData.stability > 0.8 ? 'text-green-500' :
-                      destinationData.stability > 0.5 ? 'text-yellow-500' : 'text-red-500'
-                    }`}>
-                      {(destinationData.stability * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Variance:</span>
-                    <span className="text-muted-foreground">
-                      ±{destinationData.variance.toFixed(2)}°
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {!destinationData.isLocked && (
-              <Alert className="border-yellow-200 bg-yellow-50/50">
-                <Clock className="w-4 h-4 text-yellow-600" />
-                <AlertDescription className="text-sm text-yellow-800">
-                  Space-time coordinates tracking - target will lock when system reaches optimal coherence
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          {/* Transport Progress */}
-          {isTransporting && (
-            <Alert>
-              <Zap className="w-4 h-4 animate-pulse" />
-              <AlertDescription>
-                <div className="space-y-2">
-                  <div>Transport sequence in progress...</div>
-                  <Progress value={transportProgress} className="w-full" />
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Transport Action */}
-          <div className="space-y-2">
-            <Button
-              onClick={performTransport}
-              disabled={!transportStatus.canTransport || isTransporting}
-              className={`w-full transition-all duration-300 ${
-                transportStatus.status === 'ready' ? 'animate-pulse bg-green-600 hover:bg-green-700' :
-                transportStatus.status === 'critical' ? 'bg-red-600 hover:bg-red-700' :
-                ''
-              }`}
-              size="lg"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              {isTransporting ? 'Transporting...' : 
-               transportStatus.status === 'ready' ? 'Execute Transport' :
-               transportStatus.status === 'critical' ? 'Emergency Transport' :
-               'Initiate Transport'}
-            </Button>
-            
-            {!transportStatus.canTransport && (
-              <div className="text-xs text-center">
-                <div className="text-muted-foreground">
-                  {transportStatus.status === 'offline' ? 'System offline - Minimum tPTT of 1e10 required' :
-                   transportStatus.status === 'initializing' ? 'System initializing - Please wait' :
-                   transportStatus.status === 'charging' ? 'Energy charging - Transport unavailable' :
-                   'System not ready for transport'}
-                </div>
-                {transportStatus.transportReadiness < 100 && (
-                  <div className="text-xs text-blue-500 mt-1">
-                    {(100 - transportStatus.transportReadiness).toFixed(1)}% until full readiness
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* Live Transport Prediction */}
-            {transportStatus.canTransport && !isTransporting && (
-              <div className="text-xs text-center space-y-1">
-                <div className="text-green-600 font-medium">
-                  Predicted Efficiency: {transportStatus.efficiency.toFixed(1)}%
-                </div>
-                {transportStatus.status === 'ready' && (
-                  <div className="text-blue-500 animate-pulse">
-                    Optimal transport window active
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Last Transport Result */}
+        <TabsContent value="history" className="space-y-4">
           {lastTransport && (
-            <div className="space-y-3">
-              <Separator />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Last Transport</span>
-                  <div className="flex items-center gap-2">
-                    {getStatusIcon(lastTransport.status)}
-                    <Badge variant={
-                      lastTransport.status === 'success' ? 'default' : 
-                      lastTransport.status === 'partial' ? 'secondary' : 
-                      'destructive'
-                    }>
-                      {lastTransport.status}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <div className="text-muted-foreground">Efficiency</div>
-                    <div className="font-mono">{(lastTransport.transportEfficiency * 100).toFixed(1)}%</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Stability</div>
-                    <div className="font-mono">{(lastTransport.temporalStability * 100).toFixed(1)}%</div>
-                  </div>
-                  <div className="col-span-2">
-                    <div className="text-muted-foreground flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      Spatial Destination
-                    </div>
-                    <div className="font-mono text-xs">
-                      RA {lastTransport.destinationCoords.ra.toFixed(2)}° 
-                      DEC {lastTransport.destinationCoords.dec.toFixed(2)}° 
-                      Z {lastTransport.destinationCoords.z.toFixed(4)}
-                    </div>
-                  </div>
-                  {lastTransport.temporalDestination && (
-                    <div className="col-span-2">
-                      <div className="text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        Temporal Destination
-                      </div>
-                      <div className="font-mono text-xs">
-                        {lastTransport.temporalDestination.targetUTC.toISOString().split('T')[0]} 
-                        (MJD {lastTransport.temporalDestination.targetMJD.toFixed(5)})
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Offset: {lastTransport.temporalDestination.temporalOffset >= 0 ? '+' : ''}{lastTransport.temporalDestination.temporalOffset.toFixed(2)} days
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {lastTransport.anomalies.length > 0 && (
-                  <Alert>
-                    <AlertTriangle className="w-4 h-4" />
-                    <AlertDescription>
-                      <div className="text-xs">
-                        <div className="font-medium mb-1">Transport Anomalies:</div>
-                        <ul className="list-disc list-inside space-y-1">
-                          {lastTransport.anomalies.map((anomaly, i) => (
-                            <li key={i}>{anomaly}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </div>
+            <TransportSequenceVerification 
+              lastTransportResult={lastTransport}
+              systemState={{
+                tPTT: tPTT_value,
+                phases,
+                e_t,
+                neuralSync: transportStatus.neuralSync / 100,
+                isotopeResonance: transportStatus.isotopeResonance / 100,
+                phaseCoherence: transportStatus.phaseCoherence / 100
+              }}
+            />
           )}
-
-          {/* Transport History Summary */}
-          {transportHistory.length > 0 && (
-            <div className="space-y-2">
-              <Separator />
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Transport History</span>
-                <Badge variant="outline">{transportHistory.length} records</Badge>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Success Rate: {(
-                  (transportHistory.filter(t => t.status === 'success').length / transportHistory.length) * 100
-                ).toFixed(1)}%
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Sequence Verification */}
-      <TransportSequenceVerification
-        lastTransportResult={lastTransport}
-        currentState={{ tPTT_value, phases, e_t, neuralOutput, rippel, isotope, fractalToggle }}
-        onGenerateSequence={generateSequenceData}
-      />
+          
+          {/* Transport History */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Transport History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {transportHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {transportHistory.map((transport) => (
+                    <div key={transport.id} className="p-3 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <Badge variant={transport.status === 'success' ? 'default' : 'destructive'}>
+                          {transport.status.toUpperCase()}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {transport.timestamp.toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        <div>Efficiency: {(transport.transportEfficiency * 100).toFixed(1)}%</div>
+                        <div>Destination: RA {transport.destinationCoords.ra.toFixed(2)}°</div>
+                        {transport.temporalDestination && (
+                          <div className="text-muted-foreground">
+                            {transport.temporalDestination.emissionEra} - {transport.temporalDestination.yearsAgo!.toFixed(0)} years ago
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  No transport history available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
