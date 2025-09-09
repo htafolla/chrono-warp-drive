@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -504,21 +504,17 @@ export function TPTTApp() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <DashboardMetrics
-              time={time}
-              e_t={e_t}
-              tPTT_value={tPTT_value}
-              rippel={rippel}
-              phi={phi}
-              lightWave={lightWave}
-              phases={phases}
-              tpttV4Result={tpttV4Result}
-              isV4Enhanced={isV4Initialized}
-              isotope={isotope}
-              fractalToggle={fractalToggle}
-            />
-            
-            {/* Transport System - Enhanced Version */}
+            {/* 1. Neural Fusion - Prominent First Position */}
+            {isV4Initialized && (
+              <div className="mb-6">
+                <NeuralFusionDisplay 
+                  neuralOutput={tpttV4Result?.neuralOutput || null}
+                  isActive={!!tpttV4Result?.neuralOutput}
+                />
+              </div>
+            )}
+
+            {/* 2. Transport System - Main Operational Interface */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -557,7 +553,23 @@ export function TPTTApp() {
               </CardContent>
             </Card>
 
-            <DashboardControls
+            {/* 3. Temporal Metrics & Chrono-Transport - Unified Section */}
+            <DashboardMetrics
+              time={time}
+              e_t={e_t}
+              tPTT_value={tPTT_value}
+              rippel={rippel}
+              phi={phi}
+              lightWave={lightWave}
+              phases={phases}
+              tpttV4Result={tpttV4Result}
+              isV4Enhanced={isV4Initialized}
+              isotope={isotope}
+              fractalToggle={fractalToggle}
+            />
+
+            {/* 4. Temporal Controls - Accessible Controls */}
+            <TemporalControls
               isPlaying={isPlaying}
               onPlayPause={handlePlayPause}
               updateInterval={updateInterval}
@@ -567,8 +579,35 @@ export function TPTTApp() {
               stellarTimestamp={stellarTimestamp}
               spectrumData={spectrumData}
               nextUpdateIn={nextUpdateIn}
-              phases={phases}
             />
+
+            {/* 5. Phase Relationships - Dedicated Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Phase Relationships</CardTitle>
+                <CardDescription>Real-time phase dynamics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  {phases.map((phase, i) => (
+                    <div key={i} className="text-center">
+                      <div className="text-2xl font-mono mb-2">
+                        {(phase % (2 * Math.PI)).toFixed(2)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Phase {i + 1}
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 mt-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all duration-100"
+                          style={{ width: `${((phase % (2 * Math.PI)) / (2 * Math.PI)) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="simulation" className="space-y-4">
