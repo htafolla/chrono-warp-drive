@@ -266,6 +266,7 @@ interface EnhancedTemporalSceneProps {
   time: number;
   performanceSettings?: PerformanceSettings;
   onFPSChange?: (fps: number) => void;
+  debugWireframes?: boolean;
 }
 
 function PerformanceMonitor({ onFPSChange }: { onFPSChange?: (fps: number) => void }) {
@@ -286,7 +287,8 @@ export function EnhancedTemporalScene({
   spectrumData = null,
   time,
   performanceSettings = { quality: 'high', shadows: true, particles: true, postProcessing: true },
-  onFPSChange
+  onFPSChange,
+  debugWireframes = false
 }: EnhancedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
 
@@ -363,6 +365,7 @@ export function EnhancedTemporalScene({
               index={index}
               spectrumData={spectrumData}
               qualitySettings={performanceSettings}
+              debugWireframes={debugWireframes}
             />
           ))}
           

@@ -19,6 +19,7 @@ interface LODWavePlaneProps {
     shadows: boolean;
     particles: boolean;
   };
+  debugWireframes?: boolean;
 }
 
 // LOD configurations
@@ -37,7 +38,8 @@ export function LODWavePlane({
   fractalToggle, 
   index, 
   spectrumData,
-  qualitySettings = { quality: 'high', shadows: true, particles: true }
+  qualitySettings = { quality: 'high', shadows: true, particles: true },
+  debugWireframes = false
 }: LODWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
@@ -179,11 +181,13 @@ export function LODWavePlane({
 
   return (
     <group>
-      {/* Phase 10D: Debug bounds marker */}
-      <mesh position={[0, index * 1.0 - 2, 0]}>
-        <boxGeometry args={[12, 0.1, 12]} />
-        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
-      </mesh>
+      {/* Debug bounds marker - only visible when debug wireframes are enabled */}
+      {debugWireframes && (
+        <mesh position={[0, index * 1.0 - 2, 0]}>
+          <boxGeometry args={[12, 0.1, 12]} />
+          <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
+        </mesh>
+      )}
       
       {/* Main wave plane */}
       <mesh 
@@ -195,11 +199,11 @@ export function LODWavePlane({
         <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={true}  // Phase 10C: Force wireframe for debugging
+          wireframe={debugWireframes || false}
           transparent
-          opacity={0.9}  // Phase 10C: High opacity for visibility
+          opacity={0.8}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
+          emissiveIntensity={0.4}
           side={THREE.DoubleSide}
         />
       </mesh>

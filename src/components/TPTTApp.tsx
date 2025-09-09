@@ -96,6 +96,7 @@ export function TPTTApp() {
     targetFPS: 60
   });
   const [currentFPS, setCurrentFPS] = useState(60);
+  const [debugWireframes, setDebugWireframes] = useState(false);
 
   // Temporal control states
   const [isPlaying, setIsPlaying] = useState(true);
@@ -667,6 +668,7 @@ export function TPTTApp() {
                     time={time}
                     performanceSettings={performanceSettings}
                     onFPSChange={handleFPSChange}
+                    debugWireframes={debugWireframes}
                   />
                 </ErrorBoundary>
               </div>
