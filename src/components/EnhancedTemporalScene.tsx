@@ -111,6 +111,16 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   
+  // Phase 1: Diagnostic logging for wave plane rendering
+  React.useEffect(() => {
+    console.log(`[PHASE 1 DIAGNOSTIC] WavePlane ${index} (${band.band}) initialized:`, {
+      color: band.color,
+      lambda: band.lambda,
+      position: `y=${index * 0.4 - 3}`,
+      colorParsedByThree: new THREE.Color(band.color).getHexString()
+    });
+  }, [band, index]);
+  
   useFrame((state) => {
     if (!meshRef.current || !geometryRef.current) return;
     
@@ -150,7 +160,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   });
 
   return (
-    <mesh ref={meshRef} position={[0, index * 0.4 - 3, 0]}>
+    <mesh ref={meshRef} position={[0, index * 0.4 - 3, 0]} receiveShadow>
       <planeGeometry 
         ref={geometryRef} 
         args={[10, 10, 48, 48]} 
@@ -159,9 +169,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         color={band.color}
         wireframe
         transparent
-        opacity={0.6}
+        opacity={0.7}
         emissive={band.color}
-        emissiveIntensity={0.1}
+        emissiveIntensity={0.15}
       />
     </mesh>
   );
@@ -209,21 +219,26 @@ export function EnhancedTemporalScene({
         gl={{ antialias: true, alpha: true }}
       >
         <PostProcessing>
-          {/* Enhanced Lighting System */}
-          <ambientLight intensity={0.4} />
-          <pointLight 
-            position={[10, 10, 10]} 
-            intensity={1.5} 
-            color="#ffffff"
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-          />
+          {/* Phase 3: Optimized Lighting System - Single Shadow Caster */}
+          <ambientLight intensity={0.6} />
           <directionalLight 
             position={[-10, 10, 5]} 
             intensity={1.2}
             color="#7c3aed"
             castShadow
+            shadow-mapSize-width={512}
+            shadow-mapSize-height={512}
+            shadow-camera-near={0.5}
+            shadow-camera-far={50}
+            shadow-camera-left={-10}
+            shadow-camera-right={10}
+            shadow-camera-top={10}
+            shadow-camera-bottom={-10}
+          />
+          <pointLight 
+            position={[10, 10, 10]} 
+            intensity={1.0} 
+            color="#ffffff"
           />
           <pointLight 
             position={[0, -8, 8]} 
@@ -234,9 +249,8 @@ export function EnhancedTemporalScene({
             position={[0, 15, 0]}
             angle={0.3}
             penumbra={1}
-            intensity={1}
+            intensity={0.8}
             color="#fbbf24"
-            castShadow
           />
           
           {/* Particle System */}
@@ -285,7 +299,7 @@ export function EnhancedTemporalScene({
         </PostProcessing>
       </Canvas>
       
-      {/* Enhanced Overlay Info */}
+      {/* Enhanced Overlay Info with Phase 1 Diagnostics */}
       <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-4 text-card-foreground shadow-lg">
         <div className="text-sm font-medium space-y-1">
           <p>Isotope: <span className="text-primary font-mono">{isotope.type}</span></p>
@@ -294,19 +308,23 @@ export function EnhancedTemporalScene({
             <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
           <p>Particles: <span className="text-green-400 font-mono">1000</span></p>
+          <p>Wave Planes: <span className="text-purple-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
         </div>
         <div className="text-xs text-muted-foreground mt-3 space-y-1">
           <p>• Drag to rotate • Scroll to zoom</p>
           <p>• Enhanced lighting & particles</p>
+          <p>• Phase 1: Diagnostic mode active</p>
         </div>
       </div>
       
-      {/* Performance Info */}
+      {/* Performance Info with Phase 1 Diagnostics */}
       <div className="absolute bottom-4 right-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-3 text-card-foreground shadow-lg">
         <div className="text-xs space-y-1">
           <p>Render: <span className="text-green-400">Enhanced</span></p>
           <p>Shadows: <span className="text-blue-400">Enabled</span></p>
           <p>Post-FX: <span className="text-purple-400">Active</span></p>
+          <p>Phase: <span className="text-yellow-400">1 - Diagnostic</span></p>
+          <p>Color Mode: <span className="text-orange-400">HSL Direct</span></p>
         </div>
       </div>
     </div>

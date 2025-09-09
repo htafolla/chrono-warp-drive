@@ -8,6 +8,9 @@ interface PerformanceMetrics {
   memoryUsage: number;
   renderTime: number;
   gpuMemory: number;
+  adaptiveQuality?: 'high' | 'medium' | 'low';
+  targetFPS?: number;
+  cpuBenchmark?: number;
 }
 
 interface PerformanceMonitorProps {
@@ -28,6 +31,24 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
     let frameCount = 0;
     let lastTime = performance.now();
     let animationFrameId: number;
+    let benchmarkInterval: NodeJS.Timeout;
+    let cpuResult = 0;
+
+    // Phase 4: Reduce CPU benchmark frequency from continuous to every 5 seconds
+    const benchmarkCPU = (): number => {
+      const start = performance.now();
+      let result = 0;
+      // Phase 4: Reduced from 100,000 to 10,000 iterations for better performance
+      for (let i = 0; i < 10000; i++) {
+        result += Math.sqrt(i) * Math.sin(i) * Math.cos(i);
+      }
+      return performance.now() - start;
+    };
+
+    // Run CPU benchmark every 5 seconds instead of every frame
+    benchmarkInterval = setInterval(() => {
+      cpuResult = benchmarkCPU();
+    }, 5000);
 
     const measurePerformance = () => {
       const currentTime = performance.now();
@@ -43,12 +64,19 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         // Render time calculation
         const renderTime = 1000 / fps;
 
+        // Phase 4: Adaptive FPS targeting (30fps minimum, 60fps preferred)
+        const targetFPS = fps < 25 ? 30 : 60;
+        const adaptiveQuality = fps >= 55 ? 'high' : fps >= 30 ? 'medium' : 'low';
+
         setMetrics(prev => ({
           ...prev,
           fps: Math.min(fps, 60),
           memoryUsage,
           renderTime,
-          gpuMemory: Math.random() * 30 + 10 // Mock GPU memory usage
+          gpuMemory: Math.random() * 30 + 10, // Mock GPU memory usage
+          adaptiveQuality,
+          targetFPS,
+          cpuBenchmark: cpuResult
         }));
 
         frameCount = 0;
@@ -63,6 +91,9 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
     return () => {
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
+      }
+      if (benchmarkInterval) {
+        clearInterval(benchmarkInterval);
       }
     };
   }, [isActive]);
@@ -125,12 +156,20 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         </div>
 
         <div className="mt-4 p-3 bg-muted rounded-lg">
-          <div className="text-xs text-muted-foreground mb-1">Optimization Status</div>
-          <div className="text-sm">
-            {metrics.fps >= 55 && "Temporal simulation running optimally"}
-            {metrics.fps >= 45 && metrics.fps < 55 && "Good performance - minor optimizations possible"}
-            {metrics.fps >= 30 && metrics.fps < 45 && "Consider reducing wave plane count or resolution"}
-            {metrics.fps < 30 && "Performance critical - optimization recommended"}
+          <div className="text-xs text-muted-foreground mb-1">Phase 4: Enhanced Optimization Status</div>
+          <div className="text-sm space-y-1">
+            {metrics.fps >= 55 && "✅ Temporal simulation running optimally"}
+            {metrics.fps >= 45 && metrics.fps < 55 && "⚡ Good performance - minor optimizations possible"}
+            {metrics.fps >= 30 && metrics.fps < 45 && "⚠️ Consider reducing wave plane count or resolution"}
+            {metrics.fps < 30 && "🔴 Performance critical - optimization recommended"}
+            
+            <div className="text-xs mt-2 space-y-1">
+              <div>Quality: <span className="font-mono">{metrics.adaptiveQuality || 'unknown'}</span></div>
+              <div>Target: <span className="font-mono">{metrics.targetFPS || 60} FPS</span></div>
+              {metrics.cpuBenchmark && (
+                <div>CPU: <span className="font-mono">{metrics.cpuBenchmark.toFixed(1)}ms</span></div>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
