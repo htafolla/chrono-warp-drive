@@ -68,72 +68,39 @@ export class TemporalCalculatorV4 {
       throw new Error('No input data available for tPTT calculation');
     }
 
-    try {
-      // Try to use background processing if available
-      if (typeof window !== 'undefined' && (window as any).backgroundProcessingManager) {
-        try {
-          const bgManager = (window as any).backgroundProcessingManager;
-          const constants = { L: this.L, phi: this.phi, c: this.c, delta_t: this.delta_t };
-          const backgroundResult = await bgManager.processTemporalCalculation(this.inputData, constants);
-          
-          // Neural computations (still need main thread for now)
-          const neuralOutput = await this.computeNeuralFusion();
-          const Syn_c = neuralOutput ? neuralOutput.metamorphosisIndex : 0.8;
-          const N_s = this.computeN_s(neuralOutput);
-          
-          // Apply neural factors to background result
-          const tPTT_value = backgroundResult.tPTT_value * Syn_c * N_s;
-          const rippel = this.generateEnhancedRippel(tPTT_value, backgroundResult.components.E_t, neuralOutput);
-          
-          return {
-            tPTT_value,
-            components: { ...backgroundResult.components, Syn_c, N_s },
-            rippel,
-            neuralOutput
-          };
-        } catch (bgError) {
-          console.warn('Background temporal calculation failed, falling back to main thread:', bgError);
-        }
-      }
+    // Core calculations
+    const T_c = this.integrateA_m();
+    const P_s = this.computeP_s();
+    const E_t = this.computeE_t();
 
-      // Fallback to main thread processing
-      // Core calculations
-      const T_c = this.integrateA_m();
-      const P_s = this.computeP_s();
-      const E_t = this.computeE_t();
+    // v4.5 Enhancement Factors
+    const W_c = this.inputData.intensities.length > 0 ? 1 : 0; // Wavelength coverage
+    const C_m = this.computeC_m(); // Coherence matrix - enhanced
+    const K_l = this.computeK_l(); // Kuramoto linkage - enhanced
+    const F_r = this.computeF_r(); // Fractal resonance - enhanced
+    const S_l = this.computeS_l(); // Spectral linkage - enhanced
+    const Q_e = this.computeQ_e(); // Quantum entanglement - enhanced with adaptation factor
+    const Sp_g = this.computeSp_g(); // Spectral granularity
+    const G_r = this.computeG_r(); // Granularity reactor - enhanced
 
-      // v4.5 Enhancement Factors
-      const W_c = this.inputData.intensities.length > 0 ? 1 : 0; // Wavelength coverage
-      const C_m = this.computeC_m(); // Coherence matrix - enhanced
-      const K_l = this.computeK_l(); // Kuramoto linkage - enhanced
-      const F_r = this.computeF_r(); // Fractal resonance - enhanced
-      const S_l = this.computeS_l(); // Spectral linkage - enhanced
-      const Q_e = this.computeQ_e(); // Quantum entanglement - enhanced with adaptation factor
-      const Sp_g = this.computeSp_g(); // Spectral granularity
-      const G_r = this.computeG_r(); // Granularity reactor - enhanced
+    // Neural computations
+    const neuralOutput = await this.computeNeuralFusion();
+    const Syn_c = neuralOutput ? neuralOutput.metamorphosisIndex : 0.8;
+    const N_s = this.computeN_s(neuralOutput); // Neural synchronization - enhanced
 
-      // Neural computations
-      const neuralOutput = await this.computeNeuralFusion();
-      const Syn_c = neuralOutput ? neuralOutput.metamorphosisIndex : 0.8;
-      const N_s = this.computeN_s(neuralOutput); // Neural synchronization - enhanced
+    // v4.5 tPTT Formula
+    const tPTT_value = T_c * (P_s / E_t) * this.phi * (this.c / this.delta_t) * 
+                       W_c * C_m * K_l * F_r * S_l * Syn_c * Q_e * Sp_g * N_s * G_r;
 
-      // v4.5 tPTT Formula
-      const tPTT_value = T_c * (P_s / E_t) * this.phi * (this.c / this.delta_t) * 
-                         W_c * C_m * K_l * F_r * S_l * Syn_c * Q_e * Sp_g * N_s * G_r;
+    // Generate enhanced rippel
+    const rippel = this.generateEnhancedRippel(tPTT_value, E_t, neuralOutput);
 
-      // Generate enhanced rippel
-      const rippel = this.generateEnhancedRippel(tPTT_value, E_t, neuralOutput);
-
-      return {
-        tPTT_value,
-        components: { T_c, P_s, E_t, W_c, C_m, K_l, F_r, S_l, Syn_c, Q_e, Sp_g, N_s, G_r },
-        rippel,
-        neuralOutput
-      };
-    } catch (error) {
-      console.error('tPTT calculation failed:', error);
-      throw error;
-    }
+    return {
+      tPTT_value,
+      components: { T_c, P_s, E_t, W_c, C_m, K_l, F_r, S_l, Syn_c, Q_e, Sp_g, N_s, G_r },
+      rippel,
+      neuralOutput
+    };
   }
 
   private integrateA_m(): number {

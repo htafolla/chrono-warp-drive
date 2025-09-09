@@ -105,18 +105,6 @@ export class NeuralFusion {
     }
 
     try {
-      // Try to use background processing if available
-      if (typeof window !== 'undefined' && (window as any).backgroundProcessingManager) {
-        try {
-          const bgManager = (window as any).backgroundProcessingManager;
-          const result = await bgManager.processNeuralFusion(input);
-          return result;
-        } catch (bgError) {
-          console.warn('Background processing failed, falling back to main thread:', bgError);
-        }
-      }
-
-      // Fallback to main thread processing
       // Process spectrum through neural network
       const neuralSpectra = await this.processSpectrum(input.spectrumData);
       
