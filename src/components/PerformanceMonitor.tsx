@@ -73,7 +73,7 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
           fps: Math.min(fps, 60),
           memoryUsage,
           renderTime,
-          gpuMemory: Math.sin(currentTime * 0.001) * 15 + 25, // Deterministic GPU memory usage
+          gpuMemory: Math.random() * 30 + 10, // Mock GPU memory usage
           adaptiveQuality,
           targetFPS,
           cpuBenchmark: cpuResult

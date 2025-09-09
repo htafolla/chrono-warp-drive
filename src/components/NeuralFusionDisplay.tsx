@@ -22,22 +22,22 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
 
   useEffect(() => {
     if (neuralOutput) {
-      // Simulate layer activations based on neural output (deterministic)
+      // Simulate layer activations based on neural output
       const activations: LayerActivation[] = [
         {
           layer: 'Input Layer',
-          activation: 0.8 + (Math.sin(Date.now() * 0.001) * 0.1 + 0.1),
-          neurons: Array.from({ length: 200 }, (_, i) => (Math.sin(i * 0.1 + Date.now() * 0.0005) + 1) / 2)
+          activation: 0.8 + Math.random() * 0.2,
+          neurons: Array.from({ length: 200 }, () => Math.random())
         },
         {
           layer: 'Hidden Layer 1',
           activation: neuralOutput.confidenceScore * 0.9,
-          neurons: Array.from({ length: 128 }, (_, i) => (Math.sin(i * 0.2 + Date.now() * 0.0003) + 1) / 2 * neuralOutput.confidenceScore)
+          neurons: Array.from({ length: 128 }, () => Math.random() * neuralOutput.confidenceScore)
         },
         {
           layer: 'Hidden Layer 2', 
           activation: neuralOutput.metamorphosisIndex * 0.8,
-          neurons: Array.from({ length: 64 }, (_, i) => (Math.sin(i * 0.3 + Date.now() * 0.0004) + 1) / 2 * neuralOutput.metamorphosisIndex)
+          neurons: Array.from({ length: 64 }, () => Math.random() * neuralOutput.metamorphosisIndex)
         },
         {
           layer: 'Output Layer',

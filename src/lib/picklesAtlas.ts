@@ -106,8 +106,8 @@ export class PicklesAtlas {
     stellarTypes.forEach((baseType, index) => {
       metallicityVariants.forEach((metallicity, metIndex) => {
         if (index < 20 || metIndex % 2 === 0) { // Limit variants to avoid too many
-          // Add some distance variation for metallicity variants (±20%) - deterministic
-          const distanceVariation = 1 + (Math.sin(index * 10 + metIndex * 5) * 0.2); // ±20% variation
+          // Add some distance variation for metallicity variants (±20%)
+          const distanceVariation = 1 + (Math.random() - 0.5) * 0.4; // ±20% variation
           const adjustedDistance = Math.round(baseType.distance * distanceVariation);
           const adjustedEmissionAge = adjustedDistance; // Light travel time equals distance in light years
           
@@ -162,8 +162,8 @@ export class PicklesAtlas {
       // Add metallicity effects
       intensity *= this.applyMetallicityEffects(wavelength, picklesSpec.metallicity);
       
-      // Add realistic noise (deterministic)
-      intensity *= (0.98 + (Math.sin(wavelength * 0.01) + 1) * 0.02);
+      // Add realistic noise
+      intensity *= (0.98 + Math.random() * 0.04);
       
       intensities.push(Math.max(0, intensity));
     }
@@ -283,7 +283,7 @@ export class PicklesAtlas {
     
     tioRegions.forEach(([min, max]) => {
       if (wavelength >= min && wavelength <= max) {
-        const bandStrength = 0.3 + (Math.sin(wavelength * 0.001) + 1) * 0.2; // Deterministic 0.3-0.7 range
+        const bandStrength = 0.3 + Math.random() * 0.4;
         absorption *= (1 - bandStrength);
       }
     });
@@ -292,16 +292,11 @@ export class PicklesAtlas {
   }
 
   getRandomSpectrum(): SpectrumData {
-    console.log("getRandomSpectrum called - initialized:", this.isInitialized, "catalog size:", this.spectrumCatalog.length);
-    
     if (!this.isInitialized || this.spectrumCatalog.length === 0) {
-      console.log("Using fallback spectrum");
       return this.generateFallbackSpectrum();
     }
     
-    const deterministicIndex = Math.floor((Math.sin(Date.now() * 0.001) + 1) * 0.5 * this.spectrumCatalog.length);
-    const randomSpec = this.spectrumCatalog[deterministicIndex % this.spectrumCatalog.length];
-    console.log("Selected spectrum:", randomSpec.id, "at index:", deterministicIndex % this.spectrumCatalog.length);
+    const randomSpec = this.spectrumCatalog[Math.floor(Math.random() * this.spectrumCatalog.length)];
     return this.generateSpectrumFromPickles(randomSpec);
   }
 
@@ -331,7 +326,7 @@ export class PicklesAtlas {
         emissionAge: 25
       } as PicklesSpectrum);
       
-      intensities.push(Math.max(0, intensity * (0.95 + (Math.sin(wavelength * 0.01) + 1) * 0.05)));
+      intensities.push(Math.max(0, intensity * (0.95 + Math.random() * 0.1)));
     }
 
     return {

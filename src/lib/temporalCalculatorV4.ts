@@ -363,7 +363,7 @@ export class TemporalCalculatorV4 {
         synapticSequence,
         neuralSpectra,
         metamorphosisIndex,
-        confidenceScore: (Math.sin(Date.now() * 0.001) + 1) * 0.15 + 0.7 // 0.7-1.0 range deterministic
+        confidenceScore: Math.random() * 0.3 + 0.7 // 0.7-1.0 range
       };
     } catch (error) {
       console.warn('Neural fusion computation failed:', error);

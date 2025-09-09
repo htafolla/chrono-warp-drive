@@ -48,10 +48,11 @@ export function LODWavePlane({
     return new THREE.PlaneGeometry(10, 10, 96, 96);
   }, []);
   
-  // Initialize geometry once - remove conflicting assignment that causes WebGL errors
+  // Initialize geometry once
   useEffect(() => {
-    if (geometry) {
-      // Reset to consistent flat state without reassigning geometry
+    if (meshRef.current && geometry) {
+      meshRef.current.geometry = geometry;
+      // Reset to consistent flat state
       const position = geometry.attributes.position;
       for (let i = 0; i < position.count; i++) {
         position.setY(i, 0);

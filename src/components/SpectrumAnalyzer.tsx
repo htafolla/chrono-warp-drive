@@ -16,14 +16,6 @@ export function SpectrumAnalyzer({ waves, time, spectrumData, isV4Enhanced }: Sp
   // Use actual spectrum data if available, otherwise fall back to synthetic
   const isUsingRealData = spectrumData && spectrumData.wavelengths.length > 0;
   
-  // Debug logging
-  console.log("SpectrumAnalyzer render:", {
-    hasSpectrumData: !!spectrumData,
-    wavelengthCount: spectrumData?.wavelengths.length || 0,
-    isUsingRealData,
-    wavesCount: waves.length
-  });
-  
   // Prepare visualization data
   const chartData = isUsingRealData ? 
     // Real Pickles Atlas data
