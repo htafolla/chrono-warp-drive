@@ -114,8 +114,13 @@ export function SpectrumWavePlane({
       // Enhanced positioning and rotation with more dynamic movement
       meshRef.current.rotation.z = phase * 0.05 + Math.sin(state.clock.elapsedTime * 0.2) * 0.03;
       meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.1;
-      meshRef.current.position.y = index * 1.5 - 3; // Increased spacing for visibility
-      meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.15 + index * 0.3) * 0.2;
+      
+      // Keep the planes in their fixed grid positions
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      meshRef.current.position.x = col * 6 - 6;
+      meshRef.current.position.y = row * 6 - 12;
+      meshRef.current.position.z = -2 + Math.sin(state.clock.elapsedTime * 0.15 + index * 0.3) * 0.1;
       
     } catch (error) {
       console.error(`[SpectrumWavePlane ${index}] Animation error:`, error);
@@ -131,49 +136,27 @@ export function SpectrumWavePlane({
   }, [safeColor, band.color, index]);
   
   return (
-    <>
-      {/* Debug wireframe box to show plane bounds */}
-      <mesh 
-        position={[
-          (index % 3) * 6 - 6,  // 3 columns: -6, 0, 6
-          Math.floor(index / 3) * 6 - 12,  // 4 rows: -12, -6, 0, 6
-          -2  // In front of camera
-        ]}
-        visible={true}
-      >
-        <boxGeometry args={[4.2, 4.2, 0.1]} />
-        <meshBasicMaterial 
-          color="#ffffff"
-          wireframe={true}
-          opacity={0.3}
-          transparent={true}
-        />
-      </mesh>
-      
-      {/* Main spectrum plane */}
-      <mesh 
-        ref={meshRef} 
-        position={[
-          (index % 3) * 6 - 6,  // 3 columns: -6, 0, 6  
-          Math.floor(index / 3) * 6 - 12,  // 4 rows: -12, -6, 0, 6
-          -2  // In front of camera
-        ]} 
-        receiveShadow={qualitySettings.shadows}
-        castShadow={qualitySettings.shadows}
-        visible={true}
-      >
-        <planeGeometry 
-          ref={geometryRef} 
-          args={[4, 4, 20, 20]} 
-        />
-        <meshPhongMaterial 
-          color={index < 3 ? ['#ff0000', '#00ff00', '#0000ff'][index] : `hsl(${index * 30}, 100%, 50%)`}
-          transparent={false}
-          opacity={1.0}
-          side={THREE.DoubleSide}
-          shininess={30}
-        />
-      </mesh>
-    </>
+    <mesh 
+      ref={meshRef} 
+      position={[
+        (index % 3) * 6 - 6,  // 3 columns: -6, 0, 6  
+        Math.floor(index / 3) * 6 - 12,  // 4 rows: -12, -6, 0, 6
+        -2  // In front of camera
+      ]} 
+      receiveShadow={qualitySettings.shadows}
+      castShadow={qualitySettings.shadows}
+      visible={true}
+    >
+      <planeGeometry 
+        ref={geometryRef} 
+        args={[4, 4, 20, 20]} 
+      />
+      <meshBasicMaterial 
+        color={index < 3 ? ['#ff0000', '#00ff00', '#0000ff'][index] : `hsl(${index * 30}, 100%, 50%)`}
+        transparent={false}
+        opacity={1.0}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
   );
 }
