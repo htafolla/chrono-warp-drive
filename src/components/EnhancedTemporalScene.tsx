@@ -174,9 +174,9 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
         const secondaryWave = Math.sin(z * 0.2 + state.clock.elapsedTime * 1.2) * 0.1;
         const combinedWave = waveValue * Math.sin(x * 0.3 + z * 0.3 + phase) + secondaryWave;
         
-        // Enhanced bounds checking to prevent runaway values
+        // Enhanced bounds checking with increased amplitude
         const heightValue = Math.max(-1.0, Math.min(1.0, 
-          combinedWave * 0.3 * intensityMultiplier
+          combinedWave * 0.8 * intensityMultiplier
         ));
         
         // Validate height value before setting
@@ -187,10 +187,11 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       
       position.needsUpdate = true;
       
-      // Optimized wave plane positioning for all planes visible
-      meshRef.current.rotation.z = phase * 0.02 + Math.sin(state.clock.elapsedTime * 0.15) * 0.008;
-      meshRef.current.rotation.x = Math.PI / 6 + Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.05;
-      meshRef.current.position.y = index * 1.5 - 4 + Math.sin(state.clock.elapsedTime * 0.4 + index) * 0.15;
+      // Enhanced wave plane positioning with better spacing and rotation
+      meshRef.current.rotation.z = phase * 0.02 + Math.sin(state.clock.elapsedTime * 0.15) * 0.012;
+      meshRef.current.rotation.x = Math.PI / 5 + Math.sin(state.clock.elapsedTime * 0.1 + index) * 0.08;
+      meshRef.current.position.y = index * 2.5 - 12 + Math.sin(state.clock.elapsedTime * 0.4 + index) * 0.2;
+      meshRef.current.position.z = Math.sin(index * 0.5) * 0.5; // Add z-separation
       
     } catch (error) {
       console.error('Enhanced WavePlane animation error:', error);
@@ -216,19 +217,20 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
     
     const mat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(rgbColor),
-      emissive: new THREE.Color(emissiveRgb.r * 0.3, emissiveRgb.g * 0.3, emissiveRgb.b * 0.3),
-      emissiveIntensity: 0.6, // Increased for better visibility
+      emissive: new THREE.Color(emissiveRgb.r * 0.5, emissiveRgb.g * 0.5, emissiveRgb.b * 0.5),
+      emissiveIntensity: 1.2, // Dramatically increased for self-illumination
       transparent: true,
-      opacity: 0.9, // Increased for more solid appearance
+      opacity: 0.95, // Near-opaque for strong visibility
       side: THREE.DoubleSide,
-      roughness: 0.2,
-      metalness: 0.2,
+      roughness: 0.1,
+      metalness: 0.3,
+      blending: THREE.AdditiveBlending, // Add bloom effect
     });
     return mat;
   }, [band.color]);
 
   return (
-    <mesh ref={meshRef} position={[0, index * 1.5 - 4, 0]} castShadow receiveShadow>
+    <mesh ref={meshRef} position={[0, index * 2.5 - 12, 0]} castShadow receiveShadow>
       <planeGeometry 
         ref={geometryRef} 
         args={[12, 12, 12, 12]} 
@@ -252,17 +254,17 @@ function PostProcessing({ children }: PostProcessingProps) {
     // Adaptive rendering settings based on performance
     const quality = performanceOptimizer.getAdaptiveQuality();
     
-    // Enhanced tone mapping for better visibility
+    // Enhanced tone mapping with dramatic exposure boost
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.2; // Increased exposure for brighter scene
+    gl.toneMappingExposure = 1.8; // Dramatically increased for bright spectrum visibility
     
     // Optimized shadow configuration - reduce artifacts
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = quality === 'low' ? THREE.BasicShadowMap : THREE.PCFShadowMap;
     gl.shadowMap.autoUpdate = true;
     
-    // Clear color for better contrast
-    gl.setClearColor(0x000005, 1);
+    // Dark blue/purple gradient background for better contrast
+    gl.setClearColor(0x001122, 1);
     
     // Adaptive pixel ratio based on performance
     gl.setPixelRatio(quality === 'low' ? 1 : Math.min(window.devicePixelRatio, 2));
@@ -325,38 +327,64 @@ export function EnhancedTemporalScene({
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
-        camera={{ position: [0, 2, 12], fov: 75 }}
+        camera={{ position: [0, 0, 20], fov: 65 }}
         gl={{ antialias: true, alpha: true }}
         shadows
       >
         <PostProcessing>
-          {/* Optimized Lighting Setup - Single Primary Shadow Caster */}
-          <ambientLight intensity={0.6} />
-          <pointLight 
-            position={[10, 10, 10]} 
-            intensity={1.0}
-            castShadow={false}
-          />
+          {/* Enhanced Lighting System for Spectrum Visibility */}
+          <ambientLight intensity={1.0} />
+          
+          {/* Colored rim lighting for each spectrum band */}
+          {SPECTRUM_BANDS.slice(0, 3).map((band, index) => (
+            <pointLight 
+              key={`rim-${index}`}
+              position={[
+                Math.cos(index * 2.1) * 15, 
+                index * 4 - 6, 
+                Math.sin(index * 2.1) * 15
+              ]} 
+              intensity={0.4}
+              color={hslToHex(band.color)}
+              castShadow={false}
+            />
+          ))}
+          
           <directionalLight 
             position={[8, 12, 8]} 
-            intensity={0.8}
+            intensity={1.2}
             castShadow={true}
             shadow-mapSize-width={512}
             shadow-mapSize-height={512}
             shadow-camera-near={0.1}
-            shadow-camera-far={30}
-            shadow-camera-left={-15}
-            shadow-camera-right={15}
-            shadow-camera-top={15}
-            shadow-camera-bottom={-15}
-            shadow-bias={-0.0005}
+            shadow-camera-far={50}
+            shadow-camera-left={-25}
+            shadow-camera-right={25}
+            shadow-camera-top={25}
+            shadow-camera-bottom={-25}
+            shadow-bias={-0.0001}
           />
-          <spotLight 
-            position={[0, 15, 0]} 
-            intensity={0.3}
+          
+          {/* Moving accent lights following wave patterns */}
+          <pointLight 
+            position={[
+              Math.sin(time * 0.001) * 20, 
+              Math.cos(time * 0.002) * 8, 
+              Math.sin(time * 0.0015) * 15
+            ]} 
+            intensity={0.6}
+            color="#4080ff"
             castShadow={false}
-            angle={Math.PI / 4}
-            penumbra={0.5}
+          />
+          <pointLight 
+            position={[
+              Math.cos(time * 0.0008) * 18, 
+              Math.sin(time * 0.003) * 6, 
+              Math.cos(time * 0.0012) * 12
+            ]} 
+            intensity={0.5}
+            color="#ff6040"
+            castShadow={false}
           />
           
           {/* Particle System */}
