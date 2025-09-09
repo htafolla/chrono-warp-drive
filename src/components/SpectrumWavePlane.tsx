@@ -131,27 +131,49 @@ export function SpectrumWavePlane({
   }, [safeColor, band.color, index]);
   
   return (
-    <mesh 
-      ref={meshRef} 
-      position={[
-        (index % 4) * 4 - 6,  // Spread horizontally: -6, -2, 2, 6
-        Math.floor(index / 4) * 4 - 4,  // Stack vertically: -4, 0, 4
-        0  // Right at camera level
-      ]} 
-      receiveShadow={qualitySettings.shadows}
-      castShadow={qualitySettings.shadows}
-      visible={true}
-    >
-      <planeGeometry 
-        ref={geometryRef} 
-        args={[2, 2, 10, 10]} 
-      />
-      <meshBasicMaterial 
-        color={index < 3 ? ['#ff0000', '#00ff00', '#0000ff'][index] : `hsl(${index * 30}, 100%, 50%)`}
-        transparent={false}
-        opacity={1.0}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <>
+      {/* Debug wireframe box to show plane bounds */}
+      <mesh 
+        position={[
+          (index % 3) * 6 - 6,  // 3 columns: -6, 0, 6
+          Math.floor(index / 3) * 6 - 12,  // 4 rows: -12, -6, 0, 6
+          -2  // In front of camera
+        ]}
+        visible={true}
+      >
+        <boxGeometry args={[4.2, 4.2, 0.1]} />
+        <meshBasicMaterial 
+          color="#ffffff"
+          wireframe={true}
+          opacity={0.3}
+          transparent={true}
+        />
+      </mesh>
+      
+      {/* Main spectrum plane */}
+      <mesh 
+        ref={meshRef} 
+        position={[
+          (index % 3) * 6 - 6,  // 3 columns: -6, 0, 6  
+          Math.floor(index / 3) * 6 - 12,  // 4 rows: -12, -6, 0, 6
+          -2  // In front of camera
+        ]} 
+        receiveShadow={qualitySettings.shadows}
+        castShadow={qualitySettings.shadows}
+        visible={true}
+      >
+        <planeGeometry 
+          ref={geometryRef} 
+          args={[4, 4, 20, 20]} 
+        />
+        <meshPhongMaterial 
+          color={index < 3 ? ['#ff0000', '#00ff00', '#0000ff'][index] : `hsl(${index * 30}, 100%, 50%)`}
+          transparent={false}
+          opacity={1.0}
+          side={THREE.DoubleSide}
+          shininess={30}
+        />
+      </mesh>
+    </>
   );
 }

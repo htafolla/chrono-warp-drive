@@ -25,15 +25,15 @@ interface ParticleSystemProps {
 function ParticleSystem({ spectrumData, time, phases, qualitySettings = { quality: 'high', particles: true } }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
   
-  // Dynamic particle count based on performance settings
+  // Reduced particle count to prevent spectrum plane occlusion
   const particleCount = React.useMemo(() => {
     if (!qualitySettings.particles) return 0;
     
     switch (qualitySettings.quality) {
-      case 'high': return 750;
-      case 'medium': return 500;
-      case 'low': return 250;
-      default: return 750;
+      case 'high': return 200;
+      case 'medium': return 150;
+      case 'low': return 100;
+      default: return 200;
     }
   }, [qualitySettings.quality, qualitySettings.particles]);
   
@@ -124,10 +124,10 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.1}
+        size={0.08}
         vertexColors
         transparent
-        opacity={0.4}
+        opacity={0.15}
         blending={THREE.AdditiveBlending}
       />
     </points>
@@ -291,12 +291,12 @@ export function EnhancedTemporalScene({
             speed={0.05}
           />
           
-          {/* Phase 10D: Enhanced Controls with Wave Plane Focused Target */}
+          {/* Enhanced Controls focused on spectrum plane grid center */}
           <OrbitControls 
             enablePan={true}
-            target={[0, -1, 0]}  // Focus on wave plane area
-            minDistance={3}
-            maxDistance={15}
+            target={[0, -3, -2]}  // Focus on spectrum plane grid center
+            minDistance={5}
+            maxDistance={20}
             enableZoom={true}
             enableRotate={true}
             autoRotate={false}
@@ -315,7 +315,7 @@ export function EnhancedTemporalScene({
           {spectrumData && (
             <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
-          <p>Particles: <span className="text-green-400 font-mono">{performanceSettings.particles ? 750 : 0}</span></p>
+          <p>Particles: <span className="text-green-400 font-mono">{performanceSettings.particles ? 200 : 0}</span></p>
           <p>Quality: <span className="text-blue-400 font-mono capitalize">{performanceSettings.quality}</span></p>
           <p>Wave Planes: <span className="text-purple-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
           <p>Visible Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
