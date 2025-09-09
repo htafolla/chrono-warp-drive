@@ -302,10 +302,10 @@ export function EnhancedTemporalScene({
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
         key="enhanced-temporal-canvas"
-        camera={{ position: [8, 6, 12], fov: 60 }}
+        camera={{ position: [5, 3, 10], fov: 60 }}  // Phase 10D: Better camera position for wave plane viewing
         gl={{ antialias: true, alpha: true }}
         onCreated={({ gl }) => {
-          console.log('[STARS DEBUG] Canvas created, initializing renderer');
+          console.log('[Phase 10F] Canvas created, initializing renderer for spectrum wave debugging');
           gl.toneMapping = THREE.LinearToneMapping;
           gl.toneMappingExposure = 1.0;
         }}
@@ -381,12 +381,12 @@ export function EnhancedTemporalScene({
             speed={0.05}
           />
           
-          {/* Enhanced Controls with Better Camera Position */}
+          {/* Phase 10D: Enhanced Controls with Wave Plane Focused Target */}
           <OrbitControls 
             enablePan={true}
-            target={[0, 0, 0]}
-            minDistance={5}
-            maxDistance={25}
+            target={[0, -1, 0]}  // Focus on wave plane area
+            minDistance={3}
+            maxDistance={15}
             enableZoom={true}
             enableRotate={true}
             autoRotate={false}

@@ -60,6 +60,17 @@ export function LODWavePlane({
     return cache;
   }, []);
   
+  // Phase 10A: Ensure initial geometry assignment
+  useEffect(() => {
+    if (meshRef.current && !meshRef.current.geometry) {
+      const initialGeometry = geometries.get('high');
+      if (initialGeometry) {
+        meshRef.current.geometry = initialGeometry;
+        console.log(`[Phase 10A] Initial geometry assigned to WavePlane ${index}`);
+      }
+    }
+  }, [geometries, index]);
+  
   // Cleanup geometries on unmount
   useEffect(() => {
     return () => {
@@ -99,19 +110,16 @@ export function LODWavePlane({
         targetLOD = 'medium';
       }
       
-      // Frustum culling - hide if outside camera view
-      const frustum = new THREE.Frustum();
-      const matrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-      frustum.setFromProjectionMatrix(matrix);
+      // Phase 10B: Temporarily disable frustum culling for debugging
+      // const frustum = new THREE.Frustum();
+      // const matrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      // frustum.setFromProjectionMatrix(matrix);
       
-      const meshVisible = frustum.intersectsObject(meshRef.current);
-      setIsVisible(meshVisible);
+      // const meshVisible = frustum.intersectsObject(meshRef.current);
+      // setIsVisible(meshVisible);
       
-      if (!meshVisible) {
-        meshRef.current.visible = false;
-        return;
-      }
-      
+      // Force all wave planes to be visible
+      setIsVisible(true);
       meshRef.current.visible = true;
       
       // Switch geometry if LOD level changed
@@ -132,26 +140,21 @@ export function LODWavePlane({
       const intensityMultiplier = spectrumData ? 
         spectrumData.intensities[index % spectrumData.intensities.length] : 1;
       
-      // Optimize animation frequency based on distance and LOD
-      const animationFrequency = targetLOD === 'high' ? 1 : 
-                                targetLOD === 'medium' ? 0.8 :
-                                targetLOD === 'low' ? 0.6 : 0.4;
-      
-      if (state.clock.elapsedTime % (1 / animationFrequency) < 0.016) {
+      // Phase 10E: Remove animation throttling for debugging
+      // Run wave animations every frame for maximum visibility
+      if (true) {
         // Enhanced wave calculations with LOD-appropriate complexity
         for (let i = 0; i < position.count; i++) {
           const x = position.getX(i);
           const z = position.getZ(i);
           
-          // Enhanced wave calculations with stronger amplitude
-          const waveValue = wave(0, state.clock.elapsedTime * 5, index, isotope, band.lambda, phaseType);
-          const secondaryWave = targetLOD === 'high' ? 
-            Math.sin(x * 0.8 + state.clock.elapsedTime * 3.2) * 0.5 : 0;
-          const tertiaryWave = targetLOD === 'high' ? 
-            Math.cos(z * 0.6 + state.clock.elapsedTime * 2.8) * 0.3 : 0;
+          // Phase 10E: Enhanced wave calculations with 2.0x stronger amplitude
+          const waveValue = wave(0, state.clock.elapsedTime * 8, index, isotope, band.lambda, phaseType);
+          const secondaryWave = Math.sin(x * 1.2 + state.clock.elapsedTime * 5.0) * 0.8;
+          const tertiaryWave = Math.cos(z * 1.0 + state.clock.elapsedTime * 4.0) * 0.6;
           
-          const heightValue = Math.max(-6, Math.min(6, 
-            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 1.2 * intensityMultiplier
+          const heightValue = Math.max(-8, Math.min(8, 
+            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 2.4 * intensityMultiplier
           ));
           
           position.setY(i, heightValue);
@@ -162,11 +165,12 @@ export function LODWavePlane({
       
       // Enhanced positioning and rotation with distance-based optimization
       const rotationIntensity = targetLOD === 'high' ? 1 : 0.5;
-      meshRef.current.rotation.z = phase * 0.08 * rotationIntensity + 
-        Math.sin(state.clock.elapsedTime * 0.3) * 0.05 * rotationIntensity;
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.15 + index) * 0.15 * rotationIntensity;
-      meshRef.current.position.y = index * 0.6 - 3;
-      meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.2 + index * 0.5) * 0.3 * rotationIntensity;
+      // Phase 10D: Center wave planes around y=0 for better visibility
+      meshRef.current.rotation.z = phase * 0.12 * rotationIntensity + 
+        Math.sin(state.clock.elapsedTime * 0.5) * 0.08 * rotationIntensity;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.25 + index) * 0.2 * rotationIntensity;
+      meshRef.current.position.y = index * 1.0 - 2; // Center around y=0
+      meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.3 + index * 0.8) * 0.5 * rotationIntensity;
       
     } catch (error) {
       console.error('LOD WavePlane animation error:', error);
@@ -174,24 +178,31 @@ export function LODWavePlane({
   });
 
   return (
-    <mesh 
-      ref={meshRef} 
-      position={[0, index * 0.6 - 3, 0]} 
-      receiveShadow={qualitySettings.shadows}
-      castShadow={qualitySettings.shadows}
-    >
-      <meshPhongMaterial 
-        color={getSafeColor(band.color)}
-        wireframe={false}
-        transparent
-        opacity={qualitySettings.quality === 'low' ? 0.8 : 
-                qualitySettings.quality === 'medium' ? 0.6 : 0.5}
-        emissive={getSafeColor(band.color)}
-        emissiveIntensity={qualitySettings.quality === 'low' ? 0.4 : 
-                          qualitySettings.quality === 'medium' ? 0.3 : 
-                          currentLOD === 'high' ? 0.25 : 0.2}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group>
+      {/* Phase 10D: Debug bounds marker */}
+      <mesh position={[0, index * 1.0 - 2, 0]}>
+        <boxGeometry args={[12, 0.1, 12]} />
+        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
+      </mesh>
+      
+      {/* Main wave plane */}
+      <mesh 
+        ref={meshRef} 
+        position={[0, index * 1.0 - 2, 0]} 
+        receiveShadow={qualitySettings.shadows}
+        castShadow={qualitySettings.shadows}
+      >
+        <planeGeometry args={[10, 10, 48, 48]} />
+        <meshPhongMaterial 
+          color={getSafeColor(band.color)}
+          wireframe={true}  // Phase 10C: Force wireframe for debugging
+          transparent
+          opacity={0.9}  // Phase 10C: High opacity for visibility
+          emissive={getSafeColor(band.color)}
+          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
   );
 }
