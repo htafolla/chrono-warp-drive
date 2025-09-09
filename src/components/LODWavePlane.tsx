@@ -179,11 +179,13 @@ export function LODWavePlane({
 
   return (
     <group>
-      {/* Phase 10D: Debug bounds marker */}
-      <mesh position={[0, index * 1.0 - 2, 0]}>
-        <boxGeometry args={[12, 0.1, 12]} />
-        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
-      </mesh>
+      {/* Debug bounds marker - disabled */}
+      {false && (
+        <mesh position={[0, index * 1.0 - 2, 0]}>
+          <boxGeometry args={[12, 0.1, 12]} />
+          <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
+        </mesh>
+      )}
       
       {/* Main wave plane */}
       <mesh 
