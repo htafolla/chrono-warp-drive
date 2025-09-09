@@ -21,12 +21,12 @@ interface LODWavePlaneProps {
   };
 }
 
-// LOD configurations
+// Optimized LOD configurations for better performance
 const LOD_CONFIGS = {
-  high: { segments: 48, maxDistance: 10 },
-  medium: { segments: 32, maxDistance: 20 },
-  low: { segments: 24, maxDistance: 30 },
-  veryLow: { segments: 16, maxDistance: Infinity }
+  high: { segments: 32, maxDistance: 8 },
+  medium: { segments: 24, maxDistance: 15 },
+  low: { segments: 16, maxDistance: 25 },
+  veryLow: { segments: 12, maxDistance: Infinity }
 };
 
 export function LODWavePlane({ 
@@ -47,6 +47,7 @@ export function LODWavePlane({
   // Track current LOD level
   const [currentLOD, setCurrentLOD] = React.useState<'high' | 'medium' | 'low' | 'veryLow'>('high');
   const [isVisible, setIsVisible] = React.useState(true);
+  const frameCountRef = useRef(0);
   
   // Cache geometries for different LOD levels
   const geometries = useMemo(() => {
@@ -84,10 +85,8 @@ export function LODWavePlane({
   useFrame((state) => {
     if (!meshRef.current) return;
     
-    // Debug logging for Phase 9F
-    if (state.clock.elapsedTime % 5 < 0.1) {
-      console.log(`[Phase 9F] WavePlane ${index}: position=${meshRef.current.position.toArray()}, visible=${meshRef.current.visible}, LOD=${currentLOD}`);
-    }
+    frameCountRef.current++;
+    const shouldUpdate = frameCountRef.current % 2 === 0; // Throttle to every 2nd frame
     
     try {
       const meshPosition = meshRef.current.position;
@@ -140,21 +139,20 @@ export function LODWavePlane({
       const intensityMultiplier = spectrumData ? 
         spectrumData.intensities[index % spectrumData.intensities.length] : 1;
       
-      // Phase 10E: Remove animation throttling for debugging
-      // Run wave animations every frame for maximum visibility
-      if (true) {
-        // Enhanced wave calculations with LOD-appropriate complexity
+      // Optimized wave animations with frame throttling and LOD-based complexity
+      if (shouldUpdate || targetLOD === 'high') {
+        const complexity = targetLOD === 'high' ? 1 : targetLOD === 'medium' ? 0.7 : 0.4;
+        
         for (let i = 0; i < position.count; i++) {
           const x = position.getX(i);
           const z = position.getZ(i);
           
-          // Phase 10E: Enhanced wave calculations with 2.0x stronger amplitude
-          const waveValue = wave(0, state.clock.elapsedTime * 8, index, isotope, band.lambda, phaseType);
-          const secondaryWave = Math.sin(x * 1.2 + state.clock.elapsedTime * 5.0) * 0.8;
-          const tertiaryWave = Math.cos(z * 1.0 + state.clock.elapsedTime * 4.0) * 0.6;
+          const waveValue = wave(0, state.clock.elapsedTime * 6, index, isotope, band.lambda, phaseType);
+          const secondaryWave = targetLOD !== 'veryLow' ? Math.sin(x * 1.2 + state.clock.elapsedTime * 4.0) * 0.6 : 0;
+          const tertiaryWave = targetLOD === 'high' ? Math.cos(z * 1.0 + state.clock.elapsedTime * 3.0) * 0.4 : 0;
           
-          const heightValue = Math.max(-8, Math.min(8, 
-            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 2.4 * intensityMultiplier
+          const heightValue = Math.max(-6, Math.min(6, 
+            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 2.0 * intensityMultiplier * complexity
           ));
           
           position.setY(i, heightValue);
@@ -179,11 +177,6 @@ export function LODWavePlane({
 
   return (
     <group>
-      {/* Phase 10D: Debug bounds marker */}
-      <mesh position={[0, index * 1.0 - 2, 0]}>
-        <boxGeometry args={[12, 0.1, 12]} />
-        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
-      </mesh>
       
       {/* Main wave plane */}
       <mesh 
@@ -195,11 +188,11 @@ export function LODWavePlane({
         <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={true}  // Phase 10C: Force wireframe for debugging
+          wireframe={currentLOD === 'veryLow'}
           transparent
-          opacity={0.9}  // Phase 10C: High opacity for visibility
+          opacity={currentLOD === 'high' ? 0.8 : currentLOD === 'medium' ? 0.6 : 0.4}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
+          emissiveIntensity={currentLOD === 'high' ? 0.6 : currentLOD === 'medium' ? 0.4 : 0.2}
           side={THREE.DoubleSide}
         />
       </mesh>

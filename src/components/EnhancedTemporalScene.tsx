@@ -24,15 +24,15 @@ interface ParticleSystemProps {
 function ParticleSystem({ spectrumData, time, phases, qualitySettings = { quality: 'high', particles: true } }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
   
-  // Dynamic particle count based on performance settings
+  // Optimized particle count for better performance
   const particleCount = React.useMemo(() => {
     if (!qualitySettings.particles) return 0;
     
     switch (qualitySettings.quality) {
-      case 'high': return 750;
-      case 'medium': return 500;
-      case 'low': return 250;
-      default: return 750;
+      case 'high': return 600;
+      case 'medium': return 400;
+      case 'low': return 200;
+      default: return 600;
     }
   }, [qualitySettings.quality, qualitySettings.particles]);
   
@@ -76,30 +76,35 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
     return [positions, colors];
   }, [spectrumData]);
   
-  useFrame(() => {
+  useFrame((state, delta) => {
     if (!pointsRef.current) return;
+    
+    // Throttle particle updates every 3rd frame for performance
+    if (state.clock.elapsedTime % (3 * delta) > delta) return;
     
     const positions = pointsRef.current.geometry.attributes.position.array as Float32Array;
     const colors = pointsRef.current.geometry.attributes.color.array as Float32Array;
     
-    for (let i = 0; i < particleCount; i++) {
+    // Optimize updates based on quality
+    const updateFrequency = qualitySettings.quality === 'high' ? 1 : 
+                          qualitySettings.quality === 'medium' ? 2 : 3;
+    
+    for (let i = 0; i < particleCount; i += updateFrequency) {
       const i3 = i * 3;
       
       // Animate particles based on phases
       const phaseIndex = i % phases.length;
       const phase = phases[phaseIndex];
       
-      positions[i3 + 1] += Math.sin(time * 0.04 + phase) * 0.02;
+      positions[i3 + 1] += Math.sin(time * 0.03 + phase) * 0.015;
       
-      // Pulse colors based on spectrum intensity - FIX: Use additive pulsing instead of multiplicative
-      const pulseIntensity = 0.8 + 0.4 * Math.sin(time * 0.02 + phase);
-      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.5;
-      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.4;
-      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.2;
+      // Simplified color pulsing for better performance
+      const pulseIntensity = 0.7 + 0.3 * Math.sin(time * 0.015 + phase);
+      const intensity = spectrumData?.intensities[i % spectrumData.intensities.length] || 0.5;
       
-      colors[i3] = baseR * pulseIntensity;
-      colors[i3 + 1] = baseG * pulseIntensity;
-      colors[i3 + 2] = baseB * pulseIntensity;
+      colors[i3] = (0.5 + intensity * 0.5) * pulseIntensity;
+      colors[i3 + 1] = (0.3 + intensity * 0.4) * pulseIntensity;
+      colors[i3 + 2] = (0.8 + intensity * 0.2) * pulseIntensity;
     }
     
     pointsRef.current.geometry.attributes.position.needsUpdate = true;
