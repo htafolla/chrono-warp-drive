@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -24,18 +24,6 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
     cpuUsage: 0
   });
 
-  const benchmarkCPU = useCallback((): number => {
-    const startTime = performance.now();
-    // Perform a controlled computational task for CPU estimation - reduced iterations for performance
-    let result = 0;
-    // Adaptive benchmarking: fewer iterations when system is performing well
-    const iterations = metrics.fps > 30 ? 5000 : 10000;
-    for (let i = 0; i < iterations; i++) {
-      result += Math.sqrt(i) * Math.sin(i) * Math.cos(i);
-    }
-    return performance.now() - startTime;
-  }, [metrics.fps]);
-
   useEffect(() => {
     if (!isActive) return;
 
@@ -43,7 +31,17 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
     let lastTime = performance.now();
     let animationFrameId: number;
     let cpuBenchmarkResults: number[] = [];
-    let benchmarkCounter = 0;
+
+    const benchmarkCPU = (): number => {
+      const startTime = performance.now();
+      // Perform a controlled computational task for CPU estimation
+      let result = 0;
+      for (let i = 0; i < 100000; i++) {
+        result += Math.sqrt(i) * Math.sin(i) * Math.cos(i);
+      }
+      const endTime = performance.now();
+      return endTime - startTime; // Execution time in ms
+    };
 
     const measurePerformance = () => {
       const currentTime = performance.now();
@@ -59,22 +57,14 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         // Render time calculation
         const renderTime = 1000 / fps;
 
-        // CPU usage estimation - throttled benchmarking
-        let cpuUsage = metrics.cpuUsage; // Keep previous value
-        benchmarkCounter++;
+        // CPU usage estimation
+        const cpuBenchmarkTime = benchmarkCPU();
+        cpuBenchmarkResults.push(cpuBenchmarkTime);
+        if (cpuBenchmarkResults.length > 5) cpuBenchmarkResults.shift(); // Keep last 5 results
         
-        // Only benchmark CPU every 5 seconds when performance is good, every 2 seconds when poor
-        const benchmarkInterval = fps > 30 ? 5 : 2;
-        if (benchmarkCounter >= benchmarkInterval) {
-          const cpuBenchmarkTime = benchmarkCPU();
-          cpuBenchmarkResults.push(cpuBenchmarkTime);
-          if (cpuBenchmarkResults.length > 5) cpuBenchmarkResults.shift(); // Keep last 5 results
-          
-          const avgBenchmarkTime = cpuBenchmarkResults.reduce((a, b) => a + b, 0) / cpuBenchmarkResults.length;
-          const baseBenchmarkTime = 2.0; // Baseline time for the benchmark on a typical system
-          cpuUsage = Math.min(Math.max((avgBenchmarkTime / baseBenchmarkTime) * 50, 5), 95);
-          benchmarkCounter = 0;
-        }
+        const avgBenchmarkTime = cpuBenchmarkResults.reduce((a, b) => a + b, 0) / cpuBenchmarkResults.length;
+        const baseBenchmarkTime = 2.0; // Baseline time for the benchmark on a typical system
+        const cpuUsage = Math.min(Math.max((avgBenchmarkTime / baseBenchmarkTime) * 50, 5), 95);
 
         setMetrics(prev => ({
           ...prev,
@@ -99,7 +89,7 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isActive, benchmarkCPU, metrics.cpuUsage]);
+  }, [isActive]);
 
   if (!isActive) return null;
 

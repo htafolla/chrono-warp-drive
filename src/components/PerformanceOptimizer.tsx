@@ -121,15 +121,6 @@ export class PerformanceOptimizer {
       try {
         if (!this.worker) {
           this.worker = createCalculationWorker();
-          
-          // Add cleanup listener for proper Web Worker cleanup
-          if (this.worker) {
-            this.worker.onerror = (error) => {
-              console.warn('PerformanceOptimizer: Web Worker error:', error);
-              this.worker = null;
-            };
-          }
-          
           console.log('Performance Optimizer: Web Worker initialized');
         }
         this.isInitialized = true;
@@ -280,20 +271,12 @@ export class PerformanceOptimizer {
 
   dispose(): void {
     if (this.worker) {
-      // Remove event listeners before terminating
-      this.worker.onerror = null;
-      this.worker.onmessage = null;
       this.worker.terminate();
       this.worker = null;
     }
     this.cache.clear();
     this.isInitialized = false;
     this.initializationPromise = null;
-    
-    // Emergency garbage collection hint
-    if (typeof window !== 'undefined' && (window as any).gc) {
-      (window as any).gc();
-    }
   }
 }
 

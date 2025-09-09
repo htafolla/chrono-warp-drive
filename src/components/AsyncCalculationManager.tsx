@@ -1,193 +1,191 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react';
+// AsyncCalculationManager - Web Worker Integration for BLURRN v4.5
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { usePerformanceOptimizer } from '@/contexts/PerformanceContext';
+import { SpectrumData } from '@/types/sdss';
 
 interface AsyncCalculationManagerProps {
-  spectrumData: any;
+  spectrumData: SpectrumData | null;
+  onSpectrumProcessed?: (processedData: any) => void;
+  onNeuralProcessed?: (neuralData: any) => void;
   isActive: boolean;
-  onSpectrumProcessed?: (processedSpectrum: any) => void;
-  onNeuralDataReady?: (neuralData: any) => void;
-}
-
-interface QueueItem {
-  id: string;
-  type: 'spectrum' | 'neural';
-  data: any;
-  priority: number;
 }
 
 interface CalculationResult {
-  processedSpectrum?: any;
-  neuralData?: any;
+  type: string;
+  result: any;
+  timestamp: number;
 }
 
-export function AsyncCalculationManager({
-  spectrumData,
-  isActive,
-  onSpectrumProcessed,
-  onNeuralDataReady
+export function AsyncCalculationManager({ 
+  spectrumData, 
+  onSpectrumProcessed, 
+  onNeuralProcessed,
+  isActive 
 }: AsyncCalculationManagerProps) {
   const performanceOptimizer = usePerformanceOptimizer();
-  const [processingQueue, setProcessingQueue] = useState<QueueItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
+  const processingQueue = useRef<Array<() => void>>([]);
   const lastProcessTime = useRef(0);
-  const processingThrottle = useRef(100); // ms
-  const maxQueueSize = 50; // Prevent memory leaks from excessive queuing
 
-  const queueSpectrumProcessing = useCallback((data: number[]) => {
-    if (!data || data.length === 0) return;
-    
-    // Only process if data is large enough to benefit from decimation
-    if (data.length > 1000) {
-      const item: QueueItem = {
-        id: `spectrum_${Date.now()}`,
-        type: 'spectrum',
-        data,
-        priority: 1
-      };
-      
-      setProcessingQueue(prev => {
-        // Prevent queue overflow - remove oldest items if queue is full
-        const newQueue = prev.length >= maxQueueSize ? prev.slice(1) : prev;
-        return [...newQueue, item];
-      });
-    }
-  }, [maxQueueSize]);
-
-  const queueNeuralProcessing = useCallback((spectrum: any) => {
-    if (!spectrum) return;
-    
-    const item: QueueItem = {
-      id: `neural_${Date.now()}`,
-      type: 'neural',
-      data: spectrum,
-      priority: 2 // Higher priority for neural processing
-    };
-    
-    setProcessingQueue(prev => {
-      // Prevent queue overflow - remove oldest items if queue is full
-      const newQueue = prev.length >= maxQueueSize ? prev.slice(1) : prev;
-      return [...newQueue, item];
-    });
-  }, [maxQueueSize]);
-
-  const processQueue = useCallback(async () => {
-    if (!performanceOptimizer || !isActive || isProcessing || processingQueue.length === 0) {
-      return;
-    }
+  // Queue spectrum processing
+  const queueSpectrumProcessing = useCallback(async () => {
+    if (!performanceOptimizer || !spectrumData || !isActive) return;
 
     const now = performance.now();
     
-    // Throttle processing to prevent overload - adaptive throttling based on performance
-    const quality = performanceOptimizer.getAdaptiveQuality();
-    const throttleTime = quality === 'high' ? 50 : quality === 'medium' ? 100 : 200;
-    
-    if (now - lastProcessTime.current < throttleTime) return;
+    // Throttle processing to prevent overload
+    if (now - lastProcessTime.current < 100) return;
     lastProcessTime.current = now;
 
     setIsProcessing(true);
 
     try {
-      // Process highest priority item first
-      const sortedQueue = [...processingQueue].sort((a, b) => b.priority - a.priority);
-      const item = sortedQueue[0];
-      
-      if (item.type === 'spectrum' && item.data) {
-        const decimated = await performanceOptimizer.decimateForVisualization(item.data, 1000);
-        onSpectrumProcessed?.({
-          intensities: decimated,
-          originalSize: item.data.length,
-          decimated: true,
-          timestamp: Date.now()
-        });
-      } else if (item.type === 'neural' && item.data) {
-        const neuralData = await performanceOptimizer.preprocessForNeural(item.data);
-        onNeuralDataReady?.(neuralData);
+      // Use PerformanceOptimizer's decimation for large spectra
+      if (spectrumData.intensities.length > 1000) {
+        const decimatedIntensities = await performanceOptimizer.decimateForVisualization(
+          spectrumData.intensities, 
+          1000
+        );
+        
+        const decimatedWavelengths = await performanceOptimizer.decimateForVisualization(
+          spectrumData.wavelengths, 
+          1000
+        );
+
+        const processedSpectrum = {
+          ...spectrumData,
+          intensities: decimatedIntensities,
+          wavelengths: decimatedWavelengths,
+          originalSize: spectrumData.intensities.length,
+          decimated: true
+        };
+
+        onSpectrumProcessed?.(processedSpectrum);
+      } else {
+        onSpectrumProcessed?.(spectrumData);
       }
 
-      // Remove processed item from queue
-      setProcessingQueue(prev => prev.filter(queueItem => queueItem.id !== item.id));
-      
+      setProcessedCount(prev => prev + 1);
     } catch (error) {
-      console.warn('AsyncCalculationManager: Processing failed:', error);
+      console.error('Spectrum processing error:', error);
     } finally {
       setIsProcessing(false);
     }
-  }, [performanceOptimizer, isActive, isProcessing, processingQueue, onSpectrumProcessed, onNeuralDataReady]);
+  }, [performanceOptimizer, spectrumData, onSpectrumProcessed, isActive]);
 
-  // Queue spectrum processing when data changes
-  useEffect(() => {
-    if (spectrumData?.intensities && isActive) {
-      queueSpectrumProcessing(spectrumData.intensities);
+  // Queue neural preprocessing
+  const queueNeuralProcessing = useCallback(async () => {
+    if (!performanceOptimizer || !spectrumData || !isActive) return;
+
+    try {
+      const neuralData = await performanceOptimizer.preprocessForNeural(spectrumData);
+      onNeuralProcessed?.(neuralData);
+    } catch (error) {
+      console.error('Neural preprocessing error:', error);
     }
-  }, [spectrumData, isActive, queueSpectrumProcessing]);
+  }, [performanceOptimizer, spectrumData, onNeuralProcessed, isActive]);
 
-  // Queue neural processing when spectrum is available
+  // Process queued calculations based on performance
+  const processQueue = useCallback(() => {
+    if (!performanceOptimizer || !isActive) return;
+
+    const quality = performanceOptimizer.getAdaptiveQuality();
+    const maxConcurrentTasks = quality === 'high' ? 3 : quality === 'medium' ? 2 : 1;
+
+    // Only process if we have good performance
+    if (quality !== 'low' && processingQueue.current.length > 0) {
+      const tasksToProcess = processingQueue.current.splice(0, maxConcurrentTasks);
+      tasksToProcess.forEach(task => task());
+    }
+  }, [performanceOptimizer, isActive]);
+
+  // Auto-process when spectrum data changes
   useEffect(() => {
     if (spectrumData && isActive) {
-      queueNeuralProcessing(spectrumData);
+      // Add tasks to queue instead of executing immediately
+      processingQueue.current.push(queueSpectrumProcessing);
+      processingQueue.current.push(queueNeuralProcessing);
     }
-  }, [spectrumData, isActive, queueNeuralProcessing]);
+  }, [spectrumData, isActive, queueSpectrumProcessing, queueNeuralProcessing]);
 
-  // Process queue periodically
+  // Process queue on performance changes
   useEffect(() => {
     if (!isActive) return;
 
-    const interval = setInterval(processQueue, 200); // Process every 200ms
+    const interval = setInterval(processQueue, 200); // Check every 200ms
     return () => clearInterval(interval);
-  }, [isActive, processQueue]);
+  }, [processQueue, isActive]);
 
-  // Cache cleanup - clear cache periodically to prevent memory leaks
+  // Clear cache periodically to prevent memory leaks
   useEffect(() => {
-    if (!performanceOptimizer || !isActive) return;
+    if (!isActive) return;
 
-    const cacheCleanupInterval = setInterval(() => {
-      // Let PerformanceOptimizer handle its own cache management
-      // We'll just trigger a small operation to keep it active
-      if (performanceOptimizer.getAdaptiveQuality) {
-        performanceOptimizer.getAdaptiveQuality();
+    const interval = setInterval(() => {
+      if (performanceOptimizer) {
+        const cacheSize = performanceOptimizer.getCacheSize();
+        if (cacheSize > 100) { // Clear if cache gets too large
+          performanceOptimizer.clearCache();
+          console.log('AsyncCalculationManager: Cache cleared to prevent memory leak');
+        }
       }
     }, 30000); // Check every 30 seconds
 
-    return () => clearInterval(cacheCleanupInterval);
+    return () => clearInterval(interval);
   }, [performanceOptimizer, isActive]);
 
-  return null; // This is a processing component without UI
+  // Render processing status for debugging
+  if (process.env.NODE_ENV === 'development' && isActive) {
+    return (
+      <div className="fixed bottom-20 left-4 bg-card/95 backdrop-blur-md border border-border rounded-lg p-2 text-xs text-card-foreground shadow-lg z-50">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`} />
+            <span>Async Manager</span>
+          </div>
+          <div>Processed: {processedCount}</div>
+          <div>Queue: {processingQueue.current.length}</div>
+          <div>Cache: {performanceOptimizer?.getCacheSize() || 0}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
-// Hook for easier integration
-export function useAsyncCalculations(spectrumData: any, isActive: boolean) {
+// Hook for easy integration
+export function useAsyncCalculations(spectrumData: SpectrumData | null, isActive = true) {
   const [processedSpectrum, setProcessedSpectrum] = useState<any>(null);
   const [neuralData, setNeuralData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSpectrumProcessed = useCallback((processed: any) => {
-    setProcessedSpectrum(processed);
+  const handleSpectrumProcessed = useCallback((data: any) => {
+    setProcessedSpectrum(data);
     setIsProcessing(false);
   }, []);
 
-  const handleNeuralDataReady = useCallback((data: any) => {
+  const handleNeuralProcessed = useCallback((data: any) => {
     setNeuralData(data);
   }, []);
 
-  const AsyncManager = useCallback(() => (
-    <AsyncCalculationManager
-      spectrumData={spectrumData}
-      isActive={isActive}
-      onSpectrumProcessed={handleSpectrumProcessed}
-      onNeuralDataReady={handleNeuralDataReady}
-    />
-  ), [spectrumData, isActive, handleSpectrumProcessed, handleNeuralDataReady]);
-
   useEffect(() => {
-    if (spectrumData) {
+    if (spectrumData && isActive) {
       setIsProcessing(true);
     }
-  }, [spectrumData]);
+  }, [spectrumData, isActive]);
 
   return {
     processedSpectrum,
     neuralData,
     isProcessing,
-    AsyncManager
+    AsyncManager: () => (
+      <AsyncCalculationManager
+        spectrumData={spectrumData}
+        onSpectrumProcessed={handleSpectrumProcessed}
+        onNeuralProcessed={handleNeuralProcessed}
+        isActive={isActive}
+      />
+    )
   };
 }
