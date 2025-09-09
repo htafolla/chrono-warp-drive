@@ -178,13 +178,7 @@ export function LODWavePlane({
   });
 
   return (
-    <group>
-      {/* Phase 10D: Debug bounds marker */}
-      <mesh position={[0, index * 1.0 - 2, 0]}>
-        <boxGeometry args={[12, 0.1, 12]} />
-        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
-      </mesh>
-      
+    <group>      
       {/* Main wave plane */}
       <mesh 
         ref={meshRef} 
@@ -195,11 +189,11 @@ export function LODWavePlane({
         <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={true}  // Phase 10C: Force wireframe for debugging
+          wireframe={false}
           transparent
-          opacity={0.9}  // Phase 10C: High opacity for visibility
+          opacity={0.9}
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
+          emissiveIntensity={0.6}
           side={THREE.DoubleSide}
         />
       </mesh>
