@@ -50,8 +50,19 @@ import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 import { TemporalControls } from './TemporalControls';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
+import { memoryManager } from '@/lib/memoryManager';
 
 export function TPTTApp() {
+  // Initialize memory manager
+  React.useEffect(() => {
+    memoryManager.initialize();
+    return () => {
+      // Cleanup on unmount
+      if (memoryManager.shouldCleanup()) {
+        memoryManager.forceCleanup();
+      }
+    };
+  }, []);
   // Core temporal state
   const [time, setTime] = useState(0);
   const [phases, setPhases] = useState([0, 2 * Math.PI / 3, 4 * Math.PI / 3]);
@@ -245,7 +256,7 @@ export function TPTTApp() {
       if (intervalId) clearInterval(intervalId);
       if (countdownId) clearInterval(countdownId);
     };
-  }, [time, fractalToggle, isotope, cycle, isV4Initialized, spectrumData, isPlaying, updateInterval, animationMode]);
+  }, [fractalToggle, isotope, isV4Initialized, spectrumData, isPlaying, updateInterval, animationMode]);
 
   // Enhanced calculations with v4.5 compatibility
   const waves = spectrumData?.intensities || SPECTRUM_BANDS.map((band, i) => 

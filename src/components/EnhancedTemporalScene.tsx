@@ -4,6 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
+import { useMemoryManager } from '@/lib/memoryManager';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;
@@ -14,6 +15,16 @@ interface ParticleSystemProps {
 function ParticleSystem({ spectrumData, time, phases }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
   const particleCount = 1000;
+  const memoryManager = useMemoryManager();
+  
+  // Cleanup particles on unmount
+  useEffect(() => {
+    return () => {
+      if (pointsRef.current) {
+        memoryManager.disposeObject(pointsRef.current);
+      }
+    };
+  }, [memoryManager]);
   
   const [positions, colors] = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
@@ -110,6 +121,7 @@ interface WavePlaneProps {
 function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectrumData }: WavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
+  const memoryManager = useMemoryManager();
   
   // Phase 1: Diagnostic logging for wave plane rendering
   React.useEffect(() => {
@@ -120,6 +132,18 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       colorParsedByThree: new THREE.Color(band.color).getHexString()
     });
   }, [band, index]);
+
+  // Memory cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (meshRef.current) {
+        memoryManager.disposeObject(meshRef.current);
+      }
+      if (geometryRef.current) {
+        geometryRef.current.dispose();
+      }
+    };
+  }, [memoryManager]);
   
   useFrame((state) => {
     if (!meshRef.current || !geometryRef.current) return;
@@ -214,6 +238,8 @@ export function EnhancedTemporalScene({
   spectrumData = null,
   time 
 }: EnhancedTemporalSceneProps) {
+  const memoryManager = useMemoryManager();
+  
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
