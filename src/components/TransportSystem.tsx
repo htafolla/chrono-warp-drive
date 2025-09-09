@@ -470,7 +470,6 @@ export const TransportSystem = ({
             etaToReady={etaToReady}
             energyTrend={energyTrend}
             optimizations={optimizations}
-            temporal={destinationData.temporal}
             onTransport={performTransport}
             onOptimize={handleOptimization}
           />

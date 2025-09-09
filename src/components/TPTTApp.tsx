@@ -26,8 +26,6 @@ import { EnergyVisualization } from './EnergyVisualization';
 import { TransportPredictor } from './TransportPredictor';
 import { AdvancedProgressIndicators } from './AdvancedProgressIndicators';
 import { OptimizationSuggestions } from './OptimizationSuggestions';
-import { DashboardMetrics } from './DashboardMetrics';
-import { DashboardControls } from './DashboardControls';
 import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText } from 'lucide-react';
 import { 
   PHI, 
@@ -504,7 +502,7 @@ export function TPTTApp() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <DashboardMetrics
+            <Dashboard
               time={time}
               e_t={e_t}
               tPTT_value={tPTT_value}
@@ -516,6 +514,15 @@ export function TPTTApp() {
               isV4Enhanced={isV4Initialized}
               isotope={isotope}
               fractalToggle={fractalToggle}
+              isPlaying={isPlaying}
+              onPlayPause={handlePlayPause}
+              updateInterval={updateInterval}
+              onIntervalChange={handleIntervalChange}
+              animationMode={animationMode}
+              onModeChange={handleModeChange}
+              stellarTimestamp={stellarTimestamp}
+              spectrumData={spectrumData}
+              nextUpdateIn={nextUpdateIn}
             />
             
             {/* Transport System - Enhanced Version */}
@@ -556,19 +563,6 @@ export function TPTTApp() {
                 />
               </CardContent>
             </Card>
-
-            <DashboardControls
-              isPlaying={isPlaying}
-              onPlayPause={handlePlayPause}
-              updateInterval={updateInterval}
-              onIntervalChange={handleIntervalChange}
-              animationMode={animationMode}
-              onModeChange={handleModeChange}
-              stellarTimestamp={stellarTimestamp}
-              spectrumData={spectrumData}
-              nextUpdateIn={nextUpdateIn}
-              phases={phases}
-            />
           </TabsContent>
 
           <TabsContent value="simulation" className="space-y-4">

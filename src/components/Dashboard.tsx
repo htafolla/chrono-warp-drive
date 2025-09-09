@@ -166,6 +166,14 @@ export function Dashboard({
         />
       </div>
 
+      {/* Transport System - Full Width */}
+      <div className="mt-6">
+          {/* Transport System will be available in separate Transport tab */}
+          <div className="text-center text-muted-foreground py-8">
+            Transport System moved to dedicated Transport tab for enhanced functionality
+          </div>
+      </div>
+
       {/* Phase Visualization */}
       <Card className="mt-6">
         <CardHeader>
