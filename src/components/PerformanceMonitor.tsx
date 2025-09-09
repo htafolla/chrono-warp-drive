@@ -8,6 +8,7 @@ interface PerformanceMetrics {
   memoryUsage: number;
   renderTime: number;
   gpuMemory: number;
+  cpuUsage: number;
 }
 
 interface PerformanceMonitorProps {
@@ -19,7 +20,8 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
     fps: 60,
     memoryUsage: 0,
     renderTime: 16.67,
-    gpuMemory: 0
+    gpuMemory: 0,
+    cpuUsage: 0
   });
 
   useEffect(() => {
@@ -28,6 +30,18 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
     let frameCount = 0;
     let lastTime = performance.now();
     let animationFrameId: number;
+    let cpuBenchmarkResults: number[] = [];
+
+    const benchmarkCPU = (): number => {
+      const startTime = performance.now();
+      // Perform a controlled computational task for CPU estimation
+      let result = 0;
+      for (let i = 0; i < 100000; i++) {
+        result += Math.sqrt(i) * Math.sin(i) * Math.cos(i);
+      }
+      const endTime = performance.now();
+      return endTime - startTime; // Execution time in ms
+    };
 
     const measurePerformance = () => {
       const currentTime = performance.now();
@@ -43,12 +57,22 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         // Render time calculation
         const renderTime = 1000 / fps;
 
+        // CPU usage estimation
+        const cpuBenchmarkTime = benchmarkCPU();
+        cpuBenchmarkResults.push(cpuBenchmarkTime);
+        if (cpuBenchmarkResults.length > 5) cpuBenchmarkResults.shift(); // Keep last 5 results
+        
+        const avgBenchmarkTime = cpuBenchmarkResults.reduce((a, b) => a + b, 0) / cpuBenchmarkResults.length;
+        const baseBenchmarkTime = 2.0; // Baseline time for the benchmark on a typical system
+        const cpuUsage = Math.min(Math.max((avgBenchmarkTime / baseBenchmarkTime) * 50, 5), 95);
+
         setMetrics(prev => ({
           ...prev,
           fps: Math.min(fps, 60),
           memoryUsage,
           renderTime,
-          gpuMemory: Math.random() * 30 + 10 // Mock GPU memory usage
+          gpuMemory: Math.random() * 30 + 10, // Mock GPU memory usage
+          cpuUsage: Math.round(cpuUsage)
         }));
 
         frameCount = 0;
@@ -70,9 +94,13 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
   if (!isActive) return null;
 
   const getPerformanceStatus = () => {
-    if (metrics.fps >= 55) return { status: "Excellent", variant: "default" as const };
-    if (metrics.fps >= 45) return { status: "Good", variant: "secondary" as const };
-    if (metrics.fps >= 30) return { status: "Fair", variant: "outline" as const };
+    const overallScore = (metrics.fps / 60) * 0.4 + 
+                        (1 - metrics.cpuUsage / 100) * 0.3 + 
+                        (1 - metrics.memoryUsage / 100) * 0.3;
+    
+    if (overallScore >= 0.8) return { status: "Excellent", variant: "default" as const };
+    if (overallScore >= 0.6) return { status: "Good", variant: "secondary" as const };
+    if (overallScore >= 0.4) return { status: "Fair", variant: "outline" as const };
     return { status: "Poor", variant: "destructive" as const };
   };
 
@@ -90,7 +118,7 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         <CardDescription>Real-time performance metrics for temporal simulation</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">Frame Rate</span>
@@ -109,13 +137,21 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
 
           <div>
             <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-muted-foreground">CPU Usage</span>
+              <span className="font-mono text-sm">{metrics.cpuUsage}%</span>
+            </div>
+            <Progress value={metrics.cpuUsage} className="h-2" />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">Memory Usage</span>
               <span className="font-mono text-sm">{metrics.memoryUsage}%</span>
             </div>
             <Progress value={metrics.memoryUsage} className="h-2" />
           </div>
 
-          <div>
+          <div className="col-span-2">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">GPU Memory</span>
               <span className="font-mono text-sm">{metrics.gpuMemory.toFixed(1)}MB</span>
@@ -127,10 +163,12 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         <div className="mt-4 p-3 bg-muted rounded-lg">
           <div className="text-xs text-muted-foreground mb-1">Optimization Status</div>
           <div className="text-sm">
-            {metrics.fps >= 55 && "Temporal simulation running optimally"}
+            {metrics.fps >= 55 && metrics.cpuUsage < 70 && "Temporal simulation running optimally"}
             {metrics.fps >= 45 && metrics.fps < 55 && "Good performance - minor optimizations possible"}
             {metrics.fps >= 30 && metrics.fps < 45 && "Consider reducing wave plane count or resolution"}
             {metrics.fps < 30 && "Performance critical - optimization recommended"}
+            {metrics.cpuUsage > 80 && " • High CPU usage detected"}
+            {metrics.memoryUsage > 85 && " • Memory usage is high"}
           </div>
         </div>
       </CardContent>
