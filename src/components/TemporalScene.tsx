@@ -1,9 +1,10 @@
-import React, { useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useRef, useEffect, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
 import { useMemoryManager } from '@/lib/memoryManager';
+import { useRenderOptimizer } from '@/lib/renderOptimizer';
 
 interface WavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -18,6 +19,10 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   const memoryManager = useMemoryManager();
+  const renderOptimizer = useRenderOptimizer();
+  const { camera } = useThree();
+  const [lastGeometryUpdate, setLastGeometryUpdate] = useState(0);
+  const [lodLevel, setLodLevel] = useState<'high' | 'medium' | 'low'>('high');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -32,49 +37,99 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
   }, [memoryManager]);
   
   useFrame((state) => {
-    if (!meshRef.current || !geometryRef.current) return;
+    if (!meshRef.current || !geometryRef.current || !camera) return;
     
     try {
-      const geometry = geometryRef.current;
-      const position = geometry.attributes.position;
-      const phase = phases[index % phases.length] || 0;
-      const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
+      const frameStartTime = performance.now();
       
-      // Update vertices with wave calculations
-      for (let i = 0; i < position.count; i++) {
-        const x = position.getX(i);
-        const z = position.getZ(i);
-        
-        const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
-        const heightValue = Math.max(-2, Math.min(2, 
-          waveValue * Math.sin(x + z + phase) * 0.3
-        ));
-        
-        position.setY(i, heightValue);
+      // Update render optimizer camera reference
+      renderOptimizer.setCamera(camera);
+      renderOptimizer.updateFrustum();
+      
+      // Frustum culling - skip if not visible
+      if (!renderOptimizer.isInFrustum(meshRef.current)) {
+        meshRef.current.visible = false;
+        return;
       }
       
-      position.needsUpdate = true;
+      meshRef.current.visible = true;
+      
+      // LOD system based on distance to camera
+      const distance = renderOptimizer.getDistanceToCamera(meshRef.current);
+      const newLodLevel = renderOptimizer.getLODLevel(distance);
+      
+      if (newLodLevel !== lodLevel) {
+        setLodLevel(newLodLevel);
+      }
+      
+      // Geometry optimization - only update if enough time has passed
+      const now = performance.now();
+      const qualitySettings = renderOptimizer.getQualitySettings();
+      const updateInterval = newLodLevel === 'high' ? 16 : newLodLevel === 'medium' ? 33 : 50;
+      
+      if (renderOptimizer.shouldUpdateGeometry(lastGeometryUpdate, updateInterval)) {
+        const geometry = geometryRef.current;
+        const position = geometry.attributes.position;
+        const phase = phases[index % phases.length] || 0;
+        const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
+        
+        // Adaptive vertex updates based on LOD
+        const stepSize = newLodLevel === 'high' ? 1 : newLodLevel === 'medium' ? 2 : 4;
+        
+        for (let i = 0; i < position.count; i += stepSize) {
+          const x = position.getX(i);
+          const z = position.getZ(i);
+          
+          const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
+          const heightValue = Math.max(-2, Math.min(2, 
+            waveValue * Math.sin(x + z + phase) * 0.3
+          ));
+          
+          position.setY(i, heightValue);
+          
+          // Fill in skipped vertices for medium/low LOD
+          if (stepSize > 1) {
+            for (let j = 1; j < stepSize && i + j < position.count; j++) {
+              position.setY(i + j, heightValue);
+            }
+          }
+        }
+        
+        position.needsUpdate = true;
+        setLastGeometryUpdate(now);
+      }
       
       // Enhanced wave plane positioning and rotation
+      const phase = phases[index % phases.length] || 0;
       meshRef.current.rotation.z = phase * 0.05;
-      meshRef.current.position.y = index * 0.3 - 2; // Better spacing between planes
+      meshRef.current.position.y = index * 0.3 - 2;
+      
+      // Record frame time for adaptive quality
+      const frameTime = performance.now() - frameStartTime;
+      renderOptimizer.recordFrameTime(frameTime);
       
     } catch (error) {
       console.error('WavePlane animation error:', error);
     }
   });
 
+  // Get adaptive geometry segments based on LOD and quality settings
+  const qualitySettings = renderOptimizer.getQualitySettings();
+  const lodSegments = lodLevel === 'high' ? qualitySettings.geometrySegments : 
+                     lodLevel === 'medium' ? Math.max(8, qualitySettings.geometrySegments / 2) :
+                     Math.max(4, qualitySettings.geometrySegments / 4);
+
   return (
     <mesh ref={meshRef} position={[0, index * 0.3 - 2, 0]}>
       <planeGeometry 
         ref={geometryRef} 
-        args={[8, 8, 32, 32]} 
+        args={[8, 8, lodSegments, lodSegments]} 
       />
       <meshPhongMaterial 
         color={band.color}
-        wireframe
+        wireframe={qualitySettings.wireframeOnly}
         transparent
-        opacity={0.7}
+        opacity={lodLevel === 'high' ? 0.7 : lodLevel === 'medium' ? 0.5 : 0.3}
       />
     </mesh>
   );
