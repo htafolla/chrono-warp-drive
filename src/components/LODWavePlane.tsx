@@ -156,13 +156,14 @@ export function LODWavePlane({
           const x = position.getX(i);
           const z = position.getZ(i);
           
-          // Phase 10E: Enhanced wave calculations with 2.0x stronger amplitude
-          const waveValue = wave(0, state.clock.elapsedTime * 8, index, isotope, band.lambda, phaseType);
-          const secondaryWave = Math.sin(x * 1.2 + state.clock.elapsedTime * 5.0) * 0.8;
-          const tertiaryWave = Math.cos(z * 1.0 + state.clock.elapsedTime * 4.0) * 0.6;
+          // Phase 10E: Enhanced wave calculations with dramatic amplitude
+          const waveValue = wave(0, state.clock.elapsedTime * 4, index, isotope, band.lambda, phaseType);
+          const secondaryWave = Math.sin(x * 0.8 + state.clock.elapsedTime * 3.0) * 1.5;
+          const tertiaryWave = Math.cos(z * 0.6 + state.clock.elapsedTime * 2.5) * 1.2;
+          const crossWave = Math.sin(x * z * 0.1 + state.clock.elapsedTime * 1.5) * 0.8;
           
-          const heightValue = Math.max(-8, Math.min(8, 
-            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 2.4 * intensityMultiplier
+          const heightValue = Math.max(-6, Math.min(6, 
+            (waveValue * 2.0 + secondaryWave + tertiaryWave + crossWave) * 1.8 * intensityMultiplier
           ));
           
           position.setY(i, heightValue);
