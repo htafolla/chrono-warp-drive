@@ -18,32 +18,6 @@ interface TemporalState {
   phi: number;
   delta_t: number;
   timestamp: string;
-  performanceOptimization?: {
-    adaptiveQuality: 'high' | 'medium' | 'low';
-    particleCount: number;
-    geometryResolution: string;
-    shadowsEnabled: boolean;
-    frameRate: number;
-    memoryUsage: number;
-  };
-  asyncCalculations?: {
-    isActive: boolean;
-    processedCount: number;
-    queueLength: number;
-    cacheHits: number;
-    webWorkerStatus: string;
-  };
-  tensorFlowStatus?: {
-    isLoaded: boolean;
-    backend: string;
-    isWebGPUAvailable: boolean;
-  };
-  memoryManagement?: {
-    disposalActive: boolean;
-    poolingEnabled: boolean;
-    particleRecycling: boolean;
-    cleanupCycles: number;
-  };
   transportSystemState?: {
     canTransport: boolean;
     transportReadiness: number;
@@ -328,7 +302,7 @@ export function ExportImport({ currentState, onImport }: ExportImportProps) {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            Current state includes: time, phases, isotope, fractal mode, performance optimization settings, Web Worker status, and all temporal parameters
+            Current state includes: time, phases, isotope, fractal mode, and all temporal parameters
           </div>
         </div>
 

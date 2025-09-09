@@ -112,35 +112,6 @@ export interface DebugState {
     memoryUsage?: number;
     renderTime: number;
     calculationTime: number;
-    adaptiveQuality: 'high' | 'medium' | 'low';
-    optimizationMetrics: {
-      particleCount: number;
-      geometryResolution: string;
-      shadowsEnabled: boolean;
-      performanceGain: string;
-      memoryReduction: string;
-      renderSpeedUp: string;
-    };
-  };
-  asyncCalculations: {
-    isActive: boolean;
-    processedCount: number;
-    queueLength: number;
-    cacheHits: number;
-    webWorkerStatus: string;
-    processingTime: number;
-  };
-  tensorFlowStatus: {
-    isLoaded: boolean;
-    backend: string;
-    isWebGPUAvailable: boolean;
-    initializationTime?: number;
-  };
-  memoryManagement: {
-    disposalActive: boolean;
-    poolingEnabled: boolean;
-    particleRecycling: boolean;
-    cleanupCycles: number;
   };
   browserInfo: {
     userAgent: string;
@@ -294,36 +265,7 @@ export class DebugExporter {
         frameRate: this.calculateFrameRate(),
         memoryUsage: (performance as any).memory?.usedJSHeapSize || undefined,
         renderTime: performance.now(),
-        calculationTime: performance.now() - startTime,
-        adaptiveQuality: appState.adaptiveQuality || 'medium',
-        optimizationMetrics: {
-          particleCount: appState.optimizationMetrics?.particleCount || 200,
-          geometryResolution: appState.optimizationMetrics?.geometryResolution || '16x16',
-          shadowsEnabled: appState.optimizationMetrics?.shadowsEnabled || false,
-          performanceGain: appState.optimizationMetrics?.performanceGain || '+2900% FPS improvement',
-          memoryReduction: appState.optimizationMetrics?.memoryReduction || '-50% memory usage',
-          renderSpeedUp: appState.optimizationMetrics?.renderSpeedUp || '265x faster rendering'
-        }
-      },
-      asyncCalculations: {
-        isActive: !!(appState.asyncManager?.isProcessing),
-        processedCount: appState.asyncManager?.processedCount || 0,
-        queueLength: appState.asyncManager?.queueLength || 0,
-        cacheHits: appState.asyncManager?.cacheHits || 0,
-        webWorkerStatus: appState.asyncManager?.webWorkerStatus || 'initialized',
-        processingTime: appState.asyncManager?.processingTime || 0
-      },
-      tensorFlowStatus: {
-        isLoaded: appState.tensorFlow?.isLoaded || false,
-        backend: appState.tensorFlow?.backend || 'webgl',
-        isWebGPUAvailable: appState.tensorFlow?.isWebGPUAvailable || false,
-        initializationTime: appState.tensorFlow?.initializationTime
-      },
-      memoryManagement: {
-        disposalActive: appState.memoryManagement?.disposalActive || true,
-        poolingEnabled: appState.memoryManagement?.poolingEnabled || true,
-        particleRecycling: appState.memoryManagement?.particleRecycling || true,
-        cleanupCycles: appState.memoryManagement?.cleanupCycles || 0
+        calculationTime: performance.now() - startTime
       },
       browserInfo: {
         userAgent: navigator.userAgent,
@@ -440,35 +382,10 @@ ${debug.calculationBreakdown.v4Components ? `
 - Confidence Score: ${(debug.neuralFusionDetails.confidenceScore * 100).toFixed(1)}%
 - Neural Spectra Points: ${debug.neuralFusionDetails.neuralSpectra.length}
 
-## Performance Optimization Status
-- Frame Rate: ${debug.performance.frameRate} FPS (Optimized: ${debug.performance.optimizationMetrics.performanceGain})
-- Memory: ${debug.performance.memoryUsage ? (debug.performance.memoryUsage / 1024 / 1024).toFixed(1) + ' MB' : 'N/A'} (Reduction: ${debug.performance.optimizationMetrics.memoryReduction})
-- Render Time: ${debug.performance.renderTime.toFixed(2)}ms (Speed Up: ${debug.performance.optimizationMetrics.renderSpeedUp})
+## Performance
+- Frame Rate: ${debug.performance.frameRate} FPS
+- Memory: ${debug.performance.memoryUsage ? (debug.performance.memoryUsage / 1024 / 1024).toFixed(1) + ' MB' : 'N/A'}
 - Calculation Time: ${debug.performance.calculationTime.toFixed(2)}ms
-- Adaptive Quality: ${debug.performance.adaptiveQuality.toUpperCase()}
-- Particle Count: ${debug.performance.optimizationMetrics.particleCount} (Optimized from 1000)
-- Geometry: ${debug.performance.optimizationMetrics.geometryResolution} (Reduced from 48x48)
-- Shadows: ${debug.performance.optimizationMetrics.shadowsEnabled ? 'Enabled' : 'Disabled (Performance Mode)'}
-
-## Web Worker Integration
-- Status: ${debug.asyncCalculations.isActive ? 'Active' : 'Inactive'}
-- Processed Tasks: ${debug.asyncCalculations.processedCount}
-- Queue Length: ${debug.asyncCalculations.queueLength}
-- Cache Hits: ${debug.asyncCalculations.cacheHits}
-- Worker Status: ${debug.asyncCalculations.webWorkerStatus}
-- Processing Time: ${debug.asyncCalculations.processingTime.toFixed(2)}ms
-
-## TensorFlow.js Acceleration
-- Status: ${debug.tensorFlowStatus.isLoaded ? 'Ready' : 'Not Available'}
-- Backend: ${debug.tensorFlowStatus.backend.toUpperCase()}
-- WebGPU: ${debug.tensorFlowStatus.isWebGPUAvailable ? 'Available' : 'Not Available'}
-- Init Time: ${debug.tensorFlowStatus.initializationTime ? debug.tensorFlowStatus.initializationTime.toFixed(2) + 'ms' : 'N/A'}
-
-## Memory Management
-- Three.js Disposal: ${debug.memoryManagement.disposalActive ? 'Active' : 'Inactive'}
-- Geometry Pooling: ${debug.memoryManagement.poolingEnabled ? 'Enabled' : 'Disabled'}
-- Particle Recycling: ${debug.memoryManagement.particleRecycling ? 'Active' : 'Inactive'}
-- Cleanup Cycles: ${debug.memoryManagement.cleanupCycles}
 
 ## Browser Environment
 - WebGL: ${debug.browserInfo.webglSupport ? 'Supported' : 'Not Available'}

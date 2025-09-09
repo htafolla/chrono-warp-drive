@@ -91,54 +91,6 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
           <p><strong>Spectrum Points:</strong> {debugState.spectrumAnalysis.wavelengthRange.count || 'N/A'}</p>
         </div>
 
-        {/* Performance Optimization Status */}
-        <div className="bg-card border rounded-lg p-3 space-y-2">
-          <h5 className="text-sm font-medium flex items-center gap-2">
-            Performance Optimization
-            <Badge variant={debugState.performance?.frameRate > 30 ? "default" : "destructive"}>
-              {debugState.performance?.frameRate || 0} FPS
-            </Badge>
-          </h5>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span className="text-muted-foreground">Memory:</span> {debugState.performance?.memoryUsage ? (debugState.performance.memoryUsage / 1024 / 1024).toFixed(1) + ' MB' : 'N/A'}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Quality:</span> {debugState.performance?.adaptiveQuality || 'Standard'}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Particles:</span> {debugState.performance?.optimizationMetrics?.particleCount || 'N/A'}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Geometry:</span> {debugState.performance?.optimizationMetrics?.geometryResolution || 'N/A'}
-            </div>
-          </div>
-        </div>
-
-        {/* Web Worker Status */}
-        <div className="bg-card border rounded-lg p-3 space-y-2">
-          <h5 className="text-sm font-medium flex items-center gap-2">
-            Web Worker Integration
-            <Badge variant={debugState.asyncCalculations?.isActive ? "default" : "outline"}>
-              {debugState.asyncCalculations?.isActive ? "Active" : "Inactive"}
-            </Badge>
-          </h5>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span className="text-muted-foreground">Processed:</span> {debugState.asyncCalculations?.processedCount || 0}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Queue:</span> {debugState.asyncCalculations?.queueLength || 0}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Cache Hits:</span> {debugState.asyncCalculations?.cacheHits || 0}
-            </div>
-            <div>
-              <span className="text-muted-foreground">TensorFlow:</span> {debugState.tensorFlowStatus?.isLoaded ? debugState.tensorFlowStatus.backend : 'Not Ready'}
-            </div>
-          </div>
-        </div>
-
         {/* Export Actions */}
         <div className="space-y-3">
           <p className="text-sm font-medium">Export Debug State</p>
