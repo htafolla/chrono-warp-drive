@@ -20,10 +20,21 @@ export function RippelDisplay({ tpttResult, rippel, time }: RippelDisplayProps) 
   const [fullRippelText, setFullRippelText] = useState<string>('');
   const [encryptedOutput, setEncryptedOutput] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
 
+  // Throttle updates to prevent screen glitching
   useEffect(() => {
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateTime;
+    
+    // Only update if more than 2 seconds have passed
+    if (timeSinceLastUpdate < 2000) {
+      return;
+    }
+
     if (tpttResult?.neuralOutput) {
       generateEnhancedRippel();
+      setLastUpdateTime(now);
     } else {
       setFullRippelText(rippel);
     }
@@ -140,12 +151,14 @@ export function RippelDisplay({ tpttResult, rippel, time }: RippelDisplayProps) 
   };
 
   const generateEncryptedOutput = (text: string) => {
-    // Create encrypted cipher using crypto-js
-    const key = `BLURRN_${time.toFixed(0)}_${Date.now()}`;
-    const encrypted = CryptoJS.AES.encrypt(text, key).toString();
-    const encodedKey = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(key));
-    
-    setEncryptedOutput(`=== BLURRN v4.5 Encrypted Cipher ===\n\nKey: ${encodedKey}\nCipher: ${encrypted}\n\nDecryption: Use AES-256 with provided key\nGenerated: ${new Date().toISOString()}`);
+    // Throttle encryption generation to prevent performance issues
+    setTimeout(() => {
+      const key = `BLURRN_${time.toFixed(0)}_${Date.now()}`;
+      const encrypted = CryptoJS.AES.encrypt(text, key).toString();
+      const encodedKey = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(key));
+      
+      setEncryptedOutput(`=== BLURRN v4.5 Encrypted Cipher ===\n\nKey: ${encodedKey}\nCipher: ${encrypted}\n\nDecryption: Use AES-256 with provided key\nGenerated: ${new Date().toISOString()}`);
+    }, 500);
   };
 
   const copyToClipboard = async (text: string, type: string) => {
