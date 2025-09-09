@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
-import { usePerformanceOptimizer } from '@/contexts/PerformanceContext';
+import { usePerformanceOptimizer } from './PerformanceOptimizer';
 
 interface WavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];

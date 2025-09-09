@@ -4,7 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
-import { usePerformanceOptimizer } from '@/contexts/PerformanceContext';
+import { usePerformanceOptimizer } from './PerformanceOptimizer';
 
 interface ParticleSystemProps {
   spectrumData: SpectrumData | null;

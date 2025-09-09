@@ -1,6 +1,6 @@
 // AsyncCalculationManager - Web Worker Integration for BLURRN v4.5
 import React, { useEffect, useRef, useCallback, useState } from 'react';
-import { usePerformanceOptimizer } from '@/contexts/PerformanceContext';
+import { usePerformanceOptimizer } from './PerformanceOptimizer';
 import { SpectrumData } from '@/types/sdss';
 
 interface AsyncCalculationManagerProps {

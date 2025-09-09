@@ -81,59 +81,28 @@ const createCalculationWorker = (): Worker => {
 };
 
 export class PerformanceOptimizer {
-  private static instance: PerformanceOptimizer | null = null;
-  private static isInitializing = false;
+  private static instance: PerformanceOptimizer;
   private worker: Worker | null = null;
   private frameTimeTarget = 16.67; // 60 FPS target
   private lastFrameTime = 0;
   private frameCount = 0;
   private cache = new Map<string, any>();
-  private isInitialized = false;
-  private initializationPromise: Promise<void> | null = null;
 
   static getInstance(): PerformanceOptimizer {
-    if (!PerformanceOptimizer.instance && !PerformanceOptimizer.isInitializing) {
-      PerformanceOptimizer.isInitializing = true;
+    if (!PerformanceOptimizer.instance) {
       PerformanceOptimizer.instance = new PerformanceOptimizer();
-      PerformanceOptimizer.isInitializing = false;
     }
-    return PerformanceOptimizer.instance!;
+    return PerformanceOptimizer.instance;
   }
 
-  static disposeInstance(): void {
-    if (PerformanceOptimizer.instance) {
-      PerformanceOptimizer.instance.dispose();
-      PerformanceOptimizer.instance = null;
-      PerformanceOptimizer.isInitializing = false;
+  initialize(): void {
+    try {
+      this.worker = createCalculationWorker();
+      console.log('Performance Optimizer: Web Worker initialized');
+    } catch (error) {
+      console.warn('Performance Optimizer: Web Worker failed, using main thread:', error);
+      this.worker = null;
     }
-  }
-
-  initialize(): Promise<void> {
-    if (this.isInitialized) {
-      return Promise.resolve();
-    }
-
-    if (this.initializationPromise) {
-      return this.initializationPromise;
-    }
-
-    this.initializationPromise = new Promise<void>((resolve) => {
-      try {
-        if (!this.worker) {
-          this.worker = createCalculationWorker();
-          console.log('Performance Optimizer: Web Worker initialized');
-        }
-        this.isInitialized = true;
-        resolve();
-      } catch (error) {
-        console.warn('Performance Optimizer: Web Worker failed, using main thread:', error);
-        this.worker = null;
-        this.isInitialized = true;
-        resolve();
-      }
-    });
-
-    return this.initializationPromise;
   }
 
   // Decimate large arrays for visualization performance
@@ -275,15 +244,11 @@ export class PerformanceOptimizer {
       this.worker = null;
     }
     this.cache.clear();
-    this.isInitialized = false;
-    this.initializationPromise = null;
   }
 }
 
-// Legacy hook - deprecated, use PerformanceProvider instead
+// React hook for performance optimization
 export function usePerformanceOptimizer() {
-  console.warn('usePerformanceOptimizer hook is deprecated. Use PerformanceProvider and usePerformanceOptimizer from PerformanceContext instead.');
-  
   const optimizerRef = useRef<PerformanceOptimizer | null>(null);
 
   useEffect(() => {
