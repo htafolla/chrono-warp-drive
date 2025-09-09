@@ -195,7 +195,7 @@ export function LODWavePlane({
         <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={true}  // Phase 10C: Force wireframe for debugging
+          wireframe={false}
           transparent
           opacity={0.9}  // Phase 10C: High opacity for visibility
           emissive={getSafeColor(band.color)}
