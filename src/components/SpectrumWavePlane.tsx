@@ -3,7 +3,6 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
-import { useMemoryManager } from '@/lib/memoryManager';
 import { getSafeColor } from '@/lib/colorUtils';
 
 interface SpectrumWavePlaneProps {
@@ -34,7 +33,7 @@ export function SpectrumWavePlane({
   
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const memoryManager = useMemoryManager();
+  // Removed memoryManager to fix crash
 
   // Force console log on every render
   console.log(`RENDER: Plane ${index} - Band: ${band.band} - Color: ${band.color}`);
@@ -61,17 +60,14 @@ export function SpectrumWavePlane({
     }
   });
 
-  // Cleanup on unmount
+  // Cleanup on unmount - simplified without memoryManager
   useEffect(() => {
     return () => {
-      if (meshRef.current) {
-        memoryManager.disposeObject(meshRef.current);
-      }
       if (geometryRef.current) {
         geometryRef.current.dispose();
       }
     };
-  }, [memoryManager]);
+  }, []);
   
   useFrame((state) => {
     if (!meshRef.current || !geometryRef.current) return;
