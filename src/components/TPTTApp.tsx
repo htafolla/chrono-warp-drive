@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +39,9 @@ import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
 import { PicklesAtlas } from '@/lib/picklesAtlas';
 import { NeuralFusion } from '@/lib/neuralFusion';
 import { SpectrumData, TPTTv4Result } from '@/types/sdss';
+import { TemporalControls } from './TemporalControls';
+import { NeuralFusionDisplay } from './NeuralFusionDisplay';
+import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
 
 export function TPTTApp() {
   // Core temporal state
@@ -55,6 +58,12 @@ export function TPTTApp() {
   const [delta_t, setDelta_t] = useState(DELTA_T);
   const [currentView, setCurrentView] = useState("dashboard");
   const [performanceMonitorActive, setPerformanceMonitorActive] = useState(false);
+
+  // Temporal control states
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [updateInterval, setUpdateInterval] = useState(1000); // Default 1 second
+  const [animationMode, setAnimationMode] = useState<'realtime' | 'observation' | 'analysis'>('observation');
+  const [nextUpdateIn, setNextUpdateIn] = useState(0);
 
   // v4.5 Enhancement state
   const [spectrumData, setSpectrumData] = useState<SpectrumData | null>(null);
@@ -103,9 +112,19 @@ export function TPTTApp() {
     initializeV4Systems();
   }, []);
 
-  // Animation loop with v4.5 enhancements
+  // Animation loop with controllable intervals and pause functionality
   useEffect(() => {
-    const interval = setInterval(async () => {
+    if (!isPlaying && animationMode !== 'realtime') {
+      return; // Skip updates when paused (except in realtime mode)
+    }
+
+    const actualInterval = animationMode === 'analysis' ? Infinity : updateInterval;
+    if (actualInterval === Infinity) return; // Analysis mode = completely paused
+
+    let intervalId: NodeJS.Timeout;
+    let countdownId: NodeJS.Timeout;
+
+    const updateSystem = async () => {
       setTime(prevTime => prevTime + PHASE_UPDATE_FACTOR);
       setCycle(prevCycle => prevCycle + 1);
       setE_t(prevEt => Math.min(prevEt + 0.001, 2.0));
@@ -134,10 +153,37 @@ export function TPTTApp() {
           console.warn("v4.5 calculation failed:", error);
         }
       }
-    }, 16);
 
-    return () => clearInterval(interval);
-  }, [time, fractalToggle, isotope, cycle, isV4Initialized, spectrumData]);
+      // Reset countdown
+      setNextUpdateIn(actualInterval);
+    };
+
+    // Start countdown timer
+    const startCountdown = () => {
+      setNextUpdateIn(actualInterval);
+      countdownId = setInterval(() => {
+        setNextUpdateIn(prev => Math.max(0, prev - 100));
+      }, 100);
+    };
+
+    // Initial update
+    updateSystem();
+    
+    // Set up interval for subsequent updates
+    if (actualInterval > 0 && actualInterval !== Infinity) {
+      intervalId = setInterval(() => {
+        updateSystem();
+        startCountdown();
+      }, actualInterval);
+      
+      startCountdown();
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (countdownId) clearInterval(countdownId);
+    };
+  }, [time, fractalToggle, isotope, cycle, isV4Initialized, spectrumData, isPlaying, updateInterval, animationMode]);
 
   // Enhanced calculations with v4.5 compatibility
   const waves = spectrumData?.intensities || SPECTRUM_BANDS.map((band, i) => 
@@ -184,6 +230,39 @@ export function TPTTApp() {
       toast.error("Failed to load selected spectrum");
     }
   };
+
+  // Generate stellar timestamp for current observation
+  const stellarTimestamp = React.useMemo(() => {
+    const timestamp = generateStellarTimestamp(spectrumData, time * 1000);
+    return timestamp.formatted;
+  }, [spectrumData, Math.floor(time / (updateInterval / 1000))]);
+
+  // Handle temporal control changes
+  const handlePlayPause = React.useCallback(() => {
+    setIsPlaying(!isPlaying);
+  }, [isPlaying]);
+
+  const handleIntervalChange = React.useCallback((interval: number) => {
+    setUpdateInterval(interval);
+    // Auto-adjust animation mode based on interval
+    if (interval <= 50) {
+      setAnimationMode('realtime');
+    } else if (interval <= 2000) {
+      setAnimationMode('observation');
+    }
+  }, []);
+
+  const handleModeChange = React.useCallback((mode: 'realtime' | 'observation' | 'analysis') => {
+    setAnimationMode(mode);
+    // Auto-adjust interval based on mode
+    if (mode === 'realtime' && updateInterval > 100) {
+      setUpdateInterval(16); // 60 FPS
+    } else if (mode === 'observation' && updateInterval < 500) {
+      setUpdateInterval(1000); // 1 second
+    } else if (mode === 'analysis') {
+      setIsPlaying(false);
+    }
+  }, [updateInterval]);
 
   const currentState = {
     time,
@@ -266,20 +345,37 @@ export function TPTTApp() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-4">
-            <Dashboard
-              time={time}
-              e_t={e_t}
-              tPTT_value={tPTT_value}
-              rippel={rippel}
-              phi={phi}
-              lightWave={lightWave}
-              phases={phases}
-              tpttV4Result={tpttV4Result}
-              isV4Enhanced={isV4Initialized}
-              isotope={isotope}
-              fractalToggle={fractalToggle}
-            />
+          <TabsContent value="dashboard" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-3">
+                <Dashboard
+                  time={time}
+                  e_t={e_t}
+                  tPTT_value={tPTT_value}
+                  rippel={rippel}
+                  phi={phi}
+                  lightWave={lightWave}
+                  phases={phases}
+                  tpttV4Result={tpttV4Result}
+                  isV4Enhanced={isV4Initialized}
+                  isotope={isotope}
+                  fractalToggle={fractalToggle}
+                />
+              </div>
+              <div className="lg:col-span-1">
+                <TemporalControls
+                  isPlaying={isPlaying}
+                  onPlayPause={handlePlayPause}
+                  updateInterval={updateInterval}
+                  onIntervalChange={handleIntervalChange}
+                  animationMode={animationMode}
+                  onModeChange={handleModeChange}
+                  stellarTimestamp={stellarTimestamp}
+                  spectrumData={spectrumData}
+                  nextUpdateIn={nextUpdateIn}
+                />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="simulation" className="space-y-4">
