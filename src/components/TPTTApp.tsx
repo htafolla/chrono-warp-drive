@@ -20,6 +20,7 @@ import { ReportGenerator } from './ReportGenerator';
 import { AnalysisEngine } from './AnalysisEngine';
 import { DebugExporter } from '@/lib/debugExporter';
 import { DebugInfo } from './DebugInfo';
+import { TransportSystem } from './TransportSystem';
 import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText } from 'lucide-react';
 import { 
   PHI, 
@@ -589,15 +590,41 @@ export function TPTTApp() {
                 tPTT_value={tPTT_value}
                 fractalToggle={fractalToggle}
               />
+              {/* Transport System - Enhanced Version */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Advanced Analysis</CardTitle>
+                  <CardTitle>Transport System</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground text-sm">
-                    Advanced analytical tools and experimental features. 
-                    Professional reporting and export capabilities are available in the Reports tab.
-                  </p>
+                  <div className="space-y-4">
+                    <TransportSystem
+                      tPTT_value={tPTT_value}
+                      phases={phases}
+                      e_t={e_t}
+                      neuralOutput={tpttV4Result?.neuralOutput}
+                      rippel={rippel}
+                      isotope={isotope}
+                      fractalToggle={fractalToggle}
+                      spectrumData={spectrumData}
+                      energyGrowthRate={energyGrowthRate}
+                      onEnergyGrowthRateChange={setEnergyGrowthRate}
+                      targetE_t={targetE_t}
+                      onTargetE_tChange={setTargetE_t}
+                      isRealtime={autoRealtimeMode}
+                      onRealtimeToggle={handleAutoRealtimeToggle}
+                      energyMomentum={energyMomentum}
+                      neuralBoost={enhancedMetrics.neuralBoost}
+                      spectrumBoost={enhancedMetrics.spectrumBoost}
+                      fractalBonus={enhancedMetrics.fractalBonus}
+                      adaptiveThreshold={enhancedMetrics.adaptiveThreshold}
+                      logReadiness={enhancedMetrics.logReadiness}
+                      etaToReady={enhancedMetrics.etaToReady}
+                      energyTrend={enhancedMetrics.energyTrend}
+                      optimizations={enhancedMetrics.optimizations}
+                      isOptimal={enhancedMetrics.isOptimal}
+                      onOptimizedSpectrumSelect={handleOptimizedSpectrumSelect}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </div>

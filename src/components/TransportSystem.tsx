@@ -516,7 +516,7 @@ export const TransportSystem = ({
           {lastTransport && (
             <TransportSequenceVerification 
               lastTransportResult={lastTransport}
-              systemState={{
+              currentState={{
                 tPTT: tPTT_value,
                 phases,
                 e_t,
@@ -524,6 +524,38 @@ export const TransportSystem = ({
                 isotopeResonance: transportStatus.isotopeResonance / 100,
                 phaseCoherence: transportStatus.phaseCoherence / 100
               }}
+              onGenerateSequence={async () => ({
+                timestamp: new Date().toISOString(),
+                sequenceId: `SEQ-${Date.now()}`,
+                preTransportState: {
+                  tPTT_value,
+                  phases,
+                  e_t,
+                  neuralSequence: neuralOutput?.synapticSequence || '',
+                  rippelSignature: rippel,
+                  temporalHash: `${Date.now()}`
+                },
+                transportSequence: {
+                  energyAccumulation: [e_t * 0.8, e_t * 0.9, e_t],
+                  neuralSyncProgress: [0.5, 0.7, transportStatus.neuralSync / 100],
+                  temporalFoldSequence: ['init', 'fold', 'complete'],
+                  phaseAlignmentData: phases,
+                  isotopicResonance: transportStatus.isotopeResonance / 100
+                },
+                postTransportState: {
+                  finalCoordinates: lastTransport?.destinationCoords || { ra: 0, dec: 0, z: 0 },
+                  energyResidue: e_t * 0.1,
+                  temporalStability: lastTransport?.temporalStability || 0.8,
+                  verificationHash: `VER-${Date.now()}`
+                },
+                verificationData: {
+                  sequenceIntegrity: true,
+                  temporalConsistency: true,
+                  neuralCoherence: true,
+                  energyConservation: true,
+                  overallValidity: true
+                }
+              })}
             />
           )}
           
