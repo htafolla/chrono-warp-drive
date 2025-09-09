@@ -116,7 +116,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
     console.log(`[PHASE 1 DIAGNOSTIC] WavePlane ${index} (${band.band}) initialized:`, {
       color: band.color,
       lambda: band.lambda,
-      position: `y=${index * 0.4 - 3}`,
+      position: `y=${index * 0.6 - 3}`,
       colorParsedByThree: new THREE.Color(band.color).getHexString()
     });
   }, [band, index]);
@@ -134,14 +134,15 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       const intensityMultiplier = spectrumData ? 
         spectrumData.intensities[index % spectrumData.intensities.length] : 1;
       
-      // Update vertices with enhanced wave calculations
+      // Enhanced wave calculations with more dramatic movement
       for (let i = 0; i < position.count; i++) {
         const x = position.getX(i);
         const z = position.getZ(i);
         
         const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
-        const heightValue = Math.max(-3, Math.min(3, 
-          waveValue * Math.sin(x + z + phase) * 0.4 * intensityMultiplier
+        const secondaryWave = Math.sin(x * 0.5 + state.clock.elapsedTime * 0.8) * 0.3;
+        const heightValue = Math.max(-4, Math.min(4, 
+          (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.6 * intensityMultiplier
         ));
         
         position.setY(i, heightValue);
@@ -149,10 +150,11 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       
       position.needsUpdate = true;
       
-      // Enhanced wave plane positioning and rotation with spectrum influence
-      meshRef.current.rotation.z = phase * 0.05;
-      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1) * 0.1;
-      meshRef.current.position.y = index * 0.4 - 3;
+      // Enhanced positioning and rotation with more dynamic movement
+      meshRef.current.rotation.z = phase * 0.08 + Math.sin(state.clock.elapsedTime * 0.3) * 0.05;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.15 + index) * 0.15;
+      meshRef.current.position.y = index * 0.6 - 3;
+      meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.2 + index * 0.5) * 0.3;
       
     } catch (error) {
       console.error('Enhanced WavePlane animation error:', error);
@@ -160,7 +162,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   });
 
   return (
-    <mesh ref={meshRef} position={[0, index * 0.4 - 3, 0]} receiveShadow>
+    <mesh ref={meshRef} position={[0, index * 0.6 - 3, 0]} receiveShadow>
       <planeGeometry 
         ref={geometryRef} 
         args={[10, 10, 48, 48]} 
