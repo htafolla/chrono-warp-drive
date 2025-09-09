@@ -70,7 +70,7 @@ export function LODWavePlane({
   
   // Phase 10A: Ensure initial geometry assignment
   useEffect(() => {
-    if (meshRef.current && !meshRef.current.geometry) {
+    if (meshRef.current) {
       const initialGeometry = geometries.get('high');
       if (initialGeometry) {
         meshRef.current.geometry = initialGeometry;
@@ -101,37 +101,29 @@ export function LODWavePlane({
       const meshPosition = meshRef.current.position;
       const distance = camera.position.distanceTo(meshPosition);
       
-      // Determine appropriate LOD level based on distance and quality settings
+      // Determine appropriate LOD level - simplified to reduce switching
       let targetLOD: 'high' | 'medium' | 'low' | 'veryLow' = 'high';
       
-      // Apply quality settings override
+      // Apply quality settings override but keep more stable LOD levels
       const qualityMultiplier = qualitySettings.quality === 'high' ? 1 : 
                                qualitySettings.quality === 'medium' ? 0.7 : 0.5;
       
       const adjustedDistance = distance / qualityMultiplier;
       
-      if (adjustedDistance > LOD_CONFIGS.low.maxDistance) {
-        targetLOD = 'veryLow';
-      } else if (adjustedDistance > LOD_CONFIGS.medium.maxDistance) {
+      // More conservative LOD switching to prevent flickering
+      if (adjustedDistance > 50) {
         targetLOD = 'low';
-      } else if (adjustedDistance > LOD_CONFIGS.high.maxDistance) {
-        targetLOD = 'medium';
+      } else if (adjustedDistance > 30) {
+        targetLOD = 'medium';  
       }
-      
-      // Phase 10B: Temporarily disable frustum culling for debugging
-      // const frustum = new THREE.Frustum();
-      // const matrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-      // frustum.setFromProjectionMatrix(matrix);
-      
-      // const meshVisible = frustum.intersectsObject(meshRef.current);
-      // setIsVisible(meshVisible);
+      // Keep most planes at 'high' LOD for consistent wave display
       
       // Force all wave planes to be visible
       setIsVisible(true);
       meshRef.current.visible = true;
       
-      // Switch geometry if LOD level changed
-      if (targetLOD !== currentLOD) {
+      // Only switch geometry if there's a significant LOD change
+      if (targetLOD !== currentLOD && Math.abs(adjustedDistance - 25) > 10) {
         const newGeometry = geometries.get(targetLOD);
         if (newGeometry && meshRef.current.geometry !== newGeometry) {
           meshRef.current.geometry = newGeometry;
@@ -189,14 +181,13 @@ export function LODWavePlane({
 
   return (
     <group>      
-      {/* Enhanced wireframe spectrum plane - no background block */}
+      {/* Enhanced wireframe spectrum plane - geometry handled by LOD system */}
       <mesh 
         ref={meshRef} 
         position={[0, index * 0.6 - 3.3, 0]} 
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
-        <planeGeometry args={[10, 10, 96, 96]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
           wireframe={true}
