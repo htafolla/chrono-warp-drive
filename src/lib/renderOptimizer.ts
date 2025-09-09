@@ -29,7 +29,7 @@ export const QUALITY_PRESETS: Record<string, RenderQualitySettings> = {
   },
   medium: {
     particleCount: 1000,
-    geometrySegments: 16,
+    geometrySegments: 24,
     shadowMapSize: 512,
     enableShadows: false,
     wireframeOnly: false,
@@ -37,10 +37,10 @@ export const QUALITY_PRESETS: Record<string, RenderQualitySettings> = {
   },
   low: {
     particleCount: 500,
-    geometrySegments: 8,
+    geometrySegments: 16,
     shadowMapSize: 256,
     enableShadows: false,
-    wireframeOnly: true,
+    wireframeOnly: false,
     maxDistance: 20
   }
 };
@@ -52,10 +52,10 @@ export class RenderOptimizer {
   private currentQuality: RenderQualitySettings = QUALITY_PRESETS.high;
   private frameTimeHistory: number[] = [];
   private readonly TARGET_FRAME_TIME = 16.67; // 60fps
-  private readonly FRAME_TIME_SAMPLES = 10;
+  private readonly FRAME_TIME_SAMPLES = 20;
   private adaptiveQualityEnabled = true;
   private lastQualityAdjustment = 0;
-  private readonly QUALITY_ADJUSTMENT_COOLDOWN = 2000; // 2 seconds
+  private readonly QUALITY_ADJUSTMENT_COOLDOWN = 5000; // 5 seconds - less aggressive
 
   constructor() {
     this.updateFrustum();
@@ -122,22 +122,22 @@ export class RenderOptimizer {
     const avgFrameTime = this.frameTimeHistory.reduce((a, b) => a + b, 0) / this.frameTimeHistory.length;
     const currentQualityKey = this.getCurrentQualityKey();
     
-    // If performance is poor, downgrade quality
-    if (avgFrameTime > this.TARGET_FRAME_TIME * 1.5) {
+    // If performance is poor, downgrade quality (more lenient threshold)
+    if (avgFrameTime > this.TARGET_FRAME_TIME * 2.0) {
       const newQuality = this.getNextLowerQuality(currentQualityKey);
       if (newQuality !== currentQualityKey) {
+        console.log(`[RENDER OPTIMIZER] Downgrading quality from ${currentQualityKey} to ${newQuality} (avg: ${avgFrameTime.toFixed(2)}ms)`);
         this.setQuality(newQuality);
         this.lastQualityAdjustment = now;
-        console.log(`Performance: Downgraded to ${newQuality} (${avgFrameTime.toFixed(2)}ms avg frame time)`);
       }
     }
-    // If performance is good, try upgrading quality
-    else if (avgFrameTime < this.TARGET_FRAME_TIME * 0.8) {
+    // If performance is excellent, try upgrading quality (stricter threshold)
+    else if (avgFrameTime < this.TARGET_FRAME_TIME * 0.6) {
       const newQuality = this.getNextHigherQuality(currentQualityKey);
       if (newQuality !== currentQualityKey) {
+        console.log(`[RENDER OPTIMIZER] Upgrading quality from ${currentQualityKey} to ${newQuality} (avg: ${avgFrameTime.toFixed(2)}ms)`);
         this.setQuality(newQuality);
         this.lastQualityAdjustment = now;
-        console.log(`Performance: Upgraded to ${newQuality} (${avgFrameTime.toFixed(2)}ms avg frame time)`);
       }
     }
   }

@@ -342,8 +342,13 @@ export function EnhancedTemporalScene({
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
+        key={`enhanced-scene-${isotope.type}-${fractalToggle}-${qualitySettings.particleCount}`}
         camera={{ position: [8, 6, 12], fov: 60 }}
         gl={{ antialias: true, alpha: true }}
+        onCreated={({ gl, scene }) => {
+          console.log('[ENHANCED SCENE] Canvas initialized with quality:', renderOptimizer.getCurrentQualityKeyPublic());
+          gl.setClearColor('#000000', 0);
+        }}
       >
         <PostProcessing>
           {/* Adaptive Lighting System based on quality settings */}
