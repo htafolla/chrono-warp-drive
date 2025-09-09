@@ -21,12 +21,12 @@ interface LODWavePlaneProps {
   };
 }
 
-// Smart LOD configurations for visibility and performance balance
+// LOD configurations
 const LOD_CONFIGS = {
-  high: { segments: 32, maxDistance: 12 },
-  medium: { segments: 24, maxDistance: 20 },
-  low: { segments: 16, maxDistance: 30 },
-  veryLow: { segments: 12, maxDistance: Infinity }
+  high: { segments: 48, maxDistance: 10 },
+  medium: { segments: 32, maxDistance: 20 },
+  low: { segments: 24, maxDistance: 30 },
+  veryLow: { segments: 16, maxDistance: Infinity }
 };
 
 export function LODWavePlane({ 
@@ -44,11 +44,9 @@ export function LODWavePlane({
   const memoryManager = useMemoryManager();
   const { camera } = useThree();
   
-  // Track current LOD level and distance for material properties
+  // Track current LOD level
   const [currentLOD, setCurrentLOD] = React.useState<'high' | 'medium' | 'low' | 'veryLow'>('high');
   const [isVisible, setIsVisible] = React.useState(true);
-  const [currentDistance, setCurrentDistance] = React.useState(0);
-  const frameCountRef = useRef(0);
   
   // Cache geometries for different LOD levels
   const geometries = useMemo(() => {
@@ -86,15 +84,14 @@ export function LODWavePlane({
   useFrame((state) => {
     if (!meshRef.current) return;
     
-    frameCountRef.current++;
-    const shouldUpdate = frameCountRef.current % 2 === 0; // Throttle to every 2nd frame
+    // Debug logging for Phase 9F
+    if (state.clock.elapsedTime % 5 < 0.1) {
+      console.log(`[Phase 9F] WavePlane ${index}: position=${meshRef.current.position.toArray()}, visible=${meshRef.current.visible}, LOD=${currentLOD}`);
+    }
     
     try {
       const meshPosition = meshRef.current.position;
       const distance = camera.position.distanceTo(meshPosition);
-      
-      // Update distance state for material properties
-      setCurrentDistance(distance);
       
       // Determine appropriate LOD level based on distance and quality settings
       let targetLOD: 'high' | 'medium' | 'low' | 'veryLow' = 'high';
@@ -143,23 +140,21 @@ export function LODWavePlane({
       const intensityMultiplier = spectrumData ? 
         spectrumData.intensities[index % spectrumData.intensities.length] : 1;
       
-      // Smart animation throttling - always animate high quality
-      const shouldThrottle = targetLOD !== 'high' && frameCountRef.current % 2 !== 0;
-      
-      if (!shouldThrottle) {
-        // Maintain minimum visibility standards
-        const complexity = Math.max(0.6, targetLOD === 'high' ? 1 : targetLOD === 'medium' ? 0.8 : 0.6);
-        
+      // Phase 10E: Remove animation throttling for debugging
+      // Run wave animations every frame for maximum visibility
+      if (true) {
+        // Enhanced wave calculations with LOD-appropriate complexity
         for (let i = 0; i < position.count; i++) {
           const x = position.getX(i);
           const z = position.getZ(i);
           
-          const waveValue = wave(0, state.clock.elapsedTime * 6, index, isotope, band.lambda, phaseType);
-          const secondaryWave = targetLOD !== 'veryLow' ? Math.sin(x * 1.2 + state.clock.elapsedTime * 4.0) * 0.6 : 0;
-          const tertiaryWave = targetLOD === 'high' ? Math.cos(z * 1.0 + state.clock.elapsedTime * 3.0) * 0.4 : 0;
+          // Phase 10E: Enhanced wave calculations with 2.0x stronger amplitude
+          const waveValue = wave(0, state.clock.elapsedTime * 8, index, isotope, band.lambda, phaseType);
+          const secondaryWave = Math.sin(x * 1.2 + state.clock.elapsedTime * 5.0) * 0.8;
+          const tertiaryWave = Math.cos(z * 1.0 + state.clock.elapsedTime * 4.0) * 0.6;
           
-          const heightValue = Math.max(-6, Math.min(6, 
-            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 2.0 * intensityMultiplier * complexity
+          const heightValue = Math.max(-8, Math.min(8, 
+            (waveValue * Math.sin(x + z + phase) + secondaryWave + tertiaryWave) * 2.4 * intensityMultiplier
           ));
           
           position.setY(i, heightValue);
@@ -182,26 +177,29 @@ export function LODWavePlane({
     }
   });
 
-  // Debug logging to understand the issue
-  console.log(`[WavePlane ${index}] Rendering - LOD: ${currentLOD}, Distance: ${currentDistance.toFixed(2)}, Visible: ${isVisible}`);
-  
   return (
     <group>
-      {/* Main wave plane - STEP 1: Add back basic geometry */}
+      {/* Phase 10D: Debug bounds marker */}
+      <mesh position={[0, index * 1.0 - 2, 0]}>
+        <boxGeometry args={[12, 0.1, 12]} />
+        <meshBasicMaterial color="#00ff00" opacity={0.2} transparent wireframe />
+      </mesh>
+      
+      {/* Main wave plane */}
       <mesh 
         ref={meshRef} 
         position={[0, index * 1.0 - 2, 0]} 
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
-        <planeGeometry args={[10, 10, 32, 32]} />
+        <planeGeometry args={[10, 10, 48, 48]} />
         <meshPhongMaterial 
           color={getSafeColor(band.color)}
-          wireframe={false}
+          wireframe={true}  // Phase 10C: Force wireframe for debugging
           transparent
-          opacity={0.8}
+          opacity={0.9}  // Phase 10C: High opacity for visibility
           emissive={getSafeColor(band.color)}
-          emissiveIntensity={0.5}
+          emissiveIntensity={0.6}  // Phase 10C: Strong emissive for visibility
           side={THREE.DoubleSide}
         />
       </mesh>
