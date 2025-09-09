@@ -30,9 +30,14 @@ export function SpectrumWavePlane({
   spectrumData,
   qualitySettings = { quality: 'high', shadows: true }
 }: SpectrumWavePlaneProps) {
+  console.log(`CRITICAL DEBUG: SpectrumWavePlane ${index} STARTING TO RENDER`);
+  
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   const memoryManager = useMemoryManager();
+
+  // Force console log on every render
+  console.log(`RENDER: Plane ${index} - Band: ${band.band} - Color: ${band.color}`);
 
   // Debug logging - enhanced for all planes
   useEffect(() => {
@@ -132,17 +137,17 @@ export function SpectrumWavePlane({
   return (
     <mesh 
       ref={meshRef} 
-      position={[0, index * 1.5 - 3, 0]} 
+      position={[0, index * 3, -5]} 
       receiveShadow={qualitySettings.shadows}
       castShadow={qualitySettings.shadows}
       visible={true}
     >
       <planeGeometry 
         ref={geometryRef} 
-        args={[6, 6, 20, 20]} 
+        args={[20, 20, 20, 20]} 
       />
       <meshBasicMaterial 
-        color={safeColor}
+        color={index === 0 ? '#ff0000' : index === 1 ? '#00ff00' : index === 2 ? '#0000ff' : '#ffffff'}
         transparent={false}
         opacity={1.0}
         side={THREE.DoubleSide}
