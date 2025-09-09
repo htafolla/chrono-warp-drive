@@ -72,8 +72,15 @@ export function LODWavePlane({
   useEffect(() => {
     if (meshRef.current) {
       const initialGeometry = geometries.get('high');
-      if (initialGeometry) {
+      if (initialGeometry && meshRef.current.geometry !== initialGeometry) {
         meshRef.current.geometry = initialGeometry;
+        // Force initial wave state to be consistent
+        const geometry = meshRef.current.geometry as THREE.PlaneGeometry;
+        const position = geometry.attributes.position;
+        for (let i = 0; i < position.count; i++) {
+          position.setY(i, 0); // Reset to flat state initially
+        }
+        position.needsUpdate = true;
         console.log(`[Phase 10A] Initial geometry assigned to WavePlane ${index}`);
       }
     }
