@@ -186,8 +186,7 @@ export function LODWavePlane({
         receiveShadow={qualitySettings.shadows}
         castShadow={qualitySettings.shadows}
       >
-        <planeGeometry args={[10, 10, 48, 48]} />
-        <meshPhongMaterial 
+        <meshPhongMaterial
           color={getSafeColor(band.color)}
           wireframe={false}  // Solid surface for spectrum visibility
           transparent
