@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Dashboard } from './Dashboard';
 import { TemporalScene } from './TemporalScene';
+import { EnhancedTemporalScene } from './EnhancedTemporalScene';
 import { ControlPanel } from './ControlPanel';
 import { SpectrumAnalyzer } from './SpectrumAnalyzer';
 import { SpectrumSelector } from './SpectrumSelector';
@@ -276,11 +277,13 @@ export function TPTTApp() {
           <TabsContent value="simulation" className="space-y-4">
             <div className="h-[600px] w-full">
               <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-muted-foreground">3D scene failed to load</div>}>
-                <TemporalScene 
+                <EnhancedTemporalScene 
                   phases={phases}
                   isotope={isotope}
                   cycle={cycle}
                   fractalToggle={fractalToggle}
+                  spectrumData={spectrumData}
+                  time={time}
                 />
               </ErrorBoundary>
             </div>

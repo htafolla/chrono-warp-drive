@@ -2,6 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { validateTLM } from '@/lib/temporalCalculator';
+import { NeuralFusionDisplay } from './NeuralFusionDisplay';
+import { TPTTv4Result } from '@/types/sdss';
 
 interface DashboardProps {
   time: number;
@@ -11,7 +13,7 @@ interface DashboardProps {
   phi: number;
   lightWave: number;
   phases: number[];
-  tpttV4Result?: any;
+  tpttV4Result?: TPTTv4Result | null;
   isV4Enhanced?: boolean;
 }
 
@@ -22,13 +24,24 @@ export function Dashboard({
   rippel, 
   phi, 
   lightWave, 
-  phases 
+  phases,
+  tpttV4Result,
+  isV4Enhanced 
 }: DashboardProps) {
   const isValidTLM = validateTLM(phi);
   const phaseSync = phases.reduce((sum, phase) => sum + Math.cos(phase), 0) / phases.length;
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="space-y-6">
+      {/* Neural Fusion Display */}
+      {isV4Enhanced && (
+        <NeuralFusionDisplay 
+          neuralOutput={tpttV4Result?.neuralOutput || null}
+          isActive={!!tpttV4Result?.neuralOutput}
+        />
+      )}
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {/* Temporal Metrics */}
       <Card>
         <CardHeader>
@@ -127,6 +140,7 @@ export function Dashboard({
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
