@@ -16,6 +16,8 @@ import { AudioSynthesis } from './AudioSynthesis';
 import { ExportImport } from './ExportImport';
 import { MobileControls } from './MobileControls';
 import { ErrorBoundary } from './ErrorBoundary';
+import { ReportGenerator } from './ReportGenerator';
+import { AnalysisEngine } from './AnalysisEngine';
 import { DebugExporter } from '@/lib/debugExporter';
 import { DebugInfo } from './DebugInfo';
 import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText } from 'lucide-react';
@@ -233,7 +235,7 @@ export function TPTTApp() {
         </header>
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6">
+          <TabsList className="grid w-full grid-cols-7 mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Star className="h-4 w-4" />
               Dashboard
@@ -249,6 +251,10 @@ export function TPTTApp() {
             <TabsTrigger value="spectrum" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Spectrum
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Reports
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex items-center gap-2">
               <Rocket className="h-4 w-4" />
@@ -343,18 +349,51 @@ export function TPTTApp() {
                 tPTT_value={tPTT_value}
                 fractalToggle={fractalToggle}
               />
-              <ExportImport
-                currentState={currentState}
-                onImport={handleImport}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Advanced Analysis</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Advanced analytical tools and experimental features. 
+                    Professional reporting and export capabilities are available in the Reports tab.
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-            <DebugInfo currentState={currentState} />
             <MobileControls
               onRotate={sceneControlsRef.current.rotate}
               onZoom={sceneControlsRef.current.zoom}
               onPan={sceneControlsRef.current.pan}
               isActive={currentView === "simulation" || currentView === "advanced"}
             />
+          </TabsContent>
+
+          <TabsContent value="reports" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <ReportGenerator
+                currentState={currentState}
+                tpttV4Result={tpttV4Result}
+                neuralFusionData={tpttV4Result?.neuralOutput}
+              />
+              
+              <ExportImport 
+                currentState={currentState}
+                onImport={handleImport}
+              />
+            </div>
+            
+            <div className="space-y-6">
+              <AnalysisEngine
+                currentState={currentState}
+                tpttV4Result={tpttV4Result}
+                neuralFusionData={tpttV4Result?.neuralOutput}
+              />
+              
+              <DebugInfo 
+                currentState={currentState}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="system" className="space-y-6">
