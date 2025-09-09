@@ -6,8 +6,7 @@ import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
-import { SpectrumWavePlane } from './SpectrumWavePlane';
-import { DebugOverlay } from './DebugOverlay';
+import { LODWavePlane } from './LODWavePlane';
 import { GroundPlane } from './GroundPlane';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
 import { getSafeColor } from '@/lib/colorUtils';
@@ -25,15 +24,15 @@ interface ParticleSystemProps {
 function ParticleSystem({ spectrumData, time, phases, qualitySettings = { quality: 'high', particles: true } }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
   
-  // Reduced particle count to prevent spectrum plane occlusion
+  // Dynamic particle count based on performance settings
   const particleCount = React.useMemo(() => {
     if (!qualitySettings.particles) return 0;
     
     switch (qualitySettings.quality) {
-      case 'high': return 200;
-      case 'medium': return 150;
-      case 'low': return 100;
-      default: return 200;
+      case 'high': return 750;
+      case 'medium': return 500;
+      case 'low': return 250;
+      default: return 750;
     }
   }, [qualitySettings.quality, qualitySettings.particles]);
   
@@ -124,17 +123,111 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.08}
+        size={0.1}
         vertexColors
         transparent
-        opacity={0.15}
+        opacity={0.8}
         blending={THREE.AdditiveBlending}
       />
     </points>
   );
 }
 
-// Duplicate WavePlane component removed - using SpectrumWavePlane instead
+interface WavePlaneProps {
+  band: typeof SPECTRUM_BANDS[0];
+  phases: number[];
+  isotope: Isotope;
+  cycle: number;
+  fractalToggle: boolean;
+  index: number;
+  spectrumData: SpectrumData | null;
+}
+
+function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectrumData }: WavePlaneProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const geometryRef = useRef<THREE.PlaneGeometry>(null);
+  const memoryManager = useMemoryManager();
+  
+  // Phase 1: Diagnostic logging for wave plane rendering
+  React.useEffect(() => {
+    console.log(`[PHASE 1 DIAGNOSTIC] WavePlane ${index} (${band.band}) initialized:`, {
+      color: band.color,
+      lambda: band.lambda,
+      position: `y=${index * 0.6 - 3}`,
+      colorParsedByThree: new THREE.Color(band.color).getHexString()
+    });
+  }, [band, index]);
+
+  // Memory cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (meshRef.current) {
+        memoryManager.disposeObject(meshRef.current);
+      }
+      if (geometryRef.current) {
+        geometryRef.current.dispose();
+      }
+    };
+  }, [memoryManager]);
+  
+  useFrame((state) => {
+    if (!meshRef.current || !geometryRef.current) return;
+    
+    try {
+      const geometry = geometryRef.current;
+      const position = geometry.attributes.position;
+      const phase = phases[index % phases.length] || 0;
+      const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
+      
+      // Use spectrum data if available for enhanced wave calculations
+      const intensityMultiplier = spectrumData ? 
+        spectrumData.intensities[index % spectrumData.intensities.length] : 1;
+      
+      // Enhanced wave calculations with more dramatic movement
+      for (let i = 0; i < position.count; i++) {
+        const x = position.getX(i);
+        const z = position.getZ(i);
+        
+        const waveValue = wave(0, state.clock.elapsedTime, index, isotope, band.lambda, phaseType);
+        const secondaryWave = Math.sin(x * 0.5 + state.clock.elapsedTime * 0.8) * 0.3;
+        const heightValue = Math.max(-4, Math.min(4, 
+          (waveValue * Math.sin(x + z + phase) + secondaryWave) * 0.6 * intensityMultiplier
+        ));
+        
+        position.setY(i, heightValue);
+      }
+      
+      position.needsUpdate = true;
+      
+      // Enhanced positioning and rotation with more dynamic movement
+      meshRef.current.rotation.z = phase * 0.08 + Math.sin(state.clock.elapsedTime * 0.3) * 0.05;
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.15 + index) * 0.15;
+      meshRef.current.position.y = index * 0.6 - 3;
+      meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.2 + index * 0.5) * 0.3;
+      
+    } catch (error) {
+      console.error('Enhanced WavePlane animation error:', error);
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} position={[0, index * 0.6 - 3, 0]} receiveShadow>
+      <planeGeometry 
+        ref={geometryRef} 
+        args={[10, 10, 48, 48]} 
+      />
+      <meshPhongMaterial 
+        color={getSafeColor(band.color)}
+        wireframe={false}
+        transparent
+        opacity={0.6}
+        emissive={getSafeColor(band.color)}
+        emissiveIntensity={0.2}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+}
 
 interface PostProcessingProps {
   children: React.ReactNode;
@@ -173,11 +266,6 @@ interface EnhancedTemporalSceneProps {
   time: number;
   performanceSettings?: PerformanceSettings;
   onFPSChange?: (fps: number) => void;
-  debugMode?: {
-    showWireframes: boolean;
-    showBounds: boolean;
-    showInfo: boolean;
-  };
 }
 
 function PerformanceMonitor({ onFPSChange }: { onFPSChange?: (fps: number) => void }) {
@@ -198,8 +286,7 @@ export function EnhancedTemporalScene({
   spectrumData = null,
   time,
   performanceSettings = { quality: 'high', shadows: true, particles: true, postProcessing: true },
-  onFPSChange,
-  debugMode = { showWireframes: false, showBounds: false, showInfo: false }
+  onFPSChange
 }: EnhancedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
 
@@ -215,8 +302,8 @@ export function EnhancedTemporalScene({
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="enhanced-temporal-scene">
       <Canvas 
         key="enhanced-temporal-canvas"
-        camera={{ position: [0, 2, 8], fov: 75 }}  // Optimized position for spectrum visibility
-        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+        camera={{ position: [5, 3, 10], fov: 60 }}  // Phase 10D: Better camera position for wave plane viewing
+        gl={{ antialias: true, alpha: true }}
         onCreated={({ gl }) => {
           console.log('[Phase 10F] Canvas created, initializing renderer for spectrum wave debugging');
           gl.toneMapping = THREE.LinearToneMapping;
@@ -224,57 +311,60 @@ export function EnhancedTemporalScene({
         }}
       >
         <PostProcessing>
-          {/* Optimized Lighting for Spectrum Visibility */}
-          <ambientLight intensity={0.1} />
-          <directionalLight position={[0, 10, 5]} intensity={0.6} castShadow />
-          <pointLight position={[0, 5, 0]} color="#ffffff" intensity={0.4} />
-          <pointLight position={[-5, 0, 5]} color="#4338ca" intensity={0.3} />
-          <pointLight position={[5, 0, 5]} color="#ec4899" intensity={0.3} />
+          {/* Optimized Lighting System - RGB colors to prevent star conflicts */}
+          <ambientLight intensity={0.4} />
+          <directionalLight 
+            position={[-10, 10, 5]} 
+            intensity={0.8}
+            color="#9333ea"
+            castShadow
+            shadow-mapSize-width={512}
+            shadow-mapSize-height={512}
+            shadow-camera-near={0.5}
+            shadow-camera-far={50}
+            shadow-camera-left={-20}
+            shadow-camera-right={20}
+            shadow-camera-top={20}
+            shadow-camera-bottom={-20}
+          />
+          <pointLight 
+            position={[10, 10, 10]} 
+            intensity={0.6} 
+            color="#0ea5e9"
+          />
+          <pointLight 
+            position={[0, -8, 8]} 
+            intensity={0.4} 
+            color="#10b981"
+          />
           
-          {/* Reduced Particle System to prevent spectrum washout */}
+          {/* Performance-Optimized Particle System */}
           {performanceSettings.particles && (
             <ParticleSystem 
               spectrumData={spectrumData}
               time={time}
               phases={phases}
-              qualitySettings={{
-                ...performanceSettings,
-                quality: performanceSettings.quality // Keep existing but reduce opacity in component
-              }}
+              qualitySettings={performanceSettings}
             />
           )}
           
           {/* Ground Plane for Shadow Reception */}
           <GroundPlane />
           
-          {/* Clean Spectrum Wave Planes */}
-          {(() => {
-            console.log('MAPPING SPECTRUM_BANDS:', SPECTRUM_BANDS.length, 'bands');
-            return SPECTRUM_BANDS.map((band, index) => {
-              console.log(`Creating SpectrumWavePlane ${index} for band ${band.band}`);
-              return (
-                <SpectrumWavePlane
-                  key={band.band}
-                  band={band}
-                  phases={phases}
-                  isotope={isotope}
-                  cycle={cycle}
-                  fractalToggle={fractalToggle}
-                  index={index}
-                  spectrumData={spectrumData}
-                  qualitySettings={performanceSettings}
-                />
-              );
-            });
-          })()}
-          
-          {/* Independent Debug Overlay */}
-          <DebugOverlay 
-            showWireframes={debugMode.showWireframes}
-            showBounds={debugMode.showBounds}
-            showInfo={debugMode.showInfo}
-            opacity={0.4}
-          />
+          {/* Enhanced LOD Wave Planes */}
+          {SPECTRUM_BANDS.map((band, index) => (
+            <LODWavePlane
+              key={band.band}
+              band={band}
+              phases={phases}
+              isotope={isotope}
+              cycle={cycle}
+              fractalToggle={fractalToggle}
+              index={index}
+              spectrumData={spectrumData}
+              qualitySettings={performanceSettings}
+            />
+          ))}
           
           {/* Performance Monitor */}
           <PerformanceMonitor onFPSChange={onFPSChange} />
@@ -291,12 +381,12 @@ export function EnhancedTemporalScene({
             speed={0.05}
           />
           
-          {/* Enhanced Controls focused on spectrum plane grid center */}
+          {/* Phase 10D: Enhanced Controls with Wave Plane Focused Target */}
           <OrbitControls 
             enablePan={true}
-            target={[0, -3, -2]}  // Focus on spectrum plane grid center
-            minDistance={5}
-            maxDistance={20}
+            target={[0, -1, 0]}  // Focus on wave plane area
+            minDistance={3}
+            maxDistance={15}
             enableZoom={true}
             enableRotate={true}
             autoRotate={false}
@@ -315,7 +405,7 @@ export function EnhancedTemporalScene({
           {spectrumData && (
             <p>Source: <span className="text-blue-400 font-mono">{spectrumData.source}</span></p>
           )}
-          <p>Particles: <span className="text-green-400 font-mono">{performanceSettings.particles ? 200 : 0}</span></p>
+          <p>Particles: <span className="text-green-400 font-mono">{performanceSettings.particles ? 750 : 0}</span></p>
           <p>Quality: <span className="text-blue-400 font-mono capitalize">{performanceSettings.quality}</span></p>
           <p>Wave Planes: <span className="text-purple-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
           <p>Visible Planes: <span className="text-cyan-400 font-mono">{SPECTRUM_BANDS.length}</span></p>
