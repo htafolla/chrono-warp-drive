@@ -125,7 +125,6 @@ interface CleanWavePlaneProps {
 function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, totalPlanes }: CleanWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const wireframeRef = useRef<THREE.LineSegments>(null);
   const memoryManager = useMemoryManager();
 
   useEffect(() => {
@@ -180,12 +179,6 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
       meshRef.current.position.set(0, yOffset, -index * zSpacing);
       meshRef.current.rotation.z = Math.sin(time * 0.5 + phase) * 0.05;
       
-      // Update wireframe position to match
-      if (wireframeRef.current) {
-        wireframeRef.current.position.copy(meshRef.current.position);
-        wireframeRef.current.rotation.copy(meshRef.current.rotation);
-      }
-      
     } catch (error) {
       console.error('CleanWavePlane error:', error);
     }
@@ -194,40 +187,24 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
   // Enhanced color differentiation and opacity
   const baseColor = new THREE.Color(band.color);
   const emissiveColor = baseColor.clone().multiplyScalar(0.3);
-  const opacity = Math.max(0.6, 0.9 - (index / totalPlanes) * 0.3);
-  const wireframeOpacity = Math.max(0.3, 0.7 - (index / totalPlanes) * 0.2);
+  const opacity = Math.max(0.5, 0.8 - (index / totalPlanes) * 0.3);
 
   return (
-    <group>
-      {/* Main solid mesh with enhanced materials */}
-      <mesh ref={meshRef} castShadow receiveShadow>
-        <planeGeometry 
-          ref={geometryRef} 
-          args={[10, 10, 32, 32]} 
-        />
-        <meshPhongMaterial 
-          color={baseColor}
-          wireframe={false}
-          transparent
-          opacity={opacity}
-          side={THREE.DoubleSide}
-          emissive={emissiveColor}
-          emissiveIntensity={0.2}
-          shininess={30}
-          specular={baseColor.clone().multiplyScalar(0.5)}
-        />
-      </mesh>
-      
-      {/* Simplified wireframe overlay using the same geometry */}
-      <lineSegments ref={wireframeRef}>
-        <edgesGeometry args={[new THREE.PlaneGeometry(10, 10, 32, 32)]} />
-        <lineBasicMaterial 
-          color={baseColor.clone().multiplyScalar(1.2)} 
-          opacity={wireframeOpacity} 
-          transparent 
-        />
-      </lineSegments>
-    </group>
+    <mesh ref={meshRef} castShadow receiveShadow>
+      <planeGeometry 
+        ref={geometryRef} 
+        args={[10, 10, 32, 32]} 
+      />
+      <meshPhongMaterial 
+        color={baseColor}
+        wireframe={true}
+        transparent
+        opacity={opacity}
+        side={THREE.DoubleSide}
+        emissive={emissiveColor}
+        emissiveIntensity={0.2}
+      />
+    </mesh>
   );
 }
 
