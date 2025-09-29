@@ -6,7 +6,7 @@ import { SPECTRUM_BANDS, type Isotope } from '@/lib/temporalCalculator';
 import { useMemoryManager } from '@/lib/memoryManager';
 import { TPTTv4_6Result, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
-import { useFPSMonitor } from '@/hooks/useFPSMonitor';
+
 
 interface CleanWavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -124,6 +124,57 @@ function TDFIndicator({ tdfComponents, timeShiftActive }: TDFIndicatorProps) {
   );
 }
 
+interface FPSData {
+  current: number;
+  average: number;
+  min: number;
+  max: number;
+  history: number[];
+}
+
+interface FPSMonitorInternalProps {
+  onFPSUpdate: (fps: FPSData) => void;
+}
+
+function FPSMonitorInternal({ onFPSUpdate }: FPSMonitorInternalProps) {
+  const frameCount = useRef(0);
+  const lastTime = useRef(performance.now());
+  const fpsHistory = useRef<number[]>([]);
+  
+  useFrame(() => {
+    frameCount.current++;
+    const currentTime = performance.now();
+    const deltaTime = currentTime - lastTime.current;
+    
+    if (frameCount.current >= 10) {
+      const fps = Math.round((frameCount.current * 1000) / deltaTime);
+      
+      fpsHistory.current.push(fps);
+      if (fpsHistory.current.length > 60) {
+        fpsHistory.current.shift();
+      }
+      
+      const history = fpsHistory.current;
+      const average = history.reduce((sum, fps) => sum + fps, 0) / history.length;
+      const min = Math.min(...history);
+      const max = Math.max(...history);
+      
+      onFPSUpdate({
+        current: fps,
+        average: Math.round(average),
+        min,
+        max,
+        history: [...history]
+      });
+      
+      frameCount.current = 0;
+      lastTime.current = currentTime;
+    }
+  });
+  
+  return null;
+}
+
 interface CleanTemporalSceneProps {
   phases: number[];
   isotope: Isotope;
@@ -141,7 +192,13 @@ export function CleanTemporalScene({
   spectrumData,
   activeTab = 'Scene'
 }: CleanTemporalSceneProps) {
-  const fpsData = useFPSMonitor();
+  const [fpsData, setFpsData] = React.useState<FPSData>({
+    current: 60,
+    average: 60,
+    min: 60,
+    max: 60,
+    history: []
+  });
   
   // Determine if v4.6 mode is active
   const isV46Active = useMemo(() => {
@@ -160,6 +217,9 @@ export function CleanTemporalScene({
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="clean-temporal-scene">
       <Canvas camera={{ position: [8, 6, 10], fov: 60 }}>
+        {/* FPS Monitor inside Canvas */}
+        <FPSMonitorInternal onFPSUpdate={setFpsData} />
+        
         {/* Optimized lighting */}
         <ambientLight intensity={0.3} />
         <directionalLight 
