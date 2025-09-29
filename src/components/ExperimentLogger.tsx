@@ -28,15 +28,46 @@ export function ExperimentLogger({
   }, [experiments, onExportReport]);
 
   const handleDownloadReport = () => {
-    const blob = new Blob([reportContent], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Blurrn_Time_Shift_Experiment_${new Date().toISOString().split('T')[0]}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Enhanced export with structured JSON + Markdown
+    const jsonData = {
+      export_metadata: {
+        version: 'v4.6',
+        timestamp: Date.now(),
+        total_experiments: experiments.length,
+        export_type: 'enhanced_structured'
+      },
+      experiments: experiments.map(exp => ({
+        ...exp,
+        formatted_timestamp: new Date(exp.timestamp).toISOString(),
+        tdf_scientific: exp.tdf_value.toExponential(3),
+        performance_tier: exp.tdf_value > 1e12 ? 'breakthrough' : exp.tdf_value > 1e6 ? 'advanced' : 'standard'
+      })),
+      summary: {
+        validated_count: experiments.filter(e => e.validation_status === 'validated').length,
+        breakthrough_count: experiments.filter(e => e.tdf_value > 1e12).length,
+        average_tdf: experiments.reduce((sum, e) => sum + e.tdf_value, 0) / experiments.length
+      }
+    };
+
+    // Create dual export: JSON + Markdown
+    const jsonBlob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+    const markdownBlob = new Blob([reportContent], { type: 'text/markdown' });
+    
+    // Download JSON file
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const jsonLink = document.createElement('a');
+    jsonLink.href = jsonUrl;
+    jsonLink.download = `Blurrn_v4.6_Experiments_${new Date().toISOString().split('T')[0]}.json`;
+    jsonLink.click();
+    URL.revokeObjectURL(jsonUrl);
+    
+    // Download Markdown file
+    const mdUrl = URL.createObjectURL(markdownBlob);
+    const mdLink = document.createElement('a');
+    mdLink.href = mdUrl;
+    mdLink.download = `Blurrn_Time_Shift_Experiment_${new Date().toISOString().split('T')[0]}.md`;
+    mdLink.click();
+    URL.revokeObjectURL(mdUrl);
   };
 
   const getStatusIcon = (status: ExperimentLog['validation_status']) => {
@@ -102,7 +133,7 @@ export function ExperimentLogger({
               disabled={experiments.length === 0}
             >
               <Download className="w-4 h-4 mr-2" />
-              Export Report
+              Export Enhanced Report
             </Button>
             <Button 
               variant="outline" 

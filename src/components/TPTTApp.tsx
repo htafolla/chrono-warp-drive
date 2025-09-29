@@ -51,9 +51,10 @@ import { NeuralFusion } from '@/lib/neuralFusion';
 import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 import { TPTTv4_6Result, BlurrnV46Config } from '@/types/blurrn-v4-6';
 import { TimeShiftDisplay } from './TimeShiftDisplay';
-import { BlackHoleLightVisualizer } from './BlackHoleLightVisualizer';
-import { TemporalDisplacementControls } from './TemporalDisplacementControls';
 import { ExperimentLogger } from './ExperimentLogger';
+import { V46UserGuide } from './V46UserGuide';
+import { TemporalDisplacementControls } from './TemporalDisplacementControls';
+import { BlackHoleLightVisualizer } from './BlackHoleLightVisualizer';
 import { TemporalControls } from './TemporalControls';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
@@ -120,6 +121,9 @@ export function TPTTApp() {
   const [tpttV46Result, setTpttV46Result] = useState<TPTTv4_6Result | null>(null);
   const [isV46Initialized, setIsV46Initialized] = useState(false);
   const [isTimeShiftActive, setIsTimeShiftActive] = useState(false);
+  const [isExperimentRunning, setIsExperimentRunning] = useState(false);
+  const [v46Experiments, setV46Experiments] = useState<any[]>([]);
+  const [showUserGuide, setShowUserGuide] = useState(false);
   const [v46Config, setV46Config] = useState<BlurrnV46Config>({
     growth_rate_multiplier: 1.0,
     tau: 0.865,
@@ -127,8 +131,6 @@ export function TPTTApp() {
     tdf_overflow_clamp: 1e15,
     ethics_score_threshold: 0.8
   });
-  const [isExperimentRunning, setIsExperimentRunning] = useState(false);
-  const [v46Experiments, setV46Experiments] = useState<any[]>([]);
 
   // v4.5 Systems
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
@@ -987,14 +989,26 @@ export function TPTTApp() {
             {performanceMonitorActive && <PerformanceMonitor isActive={performanceMonitorActive} />}
           </TabsContent>
 
-          <TabsContent value="timeshift" className="space-v-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TabsContent value="timeshift" className="space-y-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Time Shift Analysis</h2>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowUserGuide(true)}
+                  className="flex items-center gap-2"
+                >
+                  📖 User Guide
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Time Shift Display */}
               <div className="space-y-6">
                 <TimeShiftDisplay 
                   tpttV46Result={tpttV46Result}
                   isActive={isV46Initialized}
-                  onTriggerTest={handleV46Calculation}
+                  currentCycle={cycle}
                 />
                 
                 <TemporalDisplacementControls

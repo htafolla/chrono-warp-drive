@@ -5,17 +5,18 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TPTTv4_6Result } from '@/types/blurrn-v4-6';
 import { Clock, Zap, Eye, Target } from 'lucide-react';
+import { TDFPerformanceMonitor } from './TDFPerformanceMonitor';
 
 interface TimeShiftDisplayProps {
   tpttV46Result?: TPTTv4_6Result | null;
   isActive: boolean;
-  onTriggerTest?: () => void;
+  currentCycle?: number;
 }
 
 export function TimeShiftDisplay({ 
   tpttV46Result, 
   isActive,
-  onTriggerTest 
+  currentCycle = 0
 }: TimeShiftDisplayProps) {
   const [pulseIntensity, setPulseIntensity] = useState(0);
 
@@ -197,6 +198,12 @@ export function TimeShiftDisplay({
             </CardContent>
           </Card>
         )}
+        {/* TDF Performance Monitor */}
+        <TDFPerformanceMonitor 
+          isActive={isActive}
+          tpttV46Result={tpttV46Result}
+          currentCycle={currentCycle}
+        />
       </div>
     </TooltipProvider>
   );

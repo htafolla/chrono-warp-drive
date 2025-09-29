@@ -16,37 +16,73 @@ interface HiddenLightParticlesProps {
   hiddenLightData: number[];
   tdfValue: number;
   isActive: boolean;
+  blackHoleSeq: number;
 }
 
-function HiddenLightParticles({ hiddenLightData, tdfValue, isActive }: HiddenLightParticlesProps) {
+function HiddenLightParticles({ hiddenLightData, tdfValue, isActive, blackHoleSeq }: HiddenLightParticlesProps) {
   const meshRef = useRef<THREE.Points>(null);
   const cycle = generateCycle();
 
-  // Generate deterministic particle positions based on hidden light data
+  // Generate pattern type based on BlackHole_Seq complexity
+  const patternType = useMemo(() => {
+    const complexity = Math.abs(blackHoleSeq);
+    if (complexity > 2.5) return 'spiral';
+    if (complexity > 1.5) return 'radial';
+    return 'spherical';
+  }, [blackHoleSeq]);
+
+  // Generate deterministic particle positions with advanced patterns
   const particles = useMemo(() => {
     const positions = new Float32Array(hiddenLightData.length * 3);
     const colors = new Float32Array(hiddenLightData.length * 3);
     const sizes = new Float32Array(hiddenLightData.length);
 
     hiddenLightData.forEach((lightValue, i) => {
-      const pos = deterministicSpherical(cycle, i, 2, 3);
+      let pos;
+      
+      // Advanced pattern generation based on BlackHole_Seq
+      switch (patternType) {
+        case 'spiral':
+          const spiralAngle = (i / hiddenLightData.length) * Math.PI * 8 + blackHoleSeq;
+          const spiralRadius = 1 + (i / hiddenLightData.length) * 2;
+          pos = {
+            x: Math.cos(spiralAngle) * spiralRadius,
+            y: Math.sin(spiralAngle) * spiralRadius,
+            z: (i / hiddenLightData.length - 0.5) * 4
+          };
+          break;
+        case 'radial':
+          const radialAngle = (i / hiddenLightData.length) * Math.PI * 2;
+          const radialRadius = 1.5 + Math.sin(blackHoleSeq + i) * 0.5;
+          pos = {
+            x: Math.cos(radialAngle) * radialRadius,
+            y: Math.sin(radialAngle) * radialRadius,
+            z: Math.sin(radialAngle * 3 + blackHoleSeq) * 1.5
+          };
+          break;
+        default:
+          pos = deterministicSpherical(cycle, i, 2, 3);
+      }
       
       positions[i * 3] = pos.x;
       positions[i * 3 + 1] = pos.y; 
       positions[i * 3 + 2] = pos.z;
 
-      // Color based on light intensity - warmer colors for stronger light
+      // Enhanced color based on pattern type and light intensity
       const intensity = Math.abs(lightValue);
-      colors[i * 3] = 0.8 + intensity * 0.2;     // Red
-      colors[i * 3 + 1] = 0.6 + intensity * 0.3; // Green  
-      colors[i * 3 + 2] = 0.9;                   // Blue
+      const patternIntensity = patternType === 'spiral' ? 1.2 : patternType === 'radial' ? 1.0 : 0.8;
+      
+      colors[i * 3] = (0.6 + intensity * 0.3) * patternIntensity;     // Red
+      colors[i * 3 + 1] = (0.4 + intensity * 0.4) * patternIntensity; // Green  
+      colors[i * 3 + 2] = 0.9 * patternIntensity;                     // Blue
 
-      // Size based on TDF value and light intensity
-      sizes[i] = (0.5 + intensity * 2) * Math.min(tdfValue / 1e12, 2);
+      // Dynamic size based on TDF value, pattern type, and light intensity
+      const patternSize = patternType === 'spiral' ? 1.5 : patternType === 'radial' ? 1.2 : 1.0;
+      sizes[i] = (0.3 + intensity * 1.8) * Math.min(tdfValue / 1e12, 2.5) * patternSize;
     });
 
-    return { positions, colors, sizes };
-  }, [hiddenLightData, tdfValue, cycle]);
+    return { positions, colors, sizes, patternType };
+  }, [hiddenLightData, tdfValue, cycle, blackHoleSeq, patternType]);
 
   // Animate particles based on TDF oscillation
   useFrame((state) => {
@@ -144,6 +180,7 @@ function Scene({ tpttV46Result, isActive }: { tpttV46Result?: TPTTv4_6Result | n
         hiddenLightData={timeShiftMetrics.hiddenLightRevealed}
         tdfValue={v46_components.TDF_value}
         isActive={isActive}
+        blackHoleSeq={v46_components.BlackHole_Seq}
       />
       
       {/* Ambient lighting */}
@@ -171,14 +208,20 @@ export function BlackHoleLightVisualizer({
         <Scene tpttV46Result={tpttV46Result} isActive={isActive} />
       </Canvas>
       
-      {/* Status overlay */}
-      <div className="absolute top-2 left-2 bg-background/80 backdrop-blur-sm rounded px-2 py-1 text-xs">
+      {/* Enhanced status overlay */}
+      <div className="absolute top-2 left-2 bg-background/80 backdrop-blur-sm rounded px-2 py-1 text-xs space-y-1">
         {tpttV46Result ? (
           <>
-            Hidden Light: {tpttV46Result.timeShiftMetrics.hiddenLightRevealed.length} patterns
-            {tpttV46Result.timeShiftMetrics.breakthrough_validated && (
-              <span className="ml-2 text-green-500">● Breakthrough</span>
-            )}
+            <div>
+              Hidden Light: {tpttV46Result.timeShiftMetrics.hiddenLightRevealed.length} patterns
+              {tpttV46Result.timeShiftMetrics.breakthrough_validated && (
+                <span className="ml-2 text-green-500">● Breakthrough</span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Pattern: {tpttV46Result.v46_components.BlackHole_Seq > 2.5 ? 'Spiral' : 
+                       tpttV46Result.v46_components.BlackHole_Seq > 1.5 ? 'Radial' : 'Spherical'}
+            </div>
           </>
         ) : (
           'Initializing...'

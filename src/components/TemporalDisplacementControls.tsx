@@ -111,24 +111,24 @@ export function TemporalDisplacementControls({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Time dilation factor for TDF calculations</p>
-                  <p>Optimal range: 0.8-0.9 for light capture</p>
+                  <p>Optimal: 0.8-0.9 for light capture, 1.2-1.5 for advanced exploration</p>
                 </TooltipContent>
               </Tooltip>
             </div>
             <div className="space-y-2">
-              <Slider
-                value={[config.tau]}
-                onValueChange={handleTauChange}
-                min={0.5}
-                max={1.0}
-                step={0.001}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0.500</span>
-                <span className="font-mono">{config.tau.toFixed(3)}</span>
-                <span>1.000</span>
-              </div>
+            <Slider
+              value={[config.tau]}
+              onValueChange={handleTauChange}
+              min={0.5}
+              max={1.5}
+              step={0.001}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>0.500</span>
+              <span className="font-mono">{config.tau.toFixed(3)}</span>
+              <span>1.500</span>
+            </div>
             </div>
           </div>
 
