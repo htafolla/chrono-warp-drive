@@ -14,7 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      scene_performance_logs: {
+        Row: {
+          breakthrough_validated: boolean | null
+          cycle_number: number
+          fps: number
+          id: string
+          memory_usage: number
+          particles_enabled: boolean | null
+          performance_warnings: string[] | null
+          quality_setting: string
+          session_id: string | null
+          shadows_enabled: boolean | null
+          tdf_value: number
+          timestamp: string
+          user_id: string | null
+          vertex_count: number
+        }
+        Insert: {
+          breakthrough_validated?: boolean | null
+          cycle_number: number
+          fps: number
+          id?: string
+          memory_usage: number
+          particles_enabled?: boolean | null
+          performance_warnings?: string[] | null
+          quality_setting: string
+          session_id?: string | null
+          shadows_enabled?: boolean | null
+          tdf_value: number
+          timestamp?: string
+          user_id?: string | null
+          vertex_count: number
+        }
+        Update: {
+          breakthrough_validated?: boolean | null
+          cycle_number?: number
+          fps?: number
+          id?: string
+          memory_usage?: number
+          particles_enabled?: boolean | null
+          performance_warnings?: string[] | null
+          quality_setting?: string
+          session_id?: string | null
+          shadows_enabled?: boolean | null
+          tdf_value?: number
+          timestamp?: string
+          user_id?: string | null
+          vertex_count?: number
+        }
+        Relationships: []
+      }
+      tdf_experiments: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          experiment_name: string
+          id: string
+          performance_data: Json | null
+          status: string
+          tdf_components: Json
+          time_shift_metrics: Json
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          experiment_name: string
+          id?: string
+          performance_data?: Json | null
+          status?: string
+          tdf_components: Json
+          time_shift_metrics: Json
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          experiment_name?: string
+          id?: string
+          performance_data?: Json | null
+          status?: string
+          tdf_components?: Json
+          time_shift_metrics?: Json
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
