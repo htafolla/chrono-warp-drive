@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Trash2, Activity, Zap, AlertTriangle } from 'lucide-react';
 import { memoryManager } from '@/lib/memoryManager';
+import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
 
 interface EnhancedPerformanceMetrics {
   fps: number;
@@ -92,7 +93,7 @@ export function MemoryOptimizedPerformanceMonitor({
       const renderTime = performance.now() - startTime;
       
       // Mock GPU memory (would need WebGL extension in real scenario)
-      const gpuMemory = Math.min(memoryUsage * 0.8 + Math.random() * 10, 100);
+      const gpuMemory = Math.min(memoryUsage * 0.8 + deterministicRandom(generateCycle(), 0) * 10, 100);
       
       setMetrics({
         fps: clampedFPS,

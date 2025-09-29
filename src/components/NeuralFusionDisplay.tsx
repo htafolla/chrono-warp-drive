@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Brain, Activity, Zap, Target } from 'lucide-react';
 import { NeuralOutput } from '@/types/sdss';
+import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
 
 interface NeuralFusionDisplayProps {
   neuralOutput: NeuralOutput | null;
@@ -26,18 +27,18 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
       const activations: LayerActivation[] = [
         {
           layer: 'Input Layer',
-          activation: 0.8 + Math.random() * 0.2,
-          neurons: Array.from({ length: 200 }, () => Math.random())
+          activation: 0.8 + deterministicRandom(generateCycle(), 0) * 0.2,
+          neurons: Array.from({ length: 200 }, (_, i) => deterministicRandom(generateCycle(), i + 1))
         },
         {
           layer: 'Hidden Layer 1',
           activation: neuralOutput.confidenceScore * 0.9,
-          neurons: Array.from({ length: 128 }, () => Math.random() * neuralOutput.confidenceScore)
+          neurons: Array.from({ length: 128 }, (_, i) => deterministicRandom(generateCycle(), i + 100) * neuralOutput.confidenceScore)
         },
         {
           layer: 'Hidden Layer 2', 
           activation: neuralOutput.metamorphosisIndex * 0.8,
-          neurons: Array.from({ length: 64 }, () => Math.random() * neuralOutput.metamorphosisIndex)
+          neurons: Array.from({ length: 64 }, (_, i) => deterministicRandom(generateCycle(), i + 200) * neuralOutput.metamorphosisIndex)
         },
         {
           layer: 'Output Layer',

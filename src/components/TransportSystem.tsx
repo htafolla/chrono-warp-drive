@@ -13,6 +13,7 @@ import { generateStellarTimestamp } from '@/lib/stellarTimestamp';
 import { TransportSequenceVerification } from './TransportSequenceVerification';
 import { EnergyAccelerator } from './EnergyAccelerator';
 import { AdaptiveTPTTCalibrator } from './AdaptiveTPTTCalibrator';
+import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
 import { SpectrumIntelligence } from './SpectrumIntelligence';
 import { TransportReadinessDisplay } from './TransportReadinessDisplay';
 import { TransportAnalytics } from './TransportAnalytics';
@@ -123,7 +124,7 @@ export const TransportSystem = ({
     
     // Environmental fluctuations (simulate real-world instability)
     const timeBasedFluctuation = Math.sin(Date.now() / 10000) * 0.1;
-    const randomFluctuation = (Math.random() - 0.5) * 0.05;
+    const randomFluctuation = (deterministicRandom(generateCycle(), 0) - 0.5) * 0.05;
     
     // Isotope-specific resonance characteristics
     const isotopeStability = isotope.type === 'C-12' ? 0.95 : 
@@ -202,8 +203,8 @@ export const TransportSystem = ({
       lightTravelTimeYears = emissionAge;
     } else if (isStellarLibraryData) {
       // Stellar library data: small redshifts for local stellar distances
-      realisticZ = Math.abs(neuralFactor * 0.00001 + Math.random() * 0.00005);
-      lightTravelTimeYears = 10 + Math.random() * 1000; // 10-1000 years for stellar library
+      realisticZ = Math.abs(neuralFactor * 0.00001 + deterministicRandom(generateCycle(), 1) * 0.00005);
+      lightTravelTimeYears = 10 + deterministicRandom(generateCycle(), 2) * 1000; // 10-1000 years for stellar library
     } else if (isSDSSCosmicData) {
       // SDSS cosmic data: larger redshifts for distant objects
       realisticZ = Math.abs(neuralFactor * 0.1 + tPTT_value / 1e14);
@@ -211,7 +212,7 @@ export const TransportSystem = ({
     } else {
       // Default synthetic: very small redshift for local objects
       realisticZ = Math.abs(neuralFactor * 0.0001);
-      lightTravelTimeYears = Math.random() * 100; // 0-100 years for synthetic
+      lightTravelTimeYears = deterministicRandom(generateCycle(), 3) * 100; // 0-100 years for synthetic
     }
       
     const coords = {

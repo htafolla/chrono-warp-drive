@@ -29,7 +29,7 @@ import { AdvancedProgressIndicators } from './AdvancedProgressIndicators';
 import { OptimizationSuggestions } from './OptimizationSuggestions';
 import { DashboardMetrics } from './DashboardMetrics';
 import { DashboardControls } from './DashboardControls';
-import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText } from 'lucide-react';
+import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText, Clock } from 'lucide-react';
 import { 
   PHI, 
   ISOTOPES, 
@@ -128,6 +128,7 @@ export function TPTTApp() {
     ethics_score_threshold: 0.8
   });
   const [isExperimentRunning, setIsExperimentRunning] = useState(false);
+  const [v46Experiments, setV46Experiments] = useState<any[]>([]);
 
   // v4.5 Systems
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
@@ -545,6 +546,47 @@ export function TPTTApp() {
     timestamp: new Date().toISOString()
   };
 
+  // v4.6 Handler Functions
+  const handleV46Calculation = useCallback(async () => {
+    if (!temporalCalcV46) return;
+    
+    try {
+      setIsExperimentRunning(true);
+      const result = await temporalCalcV46.computeTPTTv4_6();
+      setTpttV46Result(result);
+      setV46Experiments(prev => [...prev, ...temporalCalcV46.getExperimentLogs()]);
+      toast.success("v4.6 TDF calculation complete!");
+    } catch (error) {
+      console.error("v4.6 calculation failed:", error);
+      toast.error("TDF calculation failed");
+    } finally {
+      setIsExperimentRunning(false);
+    }
+  }, [temporalCalcV46]);
+
+  const handleV46ConfigUpdate = useCallback((newConfig: Partial<BlurrnV46Config>) => {
+    setV46Config(prev => ({ ...prev, ...newConfig }));
+    if (temporalCalcV46) {
+      temporalCalcV46.updateConfig(newConfig);
+    }
+  }, [temporalCalcV46]);
+
+  const handleExperimentReportExport = useCallback(() => {
+    if (!temporalCalcV46) return "";
+    return temporalCalcV46.generateExperimentReport();
+  }, [temporalCalcV46]);
+
+  const handleClearExperiments = useCallback(() => {
+    if (temporalCalcV46) {
+      temporalCalcV46.resetExperiments();
+    }
+    setV46Experiments([]);
+  }, [temporalCalcV46]);
+
+  const handleToggleTimeShift = useCallback(() => {
+    setIsTimeShiftActive(prev => !prev);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-6">
@@ -598,6 +640,10 @@ export function TPTTApp() {
             <TabsTrigger value="advanced" className="flex items-center gap-2">
               <Rocket className="h-4 w-4" />
               Advanced
+            </TabsTrigger>
+            <TabsTrigger value="timeshift" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Time Shift
             </TabsTrigger>
             <TabsTrigger value="system" className="flex items-center gap-2">
               <Laptop className="h-4 w-4" />
@@ -939,6 +985,55 @@ export function TPTTApp() {
             </Card>
 
             {performanceMonitorActive && <PerformanceMonitor isActive={performanceMonitorActive} />}
+          </TabsContent>
+
+          <TabsContent value="timeshift" className="space-v-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Time Shift Display */}
+              <div className="space-y-6">
+                <TimeShiftDisplay 
+                  tpttV46Result={tpttV46Result}
+                  isActive={isV46Initialized}
+                  onTriggerTest={handleV46Calculation}
+                />
+                
+                <TemporalDisplacementControls
+                  config={v46Config}
+                  onConfigChange={handleV46ConfigUpdate}
+                  isTimeShiftActive={isTimeShiftActive}
+                  onToggleTimeShift={handleToggleTimeShift}
+                  onRunExperiment={handleV46Calculation}
+                  isExperimentRunning={isExperimentRunning}
+                />
+              </div>
+              
+              {/* Black Hole Light Visualizer */}
+              <div className="space-y-6">
+                <BlackHoleLightVisualizer
+                  tpttV46Result={tpttV46Result}
+                  isActive={isV46Initialized}
+                  width={500}
+                  height={400}
+                />
+                
+                <ExperimentLogger
+                  experiments={v46Experiments}
+                  onExportReport={handleExperimentReportExport}
+                  onClearLogs={handleClearExperiments}
+                  currentExperiment={tpttV46Result?.experimentData ? {
+                    experiment_id: `blurrn-v46-${tpttV46Result.experimentData.timestamp}`,
+                    timestamp: tpttV46Result.experimentData.timestamp,
+                    tdf_value: tpttV46Result.v46_components.TDF_value,
+                    s_l_value: tpttV46Result.v46_components.S_L,
+                    tau: tpttV46Result.v46_components.tau,
+                    blackhole_seq: tpttV46Result.v46_components.BlackHole_Seq,
+                    cycle: Date.now(),
+                    validation_status: tpttV46Result.timeShiftMetrics.breakthrough_validated ? 'validated' as const : 'pending' as const,
+                    notes: tpttV46Result.experimentData.validationProofs.join('; ')
+                  } : undefined}
+                />
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

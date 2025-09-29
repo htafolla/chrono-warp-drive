@@ -1,6 +1,7 @@
 // SDSS Data Integration for BLURRN v4.5
 import Papa from 'papaparse';
 import { SDSSSpectrum, SpectrumData } from '@/types/sdss';
+import { deterministicRandom, generateCycle } from './deterministicUtils';
 
 export class SDSSIntegration {
   private static readonly KAGGLE_DATASET_URL = 'https://raw.githubusercontent.com/fedesoriano/stellar-classification-dataset-sdss17/main/star_classification.csv';
@@ -106,7 +107,7 @@ export class SDSSIntegration {
       intensity = this.applyObjectClassModification(intensity, wavelength, sdssObject.class);
       
       // Add some realistic noise and variations
-      intensity *= (0.9 + Math.random() * 0.2);
+      intensity *= (0.9 + deterministicRandom(generateCycle(), i) * 0.2);
       
       intensities.push(Math.max(0, intensity));
     }
@@ -198,7 +199,7 @@ export class SDSSIntegration {
       intensity *= this.addAbsorptionLines(wavelength);
       
       // Add noise
-      intensity *= (0.95 + Math.random() * 0.1);
+      intensity *= (0.95 + deterministicRandom(generateCycle(), i + 100) * 0.1);
       
       intensities.push(Math.max(0, intensity));
     }

@@ -3,6 +3,7 @@
 import * as tf from '@tensorflow/tfjs';
 import { SpectrumData, NeuralInput, NeuralOutput, TPTTv4Result } from '@/types/sdss';
 import { PHI, FREQ, C, DELTA_T } from './temporalCalculator';
+import { deterministicRandom, generateCycle } from './deterministicUtils';
 
 export class TemporalCalculatorV4 {
   private inputData: SpectrumData | null = null;
@@ -363,7 +364,7 @@ export class TemporalCalculatorV4 {
         synapticSequence,
         neuralSpectra,
         metamorphosisIndex,
-        confidenceScore: Math.random() * 0.3 + 0.7 // 0.7-1.0 range
+        confidenceScore: deterministicRandom(generateCycle(), 0) * 0.3 + 0.7 // 0.7-1.0 range
       };
     } catch (error) {
       console.warn('Neural fusion computation failed:', error);

@@ -1,6 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { deterministicRandom, deterministicRange, generateCycle } from '@/lib/deterministicUtils';
 
 interface CustomStarsProps {
   radius?: number;
@@ -27,31 +28,32 @@ export function CustomStars({
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const scales = new Float32Array(count);
+    const cycle = generateCycle();
     
     // Generate static star positions and colors
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
       
-      // Generate spherical distribution
-      const r = radius + Math.random() * depth;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      // Generate spherical distribution using deterministic functions
+      const r = radius + deterministicRandom(cycle, i) * depth;
+      const theta = deterministicRandom(cycle, i + 1) * Math.PI * 2;
+      const phi = Math.acos(2 * deterministicRandom(cycle, i + 2) - 1);
       
       positions[i3] = r * Math.sin(phi) * Math.cos(theta);
       positions[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       positions[i3 + 2] = r * Math.cos(phi);
       
       // Generate static white/yellow colors with subtle variation
-      const baseIntensity = 0.8 + Math.random() * 0.2;
-      const colorVariation = Math.random() * 0.1;
+      const baseIntensity = 0.8 + deterministicRandom(cycle, i + 3) * 0.2;
+      const colorVariation = deterministicRandom(cycle, i + 4) * 0.1;
       
       // Create white stars with slight yellow tint
       colors[i3] = baseIntensity; // Red
       colors[i3 + 1] = baseIntensity - colorVariation * 0.1; // Green (slightly less for warmth)
       colors[i3 + 2] = baseIntensity - colorVariation * 0.2; // Blue (less for warmth)
       
-      // Random scale for star size variation
-      scales[i] = 0.5 + Math.random() * 0.5;
+      // Deterministic scale for star size variation
+      scales[i] = 0.5 + deterministicRandom(cycle, i + 5) * 0.5;
     }
     
     return [positions, colors, scales];
@@ -81,7 +83,7 @@ export function CustomStars({
       colors[i3 + 2] = baseB * twinkleFactor;
       
       // Subtle scale twinkling
-      scales[i] = (0.5 + Math.random() * 0.5) * twinkleFactor;
+      scales[i] = (0.5 + deterministicRandom(generateCycle(), i + 10) * 0.5) * twinkleFactor;
     }
     
     pointsRef.current.geometry.attributes.color.needsUpdate = true;

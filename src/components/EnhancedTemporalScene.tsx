@@ -8,6 +8,7 @@ import { useMemoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
 import { LODWavePlane } from './LODWavePlane';
 import { GroundPlane } from './GroundPlane';
+import { deterministicRandom, deterministicSpherical, generateCycle } from '@/lib/deterministicUtils';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
 import { getSafeColor } from '@/lib/colorUtils';
 
@@ -55,9 +56,10 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
       const i3 = i * 3;
       
       // Distribute particles in spectrum-influenced pattern
-      const radius = 5 + Math.random() * 10;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const cycle = generateCycle();
+      const radius = 5 + deterministicRandom(cycle, i) * 10;
+      const theta = deterministicRandom(cycle, i + 1) * Math.PI * 2;
+      const phi = Math.acos(2 * deterministicRandom(cycle, i + 2) - 1);
       
       positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
       positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
@@ -66,7 +68,7 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
       // Color based on spectrum data or default
       const intensity = spectrumData ? 
         spectrumData.intensities[i % spectrumData.intensities.length] : 
-        Math.random();
+        deterministicRandom(generateCycle(), i + 3);
       
       colors[i3] = 0.5 + intensity * 0.5; // Red
       colors[i3 + 1] = 0.3 + intensity * 0.4; // Green  
@@ -93,9 +95,10 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
       
       // Pulse colors based on spectrum intensity - FIX: Use additive pulsing instead of multiplicative
       const pulseIntensity = 0.8 + 0.4 * Math.sin(time * 0.02 + phase);
-      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.5;
-      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.4;
-      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || Math.random()) * 0.2;
+      const cycle = generateCycle();
+      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || deterministicRandom(cycle, i + 6)) * 0.5;
+      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || deterministicRandom(cycle, i + 7)) * 0.4;
+      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || deterministicRandom(cycle, i + 8)) * 0.2;
       
       colors[i3] = baseR * pulseIntensity;
       colors[i3 + 1] = baseG * pulseIntensity;

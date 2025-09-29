@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
 
 interface PerformanceMetrics {
   fps: number;
@@ -73,7 +74,7 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
           fps: Math.min(fps, 60),
           memoryUsage,
           renderTime,
-          gpuMemory: Math.random() * 30 + 10, // Mock GPU memory usage
+          gpuMemory: deterministicRandom(generateCycle(), 0) * 30 + 10, // Mock GPU memory usage
           adaptiveQuality,
           targetFPS,
           cpuBenchmark: cpuResult

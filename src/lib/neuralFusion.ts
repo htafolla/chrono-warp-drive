@@ -1,6 +1,7 @@
 // Neural Fusion Engine for BLURRN v4.5
 import * as tf from '@tensorflow/tfjs';
 import { NeuralInput, NeuralOutput, SpectrumData } from '@/types/sdss';
+import { deterministicRandom, deterministicSelect, generateCycle } from './deterministicUtils';
 
 export class NeuralFusion {
   private spectralModel: tf.LayersModel | null = null;
@@ -166,7 +167,7 @@ export class NeuralFusion {
         input.fractalToggle ? 1 : 0,
         input.spectrumData.granularity / 10, // Normalized granularity
         input.spectrumData.source === 'SDSS' ? 1 : 0,
-        Math.random() // Add some entropy
+        deterministicRandom(generateCycle(), 0) // Add deterministic entropy
       ];
 
       // Pad or trim to exactly 8 features
@@ -256,8 +257,8 @@ export class NeuralFusion {
     return {
       synapticSequence: this.getFallbackSynapticSequence(),
       neuralSpectra: this.generateFallbackSpectra(input.spectrumData.intensities.length),
-      metamorphosisIndex: 0.5 + Math.random() * 0.3,
-      confidenceScore: 0.6 + Math.random() * 0.2
+      metamorphosisIndex: 0.5 + deterministicRandom(generateCycle(), 0) * 0.3,
+      confidenceScore: 0.6 + deterministicRandom(generateCycle(), 1) * 0.2
     };
   }
 
@@ -268,13 +269,13 @@ export class NeuralFusion {
       "temporal flux stabilizing",
       "spectral coherence achieved"
     ];
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    return deterministicSelect(fallbacks, generateCycle(), 0);
   }
 
   private generateFallbackSpectra(size: number): number[] {
     const spectra: number[] = [];
     for (let i = 0; i < Math.min(size, 100); i++) {
-      spectra.push(Math.random() * 0.8 + 0.1);
+      spectra.push(deterministicRandom(generateCycle(), i) * 0.8 + 0.1);
     }
     return spectra;
   }
