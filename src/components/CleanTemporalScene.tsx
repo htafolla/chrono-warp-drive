@@ -6,7 +6,111 @@ import { SPECTRUM_BANDS, type Isotope } from '@/lib/temporalCalculator';
 import { useMemoryManager } from '@/lib/memoryManager';
 import { TPTTv4_6Result, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
+import { CustomStars } from './CustomStars';
+import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
 
+
+interface ParticleSystemProps {
+  spectrumData?: SpectrumData | null;
+  time: number;
+  phases: number[];
+  count?: number;
+}
+
+function ParticleSystem({ spectrumData, time, phases, count = 500 }: ParticleSystemProps) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const memoryManager = useMemoryManager();
+  
+  useEffect(() => {
+    return () => {
+      if (pointsRef.current) {
+        memoryManager.disposeObject(pointsRef.current);
+      }
+    };
+  }, [memoryManager]);
+  
+  const [positions, colors] = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      
+      const cycle = generateCycle();
+      const radius = 5 + deterministicRandom(cycle, i) * 10;
+      const theta = deterministicRandom(cycle, i + 1) * Math.PI * 2;
+      const phi = Math.acos(2 * deterministicRandom(cycle, i + 2) - 1);
+      
+      positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i3 + 2] = radius * Math.cos(phi);
+      
+      const intensity = spectrumData ? 
+        spectrumData.intensities[i % spectrumData.intensities.length] : 
+        deterministicRandom(cycle, i + 3);
+      
+      colors[i3] = 0.5 + intensity * 0.5;
+      colors[i3 + 1] = 0.3 + intensity * 0.4;
+      colors[i3 + 2] = 0.8 + intensity * 0.2;
+    }
+    
+    return [positions, colors];
+  }, [count, spectrumData]);
+  
+  useFrame(() => {
+    if (!pointsRef.current) return;
+    
+    const positions = pointsRef.current.geometry.attributes.position.array as Float32Array;
+    const colors = pointsRef.current.geometry.attributes.color.array as Float32Array;
+    
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      const phaseIndex = i % phases.length;
+      const phase = phases[phaseIndex];
+      
+      positions[i3 + 1] += Math.sin(time * 0.04 + phase) * 0.02;
+      
+      const pulseIntensity = 0.8 + 0.4 * Math.sin(time * 0.02 + phase);
+      const cycle = generateCycle();
+      const baseR = 0.5 + (spectrumData?.intensities[i % spectrumData.intensities.length] || deterministicRandom(cycle, i + 6)) * 0.5;
+      const baseG = 0.3 + (spectrumData?.intensities[i % spectrumData.intensities.length] || deterministicRandom(cycle, i + 7)) * 0.4;
+      const baseB = 0.8 + (spectrumData?.intensities[i % spectrumData.intensities.length] || deterministicRandom(cycle, i + 8)) * 0.2;
+      
+      colors[i3] = baseR * pulseIntensity;
+      colors[i3 + 1] = baseG * pulseIntensity;
+      colors[i3 + 2] = baseB * pulseIntensity;
+    }
+    
+    pointsRef.current.geometry.attributes.position.needsUpdate = true;
+    pointsRef.current.geometry.attributes.color.needsUpdate = true;
+  });
+  
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={count}
+          array={positions}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          count={count}
+          array={colors}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.1}
+        vertexColors
+        transparent
+        opacity={0.8}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
 
 interface CleanWavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -96,7 +200,7 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
   return (
     <group>
       {/* Main solid mesh with enhanced materials */}
-      <mesh ref={meshRef}>
+      <mesh ref={meshRef} castShadow receiveShadow>
         <planeGeometry 
           ref={geometryRef} 
           args={[10, 10, 32, 32]} 
@@ -290,19 +394,60 @@ export function CleanTemporalScene({
     return selectedIndices.map(i => SPECTRUM_BANDS[i]).filter(Boolean);
   }, [fpsData.current]);
 
+  const particleCount = useMemo(() => {
+    return fpsData.current > 45 ? 750 : fpsData.current > 30 ? 500 : 250;
+  }, [fpsData.current]);
+
+  const starCount = useMemo(() => {
+    return fpsData.current > 45 ? 3000 : fpsData.current > 30 ? 2000 : 1500;
+  }, [fpsData.current]);
+
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="clean-temporal-scene">
-      <Canvas camera={{ position: [6, 5, 12], fov: 60 }}>
+      <Canvas 
+        camera={{ position: [6, 5, 12], fov: 60 }}
+        shadows
+        gl={{ 
+          antialias: true
+        }}
+      >
         {/* FPS Monitor inside Canvas */}
         <FPSMonitorInternal onFPSUpdate={setFpsData} />
         
-        {/* Optimized lighting system for better wave visibility */}
+        {/* Custom Stars Background */}
+        <CustomStars 
+          radius={100}
+          depth={50}
+          count={starCount}
+          factor={4}
+          saturation={0.4}
+          fade={true}
+          speed={0.1}
+        />
+        
+        {/* Dark Matter Particle System */}
+        <ParticleSystem
+          spectrumData={spectrumData}
+          time={validatedData.time}
+          phases={validatedData.phases}
+          count={particleCount}
+        />
+        
+        {/* Optimized lighting system with shadow support */}
         <ambientLight intensity={0.4} color="#ffffff" />
         <directionalLight 
           position={[15, 15, 10]} 
           intensity={1.8}
           color="#ffffff"
           castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+          shadow-camera-near={0.5}
+          shadow-camera-far={50}
+          shadow-camera-left={-15}
+          shadow-camera-right={15}
+          shadow-camera-top={15}
+          shadow-camera-bottom={-15}
         />
         <directionalLight 
           position={[-10, 8, 5]} 
@@ -337,10 +482,10 @@ export function CleanTemporalScene({
           timeShiftActive={isV46Active}
         />
         
-        {/* Enhanced ground reference with grid */}
-        <mesh position={[0, -4, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        {/* Enhanced ground reference with grid - receives shadows */}
+        <mesh position={[0, -4, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[25, 25]} />
-          <meshBasicMaterial 
+          <meshPhongMaterial 
             color="#0f172a" 
             transparent 
             opacity={0.15}
@@ -370,6 +515,8 @@ export function CleanTemporalScene({
           </span></p>
           <p>Isotope: <span className="text-primary">{validatedData.isotope.type}</span></p>
           <p>Planes: <span className="text-accent">{activeBands.length}</span></p>
+          <p>Stars: <span className="text-purple-400">{starCount}</span></p>
+          <p>Particles: <span className="text-cyan-400">{particleCount}</span></p>
           <p>FPS: <span className={fpsData.current > 45 ? "text-green-400" : fpsData.current > 30 ? "text-yellow-400" : "text-red-400"}>
             {fpsData.current}
           </span></p>
@@ -378,7 +525,7 @@ export function CleanTemporalScene({
           )}
         </div>
         <div className="text-xs text-muted-foreground mt-2">
-          Drag • Scroll • Enhanced scene
+          ✨ Stars • 🌌 Particles • 🌑 Shadows
         </div>
       </div>
 
