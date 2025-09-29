@@ -180,7 +180,7 @@ function TDFWavePlane({ band, phases, isotope, tdfComponents, index, time }: TDF
     <mesh ref={meshRef} position={[0, index * 0.4 - 2, 0]}>
       <planeGeometry 
         ref={geometryRef} 
-        args={[10, 10, 48, 48]} 
+        args={[8, 8, 32, 32]} 
       />
       <meshPhongMaterial 
         color={band.color}
