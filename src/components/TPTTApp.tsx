@@ -58,6 +58,7 @@ import { BlackHoleLightVisualizer } from './BlackHoleLightVisualizer';
 import { TDFEnhancedTemporalScene } from './TDFEnhancedTemporalScene';
 import { TemporalControls } from './TemporalControls';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
+import { ArchitectImplementationExport } from './ArchitectImplementationExport';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
 import { memoryManager } from '@/lib/memoryManager';
 
@@ -875,6 +876,14 @@ export function TPTTApp() {
               <ExportImport 
                 currentState={currentState}
                 onImport={handleImport}
+              />
+              
+              <ArchitectImplementationExport
+                currentState={currentState}
+                tpttV46Result={tpttV46Result}
+                spectrumData={spectrumData}
+                performanceSettings={performanceSettings}
+                sessionId={`architect-${Date.now()}`}
               />
             </div>
             
