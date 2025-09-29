@@ -452,14 +452,14 @@ export class DebugExporter {
         } : undefined
       },
       browserInfo: {
-        userAgent: navigator.userAgent,
+        userAgent: navigator.userAgent.substring(0, 50),
         webglSupport: this.checkWebGLSupport(),
         tensorflowReady: this.checkTensorFlowReady()
       },
       consoleLogs: {
-        errors: this.logs.filter(l => l.level === 'error').slice(-10).map(l => l.message),
-        warnings: this.logs.filter(l => l.level === 'warn').slice(-10).map(l => l.message),
-        info: this.logs.filter(l => l.level === 'info').slice(-10).map(l => l.message)
+        errors: this.logs.filter(l => l.level === 'error').slice(-3).map(l => l.message),
+        warnings: [],
+        info: []
       }
     };
 
@@ -468,7 +468,7 @@ export class DebugExporter {
 
   static exportDebugJSON(appState: any): string {
     const debugState = this.captureDebugState(appState);
-    return JSON.stringify(debugState, null, 2);
+    return JSON.stringify(debugState, null, 1);
   }
 
   static exportDebugSummary(appState: any): string {
