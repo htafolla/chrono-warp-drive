@@ -24,12 +24,12 @@ function OptimizedWavePlane({ band, phases, isotope, tdfComponents, index, time,
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   const memoryManager = useMemoryManager();
 
-  // Adaptive geometry based on quality
+  // Optimized geometry for better performance
   const geometryArgs = useMemo((): [number, number, number, number] => {
     const segmentMap = { 
-      low: [8, 8, 16, 16] as [number, number, number, number], 
-      medium: [8, 8, 24, 24] as [number, number, number, number], 
-      high: [8, 8, 32, 32] as [number, number, number, number] 
+      low: [6, 6, 12, 12] as [number, number, number, number], 
+      medium: [8, 8, 16, 16] as [number, number, number, number], 
+      high: [8, 8, 20, 20] as [number, number, number, number] 
     };
     return segmentMap[quality];
   }, [quality]);

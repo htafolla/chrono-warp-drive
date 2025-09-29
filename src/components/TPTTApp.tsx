@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Dashboard } from './Dashboard';
 import { TemporalScene } from './TemporalScene';
 import { EnhancedTemporalScene } from './EnhancedTemporalScene';
+import { CleanTemporalScene } from './CleanTemporalScene';
 import { ControlPanel } from './ControlPanel';
 import { SpectrumAnalyzer } from './SpectrumAnalyzer';
 import { SpectrumSelector } from './SpectrumSelector';
@@ -775,15 +776,13 @@ export function TPTTApp() {
               {/* 3D Scene */}
               <div className="lg:col-span-3 h-[600px]">
                 <ErrorBoundary fallback={<div className="flex items-center justify-center h-full text-muted-foreground">3D scene failed to load</div>}>
-                  <EnhancedTemporalScene 
+                  <CleanTemporalScene 
                     phases={phases}
                     isotope={isotope}
-                    cycle={cycle}
-                    fractalToggle={fractalToggle}
-                    spectrumData={spectrumData}
                     time={time}
-                    performanceSettings={performanceSettings}
-                    onFPSChange={handleFPSChange}
+                    tpttV46Result={tpttV46Result}
+                    spectrumData={spectrumData}
+                    activeTab="simulation"
                   />
                 </ErrorBoundary>
               </div>
