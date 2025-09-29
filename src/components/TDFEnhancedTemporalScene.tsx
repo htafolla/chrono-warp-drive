@@ -203,6 +203,16 @@ interface TDFEnhancedTemporalSceneProps {
     shadows: boolean;
     quality: 'low' | 'medium' | 'high';
   };
+  onDebugDataUpdate?: (debugData: {
+    tdfV46: TPTTv4_6Result;
+    sceneMetrics: {
+      fps: number;
+      memoryUsage: number;
+      vertexCount: number;
+      renderTime: number;
+      tdfStability: number;
+    };
+  }) => void;
 }
 
 export function TDFEnhancedTemporalScene({ 
@@ -211,11 +221,29 @@ export function TDFEnhancedTemporalScene({
   time, 
   tpttV46Result,
   spectrumData,
-  qualitySettings = { particles: true, shadows: true, quality: 'high' }
+  qualitySettings = { particles: true, shadows: true, quality: 'high' },
+  onDebugDataUpdate
 }: TDFEnhancedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
+  const [currentMetrics, setCurrentMetrics] = React.useState({ fps: 60, vertexCount: 1024 });
   
   const hasV46Data = tpttV46Result?.v46_components && tpttV46Result?.timeShiftMetrics;
+
+  // Expose debug data to parent component
+  React.useEffect(() => {
+    if (tpttV46Result && onDebugDataUpdate) {
+      onDebugDataUpdate({
+        tdfV46: tpttV46Result,
+        sceneMetrics: {
+          fps: currentMetrics.fps,
+          memoryUsage: (performance as any).memory?.usedJSHeapSize || 0,
+          vertexCount: currentMetrics.vertexCount,
+          renderTime: 1000 / currentMetrics.fps,
+          tdfStability: tpttV46Result.v46_components.tau
+        }
+      });
+    }
+  }, [tpttV46Result, currentMetrics, onDebugDataUpdate]);
   
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="tdf-enhanced-temporal-scene">

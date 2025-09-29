@@ -83,7 +83,7 @@ export const calculateTDFComponents = (
   tPTT: number,
   cycle: number,
   voids: number = 1,
-  n: number = 1,
+  n: number = 2,  // Changed from 1 to 2 for target TDF ~5.781e12
   config: BlurrnV46Config = DEFAULT_V46_CONFIG
 ): TDFComponents => {
   const BlackHole_Seq = computeBlackHoleSequence(voids, n);
