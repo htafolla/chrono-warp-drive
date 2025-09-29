@@ -69,8 +69,8 @@ export class EnhancedDebugExporter {
       memoryUsage
     });
 
-    // Keep only last 100 points
-    if (this.performanceHistory.length > 100) {
+    // Keep only last 25 points for size optimization
+    if (this.performanceHistory.length > 25) {
       this.performanceHistory.shift();
     }
   }
@@ -129,13 +129,10 @@ export class EnhancedDebugExporter {
         version: '4.6-enhanced',
         performanceHistorySize: this.performanceHistory.length,
         systemInfo: {
-          userAgent: navigator.userAgent,
-          memory: (performance as any).memory ? {
-            used: (performance as any).memory.usedJSHeapSize,
-            total: (performance as any).memory.totalJSHeapSize,
-            limit: (performance as any).memory.jsHeapSizeLimit
-          } : 'unavailable',
-          concurrency: navigator.hardwareConcurrency || 'unknown'
+          userAgent: navigator.userAgent.substring(0, 50),
+          memory: (performance as any).memory ? 
+            `${Math.round((performance as any).memory.usedJSHeapSize / 1024 / 1024)}MB` : 'N/A',
+          concurrency: navigator.hardwareConcurrency || 0
         }
       },
       analysis: {
@@ -145,7 +142,7 @@ export class EnhancedDebugExporter {
       }
     };
 
-    return JSON.stringify(enhancedState, null, 2);
+    return JSON.stringify(enhancedState, null, 1);
   }
 
   private generatePerformanceSummary(performance: ScenePerformanceMetrics) {

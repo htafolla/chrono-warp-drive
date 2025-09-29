@@ -102,11 +102,11 @@ export function ArchitectImplementationExport({
         spectrum_data: spectrumData ? {
           source: spectrumData.source,
           bands: spectrumData.intensities?.length || 0,
-          metadata: spectrumData.metadata
+          range: `${Math.min(...(spectrumData.wavelengths || [0]))}-${Math.max(...(spectrumData.wavelengths || [0]))}nm`
         } : null,
         
-        real_time_metrics: 'Scene performance, FPS, memory usage',
-        experiment_tracking: 'TDF experiments with full lineage'
+        real_time_metrics: 'FPS + Memory',
+        experiment_tracking: 'TDF experiments'
       }
     };
 
@@ -117,21 +117,21 @@ export function ArchitectImplementationExport({
     updateProgress('Exporting Backend Data', 30);
     
     try {
-      // Export scene performance logs
+      // Export scene performance logs (reduced to 50 for size optimization)
       const { data: performanceLogs, error: perfError } = await supabase
         .from('scene_performance_logs')
-        .select('*')
+        .select('fps, memory_usage, timestamp, session_id')
         .order('timestamp', { ascending: false })
-        .limit(1000);
+        .limit(50);
 
       if (perfError) throw perfError;
 
-      // Export TDF experiments
+      // Export TDF experiments (reduced to 20 for size optimization)
       const { data: experiments, error: expError } = await supabase
         .from('tdf_experiments')
-        .select('*')
+        .select('tdf_value, tau, breakthrough_validated, created_at')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(20);
 
       if (expError) throw expError;
 
@@ -230,22 +230,22 @@ export function ArchitectImplementationExport({
         
         implementation_summary: {
           core_features: [
-            'TDF v4.6 Temporal Displacement Factor calculations',
-            'Real-time 3D scene optimization with LOD',
-            'Supabase backend integration with RLS',
-            'Performance monitoring and auto-adjustment',
-            'Neural fusion processing with TensorFlow.js',
-            'Pickles Atlas stellar data integration',
-            'Memory management with automatic cleanup',
-            'Export/import system for full state management'
+            'TDF v4.6',
+            '3D LOD optimization',
+            'Supabase + RLS',
+            'Perf monitoring',
+            'TensorFlow.js',
+            'Pickles Atlas',
+            'Memory mgmt',
+            'Export/Import'
           ],
           
           technical_specifications: {
-            frontend: 'React 18 + TypeScript + Three.js + Tailwind CSS',
-            backend: 'Lovable Cloud (Supabase) with PostgreSQL',
-            performance: 'WebGL rendering with adaptive quality',
-            security: 'Row Level Security + Authentication',
-            real_time: 'WebSocket channels for live updates'
+            frontend: 'React18+TS+Three+Tailwind',
+            backend: 'Supabase+PostgreSQL',
+            performance: 'WebGL+AdaptiveQuality',
+            security: 'RLS+Auth',
+            realtime: 'WebSocket'
           },
           
           deployment_status: 'Production Ready',
