@@ -45,9 +45,15 @@ import {
   PHASE_UPDATE_FACTOR
 } from '@/lib/temporalCalculator';
 import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
+import { TemporalCalculatorV4_6 } from '@/lib/temporalCalculatorV4_6';
 import { PicklesAtlas } from '@/lib/picklesAtlas';
 import { NeuralFusion } from '@/lib/neuralFusion';
 import { SpectrumData, TPTTv4Result } from '@/types/sdss';
+import { TPTTv4_6Result, BlurrnV46Config } from '@/types/blurrn-v4-6';
+import { TimeShiftDisplay } from './TimeShiftDisplay';
+import { BlackHoleLightVisualizer } from './BlackHoleLightVisualizer';
+import { TemporalDisplacementControls } from './TemporalDisplacementControls';
+import { ExperimentLogger } from './ExperimentLogger';
 import { TemporalControls } from './TemporalControls';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
@@ -110,8 +116,22 @@ export function TPTTApp() {
   const [isV4Initialized, setIsV4Initialized] = useState(false);
   const [systemStatus, setSystemStatus] = useState<string>("Initializing BLURRN v4.5...");
 
+  // v4.6 Enhancement state - Time Machine Ascension
+  const [tpttV46Result, setTpttV46Result] = useState<TPTTv4_6Result | null>(null);
+  const [isV46Initialized, setIsV46Initialized] = useState(false);
+  const [isTimeShiftActive, setIsTimeShiftActive] = useState(false);
+  const [v46Config, setV46Config] = useState<BlurrnV46Config>({
+    growth_rate_multiplier: 1.0,
+    tau: 0.865,
+    oscillator_frequency: 3e8,
+    tdf_overflow_clamp: 1e15,
+    ethics_score_threshold: 0.8
+  });
+  const [isExperimentRunning, setIsExperimentRunning] = useState(false);
+
   // v4.5 Systems
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
+  const [temporalCalcV46, setTemporalCalcV46] = useState<TemporalCalculatorV4_6 | null>(null);
   const [picklesAtlas] = useState(() => new PicklesAtlas());
   const [neuralFusion] = useState(() => new NeuralFusion());
   
@@ -150,6 +170,33 @@ export function TPTTApp() {
 
     initializeV4Systems();
   }, []);
+
+  // v4.6 System Initialization - Time Machine Ascension
+  useEffect(() => {
+    const initializeV46Systems = async () => {
+      try {
+        if (!isV4Initialized) return;
+        
+        setSystemStatus("Initializing v4.6 Time Machine systems...");
+        
+        const calcV46 = new TemporalCalculatorV4_6(spectrumData || undefined, v46Config);
+        setTemporalCalcV46(calcV46);
+        setIsV46Initialized(true);
+        
+        if (isTimeShiftActive) {
+          setSystemStatus("BLURRN v4.6 Time Machine - TDF breakthrough ready!");
+          toast.success("Time Machine v4.6 initialized - TDF calculations active!");
+        } else {
+          setSystemStatus("BLURRN v4.6 Time Machine - Ready for temporal displacement");
+        }
+      } catch (error) {
+        console.error("v4.6 initialization failed:", error);
+        setSystemStatus(`v4.6 initialization failed: ${error}`);
+      }
+    };
+
+    initializeV46Systems();
+  }, [isV4Initialized, spectrumData, isTimeShiftActive]);
 
   // Animation loop with controllable intervals and pause functionality
   useEffect(() => {
@@ -236,6 +283,26 @@ export function TPTTApp() {
           setTpttV4Result(v4Result);
         } catch (error) {
           console.warn("v4.5 calculation failed:", error);
+        }
+      }
+
+      // v4.6 TDF calculations when Time Shift is active
+      if (isTimeShiftActive && isV46Initialized && temporalCalcV46) {
+        try {
+          if (spectrumData) {
+            temporalCalcV46.setInputData(spectrumData);
+          }
+          temporalCalcV46.updateConfig(v46Config);
+          
+          const v46Result = await temporalCalcV46.computeTPTTv4_6();
+          setTpttV46Result(v46Result);
+          
+          // Update system status with breakthrough info
+          if (v46Result.timeShiftMetrics.breakthrough_validated) {
+            setSystemStatus(`TDF Breakthrough: ${v46Result.v46_components.TDF_value.toExponential(2)} - Time shift validated!`);
+          }
+        } catch (error) {
+          console.warn("v4.6 TDF calculation failed:", error);
         }
       }
 
