@@ -21,6 +21,7 @@ interface CleanWavePlaneProps {
 function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, totalPlanes }: CleanWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
+  const wireframeRef = useRef<THREE.LineSegments>(null);
   const memoryManager = useMemoryManager();
 
   useEffect(() => {
@@ -42,22 +43,25 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
       const position = geometry.attributes.position;
       const phase = phases[index % phases.length] || 0;
       
-      // TDF-enhanced calculations with proper validation
+      // Enhanced TDF calculations
       const isV46Active = tdfComponents && tdfComponents.TDF_value > 1000;
-      const tdfMultiplier = isV46Active ? Math.log10(tdfComponents.TDF_value) / 12 : 0.1;
-      const tau = tdfComponents?.tau || 0;
+      const tdfMultiplier = isV46Active ? Math.log10(tdfComponents.TDF_value) / 8 : 0.1;
+      const tau = tdfComponents?.tau || 0.5;
       
-      // Smooth wave calculations
+      // Dynamic wave calculations with proper amplitude
       for (let i = 0; i < position.count; i++) {
         const x = position.getX(i);
         const z = position.getZ(i);
         
-        const baseWave = Math.sin(x * 0.8 + z * 0.8 + phase + time * 0.3);
-        const tdfWave = isV46Active ? Math.sin(x * tdfMultiplier + z * tau + phase * 2) : 0;
-        const syntheticWave = Math.sin(x * 0.5 + z * 0.5 + time * 0.5) * 0.3;
+        // Multi-layered wave system
+        const primaryWave = Math.sin(x * 1.2 + z * 0.8 + phase + time * 2.0) * 1.8;
+        const secondaryWave = Math.cos(x * 0.6 + z * 1.4 + phase * 0.7 + time * 1.5) * 0.8;
+        const tdfWave = isV46Active ? 
+          Math.sin(x * tdfMultiplier + z * tau + phase * 3 + time * 0.8) * 2.5 : 0;
+        const noiseWave = (Math.random() - 0.5) * 0.1;
         
-        const heightValue = Math.max(-2.0, Math.min(2.0, 
-          (baseWave * 1.5) + (tdfWave * 0.8) + syntheticWave
+        const heightValue = Math.max(-3.0, Math.min(3.0, 
+          primaryWave + secondaryWave + tdfWave + noiseWave
         ));
         
         position.setY(i, heightValue);
@@ -65,40 +69,61 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
       
       position.needsUpdate = true;
       
-      // Improved spacing and subtle rotation
-      meshRef.current.position.y = (index - totalPlanes / 2) * 0.8;
-      meshRef.current.rotation.z = phase * 0.02;
-      meshRef.current.position.z = -index * 0.2;
+      // Improved spacing for better depth separation
+      const zSpacing = 1.5; // Increased from 0.2
+      const yOffset = (index - totalPlanes / 2) * 0.6;
+      
+      meshRef.current.position.set(0, yOffset, -index * zSpacing);
+      meshRef.current.rotation.z = Math.sin(time * 0.5 + phase) * 0.05;
+      
+      // Update wireframe position to match
+      if (wireframeRef.current) {
+        wireframeRef.current.position.copy(meshRef.current.position);
+        wireframeRef.current.rotation.copy(meshRef.current.rotation);
+      }
       
     } catch (error) {
       console.error('CleanWavePlane error:', error);
     }
   });
 
-  // Enhanced opacity and material settings
-  const opacity = Math.max(0.4, 0.95 - (index / totalPlanes) * 0.5);
+  // Enhanced color differentiation and opacity
+  const baseColor = new THREE.Color(band.color);
+  const emissiveColor = baseColor.clone().multiplyScalar(0.3);
+  const opacity = Math.max(0.6, 0.9 - (index / totalPlanes) * 0.3);
+  const wireframeOpacity = Math.max(0.3, 0.7 - (index / totalPlanes) * 0.2);
 
   return (
-    <mesh ref={meshRef} position={[0, (index - totalPlanes / 2) * 0.8, -index * 0.2]}>
-      <planeGeometry 
-        ref={geometryRef} 
-        args={[8, 8, 24, 24]} 
-      />
-      <meshPhongMaterial 
-        color={band.color}
-        wireframe={false}
-        transparent
-        opacity={opacity}
-        side={THREE.DoubleSide}
-        emissive={band.color}
-        emissiveIntensity={0.1}
-      />
-      {/* Wireframe overlay for better visibility */}
-      <lineSegments>
-        <wireframeGeometry args={[new THREE.PlaneGeometry(8, 8, 24, 24)]} />
-        <lineBasicMaterial color={band.color} opacity={opacity * 0.6} transparent />
+    <group>
+      {/* Main solid mesh with enhanced materials */}
+      <mesh ref={meshRef}>
+        <planeGeometry 
+          ref={geometryRef} 
+          args={[10, 10, 32, 32]} 
+        />
+        <meshPhongMaterial 
+          color={baseColor}
+          wireframe={false}
+          transparent
+          opacity={opacity}
+          side={THREE.DoubleSide}
+          emissive={emissiveColor}
+          emissiveIntensity={0.2}
+          shininess={30}
+          specular={baseColor.clone().multiplyScalar(0.5)}
+        />
+      </mesh>
+      
+      {/* Simplified wireframe overlay using the same geometry */}
+      <lineSegments ref={wireframeRef}>
+        <edgesGeometry args={[new THREE.PlaneGeometry(10, 10, 32, 32)]} />
+        <lineBasicMaterial 
+          color={baseColor.clone().multiplyScalar(1.2)} 
+          opacity={wireframeOpacity} 
+          transparent 
+        />
       </lineSegments>
-    </mesh>
+    </group>
   );
 }
 
@@ -208,37 +233,42 @@ export function CleanTemporalScene({
     history: []
   });
   
-  // Data validation and fallback generation
+  // Enhanced data validation and fallback generation
   const validatedData = useMemo(() => {
     console.log('🔍 Scene Data Debug:', {
       phases: phases?.length,
       phasesData: phases,
       isotope: isotope?.type,
       time,
+      timeType: typeof time,
       tpttV46Result: !!tpttV46Result,
       spectrumData: !!spectrumData,
       activeTab
     });
 
-    // Generate fallback data if needed
-    const fallbackPhases = phases?.length > 0 ? phases : 
-      Array.from({length: 4}, (_, i) => Math.sin(time * 0.01 + i) * Math.PI);
+    // Enhanced fallback data generation
+    const currentTime = Date.now() * 0.001;
+    const animatedTime = typeof time === 'number' && !isNaN(time) ? time : currentTime;
     
-    const fallbackTime = typeof time === 'number' && !isNaN(time) ? time : Date.now() * 0.001;
+    const fallbackPhases = phases?.length > 0 ? phases : 
+      Array.from({length: 5}, (_, i) => 
+        Math.sin(animatedTime * 0.8 + i * 1.2) * Math.PI + 
+        Math.cos(animatedTime * 0.5 + i * 0.8) * Math.PI * 0.5
+      );
     
     const fallbackIsotope = isotope || { 
-      type: 'Hydrogen-1', 
-      mass: 1, 
-      abundance: 99.98, 
+      type: 'C-12', 
+      mass: 12, 
+      abundance: 98.9, 
       halfLife: null,
-      factor: 1.0
+      factor: 1.2
     };
 
     const isFallbackMode = !phases?.length || typeof time !== 'number' || isNaN(time);
     
     return {
       phases: fallbackPhases,
-      time: fallbackTime,
+      time: animatedTime,
       isotope: fallbackIsotope,
       isFallbackMode
     };
@@ -252,31 +282,40 @@ export function CleanTemporalScene({
              tpttV46Result.v46_components.TDF_value > 1000);
   }, [tpttV46Result]);
 
-  // Limit bands for performance and clarity
+  // Optimized band selection with better color distribution
   const activeBands = useMemo(() => {
-    const maxBands = fpsData.current < 30 ? 3 : 4;
-    return SPECTRUM_BANDS.slice(0, maxBands);
+    const maxBands = fpsData.current < 30 ? 3 : 5;
+    // Select bands with better color contrast
+    const selectedIndices = [0, 2, 4, 6, 8].slice(0, maxBands);
+    return selectedIndices.map(i => SPECTRUM_BANDS[i]).filter(Boolean);
   }, [fpsData.current]);
 
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="clean-temporal-scene">
-      <Canvas camera={{ position: [5, 4, 8], fov: 65 }}>
+      <Canvas camera={{ position: [6, 5, 12], fov: 60 }}>
         {/* FPS Monitor inside Canvas */}
         <FPSMonitorInternal onFPSUpdate={setFpsData} />
         
-        {/* Enhanced lighting system */}
-        <ambientLight intensity={0.5} />
+        {/* Optimized lighting system for better wave visibility */}
+        <ambientLight intensity={0.4} color="#ffffff" />
         <directionalLight 
-          position={[10, 10, 5]} 
-          intensity={1.2}
+          position={[15, 15, 10]} 
+          intensity={1.8}
           color="#ffffff"
           castShadow
         />
-        <pointLight position={[-5, 8, 8]} intensity={0.8} color="#4f46e5" />
-        <pointLight position={[5, 2, -5]} intensity={0.6} color="#06b6d4" />
-        <hemisphereLight
-          args={["#4f46e5", "#1e293b", 0.3]}
+        <directionalLight 
+          position={[-10, 8, 5]} 
+          intensity={0.8}
+          color="#4f46e5"
         />
+        <pointLight position={[0, 10, 0]} intensity={1.2} color="#06b6d4" />
+        <pointLight position={[8, -2, -8]} intensity={0.8} color="#8b5cf6" />
+        <hemisphereLight
+          args={["#3b82f6", "#1e293b", 0.5]}
+        />
+        {/* Rim lighting for better depth perception */}
+        <pointLight position={[-15, 5, 15]} intensity={0.6} color="#f59e0b" />
         
         {/* Wave planes with validated data */}
         {activeBands.map((band, index) => (
@@ -298,25 +337,28 @@ export function CleanTemporalScene({
           timeShiftActive={isV46Active}
         />
         
-        {/* Ground reference plane */}
-        <mesh position={[0, -3, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[20, 20]} />
+        {/* Enhanced ground reference with grid */}
+        <mesh position={[0, -4, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[25, 25]} />
           <meshBasicMaterial 
-            color="#1e293b" 
+            color="#0f172a" 
             transparent 
-            opacity={0.1}
+            opacity={0.15}
             side={THREE.DoubleSide}
           />
         </mesh>
+        <gridHelper args={[20, 20, "#334155", "#1e293b"]} position={[0, -3.9, 0]} />
         
-        {/* Controls */}
+        {/* Optimized controls */}
         <OrbitControls 
           enablePan={true}
           enableZoom={true}
           enableRotate={true}
-          maxDistance={20}
-          minDistance={3}
-          target={[0, 0, 0]}
+          maxDistance={25}
+          minDistance={4}
+          target={[0, 0, -2]}
+          autoRotate={false}
+          autoRotateSpeed={0.5}
         />
       </Canvas>
       
