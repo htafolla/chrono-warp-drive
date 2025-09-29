@@ -142,7 +142,7 @@ export class EnhancedDebugExporter {
       }
     };
 
-    return JSON.stringify(enhancedState, null, 1);
+    return JSON.stringify(enhancedState, null, 0);
   }
 
   private generatePerformanceSummary(performance: ScenePerformanceMetrics) {

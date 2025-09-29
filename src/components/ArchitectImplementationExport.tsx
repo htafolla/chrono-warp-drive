@@ -290,7 +290,7 @@ export function ArchitectImplementationExport({
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `BLURRN_v46_Architect_Implementation_${timestamp}.json`;
       
-      const blob = new Blob([JSON.stringify(comprehensiveData, null, 2)], { 
+      const blob = new Blob([JSON.stringify(comprehensiveData, null, 0)], { 
         type: 'application/json' 
       });
       

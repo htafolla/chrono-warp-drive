@@ -468,7 +468,7 @@ export class DebugExporter {
 
   static exportDebugJSON(appState: any): string {
     const debugState = this.captureDebugState(appState);
-    return JSON.stringify(debugState, null, 1);
+    return JSON.stringify(debugState, null, 0);
   }
 
   static exportDebugSummary(appState: any): string {
