@@ -1,7 +1,8 @@
-// BLURRN Debug State Exporter
+// BLURRN v4.6 Debug State Exporter
 // Comprehensive state dump for AI debugging assistance
 
 import { SpectrumData, TPTTv4Result, NeuralOutput } from '@/types/sdss';
+import { TPTTv4_6Result, TDFComponents, TimeShiftMetrics, BlackHoleLightData, BlurrnV46Config, ExperimentLog } from '@/types/blurrn-v4-6';
 import { Isotope } from './temporalCalculator';
 
 export interface DebugState {
@@ -9,9 +10,11 @@ export interface DebugState {
   version: string;
   systemStatus: {
     isV4Initialized: boolean;
+    isV46Breakthrough: boolean;
     systemStatusMessage: string;
     errors: string[];
     warnings: string[];
+    ethicsScore: number;
   };
   engineConstants: {
     PHI: number;
@@ -54,6 +57,28 @@ export interface DebugState {
     };
     tPTTFormula: string;
     intermediateSteps: any;
+  };
+  // v4.6 TDF Breakthrough Data
+  tdfBreakthrough?: {
+    components: TDFComponents;
+    timeShiftMetrics: TimeShiftMetrics;
+    blackHoleLightData?: BlackHoleLightData;
+    v46Config: BlurrnV46Config;
+    calculationBreakdown: {
+      tdfFormula: string;
+      intermediateValues: {
+        tau_calculation: number;
+        blackhole_seq_steps: any;
+        s_l_dynamic: number;
+        e_t_growth_factor: number;
+      };
+    };
+    validationProofs: string[];
+    experimentData: {
+      roundNumber: number;
+      timestamp: number;
+      validationStatus: 'pending' | 'validated' | 'failed';
+    };
   };
   spectrumAnalysis: {
     fullSpectrumData: SpectrumData | null;
@@ -107,11 +132,47 @@ export interface DebugState {
     metamorphosisIndex: number;
     confidenceScore: number;
   };
+  // v4.6 Component States
+  componentStates?: {
+    timeShiftDisplay?: {
+      isActive: boolean;
+      currentTDF: number;
+      breakthroughProgress: number;
+      pulseIntensity: number;
+      displayMode: string;
+    };
+    blackHoleLightVisualizer?: {
+      isActive: boolean;
+      activePatterns: string[];
+      lightCaptureData: any;
+      patternMode: 'spiral' | 'radial' | 'spherical';
+      renderingMetrics: {
+        particleCount: number;
+        frameRate: number;
+      };
+    };
+    tdfPerformanceMonitor?: {
+      isActive: boolean;
+      currentMetrics: any;
+      extremeValueWarnings: string[];
+      performanceScore: number;
+    };
+    experimentLogger?: {
+      currentExperiment?: ExperimentLog;
+      totalExperiments: number;
+      recentExports: number;
+    };
+  };
   performance: {
     frameRate: number;
     memoryUsage?: number;
     renderTime: number;
     calculationTime: number;
+    tdfPerformanceCorrelation?: {
+      tdfStability: number;
+      extremeValueImpact: number;
+      memoryPressure: number;
+    };
   };
   browserInfo: {
     userAgent: string;
@@ -161,14 +222,20 @@ export class DebugExporter {
       PHI: 1.666, FREQ: 528, C: 3e8, DELTA_T: 1e-6, PHASE_UPDATE_FACTOR: 0.016
     };
 
+    // Check for v4.6 breakthrough data
+    const tpttV46Result = appState.tpttV46Result as TPTTv4_6Result;
+    const hasV46Breakthrough = !!(tpttV46Result?.v46_components);
+
     const debugState: DebugState = {
       timestamp: new Date().toISOString(),
-      version: "BLURRN v4.5",
+      version: "BLURRN v4.6",
       systemStatus: {
         isV4Initialized: appState.isV4Initialized || false,
+        isV46Breakthrough: hasV46Breakthrough,
         systemStatusMessage: appState.systemStatus || "Unknown",
         errors: this.logs.filter(l => l.level === 'error').map(l => l.message),
-        warnings: this.logs.filter(l => l.level === 'warn').map(l => l.message)
+        warnings: this.logs.filter(l => l.level === 'warn').map(l => l.message),
+        ethicsScore: appState.ethicsScore || 0.8
       },
       engineConstants: {
         PHI,
@@ -207,6 +274,39 @@ export class DebugExporter {
           spectral_analysis: appState.spectrumData ? "SDSS Real Data" : "Synthetic Data"
         }
       },
+      // v4.6 TDF Breakthrough Data
+      tdfBreakthrough: hasV46Breakthrough ? {
+        components: tpttV46Result.v46_components,
+        timeShiftMetrics: tpttV46Result.timeShiftMetrics,
+        blackHoleLightData: tpttV46Result.blackHoleLightData,
+        v46Config: {
+          growth_rate_multiplier: appState.v46Config?.growth_rate_multiplier || 1.0,
+          tau: tpttV46Result.v46_components.tau,
+          oscillator_frequency: appState.v46Config?.oscillator_frequency || 528,
+          tdf_overflow_clamp: appState.v46Config?.tdf_overflow_clamp || 1e15,
+          ethics_score_threshold: appState.v46Config?.ethics_score_threshold || 0.8
+        },
+        calculationBreakdown: {
+          tdfFormula: "TDF = (tPTT * τ * BlackHole_Seq) / (c^2 * Δt)",
+          intermediateValues: {
+            tau_calculation: tpttV46Result.v46_components.tau,
+            blackhole_seq_steps: {
+              voids: appState.voids || 1,
+              n: appState.n || 1,
+              phi: appState.phi || 1.666,
+              sequence: tpttV46Result.v46_components.BlackHole_Seq
+            },
+            s_l_dynamic: tpttV46Result.v46_components.S_L,
+            e_t_growth_factor: tpttV46Result.v46_components.E_t_growth
+          }
+        },
+        validationProofs: tpttV46Result.experimentData?.validationProofs || [],
+        experimentData: {
+          roundNumber: tpttV46Result.experimentData?.roundNumber || 0,
+          timestamp: tpttV46Result.experimentData?.timestamp || Date.now(),
+          validationStatus: tpttV46Result.timeShiftMetrics?.breakthrough_validated ? 'validated' : 'pending'
+        }
+      } : undefined,
       spectrumAnalysis: {
         fullSpectrumData: appState.spectrumData || null,
         wavelengthRange: appState.spectrumData ? {
@@ -261,11 +361,47 @@ export class DebugExporter {
         metamorphosisIndex: appState.tpttV4Result?.neuralOutput?.metamorphosisIndex || 0,
         confidenceScore: appState.tpttV4Result?.neuralOutput?.confidenceScore || 0
       },
+      // v4.6 Component States
+      componentStates: {
+        timeShiftDisplay: {
+          isActive: !!(appState.timeShiftDisplayActive),
+          currentTDF: hasV46Breakthrough ? tpttV46Result.v46_components.TDF_value : 0,
+          breakthroughProgress: hasV46Breakthrough ? (tpttV46Result.v46_components.TDF_value / 5.781e12) : 0,
+          pulseIntensity: appState.timeShiftPulseIntensity || 0,
+          displayMode: appState.timeShiftDisplayMode || 'standard'
+        },
+        blackHoleLightVisualizer: {
+          isActive: !!(appState.blackHoleLightVisualizerActive),
+          activePatterns: appState.activePatterns || [],
+          lightCaptureData: hasV46Breakthrough ? tpttV46Result.blackHoleLightData : null,
+          patternMode: appState.patternMode || 'spiral',
+          renderingMetrics: {
+            particleCount: appState.particleCount || 0,
+            frameRate: this.calculateFrameRate()
+          }
+        },
+        tdfPerformanceMonitor: {
+          isActive: !!(appState.tdfPerformanceMonitorActive),
+          currentMetrics: appState.tdfPerformanceMetrics || {},
+          extremeValueWarnings: appState.tdfExtremeValueWarnings || [],
+          performanceScore: appState.tdfPerformanceScore || 0
+        },
+        experimentLogger: {
+          currentExperiment: appState.currentExperiment,
+          totalExperiments: appState.experiments?.length || 0,
+          recentExports: appState.recentExports || 0
+        }
+      },
       performance: {
         frameRate: this.calculateFrameRate(),
         memoryUsage: (performance as any).memory?.usedJSHeapSize || undefined,
         renderTime: performance.now(),
-        calculationTime: performance.now() - startTime
+        calculationTime: performance.now() - startTime,
+        tdfPerformanceCorrelation: hasV46Breakthrough ? {
+          tdfStability: appState.tdfStability || 0,
+          extremeValueImpact: tpttV46Result.v46_components.TDF_value > 1e12 ? 0.8 : 0.2,
+          memoryPressure: ((performance as any).memory?.usedJSHeapSize || 0) / 1024 / 1024 / 100
+        } : undefined
       },
       browserInfo: {
         userAgent: navigator.userAgent,
@@ -295,7 +431,9 @@ Generated: ${debug.timestamp}
 
 ## System Status
 - Version: ${debug.version}
+- v4.6 Breakthrough: ${debug.systemStatus.isV46Breakthrough ? 'ACTIVE' : 'Inactive'}
 - v4.5 Initialized: ${debug.systemStatus.isV4Initialized}
+- Ethics Score: ${(debug.systemStatus.ethicsScore * 100).toFixed(1)}%
 - Status: ${debug.systemStatus.systemStatusMessage}
 - Errors: ${debug.systemStatus.errors.length}
 - Warnings: ${debug.systemStatus.warnings.length}
@@ -318,6 +456,20 @@ Generated: ${debug.timestamp}
 
 ## Calculation Formula
 ${debug.calculationBreakdown.tPTTFormula}
+
+## v4.6 TDF Breakthrough Values
+${debug.tdfBreakthrough ? `
+- TDF Value: ${debug.tdfBreakthrough.components.TDF_value.toExponential(3)}
+- τ (Tau): ${debug.tdfBreakthrough.components.tau.toFixed(3)}
+- BlackHole_Seq: ${debug.tdfBreakthrough.components.BlackHole_Seq.toFixed(6)}
+- S_L (Dynamic): ${debug.tdfBreakthrough.components.S_L.toFixed(3)}
+- E_t_growth: ${debug.tdfBreakthrough.components.E_t_growth.toFixed(3)}
+- Time Shift Capable: ${debug.tdfBreakthrough.timeShiftMetrics.timeShiftCapable ? 'YES' : 'NO'}
+- Oscillator Mode: ${debug.tdfBreakthrough.timeShiftMetrics.oscillatorMode}
+- Phase Sync: ${(debug.tdfBreakthrough.timeShiftMetrics.phaseSync * 100).toFixed(1)}%
+- Breakthrough Validated: ${debug.tdfBreakthrough.timeShiftMetrics.breakthrough_validated ? 'YES' : 'NO'}
+- Validation Status: ${debug.tdfBreakthrough.experimentData.validationStatus.toUpperCase()}
+- Round Number: ${debug.tdfBreakthrough.experimentData.roundNumber}` : 'v4.6 Breakthrough Not Active'}
 
 ## v4.5 Component Values
 ${debug.calculationBreakdown.v4Components ? `
@@ -386,6 +538,34 @@ ${debug.calculationBreakdown.v4Components ? `
 - Frame Rate: ${debug.performance.frameRate} FPS
 - Memory: ${debug.performance.memoryUsage ? (debug.performance.memoryUsage / 1024 / 1024).toFixed(1) + ' MB' : 'N/A'}
 - Calculation Time: ${debug.performance.calculationTime.toFixed(2)}ms
+${debug.performance.tdfPerformanceCorrelation ? `
+- TDF Stability: ${(debug.performance.tdfPerformanceCorrelation.tdfStability * 100).toFixed(1)}%
+- Extreme Value Impact: ${(debug.performance.tdfPerformanceCorrelation.extremeValueImpact * 100).toFixed(1)}%
+- Memory Pressure: ${debug.performance.tdfPerformanceCorrelation.memoryPressure.toFixed(1)}%` : ''}
+
+## v4.6 Component States
+${debug.componentStates ? `
+### Time Shift Display
+- Active: ${debug.componentStates.timeShiftDisplay?.isActive ? 'YES' : 'NO'}
+- Current TDF: ${debug.componentStates.timeShiftDisplay?.currentTDF?.toExponential(3) || 'N/A'}
+- Breakthrough Progress: ${((debug.componentStates.timeShiftDisplay?.breakthroughProgress || 0) * 100).toFixed(1)}%
+- Display Mode: ${debug.componentStates.timeShiftDisplay?.displayMode || 'N/A'}
+
+### Black Hole Light Visualizer
+- Active: ${debug.componentStates.blackHoleLightVisualizer?.isActive ? 'YES' : 'NO'}
+- Pattern Mode: ${debug.componentStates.blackHoleLightVisualizer?.patternMode || 'N/A'}
+- Active Patterns: ${debug.componentStates.blackHoleLightVisualizer?.activePatterns?.length || 0}
+- Particle Count: ${debug.componentStates.blackHoleLightVisualizer?.renderingMetrics?.particleCount || 0}
+
+### TDF Performance Monitor
+- Active: ${debug.componentStates.tdfPerformanceMonitor?.isActive ? 'YES' : 'NO'}
+- Performance Score: ${((debug.componentStates.tdfPerformanceMonitor?.performanceScore || 0) * 100).toFixed(1)}%
+- Extreme Value Warnings: ${debug.componentStates.tdfPerformanceMonitor?.extremeValueWarnings?.length || 0}
+
+### Experiment Logger
+- Total Experiments: ${debug.componentStates.experimentLogger?.totalExperiments || 0}
+- Recent Exports: ${debug.componentStates.experimentLogger?.recentExports || 0}
+- Current Experiment: ${debug.componentStates.experimentLogger?.currentExperiment ? 'Active' : 'None'}` : 'Component states not available'}
 
 ## Browser Environment
 - WebGL: ${debug.browserInfo.webglSupport ? 'Supported' : 'Not Available'}

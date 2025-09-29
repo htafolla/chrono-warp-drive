@@ -40,8 +40,8 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-medium">System Status</p>
-            <Badge variant={debugState.systemStatus.isV4Initialized ? "default" : "secondary"}>
-              {debugState.systemStatus.isV4Initialized ? "v4.5 Active" : "Legacy Mode"}
+            <Badge variant={debugState.systemStatus.isV46Breakthrough ? "default" : debugState.systemStatus.isV4Initialized ? "secondary" : "outline"}>
+              {debugState.systemStatus.isV46Breakthrough ? "v4.6 TDF" : debugState.systemStatus.isV4Initialized ? "v4.5 Active" : "Legacy Mode"}
             </Badge>
           </div>
           <div>
@@ -89,7 +89,28 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
           <p><strong>E_t:</strong> {debugState.temporalState.e_t.toFixed(3)}</p>
           <p><strong>Cycle:</strong> {debugState.temporalState.cycle}</p>
           <p><strong>Spectrum Points:</strong> {debugState.spectrumAnalysis.wavelengthRange.count || 'N/A'}</p>
+          {debugState.tdfBreakthrough && (
+            <>
+              <p><strong>TDF:</strong> {debugState.tdfBreakthrough.components.TDF_value.toExponential(2)}</p>
+              <p><strong>τ (Tau):</strong> {debugState.tdfBreakthrough.components.tau.toFixed(3)}</p>
+              <p><strong>Time Shift:</strong> {debugState.tdfBreakthrough.timeShiftMetrics.timeShiftCapable ? 'CAPABLE' : 'Inactive'}</p>
+              <p><strong>Ethics Score:</strong> {(debugState.systemStatus.ethicsScore * 100).toFixed(0)}%</p>
+            </>
+          )}
         </div>
+
+        {/* v4.6 TDF Breakthrough Status */}
+        {debugState.tdfBreakthrough && (
+          <div className="bg-primary/5 border border-primary/20 p-3 rounded text-sm space-y-2">
+            <p className="font-medium text-primary">TDF Breakthrough Active</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <p><strong>Validation:</strong> {debugState.tdfBreakthrough.timeShiftMetrics.breakthrough_validated ? '✓ Validated' : '⚠ Pending'}</p>
+              <p><strong>Oscillator:</strong> {debugState.tdfBreakthrough.timeShiftMetrics.oscillatorMode}</p>
+              <p><strong>Phase Sync:</strong> {(debugState.tdfBreakthrough.timeShiftMetrics.phaseSync * 100).toFixed(0)}%</p>
+              <p><strong>Round:</strong> #{debugState.tdfBreakthrough.experimentData.roundNumber}</p>
+            </div>
+          </div>
+        )}
 
         {/* Export Actions */}
         <div className="space-y-3">
@@ -122,9 +143,45 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
               <Download className="h-4 w-4" />
               Download Report
             </Button>
+            {debugState.tdfBreakthrough && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const tdfReport = `# TDF Experiment Report
+Generated: ${new Date().toISOString()}
+
+## TDF Breakthrough Values
+- TDF Value: ${debugState.tdfBreakthrough.components.TDF_value.toExponential(6)}
+- τ (Tau): ${debugState.tdfBreakthrough.components.tau}
+- BlackHole_Seq: ${debugState.tdfBreakthrough.components.BlackHole_Seq}
+- S_L (Dynamic): ${debugState.tdfBreakthrough.components.S_L}
+- E_t_growth: ${debugState.tdfBreakthrough.components.E_t_growth}
+
+## Time Shift Status
+- Capable: ${debugState.tdfBreakthrough.timeShiftMetrics.timeShiftCapable}
+- Oscillator Mode: ${debugState.tdfBreakthrough.timeShiftMetrics.oscillatorMode}
+- Phase Sync: ${debugState.tdfBreakthrough.timeShiftMetrics.phaseSync}
+- Breakthrough Validated: ${debugState.tdfBreakthrough.timeShiftMetrics.breakthrough_validated}
+
+## Validation Proofs
+${debugState.tdfBreakthrough.validationProofs.map(proof => `- ${proof}`).join('\n')}
+`;
+                  navigator.clipboard.writeText(tdfReport);
+                  toast.success('TDF experiment report copied');
+                }}
+                className="flex items-center gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                Copy TDF Report
+              </Button>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Share this debug information with AI for comprehensive troubleshooting
+            {debugState.tdfBreakthrough 
+              ? 'v4.6 TDF breakthrough data available for comprehensive analysis'
+              : 'Share this debug information with AI for comprehensive troubleshooting'
+            }
           </p>
         </div>
       </CardContent>
