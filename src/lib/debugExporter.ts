@@ -163,6 +163,30 @@ export interface DebugState {
       recentExports: number;
     };
   };
+  enhancedTemporalScene?: {
+    isActive: boolean;
+    renderMode: 'tdf' | 'legacy';
+    particleCount: number;
+    wavePointCount: number;
+    sceneComplexity: 'low' | 'medium' | 'high';
+    tdfVisualizationActive: boolean;
+    hiddenLightPatterns: number;
+    displacementFieldActive: boolean;
+  };
+  lodSystem?: {
+    currentLOD: 'high' | 'medium' | 'low' | 'veryLow';
+    lodDistance: number;
+    autoAdjustment: boolean;
+    performanceThresholds: {
+      highToMedium: number;
+      mediumToLow: number;
+      lowToVeryLow: number;
+    };
+    geometryOptimization: {
+      segmentReduction: number;
+      particleReduction: number;
+    };
+  };
   performance: {
     frameRate: number;
     memoryUsage?: number;
@@ -392,6 +416,30 @@ export class DebugExporter {
           recentExports: appState.recentExports || 0
         }
       },
+      enhancedTemporalScene: {
+        isActive: !!appState.tpttV46Result,
+        renderMode: appState.tpttV46Result ? 'tdf' : 'legacy',
+        particleCount: appState.tpttV46Result?.timeShiftMetrics?.hiddenLightRevealed?.length * 10 || 0,
+        wavePointCount: appState.performanceSettings?.quality === 'high' ? 48*48*8 : appState.performanceSettings?.quality === 'medium' ? 32*32*5 : 24*24*3,
+        sceneComplexity: appState.performanceSettings?.quality || 'high',
+        tdfVisualizationActive: !!(appState.tpttV46Result?.v46_components),
+        hiddenLightPatterns: appState.tpttV46Result?.timeShiftMetrics?.hiddenLightRevealed?.length || 0,
+        displacementFieldActive: !!(appState.tpttV46Result?.timeShiftMetrics?.breakthrough_validated)
+      },
+      lodSystem: {
+        currentLOD: this.calculateLODLevel(appState.currentFPS, appState.performanceSettings?.targetFPS || 60),
+        lodDistance: 15, // Default camera distance for LOD calculations
+        autoAdjustment: appState.performanceSettings?.autoAdjust || false,
+        performanceThresholds: {
+          highToMedium: 45,
+          mediumToLow: 30,
+          lowToVeryLow: 20
+        },
+        geometryOptimization: {
+          segmentReduction: appState.currentFPS < 30 ? 0.5 : 0,
+          particleReduction: appState.currentFPS < 20 ? 0.7 : 0
+        }
+      },
       performance: {
         frameRate: this.calculateFrameRate(),
         memoryUsage: (performance as any).memory?.usedJSHeapSize || undefined,
@@ -470,6 +518,44 @@ ${debug.tdfBreakthrough ? `
 - Breakthrough Validated: ${debug.tdfBreakthrough.timeShiftMetrics.breakthrough_validated ? 'YES' : 'NO'}
 - Validation Status: ${debug.tdfBreakthrough.experimentData.validationStatus.toUpperCase()}
 - Round Number: ${debug.tdfBreakthrough.experimentData.roundNumber}` : 'v4.6 Breakthrough Not Active'}
+
+## Enhanced 3D Temporal Scene
+${debug.enhancedTemporalScene ? `
+- Scene Mode: ${debug.enhancedTemporalScene.renderMode.toUpperCase()}
+- TDF Visualization: ${debug.enhancedTemporalScene.tdfVisualizationActive ? 'ACTIVE' : 'INACTIVE'}
+- Particle Count: ${debug.enhancedTemporalScene.particleCount}
+- Wave Resolution: ${debug.enhancedTemporalScene.wavePointCount} points
+- Scene Complexity: ${debug.enhancedTemporalScene.sceneComplexity.toUpperCase()}
+- Hidden Light Patterns: ${debug.enhancedTemporalScene.hiddenLightPatterns}
+- Displacement Field: ${debug.enhancedTemporalScene.displacementFieldActive ? 'ACTIVE' : 'INACTIVE'}` : 'Scene data not available'}
+
+## LOD Performance System
+${debug.lodSystem ? `
+- Current LOD: ${debug.lodSystem.currentLOD.toUpperCase()}
+- LOD Distance: ${debug.lodSystem.lodDistance}m
+- Auto Adjustment: ${debug.lodSystem.autoAdjustment ? 'ENABLED' : 'DISABLED'}
+- Performance Thresholds: High>${debug.lodSystem.performanceThresholds.highToMedium} Med>${debug.lodSystem.performanceThresholds.mediumToLow} Low>${debug.lodSystem.performanceThresholds.lowToVeryLow}
+- Geometry Optimization: ${(debug.lodSystem.geometryOptimization.segmentReduction * 100).toFixed(1)}% reduction
+- Particle Optimization: ${(debug.lodSystem.geometryOptimization.particleReduction * 100).toFixed(1)}% reduction` : 'LOD system data not available'}
+
+## Enhanced 3D Temporal Scene
+${debug.enhancedTemporalScene ? `
+- Scene Mode: ${debug.enhancedTemporalScene.renderMode.toUpperCase()}
+- TDF Visualization: ${debug.enhancedTemporalScene.tdfVisualizationActive ? 'ACTIVE' : 'INACTIVE'}
+- Particle Count: ${debug.enhancedTemporalScene.particleCount}
+- Wave Resolution: ${debug.enhancedTemporalScene.wavePointCount} points
+- Scene Complexity: ${debug.enhancedTemporalScene.sceneComplexity.toUpperCase()}
+- Hidden Light Patterns: ${debug.enhancedTemporalScene.hiddenLightPatterns}
+- Displacement Field: ${debug.enhancedTemporalScene.displacementFieldActive ? 'ACTIVE' : 'INACTIVE'}` : 'Scene data not available'}
+
+## LOD Performance System
+${debug.lodSystem ? `
+- Current LOD: ${debug.lodSystem.currentLOD.toUpperCase()}
+- LOD Distance: ${debug.lodSystem.lodDistance}m
+- Auto Adjustment: ${debug.lodSystem.autoAdjustment ? 'ENABLED' : 'DISABLED'}
+- Performance Thresholds: High>${debug.lodSystem.performanceThresholds.highToMedium} Med>${debug.lodSystem.performanceThresholds.mediumToLow} Low>${debug.lodSystem.performanceThresholds.lowToVeryLow}
+- Geometry Optimization: ${(debug.lodSystem.geometryOptimization.segmentReduction * 100).toFixed(1)}% reduction
+- Particle Optimization: ${(debug.lodSystem.geometryOptimization.particleReduction * 100).toFixed(1)}% reduction` : 'LOD system data not available'}
 
 ## v4.5 Component Values
 ${debug.calculationBreakdown.v4Components ? `
@@ -620,6 +706,15 @@ ${debug.spectrumAnalysis.fullSpectrumData ? `Points: ${debug.spectrumAnalysis.fu
     const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
     
     return { min, max, mean, variance };
+  }
+
+  static calculateLODLevel(currentFPS: number, targetFPS: number): 'high' | 'medium' | 'low' | 'veryLow' {
+    const performanceRatio = currentFPS / targetFPS;
+    
+    if (performanceRatio >= 0.75) return 'high';
+    if (performanceRatio >= 0.5) return 'medium';
+    if (performanceRatio >= 0.33) return 'low';
+    return 'veryLow';
   }
 
   static downloadDebugReport(appState: any, format: 'json' | 'summary' = 'summary') {

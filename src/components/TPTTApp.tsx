@@ -55,6 +55,7 @@ import { ExperimentLogger } from './ExperimentLogger';
 import { V46UserGuide } from './V46UserGuide';
 import { TemporalDisplacementControls } from './TemporalDisplacementControls';
 import { BlackHoleLightVisualizer } from './BlackHoleLightVisualizer';
+import { TDFEnhancedTemporalScene } from './TDFEnhancedTemporalScene';
 import { TemporalControls } from './TemporalControls';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
@@ -1003,7 +1004,33 @@ export function TPTTApp() {
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Time Shift Display */}
+              {/* TDF Enhanced 3D Scene - Full Width */}
+              <div className="col-span-full mb-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      v4.6 TDF Temporal Displacement Visualization
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <TDFEnhancedTemporalScene
+                      phases={phases}
+                      isotope={isotope}
+                      time={time}
+                      tpttV46Result={tpttV46Result}
+                      spectrumData={spectrumData}
+                      qualitySettings={{
+                        particles: performanceSettings.particles,
+                        shadows: performanceSettings.shadows,
+                        quality: performanceSettings.quality
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Time Shift Display & Controls */}
               <div className="space-y-6">
                 <TimeShiftDisplay 
                   tpttV46Result={tpttV46Result}
@@ -1021,7 +1048,7 @@ export function TPTTApp() {
                 />
               </div>
               
-              {/* Black Hole Light Visualizer */}
+              {/* Black Hole Light Visualizer & Experiments */}
               <div className="space-y-6">
                 <BlackHoleLightVisualizer
                   tpttV46Result={tpttV46Result}
