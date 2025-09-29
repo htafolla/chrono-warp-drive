@@ -54,9 +54,10 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
         
         const baseWave = Math.sin(x * 0.8 + z * 0.8 + phase + time * 0.3);
         const tdfWave = isV46Active ? Math.sin(x * tdfMultiplier + z * tau + phase * 2) : 0;
+        const syntheticWave = Math.sin(x * 0.5 + z * 0.5 + time * 0.5) * 0.3;
         
-        const heightValue = Math.max(-1.5, Math.min(1.5, 
-          (baseWave * 0.3) + (tdfWave * 0.2)
+        const heightValue = Math.max(-2.0, Math.min(2.0, 
+          (baseWave * 1.5) + (tdfWave * 0.8) + syntheticWave
         ));
         
         position.setY(i, heightValue);
@@ -74,22 +75,29 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
     }
   });
 
-  // Better opacity distribution for depth
-  const opacity = Math.max(0.2, 0.9 - (index / totalPlanes) * 0.6);
+  // Enhanced opacity and material settings
+  const opacity = Math.max(0.4, 0.95 - (index / totalPlanes) * 0.5);
 
   return (
     <mesh ref={meshRef} position={[0, (index - totalPlanes / 2) * 0.8, -index * 0.2]}>
       <planeGeometry 
         ref={geometryRef} 
-        args={[6, 6, 16, 16]} 
+        args={[8, 8, 24, 24]} 
       />
       <meshPhongMaterial 
         color={band.color}
-        wireframe
+        wireframe={false}
         transparent
         opacity={opacity}
         side={THREE.DoubleSide}
+        emissive={band.color}
+        emissiveIntensity={0.1}
       />
+      {/* Wireframe overlay for better visibility */}
+      <lineSegments>
+        <wireframeGeometry args={[new THREE.PlaneGeometry(8, 8, 24, 24)]} />
+        <lineBasicMaterial color={band.color} opacity={opacity * 0.6} transparent />
+      </lineSegments>
     </mesh>
   );
 }
@@ -200,6 +208,42 @@ export function CleanTemporalScene({
     history: []
   });
   
+  // Data validation and fallback generation
+  const validatedData = useMemo(() => {
+    console.log('🔍 Scene Data Debug:', {
+      phases: phases?.length,
+      phasesData: phases,
+      isotope: isotope?.type,
+      time,
+      tpttV46Result: !!tpttV46Result,
+      spectrumData: !!spectrumData,
+      activeTab
+    });
+
+    // Generate fallback data if needed
+    const fallbackPhases = phases?.length > 0 ? phases : 
+      Array.from({length: 4}, (_, i) => Math.sin(time * 0.01 + i) * Math.PI);
+    
+    const fallbackTime = typeof time === 'number' && !isNaN(time) ? time : Date.now() * 0.001;
+    
+    const fallbackIsotope = isotope || { 
+      type: 'Hydrogen-1', 
+      mass: 1, 
+      abundance: 99.98, 
+      halfLife: null,
+      factor: 1.0
+    };
+
+    const isFallbackMode = !phases?.length || typeof time !== 'number' || isNaN(time);
+    
+    return {
+      phases: fallbackPhases,
+      time: fallbackTime,
+      isotope: fallbackIsotope,
+      isFallbackMode
+    };
+  }, [phases, isotope, time, tpttV46Result, spectrumData, activeTab]);
+  
   // Determine if v4.6 mode is active
   const isV46Active = useMemo(() => {
     return !!(tpttV46Result && 
@@ -216,29 +260,34 @@ export function CleanTemporalScene({
 
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="clean-temporal-scene">
-      <Canvas camera={{ position: [8, 6, 10], fov: 60 }}>
+      <Canvas camera={{ position: [5, 4, 8], fov: 65 }}>
         {/* FPS Monitor inside Canvas */}
         <FPSMonitorInternal onFPSUpdate={setFpsData} />
         
-        {/* Optimized lighting */}
-        <ambientLight intensity={0.3} />
+        {/* Enhanced lighting system */}
+        <ambientLight intensity={0.5} />
         <directionalLight 
-          position={[5, 10, 5]} 
-          intensity={0.7}
+          position={[10, 10, 5]} 
+          intensity={1.2}
           color="#ffffff"
+          castShadow
         />
-        <pointLight position={[0, 8, 8]} intensity={0.4} color="#4f46e5" />
+        <pointLight position={[-5, 8, 8]} intensity={0.8} color="#4f46e5" />
+        <pointLight position={[5, 2, -5]} intensity={0.6} color="#06b6d4" />
+        <hemisphereLight
+          args={["#4f46e5", "#1e293b", 0.3]}
+        />
         
-        {/* Wave planes */}
+        {/* Wave planes with validated data */}
         {activeBands.map((band, index) => (
           <CleanWavePlane
             key={band.band}
             band={band}
-            phases={phases}
-            isotope={isotope}
+            phases={validatedData.phases}
+            isotope={validatedData.isotope}
             tdfComponents={tpttV46Result?.v46_components}
             index={index}
-            time={time}
+            time={validatedData.time}
             totalPlanes={activeBands.length}
           />
         ))}
@@ -271,17 +320,20 @@ export function CleanTemporalScene({
         />
       </Canvas>
       
-      {/* Info overlay */}
+      {/* Info overlay with fallback indicator */}
       <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 text-card-foreground">
         <div className="text-sm font-medium space-y-1">
           <p>Mode: <span className={isV46Active ? "text-green-400" : "text-yellow-400"}>
             {isV46Active ? "TDF v4.6 Active" : "Standard"}
           </span></p>
-          <p>Isotope: <span className="text-primary">{isotope.type}</span></p>
+          <p>Isotope: <span className="text-primary">{validatedData.isotope.type}</span></p>
           <p>Planes: <span className="text-accent">{activeBands.length}</span></p>
           <p>FPS: <span className={fpsData.current > 45 ? "text-green-400" : fpsData.current > 30 ? "text-yellow-400" : "text-red-400"}>
             {fpsData.current}
           </span></p>
+          {validatedData.isFallbackMode && (
+            <p className="text-orange-400 text-xs">⚠️ Fallback Mode</p>
+          )}
         </div>
         <div className="text-xs text-muted-foreground mt-2">
           Drag • Scroll • Enhanced scene
