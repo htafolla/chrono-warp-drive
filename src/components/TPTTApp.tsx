@@ -103,7 +103,7 @@ export function TPTTApp() {
     shadows: true,
     particles: true,
     postProcessing: true,
-    targetFPS: 60
+    targetFPS: 120  // v4.6 specification
   });
   const [currentFPS, setCurrentFPS] = useState(60);
 
@@ -134,6 +134,9 @@ export function TPTTApp() {
     tdf_overflow_clamp: 1e15,
     ethics_score_threshold: 0.8
   });
+  
+  // Enhanced debug data for exports (Phase 5)
+  const [enhancedDebugRaw, setEnhancedDebugRaw] = useState<any>(null);
 
   // v4.5 Systems
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
@@ -456,6 +459,11 @@ export function TPTTApp() {
     handleSpectrumSelect(randomSpectrum);
     toast.success(`Optimized ${type} spectrum loaded for maximum energy efficiency`);
   }, [picklesAtlas]);
+
+  // Phase 5: Debug data callback for enhanced exports
+  const handleDebugDataUpdate = useCallback((debugData: any) => {
+    setEnhancedDebugRaw(debugData);
+  }, []);
 
   // Calculate enhanced metrics for new components
   const enhancedMetrics = React.useMemo(() => {
@@ -1033,6 +1041,7 @@ export function TPTTApp() {
                         shadows: performanceSettings.shadows,
                         quality: performanceSettings.quality
                       }}
+                      onDebugDataUpdate={handleDebugDataUpdate}
                     />
                   </CardContent>
                 </Card>

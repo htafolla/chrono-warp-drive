@@ -127,17 +127,29 @@ export function ArchitectImplementationExport({
       if (perfError) throw perfError;
 
       // Export TDF experiments (reduced to 20 for size optimization)
-      const { data: experiments, error: expError } = await supabase
+      const { data: rawExperiments, error: expError } = await supabase
         .from('tdf_experiments')
-        .select('tdf_value, tau, breakthrough_validated, created_at')
+        .select('id, tdf_components, time_shift_metrics, created_at')
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (expError) throw expError;
 
+      // Extract values from jsonb fields with proper type casting
+      const experiments = rawExperiments?.map(exp => {
+        const tdfComponents = exp.tdf_components as any;
+        const timeShiftMetrics = exp.time_shift_metrics as any;
+        return {
+          tdf_value: tdfComponents?.TDF_value,
+          tau: tdfComponents?.tau,
+          breakthrough_validated: timeShiftMetrics?.breakthrough_validated,
+          created_at: exp.created_at
+        };
+      }) || [];
+
       return {
         performance_logs: performanceLogs || [],
-        tdf_experiments: experiments || [],
+        tdf_experiments: experiments,
         fallback_metrics: await exportFallbackMetrics(),
         export_metadata: {
           total_performance_records: performanceLogs?.length || 0,

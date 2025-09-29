@@ -39,8 +39,8 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
     const benchmarkCPU = (): number => {
       const start = performance.now();
       let result = 0;
-      // Phase 4: Reduced from 100,000 to 10,000 iterations for better performance
-      for (let i = 0; i < 10000; i++) {
+      // v4.6: Reduced to 5,000 iterations for better performance
+      for (let i = 0; i < 5000; i++) {
         result += Math.sqrt(i) * Math.sin(i) * Math.cos(i);
       }
       return performance.now() - start;
@@ -65,13 +65,13 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         // Render time calculation
         const renderTime = 1000 / fps;
 
-        // Phase 4: Adaptive FPS targeting (30fps minimum, 60fps preferred)
-        const targetFPS = fps < 25 ? 30 : 60;
-        const adaptiveQuality = fps >= 55 ? 'high' : fps >= 30 ? 'medium' : 'low';
+        // v4.6: Adaptive FPS targeting (60fps minimum, 120fps preferred)
+        const targetFPS = fps < 60 ? 60 : 120;
+        const adaptiveQuality = fps >= 100 ? 'high' : fps >= 60 ? 'medium' : 'low';
 
         setMetrics(prev => ({
           ...prev,
-          fps: Math.min(fps, 60),
+          fps: Math.min(fps, 120),
           memoryUsage,
           renderTime,
           gpuMemory: deterministicRandom(generateCycle(), 0) * 30 + 10, // Mock GPU memory usage
@@ -128,7 +128,7 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
               <span className="text-sm text-muted-foreground">Frame Rate</span>
               <span className="font-mono text-sm">{metrics.fps} FPS</span>
             </div>
-            <Progress value={(metrics.fps / 60) * 100} className="h-2" />
+            <Progress value={(metrics.fps / 120) * 100} className="h-2" />
           </div>
           
           <div>
