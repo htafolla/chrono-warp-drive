@@ -48,6 +48,7 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
 
           case 'q-ent-result':
             if (response.data) {
+              console.log('[Neural Fusion] Q_ent result received:', response.data.q_ent);
               setLastResult(prev => ({
                 ...prev,
                 q_ent: response.data!.q_ent,
@@ -64,6 +65,10 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
 
           case 'cascade-result':
             if (response.data) {
+              console.log('[Neural Fusion] Cascade result received:', {
+                cascade_index: response.data.cascade_index,
+                efficiency: response.data.efficiency
+              });
               setLastResult(prev => ({
                 ...prev,
                 cascade_index: response.data!.cascade_index,
@@ -143,10 +148,10 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
     ): Promise<{ cascade_index: number; efficiency: number }> => {
       if (!workerRef.current || !isInitialized) {
         console.warn('[Neural Fusion] Worker not initialized, using fallback calculation');
-        // Fallback calculation
+        // Fallback calculation - efficiency normalized to [0..1]
         const cascade_index = Math.floor(Math.PI / 7) + n;
         const target_tptt = 5.3e12;
-        const efficiency = Math.min(100, (tdf_value / target_tptt) * 100);
+        const efficiency = Math.min(1, tdf_value / target_tptt);
         return { cascade_index, efficiency };
       }
 
@@ -189,12 +194,17 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
 
       const compute_time = performance.now() - startTime;
 
-      return {
+      const fullResult = {
         q_ent: q_ent_result,
         cascade_index: cascade_result.cascade_index,
         efficiency: cascade_result.efficiency,
         compute_time
       };
+
+      // Ensure UI gets updated even if messages are delayed
+      setLastResult(fullResult);
+
+      return fullResult;
     },
     [computeQEnt, computeCascade]
   );

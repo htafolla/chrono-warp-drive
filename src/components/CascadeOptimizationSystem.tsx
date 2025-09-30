@@ -131,19 +131,21 @@ export function CascadeOptimizationSystem({
         compute_time: `${result.compute_time.toFixed(2)}ms`
       });
 
+      // Always insert cascade_updates to database
+      await supabase.from('cascade_updates').insert({
+        session_id: sessionId,
+        cascade_index: result.cascade_index,
+        cti_value: result.q_ent * result.cascade_index,
+        q_ent: result.q_ent,
+        delta_phase: deltaPhase,
+        n: cascadeLevel,
+        tdf_value: tdfValue,
+        efficiency: result.efficiency
+      });
+
+      // Broadcast to realtime if connected
       if (realtimeConnected) {
         broadcastUpdate({
-          cascade_index: result.cascade_index,
-          cti_value: result.q_ent * result.cascade_index,
-          q_ent: result.q_ent,
-          delta_phase: deltaPhase,
-          n: cascadeLevel,
-          tdf_value: tdfValue,
-          efficiency: result.efficiency
-        });
-
-        await supabase.from('cascade_updates').insert({
-          session_id: sessionId,
           cascade_index: result.cascade_index,
           cti_value: result.q_ent * result.cascade_index,
           q_ent: result.q_ent,
@@ -268,6 +270,18 @@ export function CascadeOptimizationSystem({
     }
   }, [cascadeLevel, tdfValue, deltaPhase, neuralInitialized, runNeuralOptimization]);
 
+  // Periodic recompute to keep numbers lively
+  useEffect(() => {
+    if (!neuralInitialized || cascadeLevel < 25 || cascadeLevel > 34) return;
+
+    const intervalId = setInterval(() => {
+      console.log('[Neural Fusion] Periodic recompute triggered');
+      runNeuralOptimization();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [neuralInitialized, cascadeLevel, runNeuralOptimization]);
+
   // Phase 7: AI Advisor Handler
   const handleAIAdvice = async () => {
     await getAdvice(cascadeLevel, deltaPhase, sessionId);
@@ -376,12 +390,13 @@ export function CascadeOptimizationSystem({
             <div className="flex items-center gap-2">
               <Brain className="w-4 h-4" />
               <span className="text-sm font-medium">Neural Fusion</span>
+              {neuralComputing && <span className="text-xs text-muted-foreground">(Computing...)</span>}
             </div>
             <Badge variant={neuralInitialized ? 'default' : 'outline'}>
               {neuralInitialized ? 'Active' : 'Initializing'}
             </Badge>
           </div>
-          {neuralResult && (
+          {neuralResult && typeof neuralResult.q_ent === 'number' && typeof neuralResult.efficiency === 'number' ? (
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Q_ent:</span>
@@ -392,6 +407,10 @@ export function CascadeOptimizationSystem({
                 <span className="font-mono">{(neuralResult.efficiency * 100).toFixed(1)}%</span>
               </div>
               <Progress value={neuralResult.efficiency * 100} className="h-2" />
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              Waiting for neural metrics...
             </div>
           )}
         </div>
