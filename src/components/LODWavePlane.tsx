@@ -130,11 +130,21 @@ export function LODWavePlane({
       setIsVisible(true);
       meshRef.current.visible = true;
       
-      // Switch geometry if LOD level changed
+      // Switch geometry if LOD level changed - FIXED: Clone geometry instead of direct assignment
       if (targetLOD !== currentLOD) {
         const newGeometry = geometries.get(targetLOD);
-        if (newGeometry && meshRef.current.geometry !== newGeometry) {
-          meshRef.current.geometry = newGeometry;
+        if (newGeometry) {
+          // Dispose old geometry properly
+          const oldGeometry = meshRef.current.geometry;
+          if (oldGeometry && oldGeometry !== newGeometry) {
+            // Clone the geometry to avoid buffer resize errors
+            const clonedGeometry = newGeometry.clone();
+            meshRef.current.geometry = clonedGeometry;
+            // Dispose the old one if it's not in the cache
+            if (!Array.from(geometries.values()).includes(oldGeometry as THREE.PlaneGeometry)) {
+              oldGeometry.dispose();
+            }
+          }
           setCurrentLOD(targetLOD);
         }
       }
