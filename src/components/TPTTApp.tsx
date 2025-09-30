@@ -60,6 +60,7 @@ import { TDFEnhancedTemporalScene } from './TDFEnhancedTemporalScene';
 import { TemporalControls } from './TemporalControls';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { ArchitectImplementationExport } from './ArchitectImplementationExport';
+import { CascadeOptimizationSystem } from './CascadeOptimizationSystem';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
 import { memoryManager } from '@/lib/memoryManager';
 import ChronoSlider from './ChronoSlider';
@@ -146,6 +147,7 @@ export function TPTTApp() {
   
   // Session tracking for duration calculation
   const [sessionStartTime] = useState(Date.now());
+  const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
   // v4.5 Systems
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
@@ -1274,6 +1276,17 @@ export function TPTTApp() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Phase 1-5: Integrated Cascade Optimization System */}
+            <CascadeOptimizationSystem
+              cascadeLevel={cascadeParams.n}
+              tdfValue={tpttV46Result?.v46_components?.TDF_value || 0}
+              deltaPhase={cascadeParams.delta_phase}
+              sessionId={sessionId}
+              onOptimizationUpdate={(recommendations) => {
+                console.log('[Cascade Optimization] Recommendations:', recommendations);
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>

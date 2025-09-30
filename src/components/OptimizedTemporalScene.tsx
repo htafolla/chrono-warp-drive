@@ -8,6 +8,7 @@ import { TPTTv4_6Result, TimeShiftMetrics, TDFComponents } from '@/types/blurrn-
 import { SpectrumData } from '@/types/sdss';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
 import { useSceneMetricsLogger } from '@/hooks/useSceneMetricsLogger';
+import { optimizeGeometry, shouldGroupMeshes } from '@/lib/sceneOptimization';
 
 interface OptimizedWavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -17,22 +18,22 @@ interface OptimizedWavePlaneProps {
   index: number;
   time: number;
   quality: 'low' | 'medium' | 'high';
+  cascadeLevel?: number;
 }
 
-function OptimizedWavePlane({ band, phases, isotope, tdfComponents, index, time, quality }: OptimizedWavePlaneProps) {
+function OptimizedWavePlane({ band, phases, isotope, tdfComponents, index, time, quality, cascadeLevel = 29 }: OptimizedWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
   const memoryManager = useMemoryManager();
 
-  // Optimized geometry for better performance
+  // Phase 1: Cascade-adaptive geometry optimization (800 vertices at n=25 → 440 at n=34)
   const geometryArgs = useMemo((): [number, number, number, number] => {
-    const segmentMap = { 
-      low: [6, 6, 12, 12] as [number, number, number, number], 
-      medium: [8, 8, 16, 16] as [number, number, number, number], 
-      high: [8, 8, 20, 20] as [number, number, number, number] 
-    };
-    return segmentMap[quality];
-  }, [quality]);
+    const optimized = optimizeGeometry(quality, cascadeLevel);
+    // Convert to segments: Math.sqrt(vertices) ≈ segments per side
+    const segmentsPerSide = Math.floor(Math.sqrt(optimized.vertices) / 2);
+    const segments = Math.max(6, Math.min(segmentsPerSide, 20)); // Clamp between 6-20
+    return [6, 6, segments, segments] as [number, number, number, number];
+  }, [quality, cascadeLevel]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -151,6 +152,7 @@ interface OptimizedTemporalSceneProps {
     quality: 'low' | 'medium' | 'high';
   };
   activeTab?: string;
+  cascadeLevel?: number;
 }
 
 export function OptimizedTemporalScene({ 
@@ -160,7 +162,8 @@ export function OptimizedTemporalScene({
   tpttV46Result,
   spectrumData,
   qualitySettings = { particles: true, shadows: true, quality: 'high' },
-  activeTab = 'Scene'
+  activeTab = 'Scene',
+  cascadeLevel = 29
 }: OptimizedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
   const fpsData = useFPSMonitor();
@@ -168,9 +171,19 @@ export function OptimizedTemporalScene({
   
   const hasV46Data = tpttV46Result?.v46_components && tpttV46Result?.timeShiftMetrics;
   
-  // Adaptive band count based on quality and performance
+  // Phase 1: Adaptive band count with mesh grouping consideration
   const bandCount = useMemo(() => {
     if (fpsData.current < 30) return 3; // Emergency performance mode
+    
+    // Check if we should group meshes for performance
+    const currentMeshCount = SPECTRUM_BANDS.length;
+    const shouldGroup = shouldGroupMeshes(currentMeshCount, fpsData.current);
+    
+    if (shouldGroup) {
+      // Reduce band count when grouping is needed
+      return qualitySettings.quality === 'high' ? 4 : qualitySettings.quality === 'medium' ? 3 : 2;
+    }
+    
     const baseCount = qualitySettings.quality === 'high' ? 5 : qualitySettings.quality === 'medium' ? 4 : 3;
     return Math.min(baseCount, SPECTRUM_BANDS.length);
   }, [qualitySettings.quality, fpsData.current]);
@@ -217,7 +230,7 @@ export function OptimizedTemporalScene({
           />
         )}
         
-        {/* Optimized wave planes */}
+        {/* Phase 1: Cascade-adaptive optimized wave planes */}
         {SPECTRUM_BANDS.slice(0, bandCount).map((band, index) => (
           <OptimizedWavePlane
             key={band.band}
@@ -228,6 +241,7 @@ export function OptimizedTemporalScene({
             index={index}
             time={time}
             quality={qualitySettings.quality}
+            cascadeLevel={cascadeLevel}
           />
         ))}
         
@@ -276,7 +290,7 @@ export function OptimizedTemporalScene({
           )}
         </div>
         <div className="text-xs text-muted-foreground mt-2">
-          Optimized Scene • Bands: {bandCount} • FPS: {fpsData.current}
+          Optimized Scene • Bands: {bandCount} • Cascade: n={cascadeLevel} • FPS: {fpsData.current}
         </div>
       </div>
       
