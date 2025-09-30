@@ -62,6 +62,7 @@ export interface BlurrnV46Config {
   oscillator_frequency: number;   // c=3e8 or 528Hz
   tdf_overflow_clamp: number;     // 1e15 max
   ethics_score_threshold: number; // 0.8 minimum
+  voids?: number;                 // Distance-compensated voids (default: 1)
 }
 
 /**

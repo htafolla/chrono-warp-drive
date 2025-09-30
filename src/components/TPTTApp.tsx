@@ -132,7 +132,8 @@ export function TPTTApp() {
     tau: 0.865,
     oscillator_frequency: 3e8,
     tdf_overflow_clamp: 1e15,
-    ethics_score_threshold: 0.8
+    ethics_score_threshold: 0.8,
+    voids: 1 // Will be updated with distance compensation
   });
   
   // Enhanced debug data for exports (Phase 5)
@@ -191,16 +192,28 @@ export function TPTTApp() {
         
         setSystemStatus("Initializing v4.6 Time Machine systems...");
         
-        const calcV46 = new TemporalCalculatorV4_6(spectrumData || undefined, v46Config);
+        // Calculate distance-compensated voids for TDF breakthrough
+        let distanceAdjustedVoids = 1;
+        if (spectrumData?.metadata?.distance) {
+          const distance = spectrumData.metadata.distance;
+          distanceAdjustedVoids = Math.max(1, Math.floor(distance * 0.85));
+        }
+        
+        // Update v46Config with distance compensation
+        const enhancedConfig = {
+          ...v46Config,
+          voids: distanceAdjustedVoids
+        };
+        
+        const calcV46 = new TemporalCalculatorV4_6(spectrumData || undefined, enhancedConfig);
         setTemporalCalcV46(calcV46);
         setIsV46Initialized(true);
         
-        if (isTimeShiftActive) {
-          setSystemStatus("BLURRN v4.6 Time Machine - TDF breakthrough ready!");
-          toast.success("Time Machine v4.6 initialized - TDF calculations active!");
-        } else {
-          setSystemStatus("BLURRN v4.6 Time Machine - Ready for temporal displacement");
-        }
+        // Auto-activate Time Shift mode for TDF calculations
+        setIsTimeShiftActive(true);
+        
+        setSystemStatus("BLURRN v4.6 Time Machine - TDF breakthrough ready!");
+        toast.success(`Time Machine v4.6 activated - Distance: ${spectrumData?.metadata?.distance || 'unknown'}ly, Voids: ${distanceAdjustedVoids}`);
       } catch (error) {
         console.error("v4.6 initialization failed:", error);
         setSystemStatus(`v4.6 initialization failed: ${error}`);
@@ -208,7 +221,7 @@ export function TPTTApp() {
     };
 
     initializeV46Systems();
-  }, [isV4Initialized, spectrumData, isTimeShiftActive]);
+  }, [isV4Initialized, spectrumData]);
 
   // Animation loop with controllable intervals and pause functionality
   useEffect(() => {
