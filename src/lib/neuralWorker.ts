@@ -127,6 +127,8 @@ export function createNeuralWorker(): Worker {
         
         const computeTime = performance.now() - startTime;
         
+        console.log('[Neural Worker] Q_ent complete:', q_ent.toFixed(6));
+        
         self.postMessage({
           type: 'q-ent-result',
           data: { q_ent, compute_time: computeTime }
@@ -149,11 +151,13 @@ export function createNeuralWorker(): Worker {
         const voids = 7;
         const cascade_index = Math.floor(pi / voids) + n;
         
-        // Efficiency calculation based on tPTT target (5.3e12)
+        // Efficiency calculation normalized to [0..1] based on tPTT target (5.3e12)
         const target_tptt = 5.3e12;
-        const efficiency = Math.min(100, (tdf_value / target_tptt) * 100);
+        const efficiency = Math.min(1, tdf_value / target_tptt);
         
         const computeTime = performance.now() - startTime;
+        
+        console.log('[Neural Worker] Cascade complete:', { cascade_index, efficiency: (efficiency * 100).toFixed(1) + '%' });
         
         self.postMessage({
           type: 'cascade-result',
