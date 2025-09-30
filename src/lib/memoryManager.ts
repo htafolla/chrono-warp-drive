@@ -90,7 +90,28 @@ export class MemoryManager {
       maxSize: 300
     });
 
-    console.log('[MEMORY MANAGER] Object pools initialized');
+    // Phase 6: Cascade-Specific Pools for n=25-34 optimization
+    // BufferGeometry pool for cascade-optimized meshes
+    this.createPool('CascadeGeometry_n25', {
+      createNew: () => new THREE.SphereGeometry(1, 16, 16),
+      reset: () => {}, // Geometries don't need reset
+      maxSize: 50
+    });
+
+    this.createPool('CascadeGeometry_n34', {
+      createNew: () => new THREE.SphereGeometry(1, 12, 12),
+      reset: () => {},
+      maxSize: 50
+    });
+
+    // Cascade-specific Float32Array pools for TDF computations
+    this.createPool('TDF_Cascade_Array', {
+      createNew: () => new Float32Array(512),
+      reset: (arr) => arr.fill(0),
+      maxSize: 60
+    });
+
+    console.log('[MEMORY MANAGER] Object pools initialized with cascade-specific optimizations');
   }
 
   private createPool<T>(name: string, config: {
@@ -390,6 +411,45 @@ export class MemoryManager {
   // Get cache size for monitoring
   getCacheSize(): number {
     return this.materialCache.size + this.geometryCache.size + this.textureCache.size;
+  }
+
+  // Phase 6: Predictive memory management for n=34 scenarios
+  predictMemoryForCascade(cascadeLevel: number): {
+    predictedMB: number;
+    shouldPreCleanup: boolean;
+    recommendation: string;
+  } {
+    // Memory scaling: 90MB at n=25 → 360MB at n=34
+    const baseMB = 90;
+    const scalingFactor = 30; // 30MB per cascade level
+    const predictedMB = baseMB + (cascadeLevel - 25) * scalingFactor;
+
+    const memory = (performance as any).memory;
+    const currentMB = memory ? memory.usedJSHeapSize / 1024 / 1024 : 0;
+    const availableMB = memory ? (memory.jsHeapSizeLimit - memory.usedJSHeapSize) / 1024 / 1024 : 1000;
+
+    const shouldPreCleanup = availableMB < predictedMB * 1.2; // Need 20% headroom
+
+    let recommendation = '';
+    if (shouldPreCleanup) {
+      recommendation = `Pre-cleanup recommended: Current ${currentMB.toFixed(0)}MB, Predicted ${predictedMB.toFixed(0)}MB for n=${cascadeLevel}`;
+    } else {
+      recommendation = `Memory sufficient: ${availableMB.toFixed(0)}MB available for predicted ${predictedMB.toFixed(0)}MB usage`;
+    }
+
+    return { predictedMB, shouldPreCleanup, recommendation };
+  }
+
+  // Phase 6: Get cascade-specific geometry from pool
+  getCascadeGeometry(cascadeLevel: number): THREE.BufferGeometry {
+    const poolName = cascadeLevel >= 30 ? 'CascadeGeometry_n34' : 'CascadeGeometry_n25';
+    return this.getPooledObject(poolName);
+  }
+
+  // Phase 6: Release cascade geometry back to pool
+  releaseCascadeGeometry(cascadeLevel: number, geometry: THREE.BufferGeometry): void {
+    const poolName = cascadeLevel >= 30 ? 'CascadeGeometry_n34' : 'CascadeGeometry_n25';
+    this.releasePooledObject(poolName, geometry);
   }
 
   // Check if cleanup is needed

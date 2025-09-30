@@ -1,16 +1,18 @@
-// Phase 3-5: Integrated Cascade Optimization System
-// Combines Neural Fusion, Memory Management, and Compliance Monitoring
+// Phase 6: Advanced Performance Monitoring & Validation
+// Integrated FPS tracking, scene logging, and performance validation
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Brain, Cpu, Zap, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Brain, Cpu, Zap, AlertTriangle, CheckCircle, Activity, TrendingUp } from 'lucide-react';
 import { useNeuralFusion } from '@/hooks/useNeuralFusion';
 import { useMemoryPressure } from '@/hooks/useMemoryPressure';
 import { useRealtimeSync, CTIUpdate } from '@/hooks/useRealtimeSync';
+import { useSceneMetricsLogger } from '@/hooks/useSceneMetricsLogger';
 import { supabase } from '@/integrations/supabase/client';
+import { useFrame } from '@react-three/fiber';
 
 interface CascadeOptimizationSystemProps {
   cascadeLevel: number;
@@ -56,6 +58,12 @@ export function CascadeOptimizationSystem({
     onUpdate: handleCTIUpdate
   });
 
+  // Phase 6: Performance Monitoring Integration
+  const { logSceneMetrics } = useSceneMetricsLogger();
+  const [fps, setFps] = useState(60);
+  const [lastFrameTime, setLastFrameTime] = useState(performance.now());
+  const [performanceScore, setPerformanceScore] = useState(100);
+  
   const [cascadeEfficiency, setCascadeEfficiency] = useState(0);
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [sessionActive, setSessionActive] = useState(false);
@@ -176,6 +184,76 @@ export function CascadeOptimizationSystem({
     });
   }
 
+  // Phase 6: FPS Monitoring & Performance Logging
+  useEffect(() => {
+    let frameId: number;
+    let frameCount = 0;
+    const startTime = performance.now();
+
+    const measureFPS = () => {
+      frameCount++;
+      const currentTime = performance.now();
+      const elapsed = currentTime - startTime;
+
+      if (elapsed >= 1000) {
+        const currentFPS = Math.round((frameCount * 1000) / elapsed);
+        setFps(currentFPS);
+
+        // Calculate performance score
+        const targetFPS = 120;
+        const score = Math.min(100, (currentFPS / targetFPS) * 100);
+        setPerformanceScore(score);
+
+        // Log to database every 5 seconds
+        if (Math.floor(elapsed / 5000) !== Math.floor((elapsed - 1000) / 5000)) {
+          logPerformanceMetrics(currentFPS);
+        }
+
+        frameCount = 0;
+      }
+
+      frameId = requestAnimationFrame(measureFPS);
+    };
+
+    frameId = requestAnimationFrame(measureFPS);
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+    };
+  }, [cascadeLevel]);
+
+  // Log performance metrics to database
+  const logPerformanceMetrics = async (currentFPS: number) => {
+    try {
+      const memory = (performance as any).memory;
+      const memoryMB = memory ? Math.round(memory.usedJSHeapSize / 1024 / 1024) : 0;
+
+      await supabase.from('performance_metrics').insert({
+        session_id: sessionId,
+        fps: currentFPS,
+        memory_mb: memoryMB,
+        vertex_count: Math.floor(800 - ((cascadeLevel - 25) * 40)), // Cascade-optimized
+        cascade_level: cascadeLevel,
+        quality_setting: currentFPS >= 90 ? 'high' : currentFPS >= 60 ? 'medium' : 'low'
+      });
+
+      // Also log scene metrics
+      await logSceneMetrics({
+        tdf_value: tdfValue,
+        fps: currentFPS,
+        memory_usage: memoryMB * 1024 * 1024,
+        vertex_count: Math.floor(800 - ((cascadeLevel - 25) * 40)),
+        cycle_number: Date.now(),
+        breakthrough_validated: false,
+        quality_setting: currentFPS >= 90 ? 'high' : currentFPS >= 60 ? 'medium' : 'low',
+        particles_enabled: true,
+        shadows_enabled: true
+      });
+    } catch (error) {
+      console.error('[Performance Logging] Error:', error);
+    }
+  };
+
   // Run neural optimization on cascade changes
   useEffect(() => {
     if (neuralInitialized && tdfValue > 0) {
@@ -197,6 +275,43 @@ export function CascadeOptimizationSystem({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Phase 6: Performance Metrics */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              <span className="text-sm font-medium">Performance</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={fps >= 120 ? 'default' : fps >= 90 ? 'secondary' : 'destructive'}>
+                {fps} FPS
+              </Badge>
+              <Badge variant={performanceScore >= 95 ? 'default' : performanceScore >= 80 ? 'secondary' : 'destructive'}>
+                {performanceScore.toFixed(0)}% Score
+              </Badge>
+            </div>
+          </div>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Target (n={cascadeLevel}):</span>
+              <span className="font-mono">{cascadeLevel >= 30 ? '90-120 FPS' : '120+ FPS'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Vertices:</span>
+              <span className="font-mono">{Math.floor(800 - ((cascadeLevel - 25) * 40))}</span>
+            </div>
+            <Progress value={performanceScore} className="h-2" />
+          </div>
+          {fps < 90 && cascadeLevel >= 30 && (
+            <Alert variant="destructive" className="py-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Performance regression detected at n={cascadeLevel}. FPS below 90 Hz.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
         {/* Phase 3: Neural Fusion Status */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
