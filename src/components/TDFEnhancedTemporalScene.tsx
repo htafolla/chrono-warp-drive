@@ -229,6 +229,8 @@ export function TDFEnhancedTemporalScene({
   const [currentMetrics, setCurrentMetrics] = React.useState({ fps: 60, vertexCount: 1024 });
   const { logExperiment } = useExperimentLogger();
   const [lastLoggedTDF, setLastLoggedTDF] = React.useState<number>(0);
+  const [initialLogDone, setInitialLogDone] = React.useState(false);
+  const sessionIdRef = React.useRef(`session-${Date.now()}`);
   
   const hasV46Data = tpttV46Result?.v46_components && tpttV46Result?.timeShiftMetrics;
 
@@ -249,14 +251,24 @@ export function TDFEnhancedTemporalScene({
         sceneMetrics
       });
       
-      // Auto-log to backend when TDF changes significantly
       const currentTDF = tpttV46Result.v46_components?.TDF_value || 0;
       const tdfChange = Math.abs(currentTDF - lastLoggedTDF) / Math.max(lastLoggedTDF, 1);
       
-      // Log if TDF changed by >10% or breakthrough achieved
-      if (tdfChange > 0.1 || (currentTDF > 5e12 && currentTDF < 6e12)) {
+      // Force initial log or log on significant changes
+      const shouldLog = !initialLogDone || 
+                        tdfChange > 0.1 || 
+                        (currentTDF > 5e12 && currentTDF < 6e12);
+      
+      if (shouldLog) {
+        console.log('📊 Logging experiment to backend:', {
+          TDF: currentTDF.toExponential(2),
+          FPS: currentMetrics.fps,
+          Memory: `${(memoryUsage / 1024 / 1024).toFixed(1)}MB`,
+          Breakthrough: currentTDF > 5e12 && currentTDF < 6e12
+        });
+        
         logExperiment(
-          `session-${Date.now()}`,
+          sessionIdRef.current,
           tpttV46Result,
           {
             tdf_value: currentTDF,
@@ -269,9 +281,10 @@ export function TDFEnhancedTemporalScene({
           }
         );
         setLastLoggedTDF(currentTDF);
+        if (!initialLogDone) setInitialLogDone(true);
       }
     }
-  }, [tpttV46Result, currentMetrics, onDebugDataUpdate, logExperiment, lastLoggedTDF]);
+  }, [tpttV46Result, currentMetrics, onDebugDataUpdate, logExperiment, lastLoggedTDF, initialLogDone]);
   
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="tdf-enhanced-temporal-scene">

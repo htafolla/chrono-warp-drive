@@ -322,9 +322,20 @@ export function TPTTApp() {
           const v46Result = await temporalCalcV46.computeTPTTv4_6();
           setTpttV46Result(v46Result);
           
+          // Log TDF calculation for debugging
+          console.log('🔬 TDF v4.6 Calculation:', {
+            TDF: v46Result.v46_components.TDF_value.toExponential(2),
+            tau: v46Result.v46_components.tau,
+            BlackHole_Seq: v46Result.v46_components.BlackHole_Seq,
+            breakthrough: v46Result.timeShiftMetrics.breakthrough_validated,
+            voids: v46Config.voids,
+            cycle
+          });
+          
           // Update system status with breakthrough info
           if (v46Result.timeShiftMetrics.breakthrough_validated) {
             setSystemStatus(`TDF Breakthrough: ${v46Result.v46_components.TDF_value.toExponential(2)} - Time shift validated!`);
+            toast.success(`🎉 TDF Breakthrough Achieved: ${v46Result.v46_components.TDF_value.toExponential(2)}`);
           }
         } catch (error) {
           console.warn("v4.6 TDF calculation failed:", error);
