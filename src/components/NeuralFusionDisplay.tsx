@@ -17,6 +17,8 @@ interface LayerActivation {
   layer: string;
   activation: number;
   neurons: number[];
+  activeCount: number;
+  avgActivation: number;
 }
 
 export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisplayProps) {
@@ -48,36 +50,50 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
       // Create dynamic layer activations with time-based variations
       const timeVariation = Math.sin(Date.now() / 2000) * 0.1;
       
+      const threshold = 0.65;
+      
       const activations: LayerActivation[] = [
         {
           layer: 'Input Layer',
           activation: Math.min(1, 0.8 + deterministicRandom(cycle, 0) * 0.2 + timeVariation),
           neurons: Array.from({ length: 200 }, (_, i) => 
             Math.max(0.1, deterministicRandom(cycle, i + 1) + (Math.sin((Date.now() + i * 100) / 1000) * 0.2))
-          )
+          ),
+          activeCount: 0,
+          avgActivation: 0
         },
         {
           layer: 'Hidden Layer 1',
           activation: Math.min(1, animatedOutput.confidenceScore * 0.9 + timeVariation),
           neurons: Array.from({ length: 128 }, (_, i) => 
             Math.max(0.1, deterministicRandom(cycle, i + 100) * animatedOutput.confidenceScore + (Math.sin((Date.now() + i * 80) / 1200) * 0.15))
-          )
+          ),
+          activeCount: 0,
+          avgActivation: 0
         },
         {
           layer: 'Hidden Layer 2', 
           activation: Math.min(1, animatedOutput.metamorphosisIndex * 0.8 + timeVariation),
           neurons: Array.from({ length: 64 }, (_, i) => 
             Math.max(0.1, deterministicRandom(cycle, i + 200) * animatedOutput.metamorphosisIndex + (Math.sin((Date.now() + i * 60) / 1400) * 0.15))
-          )
+          ),
+          activeCount: 0,
+          avgActivation: 0
         },
         {
           layer: 'Output Layer',
           activation: Math.min(1, animatedOutput.confidenceScore + timeVariation),
           neurons: animatedOutput.neuralSpectra.slice(0, 16).map((n, i) => 
             Math.max(0.1, n + (Math.sin((Date.now() + i * 40) / 1600) * 0.1))
-          )
+          ),
+          activeCount: 0,
+          avgActivation: 0
         }
-      ];
+      ].map(layer => {
+        const activeCount = layer.neurons.filter(n => n > threshold).length;
+        const avgActivation = layer.neurons.reduce((sum, n) => sum + n, 0) / layer.neurons.length;
+        return { ...layer, activeCount, avgActivation };
+      });
       
       setLayerActivations(activations);
       
@@ -93,13 +109,22 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
   useEffect(() => {
     if (!isActive) return;
     
+    const threshold = 0.65;
     const animationFrame = requestAnimationFrame(function animate() {
-      setLayerActivations(prev => prev.map(layer => ({
-        ...layer,
-        neurons: layer.neurons.map((n, i) => 
+      setLayerActivations(prev => prev.map(layer => {
+        const updatedNeurons = layer.neurons.map((n, i) => 
           Math.max(0.05, Math.min(1, n + (Math.sin(Date.now() / 500 + i) * 0.02)))
-        )
-      })));
+        );
+        const activeCount = updatedNeurons.filter(n => n > threshold).length;
+        const avgActivation = updatedNeurons.reduce((sum, n) => sum + n, 0) / updatedNeurons.length;
+        
+        return {
+          ...layer,
+          neurons: updatedNeurons,
+          activeCount,
+          avgActivation
+        };
+      }));
       
       requestAnimationFrame(animate);
     });
@@ -199,8 +224,11 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
                   }}
                 />
               </div>
-              <span className="text-xs text-muted-foreground w-8 font-mono tabular-nums">
-                {layer.neurons.length}
+              <span 
+                className="text-xs text-muted-foreground w-16 font-mono tabular-nums cursor-help transition-colors hover:text-primary"
+                title={`Active: ${layer.activeCount}/${layer.neurons.length} | Avg: ${(layer.avgActivation * 100).toFixed(0)}%`}
+              >
+                {layer.activeCount}/{layer.neurons.length}
               </span>
               <div className="flex gap-px items-center">
                 {layer.neurons.slice(0, 12).map((activation, neuronIndex) => (
