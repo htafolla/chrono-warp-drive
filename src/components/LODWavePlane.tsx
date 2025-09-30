@@ -5,6 +5,7 @@ import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager } from '@/lib/memoryManager';
 import { getSafeColor } from '@/lib/colorUtils';
+import { optimizeGeometry } from '@/lib/sceneOptimization';
 
 interface LODWavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -19,14 +20,21 @@ interface LODWavePlaneProps {
     shadows: boolean;
     particles: boolean;
   };
+  cascadeLevel?: number;
 }
 
-// LOD configurations
-const LOD_CONFIGS = {
-  high: { segments: 48, maxDistance: 10 },
-  medium: { segments: 32, maxDistance: 20 },
-  low: { segments: 24, maxDistance: 30 },
-  veryLow: { segments: 16, maxDistance: Infinity }
+// Phase 1: Cascade-adaptive LOD configurations
+// Dynamically scaled based on cascade level (n) for v4.7 compliance
+const getCascadeLODConfigs = (cascadeLevel: number, quality: 'high' | 'medium' | 'low') => {
+  const optimized = optimizeGeometry(quality, cascadeLevel);
+  const baseSegments = Math.floor(Math.sqrt(optimized.vertices));
+  
+  return {
+    high: { segments: Math.min(baseSegments, 64), maxDistance: 10 },
+    medium: { segments: Math.floor(baseSegments * 0.75), maxDistance: 20 },
+    low: { segments: Math.floor(baseSegments * 0.5), maxDistance: 30 },
+    veryLow: { segments: Math.floor(baseSegments * 0.375), maxDistance: Infinity }
+  };
 };
 
 export function LODWavePlane({ 
@@ -37,7 +45,8 @@ export function LODWavePlane({
   fractalToggle, 
   index, 
   spectrumData,
-  qualitySettings = { quality: 'high', shadows: true, particles: true }
+  qualitySettings = { quality: 'high', shadows: true, particles: true },
+  cascadeLevel = 29
 }: LODWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
@@ -48,25 +57,18 @@ export function LODWavePlane({
   const [currentLOD, setCurrentLOD] = React.useState<'high' | 'medium' | 'low' | 'veryLow'>('high');
   const [isVisible, setIsVisible] = React.useState(true);
   
-  // Cache geometries for different LOD levels - enhanced for spectrum visibility
+  // Phase 1: Cascade-adaptive geometry caching (800 vertices at n=25 → 440 at n=34)
   const geometries = useMemo(() => {
     const cache = new Map<string, THREE.PlaneGeometry>();
+    const lodConfigs = getCascadeLODConfigs(cascadeLevel, qualitySettings.quality);
     
-    // Enhanced segment counts for denser wireframe appearance
-    const enhancedConfigs = {
-      high: { segments: 64, maxDistance: 10 }, // Much denser for spectrum-like appearance
-      medium: { segments: 48, maxDistance: 20 },
-      low: { segments: 32, maxDistance: 30 },
-      veryLow: { segments: 24, maxDistance: Infinity }
-    };
-    
-    Object.entries(enhancedConfigs).forEach(([level, config]) => {
+    Object.entries(lodConfigs).forEach(([level, config]) => {
       const geometry = new THREE.PlaneGeometry(10, 10, config.segments, config.segments);
       cache.set(level, geometry);
     });
     
     return cache;
-  }, []);
+  }, [cascadeLevel, qualitySettings.quality]);
   
   // Phase 10A: Ensure initial geometry assignment
   useEffect(() => {
@@ -101,7 +103,8 @@ export function LODWavePlane({
       const meshPosition = meshRef.current.position;
       const distance = camera.position.distanceTo(meshPosition);
       
-      // Determine appropriate LOD level based on distance and quality settings
+      // Phase 1: Cascade-adaptive LOD selection
+      const lodConfigs = getCascadeLODConfigs(cascadeLevel, qualitySettings.quality);
       let targetLOD: 'high' | 'medium' | 'low' | 'veryLow' = 'high';
       
       // Apply quality settings override
@@ -110,11 +113,11 @@ export function LODWavePlane({
       
       const adjustedDistance = distance / qualityMultiplier;
       
-      if (adjustedDistance > LOD_CONFIGS.low.maxDistance) {
+      if (adjustedDistance > lodConfigs.low.maxDistance) {
         targetLOD = 'veryLow';
-      } else if (adjustedDistance > LOD_CONFIGS.medium.maxDistance) {
+      } else if (adjustedDistance > lodConfigs.medium.maxDistance) {
         targetLOD = 'low';
-      } else if (adjustedDistance > LOD_CONFIGS.high.maxDistance) {
+      } else if (adjustedDistance > lodConfigs.high.maxDistance) {
         targetLOD = 'medium';
       }
       
