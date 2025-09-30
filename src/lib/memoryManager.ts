@@ -428,13 +428,19 @@ export class MemoryManager {
     const currentMB = memory ? memory.usedJSHeapSize / 1024 / 1024 : 0;
     const availableMB = memory ? (memory.jsHeapSizeLimit - memory.usedJSHeapSize) / 1024 / 1024 : 1000;
 
-    const shouldPreCleanup = availableMB < predictedMB * 1.2; // Need 20% headroom
+    // FIXED: More conservative cleanup - only trigger at critical levels
+    const limitMB = memory ? memory.jsHeapSizeLimit / 1024 / 1024 : 1000;
+    const percentUsed = (currentMB / limitMB) * 100;
+    
+    // Only cleanup at n=34 if above 85% memory usage
+    const shouldPreCleanup = cascadeLevel >= 34 && percentUsed > 85;
 
     let recommendation = '';
     if (shouldPreCleanup) {
-      recommendation = `Pre-cleanup recommended: Current ${currentMB.toFixed(0)}MB, Predicted ${predictedMB.toFixed(0)}MB for n=${cascadeLevel}`;
+      console.log('[MEMORY MANAGER] Critical cleanup for n=' + cascadeLevel + ' at ' + percentUsed.toFixed(1) + '%');
+      recommendation = `Critical cleanup at n=${cascadeLevel}: ${currentMB.toFixed(0)}MB (${percentUsed.toFixed(1)}%)`;
     } else {
-      recommendation = `Memory sufficient: ${availableMB.toFixed(0)}MB available for predicted ${predictedMB.toFixed(0)}MB usage`;
+      recommendation = `Memory OK: ${currentMB.toFixed(0)}MB / ${limitMB.toFixed(0)}MB (${percentUsed.toFixed(1)}%) for n=${cascadeLevel}`;
     }
 
     return { predictedMB, shouldPreCleanup, recommendation };
@@ -457,9 +463,10 @@ export class MemoryManager {
     const memoryPressure = this.getMemoryPressure();
     const timeSinceLastCleanup = performance.now() - this.lastCleanup;
     
-    return memoryPressure === 'high' || 
-           memoryPressure === 'critical' || 
-           timeSinceLastCleanup > 300000; // 5 minutes
+    // FIXED: Only cleanup at critical pressure or after 10 minutes (was 5)
+    // This prevents interrupting neural fusion computations
+    return memoryPressure === 'critical' || 
+           timeSinceLastCleanup > 600000; // 10 minutes
   }
 
   dispose(): void {

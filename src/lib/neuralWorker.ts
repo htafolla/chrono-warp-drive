@@ -29,8 +29,30 @@ export interface NeuralWorkerResponse {
  */
 export function createNeuralWorker(): Worker {
   const workerCode = `
-    // Import TensorFlow.js in worker
-    importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+    // Import TensorFlow.js in worker with retry logic
+    let tf = null;
+    let loadAttempts = 0;
+    const maxAttempts = 3;
+    
+    async function loadTensorFlow() {
+      while (loadAttempts < maxAttempts && !tf) {
+        try {
+          loadAttempts++;
+          console.log('[Neural Worker] Loading TensorFlow.js, attempt ' + loadAttempts);
+          importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+          tf = self.tf;
+          console.log('[Neural Worker] TensorFlow.js loaded successfully');
+          return true;
+        } catch (error) {
+          console.error('[Neural Worker] Failed to load TensorFlow.js:', error.message);
+          if (loadAttempts >= maxAttempts) {
+            return false;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      return !!tf;
+    }
     
     let model = null;
     let isInitialized = false;
@@ -38,6 +60,15 @@ export function createNeuralWorker(): Worker {
     // Initialize TensorFlow.js model
     async function initialize() {
       try {
+        console.log('[Neural Worker] Initializing...');
+        const tfLoaded = await loadTensorFlow();
+        
+        if (!tfLoaded) {
+          console.warn('[Neural Worker] TensorFlow.js not available, using fallback mode');
+          isInitialized = true; // Still mark as initialized for fallback calculations
+          self.postMessage({ type: 'initialized', data: { fallbackMode: true } });
+          return;
+        }
         // Create a simple sequential model for Q_ent calculations
         model = tf.sequential({
           layers: [
@@ -54,7 +85,8 @@ export function createNeuralWorker(): Worker {
         });
         
         isInitialized = true;
-        self.postMessage({ type: 'initialized', data: {} });
+        console.log('[Neural Worker] Model created and compiled successfully');
+        self.postMessage({ type: 'initialized', data: { fallbackMode: false } });
       } catch (error) {
         self.postMessage({ 
           type: 'error', 
@@ -77,13 +109,17 @@ export function createNeuralWorker(): Worker {
         let q_ent = Math.abs(phase_factor * cascade_factor * delta_weight * Math.log(n + 1));
         
         // Use neural model for refinement if available
-        if (isInitialized && model) {
-          const input = tf.tensor2d([[delta_phase, n / 34, phi / 2]]);
-          const prediction = model.predict(input);
-          const adjustment = prediction.dataSync()[0];
-          q_ent = q_ent * (0.9 + adjustment * 0.2); // Neural adjustment ±10%
-          input.dispose();
-          prediction.dispose();
+        if (isInitialized && model && tf) {
+          try {
+            const input = tf.tensor2d([[delta_phase, n / 34, phi / 2]]);
+            const prediction = model.predict(input);
+            const adjustment = prediction.dataSync()[0];
+            q_ent = q_ent * (0.9 + adjustment * 0.2); // Neural adjustment ±10%
+            input.dispose();
+            prediction.dispose();
+          } catch (error) {
+            console.warn('[Neural Worker] Model prediction failed, using base calculation:', error.message);
+          }
         }
         
         // Clamp to valid range [0, 1]
