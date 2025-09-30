@@ -63,6 +63,8 @@ import { ArchitectImplementationExport } from './ArchitectImplementationExport';
 import { CascadeOptimizationSystem } from './CascadeOptimizationSystem';
 import { CodexComplianceMonitor } from './CodexComplianceMonitor';
 import { PerformanceDashboard } from './PerformanceDashboard';
+import CollaborationDashboard from './CollaborationDashboard';
+import AnalyticsExport from './AnalyticsExport';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
 import { memoryManager } from '@/lib/memoryManager';
 import ChronoSlider from './ChronoSlider';
@@ -1320,6 +1322,22 @@ export function TPTTApp() {
               cascadeLevel={cascadeParams.n}
               isActive={isV47Initialized}
             />
+
+            {/* Phase 7: Multi-User Collaboration Dashboard */}
+            <CollaborationDashboard
+              currentSessionId={sessionId}
+              onParameterSync={(params) => {
+                console.log('[Collaboration] Syncing parameters from peer:', params);
+                setCascadeParams(prev => ({
+                  ...prev,
+                  n: params.n,
+                  delta_phase: params.deltaPhase
+                }));
+              }}
+            />
+
+            {/* Phase 7: Analytics & Export */}
+            <AnalyticsExport />
           </TabsContent>
         </Tabs>
       </div>

@@ -1,18 +1,17 @@
-// Phase 6: Advanced Performance Monitoring & Validation
-// Integrated FPS tracking, scene logging, and performance validation
+// Phase 6-7: Advanced Performance Monitoring, Validation & AI Integration
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Brain, Cpu, Zap, AlertTriangle, CheckCircle, Activity, TrendingUp } from 'lucide-react';
+import { Brain, Cpu, Zap, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
 import { useNeuralFusion } from '@/hooks/useNeuralFusion';
 import { useMemoryPressure } from '@/hooks/useMemoryPressure';
 import { useRealtimeSync, CTIUpdate } from '@/hooks/useRealtimeSync';
 import { useSceneMetricsLogger } from '@/hooks/useSceneMetricsLogger';
+import { useAICascadeAdvisor } from '@/hooks/useAICascadeAdvisor';
 import { supabase } from '@/integrations/supabase/client';
-import { useFrame } from '@react-three/fiber';
 
 interface CascadeOptimizationSystemProps {
   cascadeLevel: number;
@@ -39,7 +38,7 @@ export function CascadeOptimizationSystem({
 
   // Phase 4: Memory Pressure Monitoring
   const memoryState = useMemoryPressure({
-    targetMB: 90 + (cascadeLevel - 25) * 30, // 90MB at n=25 → 360MB at n=34
+    targetMB: 90 + (cascadeLevel - 25) * 30,
     criticalMB: 450,
     pollInterval: 2000,
     enabled: true
@@ -54,15 +53,18 @@ export function CascadeOptimizationSystem({
   } = useRealtimeSync({
     sessionId,
     enabled: true,
-    broadcastDelay: 100, // 120 FPS compliance (8.33ms per frame)
+    broadcastDelay: 100,
     onUpdate: handleCTIUpdate
   });
 
-  // Phase 6: Performance Monitoring Integration
+  // Phase 7: AI Cascade Advisor
+  const { getAdvice, loading: aiLoading, analysis } = useAICascadeAdvisor();
+
+  // Phase 6: Performance Monitoring
   const { logSceneMetrics } = useSceneMetricsLogger();
   const [fps, setFps] = useState(60);
-  const [lastFrameTime, setLastFrameTime] = useState(performance.now());
   const [performanceScore, setPerformanceScore] = useState(100);
+  const [showWarning, setShowWarning] = useState(false);
   
   const [cascadeEfficiency, setCascadeEfficiency] = useState(0);
   const [recommendations, setRecommendations] = useState<string[]>([]);
@@ -77,7 +79,6 @@ export function CascadeOptimizationSystem({
 
   const initializeSession = async () => {
     try {
-      // Create CTI session in database
       const { error } = await supabase
         .from('cti_sessions')
         .insert({
@@ -94,7 +95,6 @@ export function CascadeOptimizationSystem({
 
       if (error) throw error;
 
-      // Track presence
       await trackPresence({
         cascade_level: cascadeLevel,
         neural_active: neuralInitialized
@@ -111,15 +111,9 @@ export function CascadeOptimizationSystem({
     if (!neuralInitialized) return;
 
     try {
-      const result = await computeNeuralFusion(
-        tdfValue,
-        cascadeLevel,
-        deltaPhase
-      );
-
+      const result = await computeNeuralFusion(tdfValue, cascadeLevel, deltaPhase);
       setCascadeEfficiency(result.efficiency);
 
-      // Broadcast CTI update via realtime
       if (realtimeConnected) {
         broadcastUpdate({
           cascade_index: result.cascade_index,
@@ -131,7 +125,6 @@ export function CascadeOptimizationSystem({
           efficiency: result.efficiency
         });
 
-        // Store cascade update in database
         await supabase.from('cascade_updates').insert({
           session_id: sessionId,
           cascade_index: result.cascade_index,
@@ -152,7 +145,6 @@ export function CascadeOptimizationSystem({
   useEffect(() => {
     const newRecommendations: string[] = [];
 
-    // Memory recommendations
     if (memoryState.shouldCleanup) {
       newRecommendations.push('Run memory cleanup');
     }
@@ -160,12 +152,10 @@ export function CascadeOptimizationSystem({
       newRecommendations.push('Reduce graphics quality');
     }
 
-    // Neural recommendations
     if (neuralResult && neuralResult.efficiency < 0.7) {
       newRecommendations.push(`Optimize cascade parameters (efficiency: ${(neuralResult.efficiency * 100).toFixed(1)}%)`);
     }
 
-    // Cascade-level recommendations
     if (cascadeLevel > 30 && memoryState.pressure !== 'low') {
       newRecommendations.push(`High cascade level (n=${cascadeLevel}) with ${memoryState.pressure} memory pressure`);
     }
@@ -174,7 +164,7 @@ export function CascadeOptimizationSystem({
     onOptimizationUpdate?.(newRecommendations);
   }, [memoryState, neuralResult, cascadeLevel, onOptimizationUpdate]);
 
-  // Handle incoming CTI updates from other sessions
+  // Handle incoming CTI updates
   function handleCTIUpdate(update: CTIUpdate) {
     console.log('[Realtime CTI] Update received:', {
       session: update.session_id,
@@ -184,7 +174,7 @@ export function CascadeOptimizationSystem({
     });
   }
 
-  // Phase 6: FPS Monitoring & Performance Logging
+  // Phase 6: FPS Monitoring
   useEffect(() => {
     let frameId: number;
     let frameCount = 0;
@@ -199,12 +189,11 @@ export function CascadeOptimizationSystem({
         const currentFPS = Math.round((frameCount * 1000) / elapsed);
         setFps(currentFPS);
 
-        // Calculate performance score
         const targetFPS = 120;
         const score = Math.min(100, (currentFPS / targetFPS) * 100);
         setPerformanceScore(score);
+        setShowWarning(currentFPS < 90 && cascadeLevel >= 30);
 
-        // Log to database every 5 seconds
         if (Math.floor(elapsed / 5000) !== Math.floor((elapsed - 1000) / 5000)) {
           logPerformanceMetrics(currentFPS);
         }
@@ -222,7 +211,7 @@ export function CascadeOptimizationSystem({
     };
   }, [cascadeLevel]);
 
-  // Log performance metrics to database
+  // Log performance metrics
   const logPerformanceMetrics = async (currentFPS: number) => {
     try {
       const memory = (performance as any).memory;
@@ -232,12 +221,11 @@ export function CascadeOptimizationSystem({
         session_id: sessionId,
         fps: currentFPS,
         memory_mb: memoryMB,
-        vertex_count: Math.floor(800 - ((cascadeLevel - 25) * 40)), // Cascade-optimized
+        vertex_count: Math.floor(800 - ((cascadeLevel - 25) * 40)),
         cascade_level: cascadeLevel,
         quality_setting: currentFPS >= 90 ? 'high' : currentFPS >= 60 ? 'medium' : 'low'
       });
 
-      // Also log scene metrics
       await logSceneMetrics({
         tdf_value: tdfValue,
         fps: currentFPS,
@@ -261,17 +249,35 @@ export function CascadeOptimizationSystem({
     }
   }, [cascadeLevel, tdfValue, deltaPhase, neuralInitialized]);
 
+  // Phase 7: AI Advisor Handler
+  const handleAIAdvice = async () => {
+    await getAdvice(cascadeLevel, deltaPhase, sessionId);
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Zap className="w-5 h-5" />
-          Cascade Optimization System
-          {sessionActive && (
-            <Badge variant="secondary" className="ml-2">
-              Live Session {peersCount > 1 ? `(${peersCount} peers)` : ''}
-            </Badge>
-          )}
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5" />
+            Cascade Optimization System v4.7
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={handleAIAdvice} 
+              disabled={aiLoading}
+              variant="outline"
+              size="sm"
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              {aiLoading ? 'Analyzing...' : 'AI Advisor'}
+            </Button>
+            {sessionActive && (
+              <Badge variant="secondary">
+                Live {peersCount > 1 ? `(${peersCount} peers)` : ''}
+              </Badge>
+            )}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -287,32 +293,65 @@ export function CascadeOptimizationSystem({
                 {fps} FPS
               </Badge>
               <Badge variant={performanceScore >= 95 ? 'default' : performanceScore >= 80 ? 'secondary' : 'destructive'}>
-                {performanceScore.toFixed(0)}% Score
+                {performanceScore.toFixed(0)}%
               </Badge>
             </div>
           </div>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Target (n={cascadeLevel}):</span>
-              <span className="font-mono">{cascadeLevel >= 30 ? '90-120 FPS' : '120+ FPS'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Vertices:</span>
-              <span className="font-mono">{Math.floor(800 - ((cascadeLevel - 25) * 40))}</span>
-            </div>
-            <Progress value={performanceScore} className="h-2" />
-          </div>
-          {fps < 90 && cascadeLevel >= 30 && (
+          <Progress value={performanceScore} className="h-2" />
+          {showWarning && (
             <Alert variant="destructive" className="py-2">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                Performance regression detected at n={cascadeLevel}. FPS below 90 Hz.
+                Performance regression at n={cascadeLevel}. FPS below 90 Hz.
               </AlertDescription>
             </Alert>
           )}
         </div>
 
-        {/* Phase 3: Neural Fusion Status */}
+        {/* Phase 7: AI Analysis */}
+        {analysis && (
+          <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+            <div className="flex items-start gap-3">
+              <Brain className="w-5 h-5 text-primary mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-sm">AI Breakthrough Analysis</h4>
+                  <Badge variant={analysis.riskLevel === 'low' ? 'default' : 'destructive'}>
+                    {analysis.riskLevel.toUpperCase()} RISK
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Breakthrough Probability</p>
+                    <p className="text-lg font-bold text-primary">{analysis.breakthroughProbability}%</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Confidence</p>
+                    <p className="text-lg font-bold">{analysis.confidence}%</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Optimal Parameters</p>
+                      <p className="text-sm font-medium">n={analysis.optimalN}, δ={analysis.optimalDeltaPhase.toFixed(3)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Recommendation</p>
+                      <p className="text-sm">{analysis.recommendation}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Phase 3: Neural Fusion */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -348,50 +387,21 @@ export function CascadeOptimizationSystem({
             <Badge 
               variant={
                 memoryState.pressure === 'low' ? 'default' :
-                memoryState.pressure === 'medium' ? 'secondary' :
-                memoryState.pressure === 'high' ? 'destructive' : 'destructive'
+                memoryState.pressure === 'medium' ? 'secondary' : 'destructive'
               }
             >
               {memoryState.pressure.toUpperCase()}
             </Badge>
           </div>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Used:</span>
-              <span className="font-mono">{memoryState.usedMB.toFixed(0)}MB</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Target (n={cascadeLevel}):</span>
-              <span className="font-mono">{(90 + (cascadeLevel - 25) * 30).toFixed(0)}MB</span>
-            </div>
-            <Progress value={memoryState.percentUsed} className="h-2" />
-          </div>
-        </div>
-
-        {/* Phase 2: Realtime Status */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              <span className="text-sm font-medium">Realtime Sync</span>
-            </div>
-            <Badge variant={realtimeConnected ? 'default' : 'outline'}>
-              {realtimeConnected ? 'Connected' : 'Disconnected'}
-            </Badge>
-          </div>
-          {realtimeConnected && (
-            <div className="text-sm text-muted-foreground">
-              Session: {sessionId.slice(0, 8)}... • Peers: {peersCount}
-            </div>
-          )}
+          <Progress value={memoryState.percentUsed} className="h-2" />
         </div>
 
         {/* Recommendations */}
         {recommendations.length > 0 && (
           <Alert>
             <AlertTriangle className="w-4 h-4" />
-            <AlertDescription className="space-y-1">
-              <div className="font-medium">Optimization Recommendations:</div>
+            <AlertDescription>
+              <div className="font-medium mb-1">Optimization Recommendations:</div>
               <ul className="text-sm list-disc list-inside space-y-1">
                 {recommendations.map((rec, i) => (
                   <li key={i}>{rec}</li>
@@ -412,11 +422,7 @@ export function CascadeOptimizationSystem({
             {neuralComputing ? 'Computing...' : 'Run Neural Optimization'}
           </Button>
           {memoryState.shouldCleanup && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={memoryState.forceGC}
-            >
+            <Button size="sm" variant="secondary" onClick={memoryState.forceGC}>
               Force Cleanup
             </Button>
           )}
