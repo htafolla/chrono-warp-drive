@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
-import { useMemoryManager } from '@/lib/memoryManager';
+import { memoryManager } from '@/lib/memoryManager';
 import { getSafeColor } from '@/lib/colorUtils';
 import { optimizeGeometry } from '@/lib/sceneOptimization';
 
@@ -50,7 +50,6 @@ export function LODWavePlane({
 }: LODWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const memoryManager = useMemoryManager();
   const { camera } = useThree();
   
   // Track current LOD level
@@ -89,7 +88,7 @@ export function LODWavePlane({
         memoryManager.disposeObject(meshRef.current);
       }
     };
-  }, [memoryManager, geometries]);
+  }, [geometries]);
   
   useFrame((state) => {
     if (!meshRef.current) return;

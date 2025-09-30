@@ -31,6 +31,12 @@ export class MemoryManager {
   private frameCount = 0;
   private lastCleanup = 0;
   private memoryThreshold = 0.8; // 80% memory threshold before aggressive cleanup
+  
+  // Phase 7: Interval ID tracking for proper cleanup
+  private initialized = false;
+  private monitorIntervalId: NodeJS.Timeout | null = null;
+  private frameIntervalId: NodeJS.Timeout | null = null;
+  private heavyCleanupIntervalId: NodeJS.Timeout | null = null;
 
   static getInstance(): MemoryManager {
     if (!MemoryManager.instance) {
@@ -40,7 +46,16 @@ export class MemoryManager {
   }
 
   initialize(): void {
+    // Phase 7: Idempotent initialization - only run once
+    if (this.initialized) {
+      console.log('[MEMORY MANAGER] Already initialized, skipping...');
+      return;
+    }
+    
     console.log('[MEMORY MANAGER] Initializing Phase 7 memory management...');
+    
+    // Clear any existing intervals first (defensive)
+    this.clearIntervals();
     
     // Initialize object pools
     this.initializeObjectPools();
@@ -51,7 +66,18 @@ export class MemoryManager {
     // Register cleanup intervals
     this.setupCleanupIntervals();
     
+    this.initialized = true;
     console.log('[MEMORY MANAGER] Phase 7 initialization complete');
+  }
+  
+  private clearIntervals(): void {
+    if (this.monitorIntervalId) clearInterval(this.monitorIntervalId);
+    if (this.frameIntervalId) clearInterval(this.frameIntervalId);
+    if (this.heavyCleanupIntervalId) clearInterval(this.heavyCleanupIntervalId);
+    
+    this.monitorIntervalId = null;
+    this.frameIntervalId = null;
+    this.heavyCleanupIntervalId = null;
   }
 
   private initializeObjectPools(): void {
@@ -250,8 +276,11 @@ export class MemoryManager {
   }
 
   private setupMemoryMonitoring(): void {
+    // Clear existing interval if present
+    if (this.monitorIntervalId) clearInterval(this.monitorIntervalId);
+    
     // Monitor memory every 5 seconds
-    setInterval(() => {
+    this.monitorIntervalId = setInterval(() => {
       const stats = this.getMemoryStats();
       
       if (stats.memoryPressure === 'high' || stats.memoryPressure === 'critical') {
@@ -262,12 +291,16 @@ export class MemoryManager {
   }
 
   private setupCleanupIntervals(): void {
+    // Clear existing intervals if present
+    if (this.frameIntervalId) clearInterval(this.frameIntervalId);
+    if (this.heavyCleanupIntervalId) clearInterval(this.heavyCleanupIntervalId);
+    
     let lastFrameTime = performance.now();
     let frameCount = 0;
     let fpsHistory: number[] = [];
 
     // Frame-rate based cleanup - Phase 7 optimization (more conservative)
-    setInterval(() => {
+    this.frameIntervalId = setInterval(() => {
       frameCount++;
       const currentTime = performance.now();
       const deltaTime = currentTime - lastFrameTime;
@@ -291,7 +324,7 @@ export class MemoryManager {
     }, 100); // Monitor every 100ms instead of 16ms for stability
 
     // Heavy cleanup every 3 minutes or when memory pressure is critical
-    setInterval(() => {
+    this.heavyCleanupIntervalId = setInterval(() => {
       const timeSinceLastCleanup = performance.now() - this.lastCleanup;
       const memPressure = this.getMemoryPressure();
       
@@ -472,10 +505,16 @@ export class MemoryManager {
   dispose(): void {
     console.log('[MEMORY MANAGER] Disposing all resources...');
     
+    // Clear all intervals
+    this.clearIntervals();
+    
     this.clearCaches();
     
     // Clear all pools
     this.pools.clear();
+    
+    // Reset initialization flag
+    this.initialized = false;
     
     console.log('[MEMORY MANAGER] Disposal complete');
   }

@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
-import { useMemoryManager } from '@/lib/memoryManager';
+// memoryManager imported as singleton, not hook
 import { TPTTv4_6Result, TimeShiftMetrics, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
 import { useExperimentLogger } from '@/hooks/useExperimentLogger';
@@ -225,7 +225,6 @@ export function TDFEnhancedTemporalScene({
   qualitySettings = { particles: true, shadows: true, quality: 'high' },
   onDebugDataUpdate
 }: TDFEnhancedTemporalSceneProps) {
-  const memoryManager = useMemoryManager();
   const [currentMetrics, setCurrentMetrics] = React.useState({ fps: 60, vertexCount: 1024 });
   const { logExperiment } = useExperimentLogger();
   const [lastLoggedTDF, setLastLoggedTDF] = React.useState<number>(0);

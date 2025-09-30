@@ -33,14 +33,14 @@ const TransportControl = ({
       setP_o(newP_o);
     };
 
-    const interval = setInterval(oscillator, 50); // Update every 50ms
-    return () => clearInterval(interval);
+    const intervalId = setInterval(oscillator, 50); // Update every 50ms
+    return () => clearInterval(intervalId);
   }, []);
 
   // Warp simulation
   useEffect(() => {
     if (isWarping) {
-      const interval = setInterval(() => {
+      const intervalId = setInterval(() => {
         setWarpProgress((prev) => {
           if (prev >= 100) {
             setIsWarping(false);
@@ -49,7 +49,7 @@ const TransportControl = ({
           return prev + 2;
         });
       }, 50);
-      return () => clearInterval(interval);
+      return () => clearInterval(intervalId);
     }
   }, [isWarping]);
 
