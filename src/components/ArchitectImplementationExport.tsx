@@ -283,7 +283,7 @@ export function ArchitectImplementationExport({
         export_metadata: {
           package_type: 'Architect Implementation Export',
           generated_at: new Date().toISOString(),
-          version: 'BLURRN v4.6 Enhanced',
+          version: tpttV47Result ? 'BLURRN v4.7 Chrono Transport' : 'BLURRN v4.6 Enhanced',
           session_id: sessionId,
           duration_ms: Date.now() - sessionStartTime,
           total_size_estimate: 'Variable based on performance history'
