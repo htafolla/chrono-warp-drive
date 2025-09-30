@@ -261,26 +261,27 @@ export function CascadeOptimizationSystem({
     }
   };
 
-  // Run neural optimization on cascade changes
+  // Run neural optimization on cascade changes - Fixed to prevent cascading
   useEffect(() => {
-    // FIXED: More permissive trigger condition - run if neural is ready and parameters are valid
     if (neuralInitialized && cascadeLevel >= 25 && cascadeLevel <= 34) {
       console.log('[Neural Fusion] Auto-triggering optimization');
       runNeuralOptimization();
     }
-  }, [cascadeLevel, tdfValue, deltaPhase, neuralInitialized, runNeuralOptimization]);
+    // Removed runNeuralOptimization from deps to prevent infinite loops
+  }, [cascadeLevel, tdfValue, deltaPhase, neuralInitialized]);
 
-  // Periodic recompute to keep numbers lively
+  // Periodic recompute - Increased from 5s to 15s to reduce CPU load
   useEffect(() => {
     if (!neuralInitialized || cascadeLevel < 25 || cascadeLevel > 34) return;
 
     const intervalId = setInterval(() => {
       console.log('[Neural Fusion] Periodic recompute triggered');
       runNeuralOptimization();
-    }, 5000);
+    }, 15000); // Increased from 5000 to 15000
 
     return () => clearInterval(intervalId);
-  }, [neuralInitialized, cascadeLevel, runNeuralOptimization]);
+    // Removed runNeuralOptimization from deps - stable callback pattern
+  }, [neuralInitialized, cascadeLevel]);
 
   // Phase 7: AI Advisor Handler
   const handleAIAdvice = async () => {
