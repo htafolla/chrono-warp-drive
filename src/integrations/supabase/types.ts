@@ -14,6 +14,136 @@ export type Database = {
   }
   public: {
     Tables: {
+      cascade_updates: {
+        Row: {
+          cascade_index: number
+          cti_value: number
+          delta_phase: number
+          efficiency: number
+          id: string
+          metadata: Json | null
+          n: number
+          q_ent: number
+          session_id: string
+          tdf_value: number
+          timestamp: string
+        }
+        Insert: {
+          cascade_index: number
+          cti_value: number
+          delta_phase: number
+          efficiency: number
+          id?: string
+          metadata?: Json | null
+          n: number
+          q_ent: number
+          session_id: string
+          tdf_value: number
+          timestamp?: string
+        }
+        Update: {
+          cascade_index?: number
+          cti_value?: number
+          delta_phase?: number
+          efficiency?: number
+          id?: string
+          metadata?: Json | null
+          n?: number
+          q_ent?: number
+          session_id?: string
+          tdf_value?: number
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cascade_updates_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cti_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      cti_sessions: {
+        Row: {
+          cascade_level: number
+          created_at: string
+          id: string
+          metadata: Json | null
+          q_ent: number | null
+          session_id: string
+          status: string
+          tdf_value: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cascade_level?: number
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          q_ent?: number | null
+          session_id: string
+          status?: string
+          tdf_value?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cascade_level?: number
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          q_ent?: number | null
+          session_id?: string
+          status?: string
+          tdf_value?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      performance_metrics: {
+        Row: {
+          cascade_level: number
+          fps: number
+          id: string
+          memory_mb: number
+          quality_setting: string
+          session_id: string
+          timestamp: string
+          vertex_count: number
+        }
+        Insert: {
+          cascade_level: number
+          fps: number
+          id?: string
+          memory_mb: number
+          quality_setting: string
+          session_id: string
+          timestamp?: string
+          vertex_count: number
+        }
+        Update: {
+          cascade_level?: number
+          fps?: number
+          id?: string
+          memory_mb?: number
+          quality_setting?: string
+          session_id?: string
+          timestamp?: string
+          vertex_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_metrics_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cti_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       scene_performance_logs: {
         Row: {
           breakthrough_validated: boolean | null
