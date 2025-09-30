@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Brain, Activity, Zap, Target } from 'lucide-react';
+import { Brain, Activity, Zap } from 'lucide-react';
 import { NeuralOutput } from '@/types/sdss';
 import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
+import { SequenceDial } from './dials/SequenceDial';
+import { TimelineDial } from './dials/TimelineDial';
 
 interface NeuralFusionDisplayProps {
   neuralOutput: NeuralOutput | null;
@@ -124,32 +126,23 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
           ))}
         </div>
 
-        {/* Compact Synaptic Sequence & Timeline */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-2 bg-muted rounded text-xs">
-            <div className="flex items-center gap-1 mb-1">
-              <Target className="h-3 w-3 text-blue-500" />
-              <span className="font-medium">Sequence</span>
-            </div>
-            <p className="font-mono text-primary truncate">
-              {neuralOutput.synapticSequence}
-            </p>
-          </div>
+        {/* Interactive Dials */}
+        <div className="flex items-center justify-around gap-4 py-2">
+          <SequenceDial 
+            sequence={neuralOutput.synapticSequence}
+          />
           
-          <div className="p-2 bg-muted rounded text-xs">
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-medium">Timeline</span>
-            </div>
-            <div className="h-4 flex items-end gap-px">
-              {metamorphosisHistory.slice(-10).map((value, index) => (
-                <div
-                  key={index}
-                  className="flex-1 bg-gradient-to-t from-primary to-primary/20 rounded-t min-h-[2px]"
-                  style={{ height: `${value * 100}%` }}
-                />
-              ))}
-            </div>
-          </div>
+          <TimelineDial 
+            currentValue={neuralOutput.metamorphosisIndex}
+            history={metamorphosisHistory}
+          />
+        </div>
+        
+        {/* Full sequence text (truncated) */}
+        <div className="pt-1 border-t border-border/50">
+          <p className="text-[10px] font-mono text-muted-foreground truncate text-center">
+            {neuralOutput.synapticSequence}
+          </p>
         </div>
       </CardContent>
     </Card>
