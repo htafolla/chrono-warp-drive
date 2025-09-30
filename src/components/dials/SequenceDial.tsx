@@ -37,6 +37,15 @@ export function SequenceDial({ sequence, className = '' }: SequenceDialProps) {
 
   return (
     <div className={`relative ${className}`}>
+      {/* Rotating energy ring */}
+      <div 
+        className="absolute inset-0 rounded-full border-2 border-dashed opacity-20 animate-spin"
+        style={{ 
+          borderColor: sequenceData.color,
+          animationDuration: '8s'
+        }}
+      />
+      
       <CircularDial
         value={sequenceData.value}
         color={sequenceData.color}
@@ -45,16 +54,28 @@ export function SequenceDial({ sequence, className = '' }: SequenceDialProps) {
         strokeWidth={5}
       />
       
-      {/* Sequence type indicator */}
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-background/80 backdrop-blur-sm rounded text-[10px] font-medium whitespace-nowrap border border-border/50">
+      {/* Sequence type indicator with glow */}
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-background/90 backdrop-blur-sm rounded text-[10px] font-medium whitespace-nowrap border border-border/50 shadow-lg animate-pulse" style={{ boxShadow: `0 0 10px ${sequenceData.color}40` }}>
         {sequenceData.label}
       </div>
       
-      {/* Activity pulse */}
-      <div 
-        className="absolute top-1 right-1 w-2 h-2 rounded-full animate-pulse"
-        style={{ backgroundColor: sequenceData.color }}
-      />
+      {/* Enhanced activity pulse with rings */}
+      <div className="absolute top-1 right-1">
+        <div 
+          className="w-2 h-2 rounded-full animate-pulse"
+          style={{ 
+            backgroundColor: sequenceData.color,
+            boxShadow: `0 0 8px ${sequenceData.color}`
+          }}
+        />
+        <div 
+          className="absolute inset-0 w-2 h-2 rounded-full animate-ping"
+          style={{ 
+            backgroundColor: sequenceData.color,
+            opacity: 0.4
+          }}
+        />
+      </div>
     </div>
   );
 }

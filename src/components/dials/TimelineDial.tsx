@@ -48,6 +48,15 @@ export function TimelineDial({ currentValue, history, className = '' }: Timeline
 
   return (
     <div className={`relative ${className}`}>
+      {/* Pulsing outer ring for high activity */}
+      <div 
+        className="absolute inset-0 rounded-full border-2 opacity-20 animate-pulse"
+        style={{ 
+          borderColor: color,
+          animationDuration: `${2 - (currentValue * 0.5)}s`
+        }}
+      />
+      
       <CircularDial
         value={currentValue}
         color={color}
@@ -56,7 +65,7 @@ export function TimelineDial({ currentValue, history, className = '' }: Timeline
         strokeWidth={5}
       />
       
-      {/* Historical average ring (background) */}
+      {/* Animated historical average ring with wave effect */}
       <svg width={64} height={64} className="absolute top-0 left-0 transform -rotate-45 pointer-events-none">
         <circle
           cx={32}
@@ -64,23 +73,47 @@ export function TimelineDial({ currentValue, history, className = '' }: Timeline
           r={24}
           fill="none"
           stroke="hsl(var(--muted-foreground))"
-          strokeWidth={2}
+          strokeWidth={3}
           strokeDasharray={`${metrics.average * 150} 150`}
-          opacity={0.3}
+          strokeLinecap="round"
+          opacity={0.4}
+          className="transition-all duration-1000"
+        />
+        <circle
+          cx={32}
+          cy={32}
+          r={24}
+          fill="none"
+          stroke="hsl(var(--muted-foreground))"
+          strokeWidth={5}
+          strokeDasharray={`${metrics.average * 150} 150`}
+          strokeLinecap="round"
+          opacity={0.1}
+          className="transition-all duration-1000"
+          style={{ filter: 'blur(2px)' }}
         />
       </svg>
       
-      {/* Trend indicator */}
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-background/80 backdrop-blur-sm rounded flex items-center gap-1 border border-border/50">
-        <TrendIcon className="h-3 w-3" />
-        <span className="text-[10px] font-medium">
+      {/* Enhanced trend indicator with glow */}
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-background/90 backdrop-blur-sm rounded flex items-center gap-1 border border-border/50 shadow-lg">
+        <TrendIcon className={`h-3 w-3 ${metrics.trend === 'increasing' ? 'text-green-500 animate-pulse' : metrics.trend === 'decreasing' ? 'text-red-500 animate-pulse' : 'text-muted-foreground'}`} />
+        <span className="text-[10px] font-medium tabular-nums">
           {(metrics.average * 100).toFixed(0)}%
         </span>
       </div>
       
-      {/* Volatility indicator */}
-      {metrics.volatility > 0.2 && (
-        <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+      {/* Enhanced volatility indicator with rings */}
+      {metrics.volatility > 0.15 && (
+        <div className="absolute top-1 left-1">
+          <div 
+            className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"
+            style={{ boxShadow: '0 0 8px hsl(var(--chart-3))' }}
+          />
+          <div 
+            className="absolute inset-0 w-2 h-2 rounded-full bg-yellow-500 animate-ping"
+            style={{ opacity: 0.4 }}
+          />
+        </div>
       )}
     </div>
   );

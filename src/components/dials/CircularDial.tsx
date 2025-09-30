@@ -22,11 +22,42 @@ export function CircularDial({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (value * circumference);
-  const needleAngle = (value * 270) - 135; // -135° to 135° range
+  const needleAngle = (value * 270) - 135;
 
   return (
     <div className={`relative inline-flex flex-col items-center gap-1 ${className}`}>
-      <svg width={size} height={size} className="transform -rotate-45">
+      {/* Ambient glow effect */}
+      <div 
+        className="absolute inset-0 rounded-full blur-xl opacity-30 animate-pulse"
+        style={{ 
+          backgroundColor: color,
+          animationDuration: '3s'
+        }}
+      />
+      
+      {/* Particle system */}
+      <div className="absolute inset-0 pointer-events-none">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 rounded-full opacity-40"
+            style={{
+              backgroundColor: color,
+              left: '50%',
+              top: '50%',
+              animation: `float-particle-${i} ${3 + i * 0.5}s ease-in-out infinite`,
+              animationDelay: `${i * 0.5}s`
+            }}
+          />
+        ))}
+      </div>
+      
+      <svg 
+        width={size} 
+        height={size} 
+        className="transform -rotate-45 relative z-10"
+        style={{ filter: 'drop-shadow(0 0 8px hsl(var(--primary) / 0.3))' }}
+      >
         {/* Background circle */}
         <circle
           cx={size / 2}
@@ -38,7 +69,7 @@ export function CircularDial({
           opacity={0.2}
         />
         
-        {/* Progress circle */}
+        {/* Animated progress circle with trail effect */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -49,7 +80,29 @@ export function CircularDial({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="transition-all duration-500 ease-out"
+          className="transition-all duration-700 ease-out"
+          style={{
+            filter: `drop-shadow(0 0 4px ${color})`,
+            opacity: 0.9
+          }}
+        />
+        
+        {/* Trailing glow effect */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth + 2}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-700 ease-out"
+          style={{
+            opacity: 0.2,
+            filter: 'blur(3px)'
+          }}
         />
         
         {/* Tick marks */}
@@ -96,16 +149,47 @@ export function CircularDial({
         )}
       </svg>
       
-      {/* Value display */}
-      <div className="text-xs font-mono text-muted-foreground">
-        {(value * 100).toFixed(0)}%
+      {/* Value display with glassmorphism */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="px-2 py-1 rounded-lg backdrop-blur-sm bg-background/60 border border-border/30 shadow-lg">
+          <span className="text-sm font-bold font-mono" style={{ color }}>
+            {(value * 100).toFixed(0)}%
+          </span>
+        </div>
       </div>
       
       {label && (
-        <div className="text-xs font-medium text-muted-foreground">
+        <div className="text-xs font-medium text-muted-foreground mt-1">
           {label}
         </div>
       )}
+      
+      <style>{`
+        @keyframes float-particle-0 {
+          0%, 100% { transform: translate(-10px, -15px); opacity: 0; }
+          50% { transform: translate(-15px, -25px); opacity: 0.6; }
+        }
+        @keyframes float-particle-1 {
+          0%, 100% { transform: translate(10px, -15px); opacity: 0; }
+          50% { transform: translate(15px, -25px); opacity: 0.6; }
+        }
+        @keyframes float-particle-2 {
+          0%, 100% { transform: translate(15px, 0px); opacity: 0; }
+          50% { transform: translate(25px, -5px); opacity: 0.6; }
+        }
+        @keyframes float-particle-3 {
+          0%, 100% { transform: translate(-15px, 0px); opacity: 0; }
+          50% { transform: translate(-25px, -5px); opacity: 0.6; }
+        }
+        @keyframes float-particle-4 {
+          0%, 100% { transform: translate(0px, 15px); opacity: 0; }
+          50% { transform: translate(5px, 25px); opacity: 0.6; }
+        }
+        @keyframes float-particle-5 {
+          0%, 100% { transform: translate(0px, -15px); opacity: 0; }
+          50% { transform: translate(-5px, -25px); opacity: 0.6; }
+        }
+      `}</style>
     </div>
   );
 }
