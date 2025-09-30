@@ -24,19 +24,19 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
   const [metamorphosisHistory, setMetamorphosisHistory] = useState<number[]>([]);
   const [animatedOutput, setAnimatedOutput] = useState(neuralOutput);
 
-  // Add micro-variations to make data more dynamic
+  // Add micro-variations to make data more dynamic (throttled for performance)
   useEffect(() => {
     if (!neuralOutput || !isActive) return;
     
     const interval = setInterval(() => {
-      const microVariation = () => 0.97 + (Math.random() * 0.06); // ±3% variation
+      const microVariation = () => 0.98 + (Math.random() * 0.04); // ±2% variation (reduced for performance)
       
       setAnimatedOutput({
         ...neuralOutput,
         confidenceScore: Math.min(1, neuralOutput.confidenceScore * microVariation()),
         metamorphosisIndex: Math.min(1, neuralOutput.metamorphosisIndex * microVariation())
       });
-    }, 800);
+    }, 2000); // Throttled to 2000ms for transport system performance
     
     return () => clearInterval(interval);
   }, [neuralOutput, isActive]);

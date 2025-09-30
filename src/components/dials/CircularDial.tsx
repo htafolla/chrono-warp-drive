@@ -35,9 +35,9 @@ export function CircularDial({
         }}
       />
       
-      {/* Particle system */}
+      {/* Particle system - reduced for performance */}
       <div className="absolute inset-0 pointer-events-none">
-        {[...Array(6)].map((_, i) => (
+        {[...Array(3)].map((_, i) => (
           <div
             key={i}
             className="absolute w-1 h-1 rounded-full opacity-40"
@@ -176,18 +176,6 @@ export function CircularDial({
         @keyframes float-particle-2 {
           0%, 100% { transform: translate(15px, 0px); opacity: 0; }
           50% { transform: translate(25px, -5px); opacity: 0.6; }
-        }
-        @keyframes float-particle-3 {
-          0%, 100% { transform: translate(-15px, 0px); opacity: 0; }
-          50% { transform: translate(-25px, -5px); opacity: 0.6; }
-        }
-        @keyframes float-particle-4 {
-          0%, 100% { transform: translate(0px, 15px); opacity: 0; }
-          50% { transform: translate(5px, 25px); opacity: 0.6; }
-        }
-        @keyframes float-particle-5 {
-          0%, 100% { transform: translate(0px, -15px); opacity: 0; }
-          50% { transform: translate(-5px, -25px); opacity: 0.6; }
         }
       `}</style>
     </div>

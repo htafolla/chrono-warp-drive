@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useThrottledMemo } from '@/hooks/useThrottledMemo';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -108,8 +109,8 @@ export const TransportSystem = ({
   const [transportHistory, setTransportHistory] = useState<TransportResult[]>([]);
   const [lastTransport, setLastTransport] = useState<TransportResult | null>(null);
 
-  // Enhanced transport status calculations with adaptive thresholds
-  const transportStatus = useMemo(() => {
+  // Throttled transport status calculations to improve performance (updates every 150ms max)
+  const transportStatus = useThrottledMemo(() => {
     const canTransport = tPTT_value >= adaptiveThreshold;
     const transportReadiness = logReadiness;
     const phaseSync = calculatePhaseCoherence(phases);
@@ -178,9 +179,10 @@ export const TransportSystem = ({
       efficiency: Math.min(transportReadiness * 0.4 + phaseCoherence * 0.3 + neuralSync * 30, 100),
       thresholdRatio
     };
-  }, [tPTT_value, phases, neuralOutput, isotope, adaptiveThreshold, logReadiness]);
+  }, [tPTT_value, phases, neuralOutput, isotope, adaptiveThreshold, logReadiness], 150);
 
-  const destinationData = useMemo(() => {
+  // Throttled destination calculations to improve performance (updates every 200ms max)
+  const destinationData = useThrottledMemo(() => {
     const phaseSum = phases.reduce((sum, phase) => sum + phase, 0);
     const neuralFactor = neuralOutput?.metamorphosisIndex || 0.5;
     
@@ -302,7 +304,7 @@ export const TransportSystem = ({
         formatted: `Emission: ${targetUTC.toISOString().split('T')[0]} (${yearsAgo.toFixed(0)} years ago)`
       }
     };
-  }, [tPTT_value, phases, e_t, neuralOutput, transportStatus, spectrumData]);
+  }, [tPTT_value, phases, e_t, neuralOutput, transportStatus, spectrumData], 200);
 
   // Enhanced transport function with auto-realtime mode
   const performTransport = async () => {
