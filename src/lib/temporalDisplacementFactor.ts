@@ -31,6 +31,33 @@ export const computeBlackHoleSequence = (voids: number, n: number, phi: number =
 };
 
 /**
+ * Calculate Dual Black Hole Synchronization for v4.7
+ * Formula: Two sequences with slight void offset for inter-hole coherence
+ */
+export const computeDualBlackHoleSync = (
+  voids: number, 
+  n: number, 
+  phi: number = 1.666
+): { seq1: number; seq2: number; total: number; syncEfficiency: number } => {
+  // First black hole sequence
+  const seq1 = (3 * voids * Math.pow(phi, n)) % (Math.PI * phi);
+  
+  // Second black hole sequence with slight void offset
+  const seq2 = (3 * (voids + 0.01) * Math.pow(phi, n)) % (Math.PI * phi);
+  
+  // Total sequence for TDF calculation
+  const total = seq1 + seq2;
+  
+  // Calculate synchronization efficiency (0-1)
+  const syncEfficiency = Math.min(
+    1.0,
+    Math.abs(seq1 - seq2) < 0.1 ? 1.0 : 1.0 - Math.abs(seq1 - seq2) / Math.PI
+  );
+  
+  return { seq1, seq2, total, syncEfficiency };
+};
+
+/**
  * Calculate E_t_growth using exponential entropy growth
  * Formula: exp(cycle/50) * growth_rate_multiplier
  */
