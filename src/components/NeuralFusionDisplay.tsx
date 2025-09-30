@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Brain, Activity, Zap } from 'lucide-react';
 import { NeuralOutput } from '@/types/sdss';
 import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 import { SequenceDial } from './dials/SequenceDial';
 import { TimelineDial } from './dials/TimelineDial';
 

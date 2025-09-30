@@ -4,7 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
-import { memoryManager } from '@/lib/memoryManager';
+import { memoryManager, useMemoryManager } from '@/lib/memoryManager';
 import { usePageVisibility } from '@/hooks/usePageVisibility';
 import { CustomStars } from './CustomStars';
 import { LODWavePlane } from './LODWavePlane';
