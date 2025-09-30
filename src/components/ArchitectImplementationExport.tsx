@@ -17,6 +17,7 @@ interface ArchitectImplementationExportProps {
   spectrumData?: SpectrumData | null;
   performanceSettings: any;
   sessionId?: string;
+  sessionStartTime?: number;
 }
 
 interface ExportProgress {
@@ -30,7 +31,8 @@ export function ArchitectImplementationExport({
   tpttV46Result,
   spectrumData,
   performanceSettings,
-  sessionId = 'architect-export'
+  sessionId = 'architect-export',
+  sessionStartTime = Date.now()
 }: ArchitectImplementationExportProps) {
   const [exportProgress, setExportProgress] = useState<ExportProgress>({
     stage: 'Ready',
@@ -233,6 +235,7 @@ export function ArchitectImplementationExport({
           generated_at: new Date().toISOString(),
           version: 'BLURRN v4.6 Enhanced',
           session_id: sessionId,
+          duration_ms: Date.now() - sessionStartTime,
           total_size_estimate: 'Variable based on performance history'
         },
         
