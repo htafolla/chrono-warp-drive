@@ -61,6 +61,8 @@ import { TemporalControls } from './TemporalControls';
 import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { ArchitectImplementationExport } from './ArchitectImplementationExport';
 import { CascadeOptimizationSystem } from './CascadeOptimizationSystem';
+import { CodexComplianceMonitor } from './CodexComplianceMonitor';
+import { PerformanceDashboard } from './PerformanceDashboard';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
 import { memoryManager } from '@/lib/memoryManager';
 import ChronoSlider from './ChronoSlider';
@@ -1286,6 +1288,37 @@ export function TPTTApp() {
               onOptimizationUpdate={(recommendations) => {
                 console.log('[Cascade Optimization] Recommendations:', recommendations);
               }}
+            />
+
+            {/* Phase 6: Codex v4.7 Compliance Monitor */}
+            {chronoResult && tpttV46Result && (
+              <CodexComplianceMonitor
+                tpttV47Result={{
+                  ...tpttV46Result,
+                  v47_components: {
+                    CTI_value: chronoResult.score,
+                    cascade_index: chronoResult.cascadeIndex,
+                    q_ent: chronoResult.q_ent,
+                    delta_phase: cascadeParams.delta_phase,
+                    n: cascadeParams.n
+                  },
+                  chronoTransport: chronoResult,
+                  oscillator: {
+                    p_o: 3e8,
+                    frequency: 3e8,
+                    phase: 0
+                  }
+                }}
+                isActive={isV47Initialized}
+                currentFPS={60}
+              />
+            )}
+
+            {/* Phase 6: Performance Dashboard */}
+            <PerformanceDashboard
+              sessionId={sessionId}
+              cascadeLevel={cascadeParams.n}
+              isActive={isV47Initialized}
             />
           </TabsContent>
         </Tabs>
