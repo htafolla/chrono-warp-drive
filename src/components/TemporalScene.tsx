@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
-import { memoryManager } from '@/lib/memoryManager';
+import { useMemoryManager } from '@/lib/memoryManager';
 
 interface WavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -17,6 +17,7 @@ interface WavePlaneProps {
 function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
+  const memoryManager = useMemoryManager();
 
   // Cleanup on unmount
   useEffect(() => {
@@ -28,7 +29,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
         geometryRef.current.dispose();
       }
     };
-  }, []);
+  }, [memoryManager]);
   
   useFrame((state) => {
     if (!meshRef.current || !geometryRef.current) return;
@@ -88,6 +89,8 @@ interface TemporalSceneProps {
 }
 
 export function TemporalScene({ phases, isotope, cycle, fractalToggle }: TemporalSceneProps) {
+  const memoryManager = useMemoryManager();
+  
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="temporal-scene">
       <Canvas camera={{ position: [5, 4, 8], fov: 75 }}>

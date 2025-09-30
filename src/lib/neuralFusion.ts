@@ -102,7 +102,6 @@ export class NeuralFusion {
 
   async processNeuralInput(input: NeuralInput): Promise<NeuralOutput> {
     if (!this.isInitialized || !this.spectralModel || !this.patternModel) {
-      console.log('Neural Fusion: Using fallback output (models not ready)');
       return this.getFallbackOutput(input);
     }
 

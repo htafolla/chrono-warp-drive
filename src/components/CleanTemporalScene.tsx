@@ -3,8 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, type Isotope } from '@/lib/temporalCalculator';
-import { memoryManager, useMemoryManager } from '@/lib/memoryManager';
-import { usePageVisibility } from '@/hooks/usePageVisibility';
+import { useMemoryManager } from '@/lib/memoryManager';
 import { TPTTv4_6Result, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
 import { CustomStars } from './CustomStars';
@@ -126,8 +125,7 @@ interface CleanWavePlaneProps {
 function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, totalPlanes }: CleanWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const isPageVisible = usePageVisibility();
-  const frameCounterRef = useRef(0);
+  const memoryManager = useMemoryManager();
 
   useEffect(() => {
     return () => {

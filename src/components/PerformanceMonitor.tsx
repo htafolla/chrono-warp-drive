@@ -97,9 +97,7 @@ export function PerformanceMonitor({ isActive, isV47Active = false, tdfValue = 0
       animationFrameId = requestAnimationFrame(measurePerformance);
     };
 
-    animationFrameId = requestAnimationFrame(measurePerformance);
-    // Initial benchmark
-    cpuResult = benchmarkCPU();
+    measurePerformance();
 
     return () => {
       if (animationFrameId) {
@@ -109,7 +107,7 @@ export function PerformanceMonitor({ isActive, isV47Active = false, tdfValue = 0
         clearInterval(benchmarkInterval);
       }
     };
-  }, [isActive, isV47Active]);
+  }, [isActive]);
 
   if (!isActive) return null;
 
