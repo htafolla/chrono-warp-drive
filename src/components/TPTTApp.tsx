@@ -30,7 +30,7 @@ import { AdvancedProgressIndicators } from './AdvancedProgressIndicators';
 import { OptimizationSuggestions } from './OptimizationSuggestions';
 import { DashboardMetrics } from './DashboardMetrics';
 import { DashboardControls } from './DashboardControls';
-import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText, Clock } from 'lucide-react';
+import { Star, Waves, Sprout, BarChart3, Rocket, Laptop, Download, FileText, Clock, Zap } from 'lucide-react';
 import { 
   PHI, 
   ISOTOPES, 
@@ -62,6 +62,11 @@ import { NeuralFusionDisplay } from './NeuralFusionDisplay';
 import { ArchitectImplementationExport } from './ArchitectImplementationExport';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
 import { memoryManager } from '@/lib/memoryManager';
+import ChronoSlider from './ChronoSlider';
+import EntanglementViz from './EntanglementViz';
+import TransportControl from './TransportControl';
+import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
+import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
 
 export function TPTTApp() {
   // Initialize memory manager
@@ -148,6 +153,17 @@ export function TPTTApp() {
   const [picklesAtlas] = useState(() => new PicklesAtlas());
   const [neuralFusion] = useState(() => new NeuralFusion());
   
+  // v4.7 Chrono Transport Cascade System
+  const [chronoEngine] = useState(() => new ChronoTransportEngine());
+  const [cascadeParams, setCascadeParams] = useState<CascadeParameters>({
+    delta_phase: 0.25,
+    n: 25,
+    voids: 7,
+    tptt: 5.3e12
+  });
+  const [chronoResult, setChronoResult] = useState<ChronoTransportResult | null>(null);
+  const [isV47Initialized, setIsV47Initialized] = useState(false);
+  
   // Scene controls for mobile
   const sceneControlsRef = useRef({
     rotate: (deltaX: number, deltaY: number) => {},
@@ -222,6 +238,30 @@ export function TPTTApp() {
 
     initializeV46Systems();
   }, [isV4Initialized, spectrumData]);
+
+  // v4.7 Chrono Transport Cascade Initialization
+  useEffect(() => {
+    const initializeV47Systems = async () => {
+      try {
+        if (!isV46Initialized) return;
+        
+        setSystemStatus("Initializing v4.7 Chrono Transport Cascade...");
+        
+        // Compute initial CTI result
+        const initialResult = chronoEngine.runInterview(cascadeParams);
+        setChronoResult(initialResult);
+        setIsV47Initialized(true);
+        
+        setSystemStatus("BLURRN v4.7 Chrono Transport - Dual Black Hole sync active!");
+        toast.success(`v4.7 Cascade initialized - n=${cascadeParams.n}, Efficiency: ${initialResult.efficiency.toFixed(2)}%`);
+      } catch (error) {
+        console.error("v4.7 initialization failed:", error);
+        setSystemStatus(`v4.7 initialization failed: ${error}`);
+      }
+    };
+
+    initializeV47Systems();
+  }, [isV46Initialized, cascadeParams.delta_phase, cascadeParams.n]);
 
   // Animation loop with controllable intervals and pause functionality
   useEffect(() => {
@@ -656,7 +696,7 @@ export function TPTTApp() {
         </header>
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Star className="h-4 w-4" />
               Dashboard
@@ -684,6 +724,10 @@ export function TPTTApp() {
             <TabsTrigger value="timeshift" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               Time Shift
+            </TabsTrigger>
+            <TabsTrigger value="v47cascade" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              v4.7 Cascade
             </TabsTrigger>
             <TabsTrigger value="system" className="flex items-center gap-2">
               <Laptop className="h-4 w-4" />
@@ -1120,6 +1164,116 @@ export function TPTTApp() {
                 />
               </div>
             </div>
+          </TabsContent>
+
+          {/* v4.7 Chrono Transport Cascade Tab */}
+          <TabsContent value="v47cascade" className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-2xl font-semibold">BLURRN v4.7 Chrono Transport Cascade</h2>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Dual Black Hole Time Transport with 100% Efficiency
+                </p>
+              </div>
+              <Badge variant={chronoResult?.status === 'Approved' ? 'default' : 'secondary'}>
+                {chronoResult?.status || 'Ready'}
+              </Badge>
+            </div>
+
+            {/* Main Control Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column: Controls */}
+              <div className="space-y-6">
+                <ChronoSlider
+                  onChange={(params) => {
+                    setCascadeParams(prev => ({ ...prev, ...params }));
+                    // Compute CTI on parameter change
+                    const result = chronoEngine.runInterview({
+                      ...cascadeParams,
+                      ...params
+                    });
+                    setChronoResult(result);
+                  }}
+                  initialDeltaPhase={cascadeParams.delta_phase}
+                  initialN={cascadeParams.n}
+                />
+
+                <TransportControl
+                  n={cascadeParams.n}
+                  deltaPhase={cascadeParams.delta_phase}
+                  efficiency={chronoResult?.efficiency}
+                  status={chronoResult?.status}
+                  onWarp={() => {
+                    toast.success('Time Warp Initiated!', {
+                      description: `n=${cascadeParams.n}, Q_ent=${chronoResult?.q_ent.toFixed(4)}`
+                    });
+                  }}
+                />
+              </div>
+
+              {/* Right Column: Visualization */}
+              <div className="space-y-6">
+                <EntanglementViz
+                  deltaPhase={cascadeParams.delta_phase}
+                  n={cascadeParams.n}
+                  q_ent={chronoResult?.q_ent}
+                />
+
+                {/* Metrics Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>CTI Cascade Metrics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Cascade Index</div>
+                        <div className="text-lg font-mono">{chronoResult?.cascadeIndex || 'N/A'}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Q_ent</div>
+                        <div className="text-lg font-mono">{chronoResult?.q_ent.toFixed(4) || 'N/A'}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Transport Score</div>
+                        <div className="text-lg font-mono">{chronoResult?.score.toFixed(4) || 'N/A'}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Efficiency</div>
+                        <div className="text-lg font-mono">{chronoResult?.efficiency.toFixed(2)}%</div>
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <div className="text-xs text-muted-foreground">Dual Black Hole Sync</div>
+                        <div className="text-sm font-mono space-y-1">
+                          <div>Seq 1: {chronoResult?.dualBlackHole.seq1.toFixed(4) || 'N/A'}</div>
+                          <div>Seq 2: {chronoResult?.dualBlackHole.seq2.toFixed(4) || 'N/A'}</div>
+                          <div>Total: {chronoResult?.dualBlackHole.total.toFixed(4) || 'N/A'}</div>
+                          <div>Sync Eff: {((chronoResult?.dualBlackHole.syncEfficiency || 0) * 100).toFixed(2)}%</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Formula Reference */}
+            <Card>
+              <CardHeader>
+                <CardTitle>v4.7 Core Formulas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 font-mono text-sm">
+                  <div><strong>TDF:</strong> tPTT × τ × (1 / (BlackHole_Seq_1 + BlackHole_Seq_2))</div>
+                  <div><strong>CTI:</strong> (TDF × cascade_index) ⊕ (τ × φ^n)</div>
+                  <div><strong>Q_ent:</strong> abs(CTI × cos(φ*n/2)/π × sin(φ*n/4) × exp(-n/20)) × (1 + δφ) × log(n+1)</div>
+                  <div><strong>cascade_index:</strong> floor(π / voids) + n</div>
+                  <div className="pt-2 text-xs text-muted-foreground">
+                    φ = 1.666, τ = 0.865, tPTT = 5.3e12, n = {cascadeParams.n}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
