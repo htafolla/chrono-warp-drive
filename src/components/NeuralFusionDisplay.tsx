@@ -105,31 +105,48 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
     }
   }, [animatedOutput]);
   
-  // Continuous animation for neural activations
+  // Continuous animation for neural activations - Optimized with 30 FPS cap
   useEffect(() => {
     if (!isActive) return;
     
     const threshold = 0.65;
-    const animationFrame = requestAnimationFrame(function animate() {
-      setLayerActivations(prev => prev.map(layer => {
-        const updatedNeurons = layer.neurons.map((n, i) => 
-          Math.max(0.05, Math.min(1, n + (Math.sin(Date.now() / 500 + i) * 0.02)))
-        );
-        const activeCount = updatedNeurons.filter(n => n > threshold).length;
-        const avgActivation = updatedNeurons.reduce((sum, n) => sum + n, 0) / updatedNeurons.length;
-        
-        return {
-          ...layer,
-          neurons: updatedNeurons,
-          activeCount,
-          avgActivation
-        };
-      }));
-      
-      requestAnimationFrame(animate);
-    });
+    const targetFPS = 30;
+    const frameInterval = 1000 / targetFPS;
+    let lastFrameTime = performance.now();
+    let animationFrame: number;
     
-    return () => cancelAnimationFrame(animationFrame);
+    const animate = () => {
+      const currentTime = performance.now();
+      const elapsed = currentTime - lastFrameTime;
+      
+      // Frame rate limiting - only update at 30 FPS
+      if (elapsed >= frameInterval) {
+        lastFrameTime = currentTime - (elapsed % frameInterval);
+        
+        setLayerActivations(prev => prev.map(layer => {
+          const updatedNeurons = layer.neurons.map((n, i) => 
+            Math.max(0.05, Math.min(1, n + (Math.sin(Date.now() / 500 + i) * 0.02)))
+          );
+          const activeCount = updatedNeurons.filter(n => n > threshold).length;
+          const avgActivation = updatedNeurons.reduce((sum, n) => sum + n, 0) / updatedNeurons.length;
+          
+          return {
+            ...layer,
+            neurons: updatedNeurons,
+            activeCount,
+            avgActivation
+          };
+        }));
+      }
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+    
+    animationFrame = requestAnimationFrame(animate);
+    
+    return () => {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+    };
   }, [isActive]);
 
   if (!isActive || !neuralOutput) {
