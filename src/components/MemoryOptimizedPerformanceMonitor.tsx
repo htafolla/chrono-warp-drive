@@ -128,14 +128,14 @@ export function MemoryOptimizedPerformanceMonitor({
     };
     
     frameId = requestAnimationFrame(measurePerformance);
-    benchmarkInterval = setInterval(benchmarkCPU, 10000);
+    const benchmarkIntervalId = setInterval(benchmarkCPU, 10000);
     
     // Initial benchmark
     benchmarkCPU();
 
     return () => {
       if (frameId) cancelAnimationFrame(frameId);
-      if (benchmarkInterval) clearInterval(benchmarkInterval);
+      if (benchmarkIntervalId) clearInterval(benchmarkIntervalId);
     };
   }, [isActive, enableMemoryManagement]);
 
