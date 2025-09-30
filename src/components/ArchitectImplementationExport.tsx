@@ -10,10 +10,12 @@ import { useSceneMetricsLogger } from '@/hooks/useSceneMetricsLogger';
 import { supabase } from '@/integrations/supabase/client';
 import { SpectrumData } from '@/types/sdss';
 import { TPTTv4_6Result } from '@/types/blurrn-v4-6';
+import { TPTTv4_7Result } from '@/types/blurrn-v4-7';
 
 interface ArchitectImplementationExportProps {
   currentState: any;
   tpttV46Result?: TPTTv4_6Result | null;
+  tpttV47Result?: TPTTv4_7Result | null;
   spectrumData?: SpectrumData | null;
   performanceSettings: any;
   sessionId?: string;
@@ -29,6 +31,7 @@ interface ExportProgress {
 export function ArchitectImplementationExport({
   currentState,
   tpttV46Result,
+  tpttV47Result,
   spectrumData,
   performanceSettings,
   sessionId = 'architect-export',
@@ -50,10 +53,11 @@ export function ArchitectImplementationExport({
     
     const architectureSnapshot = {
       system_overview: {
-        version: 'BLURRN v4.6 Enhanced',
+        version: tpttV47Result ? 'BLURRN v4.7 Chrono Transport' : 'BLURRN v4.6 Enhanced',
         timestamp: new Date().toISOString(),
         session_id: sessionId,
-        implementation_status: 'Production Ready'
+        implementation_status: 'Production Ready',
+        chrono_transport_active: !!tpttV47Result
       },
       
       core_components: {
@@ -98,6 +102,19 @@ export function ArchitectImplementationExport({
         breakthrough_status: tpttV46Result.timeShiftMetrics.breakthrough_validated,
         time_shift_capability: tpttV46Result.timeShiftMetrics.timeShiftCapable,
         validation_proofs: tpttV46Result.experimentData?.validationProofs?.length || 0
+      } : null,
+      
+      chrono_transport_v47: tpttV47Result ? {
+        cti_value: tpttV47Result.v47_components.CTI_value,
+        cascade_index: tpttV47Result.v47_components.cascade_index,
+        q_ent: tpttV47Result.v47_components.q_ent,
+        delta_phase: tpttV47Result.v47_components.delta_phase,
+        cascade_n: tpttV47Result.v47_components.n,
+        transport_status: tpttV47Result.chronoTransport.status,
+        transport_score: tpttV47Result.chronoTransport.score,
+        transport_efficiency: tpttV47Result.chronoTransport.efficiency,
+        dual_black_hole_sync: tpttV47Result.chronoTransport.dualBlackHole.syncEfficiency,
+        oscillator_frequency: tpttV47Result.oscillator.frequency
       } : null,
       
       data_sources: {
@@ -408,10 +425,15 @@ export function ArchitectImplementationExport({
           Architect Implementation Export
         </CardTitle>
         <div className="flex gap-2">
-          <Badge variant="outline">BLURRN v4.6</Badge>
-          <Badge variant={tpttV46Result?.timeShiftMetrics.breakthrough_validated ? "default" : "secondary"}>
-            {tpttV46Result?.timeShiftMetrics.breakthrough_validated ? "TDF Breakthrough" : "Standard Mode"}
-          </Badge>
+          <Badge variant="outline">{tpttV47Result ? 'BLURRN v4.7' : 'BLURRN v4.6'}</Badge>
+          {tpttV47Result && (
+            <Badge variant="default">CTI Cascade Active</Badge>
+          )}
+          {!tpttV47Result && (
+            <Badge variant={tpttV46Result?.timeShiftMetrics.breakthrough_validated ? "default" : "secondary"}>
+              {tpttV46Result?.timeShiftMetrics.breakthrough_validated ? "TDF Breakthrough" : "Standard Mode"}
+            </Badge>
+          )}
         </div>
       </CardHeader>
       
@@ -454,6 +476,7 @@ export function ArchitectImplementationExport({
             <h4 className="font-semibold mb-2">Comprehensive Export Includes:</h4>
             <ul className="space-y-1 text-muted-foreground">
               <li>• Complete system architecture snapshot</li>
+              {tpttV47Result && <li>• v4.7 Chrono Transport Cascade (CTI, dual black hole sync)</li>}
               <li>• TDF v4.6 implementation details and breakthrough status</li>
               <li>• Real-time performance metrics and correlations</li>
               <li>• Backend data (performance logs, experiments)</li>

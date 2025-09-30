@@ -12,13 +12,17 @@ interface PerformanceMetrics {
   adaptiveQuality?: 'high' | 'medium' | 'low';
   targetFPS?: number;
   cpuBenchmark?: number;
+  cascadeComputeTime?: number;
+  ctiCalculationTime?: number;
 }
 
 interface PerformanceMonitorProps {
   isActive: boolean;
+  isV47Active?: boolean;
+  tdfValue?: number;
 }
 
-export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
+export function PerformanceMonitor({ isActive, isV47Active = false, tdfValue = 0 }: PerformanceMonitorProps) {
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     fps: 60,
     memoryUsage: 0,
@@ -68,6 +72,10 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
         // v4.6: Adaptive FPS targeting (60fps minimum, 120fps preferred)
         const targetFPS = fps < 60 ? 60 : 120;
         const adaptiveQuality = fps >= 100 ? 'high' : fps >= 60 ? 'medium' : 'low';
+        
+        // v4.7: Mock cascade computation times
+        const cascadeComputeTime = isV47Active ? deterministicRandom(generateCycle(), 1) * 5 + 2 : 0;
+        const ctiCalculationTime = isV47Active ? deterministicRandom(generateCycle(), 2) * 3 + 1 : 0;
 
         setMetrics(prev => ({
           ...prev,
@@ -77,7 +85,9 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
           gpuMemory: deterministicRandom(generateCycle(), 0) * 30 + 10, // Mock GPU memory usage
           adaptiveQuality,
           targetFPS,
-          cpuBenchmark: cpuResult
+          cpuBenchmark: cpuResult,
+          cascadeComputeTime,
+          ctiCalculationTime
         }));
 
         frameCount = 0;
@@ -118,8 +128,14 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
           <Badge variant={performanceStatus.variant}>
             {performanceStatus.status}
           </Badge>
+          {isV47Active && (
+            <Badge variant="outline" className="text-xs">v4.7 CTI</Badge>
+          )}
         </CardTitle>
-        <CardDescription>Real-time performance metrics for temporal simulation</CardDescription>
+        <CardDescription>
+          Real-time performance metrics for temporal simulation
+          {isV47Active && ' with CTI cascade tracking'}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -169,6 +185,15 @@ export function PerformanceMonitor({ isActive }: PerformanceMonitorProps) {
               <div>Target: <span className="font-mono">{metrics.targetFPS || 60} FPS</span></div>
               {metrics.cpuBenchmark && (
                 <div>CPU: <span className="font-mono">{metrics.cpuBenchmark.toFixed(1)}ms</span></div>
+              )}
+              {isV47Active && metrics.cascadeComputeTime && (
+                <>
+                  <div>Cascade: <span className="font-mono">{metrics.cascadeComputeTime.toFixed(1)}ms</span></div>
+                  <div>CTI Calc: <span className="font-mono">{metrics.ctiCalculationTime?.toFixed(1)}ms</span></div>
+                  {tdfValue > 0 && (
+                    <div>TDF: <span className="font-mono">{tdfValue.toExponential(2)}</span></div>
+                  )}
+                </>
               )}
             </div>
           </div>
