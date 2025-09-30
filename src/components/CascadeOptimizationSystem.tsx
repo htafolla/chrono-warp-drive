@@ -108,11 +108,28 @@ export function CascadeOptimizationSystem({
 
   // Phase 3: Neural Fusion Computation
   const runNeuralOptimization = useCallback(async () => {
-    if (!neuralInitialized) return;
+    if (!neuralInitialized) {
+      console.warn('[Neural Fusion] Not initialized, skipping optimization');
+      return;
+    }
+
+    console.log('[Neural Fusion] Starting optimization with params:', {
+      deltaPhase,
+      cascadeLevel,
+      tdfValue
+    });
 
     try {
-      const result = await computeNeuralFusion(tdfValue, cascadeLevel, deltaPhase);
+      // FIXED: Correct parameter order (delta_phase, n, tdf_value, tau, phi)
+      const result = await computeNeuralFusion(deltaPhase, cascadeLevel, tdfValue);
       setCascadeEfficiency(result.efficiency);
+
+      console.log('[Neural Fusion] Computation complete:', {
+        q_ent: result.q_ent.toFixed(6),
+        cascade_index: result.cascade_index,
+        efficiency: `${(result.efficiency * 100).toFixed(1)}%`,
+        compute_time: `${result.compute_time.toFixed(2)}ms`
+      });
 
       if (realtimeConnected) {
         broadcastUpdate({
@@ -244,10 +261,12 @@ export function CascadeOptimizationSystem({
 
   // Run neural optimization on cascade changes
   useEffect(() => {
-    if (neuralInitialized && tdfValue > 0) {
+    // FIXED: More permissive trigger condition - run if neural is ready and parameters are valid
+    if (neuralInitialized && cascadeLevel >= 25 && cascadeLevel <= 34) {
+      console.log('[Neural Fusion] Auto-triggering optimization');
       runNeuralOptimization();
     }
-  }, [cascadeLevel, tdfValue, deltaPhase, neuralInitialized]);
+  }, [cascadeLevel, tdfValue, deltaPhase, neuralInitialized, runNeuralOptimization]);
 
   // Phase 7: AI Advisor Handler
   const handleAIAdvice = async () => {
