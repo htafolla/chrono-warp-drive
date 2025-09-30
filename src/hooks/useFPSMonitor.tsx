@@ -7,6 +7,8 @@ interface FPSData {
   min: number;
   max: number;
   history: number[];
+  stability: 'excellent' | 'good' | 'degraded' | 'critical';
+  targetFPS: number;
 }
 
 export function useFPSMonitor(historySize: number = 60) {
@@ -15,12 +17,15 @@ export function useFPSMonitor(historySize: number = 60) {
     average: 60,
     min: 60,
     max: 60,
-    history: []
+    history: [],
+    stability: 'good',
+    targetFPS: 120
   });
   
   const frameCount = useRef(0);
   const lastTime = useRef(performance.now());
   const fpsHistory = useRef<number[]>([]);
+  const stableHighFPSCount = useRef(0);
   
   useFrame(() => {
     frameCount.current++;
@@ -43,12 +48,43 @@ export function useFPSMonitor(historySize: number = 60) {
       const min = Math.min(...history);
       const max = Math.max(...history);
       
+      // Determine stability and adaptive target FPS
+      let stability: 'excellent' | 'good' | 'degraded' | 'critical';
+      let targetFPS = fpsData.targetFPS;
+      
+      if (fps < 30) {
+        stability = 'critical';
+        targetFPS = 60; // Fallback to lower target
+      } else if (fps < 50) {
+        stability = 'degraded';
+        targetFPS = 60;
+      } else if (fps >= 60) {
+        stability = 'good';
+        // Track stable high FPS periods
+        if (fps >= 60) {
+          stableHighFPSCount.current++;
+          // After 10 seconds (600 frames / 10 frames per measurement = 60 measurements) of stable 60+ FPS, try 90 FPS target
+          if (stableHighFPSCount.current > 60 && targetFPS < 90) {
+            targetFPS = 90;
+          }
+        } else {
+          stableHighFPSCount.current = 0;
+        }
+      }
+      
+      if (average > 100) {
+        stability = 'excellent';
+        targetFPS = 120;
+      }
+      
       setFpsData({
         current: fps,
         average: Math.round(average),
         min,
         max,
-        history: [...history]
+        history: [...history],
+        stability,
+        targetFPS
       });
       
       // Reset counters

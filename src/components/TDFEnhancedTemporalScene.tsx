@@ -254,17 +254,17 @@ export function TDFEnhancedTemporalScene({
       const currentTDF = tpttV46Result.v46_components?.TDF_value || 0;
       const tdfChange = Math.abs(currentTDF - lastLoggedTDF) / Math.max(lastLoggedTDF, 1);
       
-      // Force initial log or log on significant changes
+      // Force initial log or log on significant changes (enhanced sensitivity)
       const shouldLog = !initialLogDone || 
-                        tdfChange > 0.1 || 
-                        (currentTDF > 5e12 && currentTDF < 6e12);
+                        tdfChange > 0.05 || 
+                        (currentTDF > 4e10 && currentTDF < 1e12);
       
       if (shouldLog) {
         console.log('📊 Logging experiment to backend:', {
           TDF: currentTDF.toExponential(2),
           FPS: currentMetrics.fps,
           Memory: `${(memoryUsage / 1024 / 1024).toFixed(1)}MB`,
-          Breakthrough: currentTDF > 5e12 && currentTDF < 6e12
+          Breakthrough: currentTDF > 4e10 && currentTDF < 1e12
         });
         
         logExperiment(
