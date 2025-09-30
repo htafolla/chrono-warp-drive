@@ -31,11 +31,12 @@ export class TemporalCalculatorV4_6 extends TemporalCalculatorV4 {
     // Generate deterministic cycle for this computation
     const cycle = generateCycle();
     
-    // Calculate v4.6 TDF components
+    // Calculate v4.6 TDF components with distance-compensated voids
+    const voids = this.config.voids || 1;
     const v46_components = calculateTDFComponents(
       v4Result.tPTT_value,
       cycle,
-      1, // voids
+      voids, // Distance-compensated voids from config
       2, // n - Changed from 1 to 2 for target TDF ~5.781e12
       this.config
     );
