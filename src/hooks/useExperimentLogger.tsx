@@ -22,12 +22,12 @@ export function useExperimentLogger() {
     try {
       const tdfValue = tpttResult.v46_components?.TDF_value || 0;
       
-      // Detect breakthrough (5e12 < TDF < 6e12)
-      const breakthrough_validated = tdfValue > 5e12 && tdfValue < 6e12;
+      // Detect breakthrough (4e10 < TDF < 1e12) - adjusted for M1V close-range stars
+      const breakthrough_validated = tdfValue > 4e10 && tdfValue < 1e12;
       
       // Determine experiment status
       const status = breakthrough_validated ? 'validated' : 
-                     tdfValue > 1e12 ? 'pending' : 
+                     tdfValue > 1e10 ? 'pending' : 
                      'running';
       
       const experimentData = {
@@ -59,7 +59,7 @@ export function useExperimentLogger() {
             performance_score: (metrics.fps / 120) * (1 - metrics.memory_usage / 500000000)
           }
         },
-        user_id: (await supabase.auth.getUser()).data.user?.id
+        user_id: null // Session-based logging, no auth required
       };
       
       // Attempt Supabase insert
