@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, type Isotope } from '@/lib/temporalCalculator';
-import { memoryManager } from '@/lib/memoryManager';
+import { memoryManager, useMemoryManager } from '@/lib/memoryManager';
 import { usePageVisibility } from '@/hooks/usePageVisibility';
 import { TPTTv4_6Result, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
@@ -169,11 +169,10 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
           primaryWave + secondaryWave + tdfWave + noiseWave
         ));
         
-          position.setY(i, heightValue);
-        }
-        
-        position.needsUpdate = true;
+        position.setY(i, heightValue);
       }
+      
+      position.needsUpdate = true;
       
       // Improved spacing for better depth separation
       const zSpacing = 1.5; // Increased from 0.2
