@@ -40,8 +40,8 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-medium">System Status</p>
-            <Badge variant={debugState.systemStatus.isV46Breakthrough ? "default" : debugState.systemStatus.isV4Initialized ? "secondary" : "outline"}>
-              {debugState.systemStatus.isV46Breakthrough ? "v4.6 TDF" : debugState.systemStatus.isV4Initialized ? "v4.5 Active" : "Legacy Mode"}
+            <Badge variant={debugState.systemStatus.isV47Active ? "default" : debugState.systemStatus.isV46Breakthrough ? "secondary" : debugState.systemStatus.isV4Initialized ? "outline" : "outline"}>
+              {debugState.systemStatus.isV47Active ? "v4.7 CTI" : debugState.systemStatus.isV46Breakthrough ? "v4.6 TDF" : debugState.systemStatus.isV4Initialized ? "v4.5 Active" : "Legacy Mode"}
             </Badge>
           </div>
           <div>
@@ -97,7 +97,30 @@ export function DebugInfo({ currentState }: DebugInfoProps) {
               <p><strong>Ethics Score:</strong> {(debugState.systemStatus.ethicsScore * 100).toFixed(0)}%</p>
             </>
           )}
+          {debugState.chronoTransport && (
+            <>
+              <p><strong>CTI:</strong> {debugState.chronoTransport.ctiComponents.CTI_value.toExponential(2)}</p>
+              <p><strong>Q_ent:</strong> {debugState.chronoTransport.chronoTransportResult.q_ent.toFixed(3)}</p>
+              <p><strong>Status:</strong> {debugState.chronoTransport.chronoTransportResult.status}</p>
+              <p><strong>Efficiency:</strong> {(debugState.chronoTransport.chronoTransportResult.efficiency * 100).toFixed(0)}%</p>
+            </>
+          )}
         </div>
+
+        {/* v4.7 Chrono Transport Status */}
+        {debugState.chronoTransport && (
+          <div className="bg-secondary/10 border border-secondary/30 p-3 rounded text-sm space-y-2">
+            <p className="font-medium text-secondary">v4.7 Chrono Transport Active</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <p><strong>Status:</strong> {debugState.chronoTransport.chronoTransportResult.status}</p>
+              <p><strong>Score:</strong> {debugState.chronoTransport.chronoTransportResult.score.toFixed(3)}</p>
+              <p><strong>Efficiency:</strong> {(debugState.chronoTransport.chronoTransportResult.efficiency * 100).toFixed(0)}%</p>
+              <p><strong>Cascade N:</strong> {debugState.chronoTransport.ctiComponents.n}</p>
+              <p><strong>Delta Phase:</strong> {debugState.chronoTransport.ctiComponents.delta_phase.toFixed(3)}</p>
+              <p><strong>Sync Eff:</strong> {(debugState.chronoTransport.dualBlackHoleSync.syncEfficiency * 100).toFixed(0)}%</p>
+            </div>
+          </div>
+        )}
 
         {/* v4.6 TDF Breakthrough Status */}
         {debugState.tdfBreakthrough && (
@@ -176,9 +199,56 @@ ${debugState.tdfBreakthrough.validationProofs.map(proof => `- ${proof}`).join('\
                 Copy TDF Report
               </Button>
             )}
+            {debugState.chronoTransport && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const ctiReport = `# v4.7 Chrono Transport Interface Report
+Generated: ${new Date().toISOString()}
+
+## CTI Components
+- CTI Value: ${debugState.chronoTransport.ctiComponents.CTI_value.toExponential(6)}
+- Cascade Index: ${debugState.chronoTransport.ctiComponents.cascade_index}
+- Quantum Entanglement (Q_ent): ${debugState.chronoTransport.ctiComponents.q_ent.toExponential(6)}
+- Delta Phase: ${debugState.chronoTransport.ctiComponents.delta_phase}
+- Cascade N: ${debugState.chronoTransport.ctiComponents.n}
+
+## Transport Status
+- Status: ${debugState.chronoTransport.chronoTransportResult.status}
+- Score: ${debugState.chronoTransport.chronoTransportResult.score}
+- Efficiency: ${(debugState.chronoTransport.chronoTransportResult.efficiency * 100).toFixed(2)}%
+
+## Dual Black Hole Synchronization
+- Sequence 1: ${debugState.chronoTransport.dualBlackHoleSync.seq1}
+- Sequence 2: ${debugState.chronoTransport.dualBlackHoleSync.seq2}
+- Total: ${debugState.chronoTransport.dualBlackHoleSync.total}
+- Sync Efficiency: ${(debugState.chronoTransport.dualBlackHoleSync.syncEfficiency * 100).toFixed(2)}%
+
+## Oscillator (P_o at 3e8 m/s)
+- Value: ${debugState.chronoTransport.oscillator.p_o}
+- Frequency: ${debugState.chronoTransport.oscillator.frequency} Hz
+- Phase: ${debugState.chronoTransport.oscillator.phase}
+
+## Formula Breakdown
+- CTI = (TDF × cascade_index) ⊕ (τ × φ^n)
+- cascade_index = floor(π / voids) + n
+- Q_ent = |0.996 × (cos(φn/2)/π) × sin(φn/4) × exp(-n/20)| × (1+δφ) × log(n+1)
+`;
+                  navigator.clipboard.writeText(ctiReport);
+                  toast.success('v4.7 CTI report copied');
+                }}
+                className="flex items-center gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                Copy v4.7 CTI Report
+              </Button>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
-            {debugState.tdfBreakthrough 
+            {debugState.chronoTransport
+              ? 'v4.7 Chrono Transport Cascade data available for CTI analysis'
+              : debugState.tdfBreakthrough 
               ? 'v4.6 TDF breakthrough data available for comprehensive analysis'
               : 'Share this debug information with AI for comprehensive troubleshooting'
             }

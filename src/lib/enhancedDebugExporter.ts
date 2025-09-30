@@ -20,6 +20,11 @@ interface EnhancedDebugState {
     lightWave: number;
   };
   tdfV46?: TPTTv4_6Result;
+  chronoV47?: {
+    cascadeParams: any;
+    chronoResult: any;
+    ctiComponents: any;
+  };
   spectrum?: SpectrumData;
   scene: {
     activeTab: string;
@@ -138,6 +143,7 @@ export class EnhancedDebugExporter {
       analysis: {
         performanceSummary: this.generatePerformanceSummary(debugState.scene.performance),
         tdfAnalysis: this.analyzeTDFPerformance(debugState.tdfV46),
+        chronoAnalysis: this.analyzeChronoTransport(debugState.chronoV47),
         sceneOptimizationSuggestions: this.generateOptimizationSuggestions(debugState.scene)
       }
     };
@@ -177,6 +183,27 @@ export class EnhancedDebugExporter {
         ...(tdfValue > 5e12 ? ['Consider reducing quality settings'] : []),
         ...(tau < 0.5 ? ['TDF instability detected - monitor tau values'] : []),
         ...(breakthrough ? ['Breakthrough achieved - monitor for performance spikes'] : [])
+      ]
+    };
+  }
+
+  private analyzeChronoTransport(chronoV47?: any) {
+    if (!chronoV47) return { status: 'no_v47_data' };
+
+    const result = chronoV47.chronoResult;
+    const qEnt = result?.q_ent || 0;
+    const efficiency = result?.efficiency || 0;
+    const status = result?.status || 'Pending';
+
+    return {
+      transportStatus: status,
+      efficiency: (efficiency * 100).toFixed(1) + '%',
+      quantumEntanglement: qEnt,
+      recommendations: [
+        ...(status === 'Failed' ? ['Check cascade parameters (n, delta_phase)'] : []),
+        ...(efficiency < 0.5 ? ['Increase tPTT towards 5.3e12 target'] : []),
+        ...(qEnt < 0.5 ? ['Adjust delta_phase (0.25-0.3) for better entanglement'] : []),
+        ...(status === 'Approved' ? ['Ready for time transport - monitor oscillator'] : [])
       ]
     };
   }
