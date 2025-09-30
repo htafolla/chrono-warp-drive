@@ -15,7 +15,7 @@ export interface GeometryConfig {
 export const optimizeGeometry = (quality: 'high' | 'medium' | 'low'): GeometryConfig => {
   switch (quality) {
     case 'high':
-      return { vertices: 1024, segments: 32 };
+      return { vertices: 1200, segments: 32 }; // Increased for M1V close-range stars
     case 'medium':
       return { vertices: 512, segments: 24 };
     case 'low':
