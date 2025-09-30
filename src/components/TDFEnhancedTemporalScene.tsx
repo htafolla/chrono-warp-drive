@@ -6,6 +6,7 @@ import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/te
 import { useMemoryManager } from '@/lib/memoryManager';
 import { TPTTv4_6Result, TimeShiftMetrics, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
+import { useExperimentLogger } from '@/hooks/useExperimentLogger';
 
 interface TDFDisplacementFieldProps {
   tdfComponents: TDFComponents;
@@ -226,24 +227,51 @@ export function TDFEnhancedTemporalScene({
 }: TDFEnhancedTemporalSceneProps) {
   const memoryManager = useMemoryManager();
   const [currentMetrics, setCurrentMetrics] = React.useState({ fps: 60, vertexCount: 1024 });
+  const { logExperiment } = useExperimentLogger();
+  const [lastLoggedTDF, setLastLoggedTDF] = React.useState<number>(0);
   
   const hasV46Data = tpttV46Result?.v46_components && tpttV46Result?.timeShiftMetrics;
 
-  // Expose debug data to parent component
+  // Expose debug data to parent component AND log to backend
   React.useEffect(() => {
     if (tpttV46Result && onDebugDataUpdate) {
+      const memoryUsage = (performance as any).memory?.usedJSHeapSize || 0;
+      const sceneMetrics = {
+        fps: currentMetrics.fps,
+        memoryUsage,
+        vertexCount: currentMetrics.vertexCount,
+        renderTime: 1000 / currentMetrics.fps,
+        tdfStability: tpttV46Result.v46_components.tau
+      };
+      
       onDebugDataUpdate({
         tdfV46: tpttV46Result,
-        sceneMetrics: {
-          fps: currentMetrics.fps,
-          memoryUsage: (performance as any).memory?.usedJSHeapSize || 0,
-          vertexCount: currentMetrics.vertexCount,
-          renderTime: 1000 / currentMetrics.fps,
-          tdfStability: tpttV46Result.v46_components.tau
-        }
+        sceneMetrics
       });
+      
+      // Auto-log to backend when TDF changes significantly
+      const currentTDF = tpttV46Result.v46_components?.TDF_value || 0;
+      const tdfChange = Math.abs(currentTDF - lastLoggedTDF) / Math.max(lastLoggedTDF, 1);
+      
+      // Log if TDF changed by >10% or breakthrough achieved
+      if (tdfChange > 0.1 || (currentTDF > 5e12 && currentTDF < 6e12)) {
+        logExperiment(
+          `session-${Date.now()}`,
+          tpttV46Result,
+          {
+            tdf_value: currentTDF,
+            fps: currentMetrics.fps,
+            memory_usage: memoryUsage,
+            vertex_count: currentMetrics.vertexCount,
+            cycle_number: tpttV46Result.experimentData?.roundNumber || 0,
+            tdf_components: tpttV46Result.v46_components,
+            time_shift_metrics: tpttV46Result.timeShiftMetrics
+          }
+        );
+        setLastLoggedTDF(currentTDF);
+      }
     }
-  }, [tpttV46Result, currentMetrics, onDebugDataUpdate]);
+  }, [tpttV46Result, currentMetrics, onDebugDataUpdate, logExperiment, lastLoggedTDF]);
   
   return (
     <div className="w-full h-full min-h-[600px] bg-background rounded-lg overflow-hidden" data-testid="tdf-enhanced-temporal-scene">
