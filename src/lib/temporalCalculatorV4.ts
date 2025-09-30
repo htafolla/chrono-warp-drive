@@ -16,24 +16,9 @@ export class TemporalCalculatorV4 {
   private readonly c = C; // Speed of light
   private readonly delta_t = DELTA_T; // Time step
 
-  private modelReadyPromise: Promise<void> | null = null;
-
   constructor(inputData?: SpectrumData) {
     this.inputData = inputData || null;
-    this.modelReadyPromise = this.initializeNeuralModel();
-  }
-
-  async waitForModelReady(): Promise<boolean> {
-    if (this.modelReadyPromise) {
-      try {
-        await this.modelReadyPromise;
-        return this.isModelLoaded;
-      } catch (error) {
-        console.warn('Neural model initialization failed:', error);
-        return false;
-      }
-    }
-    return this.isModelLoaded;
+    this.initializeNeuralModel();
   }
 
   private async initializeNeuralModel(): Promise<void> {
@@ -350,8 +335,7 @@ export class TemporalCalculatorV4 {
 
   private async computeNeuralFusion(): Promise<NeuralOutput | null> {
     if (!this.isModelLoaded || !this.neuralModel || !this.inputData) {
-      console.log('Neural model not ready, generating fallback data');
-      return this.generateFallbackNeuralOutput();
+      return null;
     }
 
     try {
@@ -445,18 +429,6 @@ export class TemporalCalculatorV4 {
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash);
-  }
-
-  private generateFallbackNeuralOutput(): NeuralOutput {
-    const now = Date.now();
-    return {
-      synapticSequence: this.computeSynapticSequence("fallback-mode"),
-      neuralSpectra: Array.from({ length: 16 }, (_, i) => 
-        Math.sin(now / 1000 + i * 0.3) * 0.5 + 0.5
-      ),
-      metamorphosisIndex: 0.65 + Math.sin(now / 2000) * 0.15,
-      confidenceScore: 0.75 + Math.cos(now / 3000) * 0.1
-    };
   }
 
   // Cleanup method

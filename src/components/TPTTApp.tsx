@@ -74,12 +74,14 @@ import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
 import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
 
 export function TPTTApp() {
-  // Initialize memory manager - only once at app level
+  // Initialize memory manager
   React.useEffect(() => {
     memoryManager.initialize();
     return () => {
-      // Full disposal only on app unmount
-      memoryManager.dispose();
+      // Cleanup on unmount
+      if (memoryManager.shouldCleanup()) {
+        memoryManager.forceCleanup();
+      }
     };
   }, []);
   // Core temporal state
@@ -415,7 +417,7 @@ export function TPTTApp() {
       if (intervalId) clearInterval(intervalId);
       if (countdownId) clearInterval(countdownId);
     };
-  }, [fractalToggle, isotope, isV4Initialized, spectrumData, isPlaying, updateInterval, animationMode, energyGrowthRate, energyMomentum, lastEnergyValues, targetE_t, tpttV4Result, isTimeShiftActive, isV46Initialized, temporalCalcV46, v46Config]);
+  }, [fractalToggle, isotope, isV4Initialized, spectrumData, isPlaying, updateInterval, animationMode]);
 
   // Enhanced calculations with v4.5 compatibility
   const waves = spectrumData?.intensities || SPECTRUM_BANDS.map((band, i) => 

@@ -5,7 +5,6 @@ import { Progress } from '@/components/ui/progress';
 import { Brain, Activity, Zap } from 'lucide-react';
 import { NeuralOutput } from '@/types/sdss';
 import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
-import { usePageVisibility } from '@/hooks/usePageVisibility';
 import { SequenceDial } from './dials/SequenceDial';
 import { TimelineDial } from './dials/TimelineDial';
 
@@ -106,14 +105,12 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
     }
   }, [animatedOutput]);
   
-  const isPageVisible = usePageVisibility();
-  
   // Continuous animation for neural activations - Optimized with 30 FPS cap
   useEffect(() => {
     if (!isActive) return;
     
     const threshold = 0.65;
-    const targetFPS = isPageVisible ? 30 : 5; // Reduce to 5 FPS when hidden
+    const targetFPS = 30;
     const frameInterval = 1000 / targetFPS;
     let lastFrameTime = performance.now();
     let animationFrame: number;
@@ -122,16 +119,13 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
       const currentTime = performance.now();
       const elapsed = currentTime - lastFrameTime;
       
-      // Frame rate limiting - update at target FPS (30 when visible, 5 when hidden)
+      // Frame rate limiting - only update at 30 FPS
       if (elapsed >= frameInterval) {
         lastFrameTime = currentTime - (elapsed % frameInterval);
         
-        // Compute time once per frame for efficiency
-        const timeValue = Date.now() / 500;
-        
         setLayerActivations(prev => prev.map(layer => {
           const updatedNeurons = layer.neurons.map((n, i) => 
-            Math.max(0.05, Math.min(1, n + (Math.sin(timeValue + i) * 0.02)))
+            Math.max(0.05, Math.min(1, n + (Math.sin(Date.now() / 500 + i) * 0.02)))
           );
           const activeCount = updatedNeurons.filter(n => n > threshold).length;
           const avgActivation = updatedNeurons.reduce((sum, n) => sum + n, 0) / updatedNeurons.length;
@@ -153,7 +147,7 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
     return () => {
       if (animationFrame) cancelAnimationFrame(animationFrame);
     };
-  }, [isActive, isPageVisible]);
+  }, [isActive]);
 
   if (!isActive || !neuralOutput) {
     return (
