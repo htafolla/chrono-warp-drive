@@ -1,9 +1,28 @@
-// BLURRN v4.6 Debug State Exporter
+// BLURRN v4.7 Debug State Exporter
 // Comprehensive state dump for AI debugging assistance
 
 import { SpectrumData, TPTTv4Result, NeuralOutput } from '@/types/sdss';
 import { TPTTv4_6Result, TDFComponents, TimeShiftMetrics, BlackHoleLightData, BlurrnV46Config, ExperimentLog } from '@/types/blurrn-v4-6';
+import { TPTTv4_7Result, CTIComponents, ChronoTransportResult, DualBlackHoleSequence, CascadeParameters } from '@/types/blurrn-v4-7';
 import { Isotope } from './temporalCalculator';
+
+export interface ChronoTransportDebugState {
+  isV47Active: boolean;
+  cascadeParameters: CascadeParameters;
+  ctiComponents: CTIComponents;
+  chronoTransportResult: ChronoTransportResult;
+  dualBlackHoleSync: DualBlackHoleSequence;
+  oscillator: {
+    p_o: number;
+    frequency: number;
+    phase: number;
+  };
+  engineConfig: {
+    delta_phase_range: [number, number];
+    cascade_n_range: [number, number];
+    target_tptt: number;
+  };
+}
 
 export interface DebugState {
   timestamp: string;
@@ -11,6 +30,7 @@ export interface DebugState {
   systemStatus: {
     isV4Initialized: boolean;
     isV46Breakthrough: boolean;
+    isV47Active: boolean;
     systemStatusMessage: string;
     errors: string[];
     warnings: string[];
@@ -80,6 +100,8 @@ export interface DebugState {
       validationStatus: 'pending' | 'validated' | 'failed';
     };
   };
+  // v4.7 Chrono Transport Cascade Data
+  chronoTransport?: ChronoTransportDebugState;
   spectrumAnalysis: {
     fullSpectrumData: SpectrumData | null;
     wavelengthRange: { min: number; max: number; count: number };
@@ -249,13 +271,19 @@ export class DebugExporter {
     // Check for v4.6 breakthrough data
     const tpttV46Result = appState.tpttV46Result as TPTTv4_6Result;
     const hasV46Breakthrough = !!(tpttV46Result?.v46_components);
+    
+    // Check for v4.7 chrono transport data
+    const tpttV47Result = appState.tpttV47Result as TPTTv4_7Result;
+    const chronoResult = appState.chronoResult as ChronoTransportResult;
+    const hasV47Active = !!(chronoResult || tpttV47Result?.v47_components);
 
     const debugState: DebugState = {
       timestamp: new Date().toISOString(),
-      version: "BLURRN v4.6",
+      version: hasV47Active ? "BLURRN v4.7" : hasV46Breakthrough ? "BLURRN v4.6" : "BLURRN v4.5",
       systemStatus: {
         isV4Initialized: appState.isV4Initialized || false,
         isV46Breakthrough: hasV46Breakthrough,
+        isV47Active: hasV47Active,
         systemStatusMessage: appState.systemStatus || "Unknown",
         errors: this.logs.filter(l => l.level === 'error').map(l => l.message),
         warnings: this.logs.filter(l => l.level === 'warn').map(l => l.message),
@@ -329,6 +357,42 @@ export class DebugExporter {
           roundNumber: tpttV46Result.experimentData?.roundNumber || 0,
           timestamp: tpttV46Result.experimentData?.timestamp || Date.now(),
           validationStatus: tpttV46Result.timeShiftMetrics?.breakthrough_validated ? 'validated' : 'pending'
+        }
+      } : undefined,
+      // v4.7 Chrono Transport Data
+      chronoTransport: hasV47Active ? {
+        isV47Active: true,
+        cascadeParameters: appState.cascadeParams || {
+          delta_phase: 0.25,
+          n: 25,
+          voids: appState.voids || 1,
+          tptt: appState.tPTT_value || 0
+        },
+        ctiComponents: tpttV47Result?.v47_components || {
+          CTI_value: 0,
+          cascade_index: 0,
+          q_ent: 0,
+          delta_phase: 0.25,
+          n: 25
+        },
+        chronoTransportResult: chronoResult || {
+          status: 'Pending',
+          score: 0,
+          q_ent: 0,
+          efficiency: 0,
+          cascadeIndex: 0,
+          dualBlackHole: { seq1: 0, seq2: 0, total: 0, syncEfficiency: 0 }
+        },
+        dualBlackHoleSync: chronoResult?.dualBlackHole || { seq1: 0, seq2: 0, total: 0, syncEfficiency: 0 },
+        oscillator: tpttV47Result?.oscillator || {
+          p_o: Math.sin(Date.now() * 3e8 / 1000),
+          frequency: 3e8,
+          phase: (Date.now() / 1000) % (2 * Math.PI)
+        },
+        engineConfig: {
+          delta_phase_range: [0.25, 0.3],
+          cascade_n_range: [25, 34],
+          target_tptt: 5.3e12
         }
       } : undefined,
       spectrumAnalysis: {
@@ -479,7 +543,8 @@ Generated: ${debug.timestamp}
 
 ## System Status
 - Version: ${debug.version}
-- v4.6 Breakthrough: ${debug.systemStatus.isV46Breakthrough ? 'ACTIVE' : 'Inactive'}
+- v4.7 Chrono Transport: ${debug.systemStatus.isV47Active ? 'ACTIVE' : 'Inactive'}
+- v4.6 TDF Breakthrough: ${debug.systemStatus.isV46Breakthrough ? 'ACTIVE' : 'Inactive'}
 - v4.5 Initialized: ${debug.systemStatus.isV4Initialized}
 - Ethics Score: ${(debug.systemStatus.ethicsScore * 100).toFixed(1)}%
 - Status: ${debug.systemStatus.systemStatusMessage}
@@ -518,6 +583,25 @@ ${debug.tdfBreakthrough ? `
 - Breakthrough Validated: ${debug.tdfBreakthrough.timeShiftMetrics.breakthrough_validated ? 'YES' : 'NO'}
 - Validation Status: ${debug.tdfBreakthrough.experimentData.validationStatus.toUpperCase()}
 - Round Number: ${debug.tdfBreakthrough.experimentData.roundNumber}` : 'v4.6 Breakthrough Not Active'}
+
+## v4.7 Chrono Transport Cascade
+${debug.chronoTransport ? `
+- Status: ${debug.chronoTransport.isV47Active ? 'ACTIVE' : 'INACTIVE'}
+- Transport Status: ${debug.chronoTransport.chronoTransportResult.status}
+- Transport Score: ${debug.chronoTransport.chronoTransportResult.score.toFixed(3)}
+- Transport Efficiency: ${(debug.chronoTransport.chronoTransportResult.efficiency * 100).toFixed(1)}%
+- Quantum Entanglement (Q_ent): ${debug.chronoTransport.chronoTransportResult.q_ent.toExponential(3)}
+- CTI Value: ${debug.chronoTransport.ctiComponents.CTI_value.toExponential(3)}
+- Cascade Index: ${debug.chronoTransport.ctiComponents.cascade_index.toFixed(6)}
+- Delta Phase: ${debug.chronoTransport.ctiComponents.delta_phase.toFixed(3)}
+- Cascade N: ${debug.chronoTransport.ctiComponents.n}
+- Dual Black Hole Seq1: ${debug.chronoTransport.dualBlackHoleSync.seq1.toFixed(6)}
+- Dual Black Hole Seq2: ${debug.chronoTransport.dualBlackHoleSync.seq2.toFixed(6)}
+- Dual Black Hole Total: ${debug.chronoTransport.dualBlackHoleSync.total.toFixed(6)}
+- Sync Efficiency: ${(debug.chronoTransport.dualBlackHoleSync.syncEfficiency * 100).toFixed(1)}%
+- Oscillator P_o: ${debug.chronoTransport.oscillator.p_o.toFixed(6)}
+- Oscillator Frequency: ${debug.chronoTransport.oscillator.frequency.toExponential(2)} Hz
+- Oscillator Phase: ${debug.chronoTransport.oscillator.phase.toFixed(6)}` : 'v4.7 Chrono Transport Not Active'}
 
 ## Enhanced 3D Temporal Scene
 ${debug.enhancedTemporalScene ? `
