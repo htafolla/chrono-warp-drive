@@ -36,7 +36,7 @@ export class TemporalCalculatorV4_6 extends TemporalCalculatorV4 {
       v4Result.tPTT_value,
       cycle,
       1, // voids
-      1, // n
+      2, // n - Changed from 1 to 2 for target TDF ~5.781e12
       this.config
     );
     

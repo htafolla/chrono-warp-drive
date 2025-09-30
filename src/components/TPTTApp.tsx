@@ -137,6 +137,9 @@ export function TPTTApp() {
   
   // Enhanced debug data for exports (Phase 5)
   const [enhancedDebugRaw, setEnhancedDebugRaw] = useState<any>(null);
+  
+  // Session tracking for duration calculation
+  const [sessionStartTime] = useState(Date.now());
 
   // v4.5 Systems
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
@@ -891,6 +894,7 @@ export function TPTTApp() {
                 spectrumData={spectrumData}
                 performanceSettings={performanceSettings}
                 sessionId={`architect-${Date.now()}`}
+                sessionStartTime={sessionStartTime}
               />
             </div>
             
