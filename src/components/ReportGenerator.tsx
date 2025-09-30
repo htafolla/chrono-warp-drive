@@ -13,9 +13,11 @@ interface ReportGeneratorProps {
   currentState: any;
   tpttV4Result?: any;
   neuralFusionData?: any;
+  chronoTransportResult?: any;
+  cascadeParams?: any;
 }
 
-export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }: ReportGeneratorProps) => {
+export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData, chronoTransportResult, cascadeParams }: ReportGeneratorProps) => {
   const { toast } = useToast();
   const [exportFormat, setExportFormat] = useState<'pdf' | 'html' | 'png' | 'video'>('pdf');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -31,12 +33,20 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
       const margin = 20;
 
       // Title Page
+      const version = chronoTransportResult ? 'BLURRN v4.7' : tpttV4Result?.v46_components ? 'BLURRN v4.6' : 'BLURRN v4.5';
       pdf.setFontSize(24);
-      pdf.text('BLURRN v4.5 Analysis Report', margin, 40);
+      pdf.text(`${version} Analysis Report`, margin, 40);
       
       pdf.setFontSize(12);
       pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, 55);
       pdf.text(`Analysis Duration: ${Math.round(currentState.time * 100) / 100}s`, margin, 65);
+      
+      if (chronoTransportResult) {
+        pdf.setFontSize(10);
+        pdf.setTextColor(0, 128, 255);
+        pdf.text('🚀 Chrono Transport Cascade Active', margin, 75);
+        pdf.setTextColor(0, 0, 0);
+      }
       
       setProgress(30);
 
@@ -52,6 +62,18 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
         `tPTT Value: ${tpttV4Result?.tPTT_value?.toFixed(6) || 'Calculating...'}`,
         `Neural Confidence: ${neuralFusionData?.confidenceScore ? (neuralFusionData.confidenceScore * 100).toFixed(2) + '%' : 'N/A'}`
       ];
+      
+      if (chronoTransportResult) {
+        summaryText.push(
+          '',
+          '=== v4.7 Chrono Transport Cascade ===',
+          `CTI Status: ${chronoTransportResult.status}`,
+          `Transport Score: ${(chronoTransportResult.score * 100).toFixed(1)}%`,
+          `Q_ent: ${chronoTransportResult.q_ent?.toFixed(6)}`,
+          `Cascade Index: ${chronoTransportResult.cascadeIndex}`,
+          `Efficiency: ${chronoTransportResult.efficiency?.toFixed(1)}%`
+        );
+      }
 
       summaryText.forEach((text, index) => {
         pdf.text(text, margin, 95 + (index * 8));
@@ -132,6 +154,41 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
 
       setProgress(90);
 
+      // v4.7 Chrono Transport Section
+      if (chronoTransportResult && cascadeParams) {
+        pdf.addPage();
+        pdf.setFontSize(16);
+        pdf.text('v4.7 Chrono Transport Cascade', margin, 30);
+        pdf.setFontSize(10);
+
+        const chronoText = [
+          '=== Cascade Parameters ===',
+          `Delta Phase (δφ): ${cascadeParams.delta_phase}`,
+          `Cascade N: ${cascadeParams.n}`,
+          `Voids: ${cascadeParams.voids}`,
+          `Target tPTT: ${cascadeParams.tptt?.toExponential(2)}`,
+          '',
+          '=== CTI Components ===',
+          `CTI Value: ${chronoTransportResult.cascadeIndex}`,
+          `Q_ent: ${chronoTransportResult.q_ent?.toFixed(6)}`,
+          '',
+          '=== Transport Status ===',
+          `Status: ${chronoTransportResult.status}`,
+          `Score: ${(chronoTransportResult.score * 100).toFixed(1)}%`,
+          `Efficiency: ${chronoTransportResult.efficiency?.toFixed(1)}%`,
+          '',
+          '=== Dual Black Hole Sync ===',
+          `Seq1: ${chronoTransportResult.dualBlackHole?.seq1}`,
+          `Seq2: ${chronoTransportResult.dualBlackHole?.seq2}`,
+          `Total: ${chronoTransportResult.dualBlackHole?.total}`,
+          `Sync Efficiency: ${(chronoTransportResult.dualBlackHole?.syncEfficiency * 100).toFixed(1)}%`
+        ];
+
+        chronoText.forEach((text, index) => {
+          pdf.text(text, margin, 45 + (index * 6));
+        });
+      }
+
       // Methodology & References
       pdf.addPage();
       pdf.setFontSize(16);
@@ -139,16 +196,19 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
       pdf.setFontSize(10);
 
       const methodology = [
-        'This analysis was performed using the BLURRN v4.5 Temporal Phase Transport',
-        'algorithm with enhanced neural fusion processing. Data sources include the',
-        'Sloan Digital Sky Survey (SDSS) and Pickles Atlas stellar spectra library.',
+        `This analysis was performed using the ${version} Temporal Phase Transport`,
+        'algorithm with enhanced neural fusion processing.',
+        chronoTransportResult ? 'Includes dual black hole time transport with CTI cascade enumeration.' : '',
+        'Data sources include the Sloan Digital Sky Survey (SDSS) and Pickles Atlas.',
         '',
         'Key algorithms:',
-        '• Temporal Phase Transport Theory (tPTT) v4.5',
+        chronoTransportResult ? '• Chrono Transport Interview (CTI) with XOR cascade logic' : '',
+        chronoTransportResult ? '• Dual Black Hole sequence synchronization' : '',
+        '• Temporal Phase Transport Theory (tPTT)',
         '• Neural Fusion with TensorFlow.js integration',
         '• Kuramoto oscillator model for phase synchronization',
         '• Enhanced spectral analysis with temporal correlation'
-      ];
+      ].filter(Boolean);
 
       methodology.forEach((text, index) => {
         pdf.text(text, margin, 45 + (index * 6));
@@ -223,7 +283,7 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
 <!DOCTYPE html>
 <html>
 <head>
-    <title>BLURRN v4.5 Analysis Export</title>
+    <title>${chronoTransportResult ? 'BLURRN v4.7' : 'BLURRN v4.6'} Analysis Export</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #0a0a0a; color: #ffffff; }
         .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
@@ -236,8 +296,9 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
 </head>
 <body>
     <div class="header">
-        <h1>BLURRN v4.5 Analysis Report</h1>
+        <h1>${chronoTransportResult ? 'BLURRN v4.7' : 'BLURRN v4.6'} Analysis Report</h1>
         <p>Generated: ${new Date().toLocaleString()}</p>
+        ${chronoTransportResult ? '<p style="color: #00ff88;">🚀 Chrono Transport Cascade Active</p>' : ''}
     </div>
     
     <div class="section">
@@ -269,6 +330,37 @@ export const ReportGenerator = ({ currentState, tpttV4Result, neuralFusionData }
             <div class="data-item">
                 <div class="label">Rippel</div>
                 <div class="value">${tpttV4Result.rippel}</div>
+            </div>
+        </div>
+    </div>` : ''}
+    
+    ${chronoTransportResult ? `
+    <div class="section">
+        <h2>v4.7 Chrono Transport Cascade</h2>
+        <div class="data-grid">
+            <div class="data-item">
+                <div class="label">CTI Status</div>
+                <div class="value">${chronoTransportResult.status}</div>
+            </div>
+            <div class="data-item">
+                <div class="label">Transport Score</div>
+                <div class="value">${(chronoTransportResult.score * 100).toFixed(1)}%</div>
+            </div>
+            <div class="data-item">
+                <div class="label">Q_ent</div>
+                <div class="value">${chronoTransportResult.q_ent?.toFixed(6)}</div>
+            </div>
+            <div class="data-item">
+                <div class="label">Cascade Index</div>
+                <div class="value">${chronoTransportResult.cascadeIndex}</div>
+            </div>
+            <div class="data-item">
+                <div class="label">Efficiency</div>
+                <div class="value">${chronoTransportResult.efficiency?.toFixed(1)}%</div>
+            </div>
+            <div class="data-item">
+                <div class="label">Dual BH Sync</div>
+                <div class="value">${(chronoTransportResult.dualBlackHole?.syncEfficiency * 100).toFixed(1)}%</div>
             </div>
         </div>
     </div>` : ''}
@@ -403,6 +495,12 @@ ${JSON.stringify(currentState, null, 2)}
             <div>Isotope: {currentState.isotope?.type || 'N/A'}</div>
             <div>Fractal: {currentState.fractalToggle ? 'ON' : 'OFF'}</div>
             <div>tPTT: {tpttV4Result?.tPTT_value?.toFixed(6) || 'Calculating...'}</div>
+            {chronoTransportResult && (
+              <>
+                <div>CTI Status: {chronoTransportResult.status}</div>
+                <div>Q_ent: {chronoTransportResult.q_ent?.toFixed(6)}</div>
+              </>
+            )}
           </div>
         </div>
       </CardContent>

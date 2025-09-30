@@ -18,6 +18,19 @@ interface TemporalState {
   phi: number;
   delta_t: number;
   timestamp: string;
+  cascadeParams?: {
+    delta_phase: number;
+    n: number;
+    voids: number;
+    tptt: number;
+  };
+  chronoTransportState?: {
+    status: string;
+    score: number;
+    q_ent: number;
+    efficiency: number;
+    cascadeIndex: number;
+  };
   transportSystemState?: {
     canTransport: boolean;
     transportReadiness: number;
@@ -213,6 +226,16 @@ export function ExportImport({ currentState, onImport }: ExportImportProps) {
       if (typeof parsedData.delta_t === 'number' && !isNaN(parsedData.delta_t)) {
         validatedData.delta_t = parsedData.delta_t;
       }
+      
+      // v4.7: Validate cascade params
+      if (parsedData.cascadeParams && typeof parsedData.cascadeParams === 'object') {
+        validatedData.cascadeParams = parsedData.cascadeParams as any;
+      }
+      
+      // v4.7: Validate chrono transport state
+      if (parsedData.chronoTransportState && typeof parsedData.chronoTransportState === 'object') {
+        validatedData.chronoTransportState = parsedData.chronoTransportState as any;
+      }
 
       if (Object.keys(validatedData).length === 0) {
         throw new Error('No valid data found');
@@ -355,6 +378,19 @@ export function ExportImport({ currentState, onImport }: ExportImportProps) {
             <div>Isotope: {currentState.isotope.type}</div>
             <div>Fractal: {currentState.fractalToggle ? 'ON' : 'OFF'}</div>
             <div>E_t: {currentState.e_t.toFixed(3)}</div>
+            {currentState.cascadeParams && (
+              <>
+                <div className="col-span-2 text-xs text-primary">🚀 v4.7 Cascade Active</div>
+                <div>Delta Phase: {currentState.cascadeParams.delta_phase}</div>
+                <div>Cascade N: {currentState.cascadeParams.n}</div>
+              </>
+            )}
+            {currentState.chronoTransportState && (
+              <>
+                <div>CTI Status: {currentState.chronoTransportState.status}</div>
+                <div>Q_ent: {currentState.chronoTransportState.q_ent.toFixed(6)}</div>
+              </>
+            )}
             {currentState.transportSystemState && (
               <>
                 <div>Transport: {currentState.transportSystemState.canTransport ? 'READY' : 'NOT READY'}</div>
