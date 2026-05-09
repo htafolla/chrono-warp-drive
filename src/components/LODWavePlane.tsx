@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
-import { useMemoryManager } from '@/lib/memoryManager';
+import { memoryManager } from '@/lib/memoryManager';
 import { getSafeColor } from '@/lib/colorUtils';
 import { optimizeGeometry } from '@/lib/sceneOptimization';
 
@@ -50,7 +50,7 @@ export function LODWavePlane({
   cascadeLevel = 29,
 }: LODWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const memoryManager = useMemoryManager();
+  // memoryManager is the module singleton — no hook needed in children
   const { camera } = useThree();
 
   // Track current LOD level (drives JSX geometry key — single source of truth)

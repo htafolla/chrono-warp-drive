@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
-import { useMemoryManager } from '@/lib/memoryManager';
+import { useMemoryManager, memoryManager } from '@/lib/memoryManager';
 import { TPTTv4_6Result, TimeShiftMetrics, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
 import { useFPSMonitor } from '@/hooks/useFPSMonitor';
@@ -24,7 +24,7 @@ interface OptimizedWavePlaneProps {
 function OptimizedWavePlane({ band, phases, isotope, tdfComponents, index, time, quality, cascadeLevel = 29 }: OptimizedWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const memoryManager = useMemoryManager();
+  // memoryManager is the module singleton — no hook needed in children
 
   // Phase 1: Cascade-adaptive geometry optimization (800 vertices at n=25 → 440 at n=34)
   const geometryArgs = useMemo((): [number, number, number, number] => {
