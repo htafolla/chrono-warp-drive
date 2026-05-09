@@ -5,14 +5,27 @@
 
 ## Overview
 
-The **Blurrn Unified Resonance & Relativity Navigator** models, simulates, and optimizes phase-coherent energy transport through isotropic time vortices. Built on a layered subsystem architecture spanning four major generations:
+The **Blurrn Unified Resonance & Relativity Navigator** models, simulates, and optimizes phase-coherent energy transport through isotropic time vortices. Built on a layered subsystem architecture evolving across five major generations:
 
 | Version | Subsystem | Description |
 |---------|-----------|-------------|
 | v4.5 | Temporal Calculator | SDSS core — Kuramoto oscillator engine |
 | v4.6 | Time Machine Ascension | Neural fusion + time-shift pipeline |
 | v4.7 | Chrono Transport Cascade | Multi-threaded cascade optimizer |
-| v4.10 | Isotopic Temporal Vortex | Phase-coherent vortex engine with numerically stable TDF |
+| v4.8 | **Isotopic Temporal Vortex** | Signals as isotopes of truth — symbiotic cross-correlation, W×M=V vortex volume, phase-coherent TDF |
+
+> **Build v4.10** is the current release (v4.8 feature set). Intermediate bumps (v4.9, v4.10) are CI/CD artifacts — no feature changes.
+
+## Documentation
+
+Detailed specifications for each subsystem:
+
+| Document | Covers |
+|----------|--------|
+| [v4.5 Full Spectrum Codex](docs/Blurrn-Quantum-Codex-v4.5-Full-Spectrum.md) | Core constants, 15 formulas, Trinitarium philosophy |
+| [v4.6 Overview](docs/Blurrn-Quantum-Codex-v4.6-Overview.md) | Time Machine Ascension, neural fusion |
+| [v4.5→v4.8 Complete Spec](docs/Blurrn-Quantum-Codex-v4.5-to-v4.8-Complete-Research-Spec.md) | Full evolution — all formulas defined book-level |
+| [v4.8 Isotopic Temporal Vortex](docs/V4.8-Isotopic-Temporal-Vortex-Spec.md) | Isotopic signals, cross-correlation, vortex volume |
 
 ## Quick Start
 
