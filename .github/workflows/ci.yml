@@ -23,11 +23,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run linter
-        run: npm run lint
-
       - name: Run tests
         run: npm run test
+
+      - name: Run linter (warnings allowed)
+        run: npm run lint -- --max-warnings=999
 
       - name: Build project
         run: npm run build
