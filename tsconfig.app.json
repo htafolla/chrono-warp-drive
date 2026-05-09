@@ -20,7 +20,6 @@
     "noUnusedParameters": false,
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
-    "types": ["vitest/globals"],
     "paths": {
       "@/*": [
         "./src/*"
