@@ -61,7 +61,8 @@ function bumpAppVer(ver, lvl) {
   const [major, minor] = ver.split('.').map(Number);
   switch (lvl) {
     case 'major': return `${major + 1}.0`;
-    default: return `${major}.${minor + 1}`;
+    case 'minor': return `${major}.${minor + 1}`;
+    default: return ver;
   }
 }
 
