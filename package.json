@@ -8,9 +8,10 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -67,6 +68,7 @@
     "recharts": "^2.15.4",
     "recordrtc": "^5.6.2",
     "sonner": "^1.7.4",
+    "strray-ai": "^1.22.55",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.160.1",
@@ -92,8 +94,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
-    "vitest": "^1.6.0",
-    "@vitest/ui": "^1.6.0",
-    "jsdom": "^24.1.0"
+    "vitest": "^3.1.2",
+    "jsdom": "^26.0.0"
   }
 }
