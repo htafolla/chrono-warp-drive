@@ -711,44 +711,46 @@ export function TPTTApp() {
         </header>
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <Star className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="simulation" className="flex items-center gap-2">
-              <Waves className="h-4 w-4" />
-              3D Scene
-            </TabsTrigger>
-            <TabsTrigger value="controls" className="flex items-center gap-2">
-              <Sprout className="h-4 w-4" />
-              Controls
-            </TabsTrigger>
-            <TabsTrigger value="spectrum" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Spectrum
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Reports
-            </TabsTrigger>
-            <TabsTrigger value="advanced" className="flex items-center gap-2">
-              <Rocket className="h-4 w-4" />
-              Advanced
-            </TabsTrigger>
-            <TabsTrigger value="timeshift" className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Time Shift
-            </TabsTrigger>
-            <TabsTrigger value="v47cascade" className="flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              v{APP_VERSION} Cascade
-            </TabsTrigger>
-            <TabsTrigger value="system" className="flex items-center gap-2">
-              <Laptop className="h-4 w-4" />
-              System
-            </TabsTrigger>
-          </TabsList>
+          <div className="-mx-6 px-6 mb-6 overflow-x-auto lg:overflow-visible">
+            <TabsList className="inline-flex w-max gap-1 lg:grid lg:w-full lg:grid-cols-9">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2 whitespace-nowrap">
+                <Star className="h-4 w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="simulation" className="flex items-center gap-2 whitespace-nowrap">
+                <Waves className="h-4 w-4" />
+                <span className="hidden sm:inline">3D Scene</span>
+              </TabsTrigger>
+              <TabsTrigger value="controls" className="flex items-center gap-2 whitespace-nowrap">
+                <Sprout className="h-4 w-4" />
+                <span className="hidden sm:inline">Controls</span>
+              </TabsTrigger>
+              <TabsTrigger value="spectrum" className="flex items-center gap-2 whitespace-nowrap">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Spectrum</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="flex items-center gap-2 whitespace-nowrap">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Reports</span>
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="flex items-center gap-2 whitespace-nowrap">
+                <Rocket className="h-4 w-4" />
+                <span className="hidden sm:inline">Advanced</span>
+              </TabsTrigger>
+              <TabsTrigger value="timeshift" className="flex items-center gap-2 whitespace-nowrap">
+                <Clock className="h-4 w-4" />
+                <span className="hidden sm:inline">Time Shift</span>
+              </TabsTrigger>
+              <TabsTrigger value="v47cascade" className="flex items-center gap-2 whitespace-nowrap">
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">v{APP_VERSION} Cascade</span>
+              </TabsTrigger>
+              <TabsTrigger value="system" className="flex items-center gap-2 whitespace-nowrap">
+                <Laptop className="h-4 w-4" />
+                <span className="hidden sm:inline">System</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="dashboard" className="space-y-6">
             {/* 1. Neural Fusion - Prominent First Position */}
