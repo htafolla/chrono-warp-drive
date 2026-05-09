@@ -20,19 +20,19 @@ export default function IsotopicVortex() {
     );
 
     const fingerprint = signal.getIsotopicFingerprint();
-    
+
     const otherSignal = new TemporalBlurrnSignal(
       { id: 'reference' },
-      fingerprint.tdfValue * (0.98 + Math.random() * 0.04),
+      signal.tdfValue * (0.98 + Math.random() * 0.04),
       42,
     );
-    
+
     const correlation = signal.crossCorrelate(otherSignal);
 
     setMetrics({
       isotopicRatio: fingerprint.isotopicRatio,
       vortexVolume: correlation.metadata.vortexVolume,
-      phaseCoherence: fingerprint.phaseCoherence,
+      phaseCoherence: signal.phaseCoherence,
       crossCorrelation: correlation.strength,
     });
   };
