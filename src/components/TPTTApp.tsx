@@ -252,18 +252,18 @@ export function TPTTApp() {
       try {
         if (!isV46Initialized) return;
         
-        setSystemStatus("Initializing v4.7 Chrono Transport Cascade...");
+        setSystemStatus(`Initializing v${APP_VERSION} Chrono Transport Cascade...`);
         
         // Compute initial CTI result
         const initialResult = chronoEngine.runInterview(cascadeParams);
         setChronoResult(initialResult);
         setIsV47Initialized(true);
         
-        setSystemStatus("BLURRN v4.7 Chrono Transport - Dual Black Hole sync active!");
-        toast.success(`v4.7 Cascade initialized - n=${cascadeParams.n}, Efficiency: ${initialResult.efficiency.toFixed(2)}%`);
+        setSystemStatus(`BLURRN v${APP_VERSION} Chrono Transport - Dual Black Hole sync active!`);
+        toast.success(`v${APP_VERSION} Cascade initialized - n=${cascadeParams.n}, Efficiency: ${initialResult.efficiency.toFixed(2)}%`);
       } catch (error) {
         console.error("v4.7 initialization failed:", error);
-        setSystemStatus(`v4.7 initialization failed: ${error}`);
+        setSystemStatus(`v${APP_VERSION} initialization failed: ${error}`);
       }
     };
 
@@ -1177,7 +1177,7 @@ export function TPTTApp() {
           <TabsContent value="v47cascade" className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-2xl font-semibold">BLURRN v4.7 Chrono Transport Cascade</h2>
+                <h2 className="text-2xl font-semibold">BLURRN v{APP_VERSION} Chrono Transport Cascade</h2>
                 <p className="text-muted-foreground text-sm mt-1">
                   Dual Black Hole Time Transport with 100% Efficiency
                 </p>
