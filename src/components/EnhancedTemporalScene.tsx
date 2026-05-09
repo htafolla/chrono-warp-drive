@@ -4,7 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
 import { SpectrumData } from '@/types/sdss';
-import { useMemoryManager } from '@/lib/memoryManager';
+import { useMemoryManager, memoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
 import { LODWavePlane } from './LODWavePlane';
 import { GroundPlane } from './GroundPlane';
@@ -37,7 +37,7 @@ function ParticleSystem({ spectrumData, time, phases, qualitySettings = { qualit
     }
   }, [qualitySettings.quality, qualitySettings.particles]);
   
-  const memoryManager = useMemoryManager();
+  // memoryManager is the module singleton — no hook needed in children
   
   // Cleanup particles on unmount
   useEffect(() => {
@@ -149,7 +149,7 @@ interface WavePlaneProps {
 function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectrumData }: WavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const memoryManager = useMemoryManager();
+  // memoryManager is the module singleton — no hook needed in children
   
   // Phase 1: Diagnostic logging for wave plane rendering
   React.useEffect(() => {

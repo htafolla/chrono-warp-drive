@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
-import { useMemoryManager } from '@/lib/memoryManager';
+import { useMemoryManager, memoryManager } from '@/lib/memoryManager';
 
 interface WavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -17,7 +17,7 @@ interface WavePlaneProps {
 function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const memoryManager = useMemoryManager();
+  // memoryManager is the module singleton — no hook needed in children
 
   // Cleanup on unmount
   useEffect(() => {
