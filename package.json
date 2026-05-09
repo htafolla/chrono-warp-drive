@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "version:patch": "node bin/version-manager.mjs --patch",
+    "version:minor": "node bin/version-manager.mjs --minor",
+    "version:major": "node bin/version-manager.mjs --major",
+    "version:auto": "node bin/version-manager.mjs --from-commit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
