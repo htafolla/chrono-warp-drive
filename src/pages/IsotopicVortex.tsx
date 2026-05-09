@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { VortexDashboard } from '@/components/vortex/VortexDashboard';
 import { SignalEmitter } from '@/components/vortex/SignalEmitter';
 import { VortexVisualizer } from '@/components/vortex/VortexVisualizer';
@@ -39,6 +40,10 @@ export default function IsotopicVortex() {
 
   return (
     <div className="p-6 space-y-6">
+      <nav className="flex items-center gap-4 text-sm">
+        <Link to="/" className="text-primary hover:underline">← Dashboard</Link>
+        <Link to="/about" className="text-primary hover:underline">About</Link>
+      </nav>
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Isotopic Temporal Vortex</h1>
         <p className="text-muted-foreground mt-1">

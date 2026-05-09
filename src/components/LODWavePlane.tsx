@@ -6,6 +6,7 @@ import { SpectrumData } from '@/types/sdss';
 import { memoryManager } from '@/lib/memoryManager';
 import { getSafeColor } from '@/lib/colorUtils';
 import { optimizeGeometry } from '@/lib/sceneOptimization';
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 
 interface LODWavePlaneProps {
   band: typeof SPECTRUM_BANDS[0];
@@ -52,6 +53,7 @@ export function LODWavePlane({
   const meshRef = useRef<THREE.Mesh>(null);
   // memoryManager is the module singleton — no hook needed in children
   const { camera } = useThree();
+  const isPageVisible = usePageVisibility();
 
   // Track current LOD level (drives JSX geometry key — single source of truth)
   const [currentLOD, setCurrentLOD] = React.useState<LODLevel>('high');
@@ -72,7 +74,7 @@ export function LODWavePlane({
   }, [memoryManager]);
 
   useFrame((state) => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || !isPageVisible) return;
 
     try {
       const meshPosition = meshRef.current.position;
