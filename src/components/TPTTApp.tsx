@@ -72,7 +72,7 @@ import EntanglementViz from './EntanglementViz';
 import TransportControl from './TransportControl';
 import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
 import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
-import { APP_VERSION, APP_TAGLINE, APP_FEATURE } from '@/lib/version';
+import { APP_VERSION, APP_TAGLINE, APP_FEATURE, APP_TAG } from '@/lib/version';
 
 export function TPTTApp() {
   // Initialize memory manager
