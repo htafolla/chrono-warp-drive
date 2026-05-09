@@ -2,6 +2,8 @@
 import { IsotopicSignal, CorrelationResult, TriangulationResult, FusedSignal } from './isotopicSignal';
 import { calculateTDF, BlackHole_Seq, phaseSync } from './temporalCalculatorV4_6';
 
+export { FusedSignal };
+
 const PHI = 1.666;
 const TAU = 0.865;
 
@@ -16,7 +18,8 @@ export class TemporalBlurrnSignal extends IsotopicSignal {
     this.rawSignal = rawSignal;
     this.tdfValue = tdfValue;
     this.cascadeIndex = cascadeIndex;
-    this.phaseCoherence = Math.pow(Math.sin(2 * Math.PI * TAU * tdfValue), 2);
+    const reducedTdf = tdfValue % Math.sqrt(PHI);
+    this.phaseCoherence = Math.pow(Math.sin(2 * Math.PI * TAU * reducedTdf), 2);
   }
 
   embed(): number[] {
@@ -44,7 +47,8 @@ export class TemporalBlurrnSignal extends IsotopicSignal {
     if (!(other instanceof TemporalBlurrnSignal)) {
       return { strength: 0.3, lag: 0, metadata: {} };
     }
-    const strength = this.calculateIsotopicRatio(other) * this.phaseCoherence;
+    const phaseAlign = 1 - Math.abs(this.phaseCoherence - (other as TemporalBlurrnSignal).phaseCoherence);
+    const strength = this.calculateIsotopicRatio(other) * phaseAlign;
     const lag = Math.abs(this.cascadeIndex - (other as any).cascadeIndex);
     const vortexVolume = this.tdfValue * (other as any).tdfValue; // W × M = V
     return {
