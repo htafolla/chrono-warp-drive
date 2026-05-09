@@ -1,7 +1,7 @@
 # BLURRN — Temporal Phase Transport
 
-> **v4.10** · Isotropic Temporal Vortex Engine
-> Phase-coherent energy transport through isotropic time vortices
+> **v4.8** · Isotopic Temporal Vortex Engine
+> Signals as isotopes of truth — phase-coherent energy transport through isotropic time vortices
 
 ## Overview
 
@@ -14,7 +14,7 @@ The **Blurrn Unified Resonance & Relativity Navigator** models, simulates, and o
 | v4.7 | Chrono Transport Cascade | Multi-threaded cascade optimizer |
 | v4.8 | **Isotopic Temporal Vortex** | Signals as isotopes of truth — symbiotic cross-correlation, W×M=V vortex volume, phase-coherent TDF |
 
-> **Build v4.10** is the current release (v4.8 feature set). Intermediate bumps (v4.9, v4.10) are CI/CD artifacts — no feature changes.
+> **Build v0.3.1** is the current CI release. App version only bumps on actual feature work (use `--app-minor` / `--app-major`).
 
 ## Documentation
 
@@ -51,7 +51,7 @@ GitHub Actions runs on every push to `main`:
 
 | Commit type | Bump | Example |
 |-------------|------|---------|
-| `feat:` / `feature` | minor (4.x → 4.x+1) | `feat(ui): add dashboard` |
+| `feat:` (touching `src/`) | app minor (4.8 → 4.9) | Requires `--app-minor` flag |
 | `fix:` | patch (0.0.x → 0.0.x+1) | `fix: correct TDF overflow` |
 | `breaking` / `!:` | major | `feat!: redesign engine` |
 
