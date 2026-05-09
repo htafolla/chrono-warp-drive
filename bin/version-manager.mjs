@@ -37,7 +37,7 @@ function getBumpFromCommits(fromTag) {
     log = execSync(`git log ${range} --oneline --no-merges`, { encoding: 'utf-8' });
   } catch { return 'patch'; }
   for (const line of log.split('\n')) {
-    const msg = line.toLowerCase();
+    const msg = line.toLowerCase().replace(/^[0-9a-f]+\s+/, '');
     if (msg.includes('breaking') || msg.includes('!:')) return 'major';
     if (msg.startsWith('feat') || msg.includes('feature')) return 'minor';
   }
