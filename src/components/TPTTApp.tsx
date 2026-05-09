@@ -73,6 +73,7 @@ import TransportControl from './TransportControl';
 import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
 import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
 import { APP_VERSION, APP_TAGLINE, APP_FEATURE, APP_TAG } from '@/lib/version';
+import { Link } from 'react-router-dom';
 
 export function TPTTApp() {
   // Initialize memory manager
@@ -700,6 +701,13 @@ export function TPTTApp() {
           <p className="text-muted-foreground">
             {systemStatus}
           </p>
+          <nav className="mt-3 flex items-center justify-center gap-4 text-sm">
+            <Link to="/" className="text-primary hover:underline">Dashboard</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/isotopic-vortex" className="text-primary hover:underline">Isotopic Vortex</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/about" className="text-primary hover:underline">About</Link>
+          </nav>
         </header>
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
