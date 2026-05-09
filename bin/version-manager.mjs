@@ -95,12 +95,34 @@ function run() {
   pkg.version = next;
   writeJSON(PKG_PATH, pkg);
 
-  if (versionTs && nextAppVer) {
+  let oldAppVer = null;
+  if (versionTs) {
+    const match = versionTs.match(/APP_VERSION\s*=\s*['"](\d+\.\d+)['"]/);
+    if (match) oldAppVer = match[1];
+  }
+
+  if (versionTs && nextAppVer && oldAppVer) {
     const updated = versionTs
-      .replace(/APP_VERSION\s*=\s*['"]\d+\.\d+['"]/, `APP_VERSION = '${nextAppVer}'`)
+      .replace(new RegExp(`APP_VERSION\\s*=\\s*['"]${escapeRegex(oldAppVer)}['"]`), `APP_VERSION = '${nextAppVer}'`)
       .replace(/BUILD_VERSION\s*=\s*['"][\d.]+['"]/, `BUILD_VERSION = '${next}'`);
     writeFileSync(VERSION_TS_PATH, updated, 'utf-8');
     console.log(`Updated src/lib/version.ts → v${nextAppVer} / build ${next}`);
+
+    const grepCmd = `git grep -l 'v${oldAppVer}' -- 'src/**/*.ts' 'src/**/*.tsx' 2>/dev/null || true`;
+    let files;
+    try {
+      files = execSync(grepCmd, { cwd: ROOT, encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
+    } catch { files = []; }
+
+    if (files.length > 0) {
+      for (const file of files) {
+        if (!file) continue;
+        const content = readFileSync(file, 'utf-8');
+        const updatedContent = content.replace(new RegExp(`v${escapeRegex(oldAppVer)}`, 'g'), `v${nextAppVer}`);
+        writeFileSync(file, updatedContent, 'utf-8');
+      }
+      console.log(`Updated v${oldAppVer} → v${nextAppVer} across ${files.length} file(s)`);
+    }
   }
 
   execSync('git add package.json src/lib/version.ts', { cwd: ROOT });
