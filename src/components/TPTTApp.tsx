@@ -72,6 +72,7 @@ import EntanglementViz from './EntanglementViz';
 import TransportControl from './TransportControl';
 import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
 import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
+import { APP_VERSION, APP_TAGLINE, APP_FEATURE } from '@/lib/version';
 
 export function TPTTApp() {
   // Initialize memory manager
@@ -128,7 +129,7 @@ export function TPTTApp() {
   const [spectrumData, setSpectrumData] = useState<SpectrumData | null>(null);
   const [tpttV4Result, setTpttV4Result] = useState<TPTTv4Result | null>(null);
   const [isV4Initialized, setIsV4Initialized] = useState(false);
-  const [systemStatus, setSystemStatus] = useState<string>("BLURRN v4.8 — Light Flows Time");
+  const [systemStatus, setSystemStatus] = useState<string>(APP_FEATURE.initMsg);
 
   // v4.6 Enhancement state - Time Machine Ascension
   const [tpttV46Result, setTpttV46Result] = useState<TPTTv4_6Result | null>(null);
@@ -688,7 +689,7 @@ export function TPTTApp() {
               Temporal Phase Transport
             </Badge>
             <Badge variant="default" className="text-xs">
-              v4.8
+              v{APP_VERSION}
             </Badge>
             {spectrumData && (
               <Badge variant="secondary" className="text-xs">
@@ -733,7 +734,7 @@ export function TPTTApp() {
             </TabsTrigger>
             <TabsTrigger value="v47cascade" className="flex items-center gap-2">
               <Zap className="h-4 w-4" />
-              v4.8 Cascade
+              v{APP_VERSION} Cascade
             </TabsTrigger>
             <TabsTrigger value="system" className="flex items-center gap-2">
               <Laptop className="h-4 w-4" />
