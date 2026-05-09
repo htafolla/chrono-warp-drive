@@ -1,73 +1,69 @@
-# Welcome to your Lovable project
+# BLURRN — Temporal Phase Transport
 
-## Project info
+> **v4.10** · Isotropic Temporal Vortex Engine
+> Phase-coherent energy transport through isotropic time vortices
 
-**URL**: https://lovable.dev/projects/f6f12318-2892-4391-94b6-45b4114eefe5
+## Overview
 
-## How can I edit this code?
+The **Blurrn Unified Resonance & Relativity Navigator** models, simulates, and optimizes phase-coherent energy transport through isotropic time vortices. Built on a layered subsystem architecture spanning four major generations:
 
-There are several ways of editing your application.
+| Version | Subsystem | Description |
+|---------|-----------|-------------|
+| v4.5 | Temporal Calculator | SDSS core — Kuramoto oscillator engine |
+| v4.6 | Time Machine Ascension | Neural fusion + time-shift pipeline |
+| v4.7 | Chrono Transport Cascade | Multi-threaded cascade optimizer |
+| v4.10 | Isotopic Temporal Vortex | Phase-coherent vortex engine with numerically stable TDF |
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/f6f12318-2892-4391-94b6-45b4114eefe5) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Quick Start
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm ci
+npm run dev        # dev server with hot reload
+npm run typecheck  # TypeScript type checking
+npm test           # vitest (7 tests)
+npm run build      # production build
 ```
 
-**Edit a file directly in GitHub**
+## CI/CD
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+GitHub Actions runs on every push to `main`:
 
-**Use GitHub Codespaces**
+1. **lint** — ESLint (continue-on-error, ~114 pre-existing warnings)
+2. **typecheck** — `tsc --noEmit`
+3. **test** — `vitest run` (7 tests)
+4. **build** — `vite build`
+5. **deploy** (main only) — bumps version, tags, pushes `[skip ci]`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Version Bumps
 
-## What technologies are used for this project?
+| Commit type | Bump | Example |
+|-------------|------|---------|
+| `feat:` / `feature` | minor (4.x → 4.x+1) | `feat(ui): add dashboard` |
+| `fix:` | patch (0.0.x → 0.0.x+1) | `fix: correct TDF overflow` |
+| `breaking` / `!:` | major | `feat!: redesign engine` |
 
-This project is built with:
+## Project Structure
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```
+src/
+├── lib/               # Core engine (temporal calculators, vortex, version)
+├── components/        # React components (ui/, panels, visualizers)
+├── pages/             # Route pages (Index, About, NotFound)
+├── types/             # TypeScript type definitions
+├── hooks/             # Custom React hooks
+├── __tests__/         # Test setup
+bin/version-manager.mjs  # Auto-bump on deploy
+.github/workflows/ci.yml # CI/CD pipeline
+```
 
-## How can I deploy this project?
+## Tech Stack
 
-Simply open [Lovable](https://lovable.dev/projects/f6f12318-2892-4391-94b6-45b4114eefe5) and click on Share -> Publish.
+- **Runtime**: React 18 + Vite
+- **Language**: TypeScript
+- **UI**: shadcn/ui + Tailwind CSS
+- **Testing**: Vitest + jsdom
+- **CI/CD**: GitHub Actions
 
-## Can I connect a custom domain to my Lovable project?
+## Deployed
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+[https://chrono-warp-drive.lovable.app](https://chrono-warp-drive.lovable.app)
