@@ -252,14 +252,14 @@ export function TPTTApp() {
       try {
         if (!isV46Initialized) return;
         
-        setSystemStatus(`Initializing v${APP_VERSION} Chrono Transport Cascade...`);
+        setSystemStatus(`Initializing v${APP_VERSION} — ${APP_TAGLINE}...`);
         
         // Compute initial CTI result
         const initialResult = chronoEngine.runInterview(cascadeParams);
         setChronoResult(initialResult);
         setIsV47Initialized(true);
         
-        setSystemStatus(`BLURRN v${APP_VERSION} Chrono Transport - Dual Black Hole sync active!`);
+        setSystemStatus(APP_FEATURE.initMsg);
         toast.success(`v${APP_VERSION} Cascade initialized - n=${cascadeParams.n}, Efficiency: ${initialResult.efficiency.toFixed(2)}%`);
       } catch (error) {
         console.error("v4.7 initialization failed:", error);
@@ -1177,9 +1177,9 @@ export function TPTTApp() {
           <TabsContent value="v47cascade" className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-2xl font-semibold">BLURRN v{APP_VERSION} Chrono Transport Cascade</h2>
+                <h2 className="text-2xl font-semibold">{APP_TAG}</h2>
                 <p className="text-muted-foreground text-sm mt-1">
-                  Dual Black Hole Time Transport with 100% Efficiency
+                  {APP_TAGLINE}
                 </p>
               </div>
               <Badge variant={chronoResult?.status === 'Approved' ? 'default' : 'secondary'}>
