@@ -1,13 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { APP_NAME, APP_VERSION, APP_TAG } from "@/lib/version";
+import { APP_NAME, APP_VERSION, APP_TAG, APP_TAGLINE, VERSION_FEATURES } from "@/lib/version";
 import { Link } from "react-router-dom";
 
+const FEATURE_DESC: Record<string, string> = {
+  '4.5': 'SDSS core — Kuramoto oscillator engine',
+  '4.6': 'Neural fusion + time-shift pipeline',
+  '4.7': 'Multi-threaded cascade optimizer',
+};
+
 const subsystems = [
-  { name: "Temporal Calculator", version: "v4.5", desc: "SDSS core — Kuramoto oscillator engine" },
-  { name: "Time Machine Ascension", version: "v4.6", desc: "Neural fusion + time-shift pipeline" },
-  { name: "Cascade Optimization", version: "v4.7", desc: "Multi-threaded cascade optimizer" },
-  { name: "Isotopic Temporal Vortex", version: "v4.8", desc: "Phase-coherent vortex engine" },
+  { name: "Temporal Calculator", version: "v4.5", desc: FEATURE_DESC['4.5'] },
+  { name: "Time Machine Ascension", version: "v4.6", desc: FEATURE_DESC['4.6'] },
+  { name: "Cascade Optimization", version: "v4.7", desc: FEATURE_DESC['4.7'] },
+  { name: "Isotopic Temporal Vortex", version: `v${APP_VERSION}`, desc: `${APP_TAGLINE} — phase-coherent vortex engine` },
 ];
 
 export default function About() {

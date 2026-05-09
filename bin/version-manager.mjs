@@ -16,6 +16,10 @@ const appLevel = (args.includes('--app-major') ? 'major' : args.includes('--app-
 const dryRun = args.includes('--dry-run');
 const skipPush = args.includes('--skip-push');
 
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function readJSON(p) {
   return JSON.parse(readFileSync(p, 'utf-8'));
 }
@@ -72,15 +76,20 @@ function run() {
   const next = bumpSemver(current, bumpLevel);
   const tag = `v${next}`;
 
-  let nextAppVer = null;
-  let versionTs = null;
+  let versionTs;
   try {
     versionTs = readFileSync(VERSION_TS_PATH, 'utf-8');
+  } catch { versionTs = null; }
+
+  let oldAppVer = null;
+  let nextAppVer = null;
+  if (versionTs) {
     const match = versionTs.match(/APP_VERSION\s*=\s*['"](\d+\.\d+)['"]/);
     if (match) {
-      nextAppVer = bumpAppVer(match[1], appLevel);
+      oldAppVer = match[1];
+      nextAppVer = bumpAppVer(oldAppVer, appLevel);
     }
-  } catch {}
+  }
 
   console.log(`Build:   ${current} → ${next}`);
   if (nextAppVer) console.log(`App:     v${nextAppVer}`);
@@ -95,16 +104,29 @@ function run() {
   pkg.version = next;
   writeJSON(PKG_PATH, pkg);
 
-  let oldAppVer = null;
-  if (versionTs) {
-    const match = versionTs.match(/APP_VERSION\s*=\s*['"](\d+\.\d+)['"]/);
-    if (match) oldAppVer = match[1];
-  }
-
   if (versionTs && nextAppVer && oldAppVer) {
-    const updated = versionTs
+    let updated = versionTs
       .replace(new RegExp(`APP_VERSION\\s*=\\s*['"]${escapeRegex(oldAppVer)}['"]`), `APP_VERSION = '${nextAppVer}'`)
       .replace(/BUILD_VERSION\s*=\s*['"][\d.]+['"]/, `BUILD_VERSION = '${next}'`);
+
+    const newFeature = updated.match(new RegExp(`'${escapeRegex(nextAppVer)}'\\s*:\\s*\\{[^}]+\\}`));
+    if (!newFeature) {
+      const oldFeatureMatch = updated.match(new RegExp(`'${escapeRegex(oldAppVer)}'\\s*:\\s*\\{[^}]+\\}`));
+      if (oldFeatureMatch) {
+        const oldEntry = oldFeatureMatch[0];
+        const newEntry = oldEntry.replace(new RegExp(escapeRegex(oldAppVer), 'g'), nextAppVer);
+        updated = updated.replace(oldEntry, newEntry);
+        console.log(`Copied feature entry from v${oldAppVer} → v${nextAppVer}`);
+      }
+    }
+
+    const oldTaglineMatch = updated.match(/APP_TAGLINE\s*=\s*'[^']+'/);
+    const newTagline = updated.match(new RegExp(`'${escapeRegex(nextAppVer)}'\\s*:\\s*\\{\\s*tagline:\\s*'([^']+)'`));
+    if (oldTaglineMatch && newTagline) {
+      updated = updated.replace(oldTaglineMatch[0], `APP_TAGLINE = '${newTagline[1]}'`);
+      console.log(`Updated APP_TAGLINE → '${newTagline[1]}'`);
+    }
+
     writeFileSync(VERSION_TS_PATH, updated, 'utf-8');
     console.log(`Updated src/lib/version.ts → v${nextAppVer} / build ${next}`);
 
