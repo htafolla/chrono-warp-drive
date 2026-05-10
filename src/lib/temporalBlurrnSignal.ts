@@ -21,6 +21,10 @@ export class TemporalBlurrnSignal extends IsotopicSignal {
     this.phaseCoherence = Math.pow(Math.sin(2 * Math.PI * TAU * reducedTdf), 2);
   }
 
+  getTdfValue(): number { return this.tdfValue }
+  getCascadeIndex(): number { return this.cascadeIndex }
+  getPhaseCoherence(): number { return this.phaseCoherence }
+
   embed(): number[] {
     return [this.tdfValue * PHI, this.cascadeIndex, this.phaseCoherence];
   }
