@@ -204,3 +204,68 @@ describe('MCP - validate_tlm', () => {
     expect(json.valid).toBe(false)
   })
 })
+
+// ===== GET Endpoint Tests (sandbox-compatible) =====
+
+describe('MCP - GET endpoints', () => {
+  async function get(path: string) {
+    const res = await app.request(path, { method: 'GET' })
+    return res.json()
+  }
+
+  it('GET / returns tool index', async () => {
+    const json: any = await get('/')
+    expect(json.name).toBe('blurrn-mcp')
+    expect(json.tools).toBe(14)
+    expect(json.endpoints.GET).toContain('/health')
+  })
+
+  it('GET /health returns status', async () => {
+    const json: any = await get('/health')
+    expect(json.status).toBe('ok')
+  })
+
+  it('GET /list_isotopes returns isotopes', async () => {
+    const json: any = await get('/list_isotopes')
+    expect(json.success).toBe(true)
+    expect(json.isotopes.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('GET /compute_tdf with query params', async () => {
+    const res = await app.request('/compute_tdf?T_c=100&P_s=2&E_t=0.3&voids=5&bhs_n=2', { method: 'GET' })
+    const json: any = await res.json()
+    expect(json.success).toBe(true)
+    expect(json.tdfValue).toBeGreaterThan(0)
+    expect(json.tPTT).toBeGreaterThan(0)
+  })
+
+  it('GET /compute_tdf defaults', async () => {
+    const json: any = await get('/compute_tdf')
+    expect(json.success).toBe(true)
+    expect(json.tdfValue).toBeGreaterThan(0)
+  })
+
+  it('GET /compute_tptt defaults', async () => {
+    const json: any = await get('/compute_tptt')
+    expect(json.success).toBe(true)
+    expect(json.tPTT).toBeGreaterThan(0)
+  })
+
+  it('GET /black_hole_sequence defaults', async () => {
+    const json: any = await get('/black_hole_sequence')
+    expect(json.success).toBe(true)
+    expect(json.BlackHole_Seq).toBeGreaterThan(0)
+  })
+
+  it('GET /validate_tlm defaults', async () => {
+    const json: any = await get('/validate_tlm')
+    expect(json.success).toBe(true)
+    expect(json.valid).toBe(true)
+  })
+
+  it('GET /harmonic_oscillator defaults', async () => {
+    const json: any = await get('/harmonic_oscillator')
+    expect(json.success).toBe(true)
+    expect(json.P_o).toBeDefined()
+  })
+})
