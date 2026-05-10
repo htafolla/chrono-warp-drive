@@ -1,179 +1,190 @@
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { z } from 'zod'
+import { TemporalBlurrnSignal, FusedSignal } from '@/lib/temporalBlurrnSignal'
+import { ISOTOPES } from '@/lib/temporalCalculator'
 
-// === v4.8 Isotopic Temporal Vortex Core ===
-class IsotopicSignal {
-  embed() { return [1, 1.666, 3] }
-  getIsotopicFingerprint() {
-    return {
-      coreId: `blurrn-core-${Date.now()}`,
-      isotopicRatio: 0.96 + Math.random() * 0.04,
-      variantDelta: [0.01, 0.02, 0.03],
-      phaseCoherence: 0.94 + Math.random() * 0.06,
-    }
-  }
-}
-
-class TemporalBlurrnSignal extends IsotopicSignal {
-  tdfValue: number
-  cascadeIndex: number
-  phaseCoherence: number
-  rawSignal: any
-
-  constructor(rawSignal: any, tdfValue: number, cascadeIndex: number) {
-    super()
-    this.rawSignal = rawSignal
-    this.tdfValue = tdfValue
-    this.cascadeIndex = cascadeIndex
-    this.phaseCoherence = Math.min(1, Math.max(0.5, 1 - (tdfValue % 10000) / 20000))
-  }
-
-  getIsotopicFingerprint() {
-    const base = super.getIsotopicFingerprint()
-    return { ...base, tdfValue: this.tdfValue, phaseCoherence: this.phaseCoherence }
-  }
-
-  crossCorrelate(other: TemporalBlurrnSignal) {
-    const vortexVolume = this.tdfValue * (other.tdfValue || 5.782e12)
-    const strength = 0.82 + Math.random() * 0.18
-    return {
-      strength,
-      lag: 1,
-      metadata: {
-        vortexVolume,
-        isotopicRatio: 0.95 + Math.random() * 0.05,
-        phaseCoherence: (this.phaseCoherence + other.phaseCoherence) / 2,
-      },
-    }
-  }
-}
-
-// === MCP Tools ===
 const app = new Hono()
+app.use('/*', cors())
 
+function ok(c: any, data: Record<string, unknown>) {
+  return c.json({ success: true, ...data })
+}
+
+function fail(c: any, message: string, status = 400) {
+  return c.json({ success: false, error: message }, status)
+}
+
+// ===== Tool 1: emit_isotopic_signal =====
 const EmitSchema = z.object({
-  content: z.string().min(1),
-  tdf: z.number().optional(),
-  cascadeIndex: z.number().optional(),
+  content: z.string().min(1, 'content is required'),
+  tdf: z.number().positive().optional(),
+  cascadeIndex: z.number().int().min(0).optional(),
 })
 
 app.post('/emit_isotopic_signal', async (c) => {
-  const { content, tdf, cascadeIndex } = EmitSchema.parse(await c.req.json())
+  const parsed = EmitSchema.safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
+
+  const { content, tdf, cascadeIndex } = parsed.data
   const signal = new TemporalBlurrnSignal(
-    { content },
-    tdf || 5.781e12 + content.length * 137,
-    cascadeIndex || 42,
+    { id: `sig-${Date.now()}`, content },
+    tdf ?? 5.781e12 + content.length * 137,
+    cascadeIndex ?? 42,
   )
   const fp = signal.getIsotopicFingerprint()
-  return c.json({
+  return ok(c, {
     signalId: fp.coreId,
     isotopicRatio: fp.isotopicRatio,
-    phaseCoherence: fp.phaseCoherence,
-    tdfValue: signal.tdfValue,
-    message: 'Signal emitted into the Isotopic Temporal Vortex. W × M = V engaged.',
+    phaseCoherence: signal['phaseCoherence'],
+    tdfValue: signal['tdfValue'],
   })
 })
 
+// ===== Tool 2: cross_correlate =====
 const CrossSchema = z.object({
-  contentA: z.string(),
+  contentA: z.string().min(1),
   contentB: z.string().optional(),
 })
 
 app.post('/cross_correlate', async (c) => {
-  const { contentA, contentB } = CrossSchema.parse(await c.req.json())
+  const parsed = CrossSchema.safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
+
+  const { contentA, contentB } = parsed.data
   const sigA = new TemporalBlurrnSignal({ content: contentA }, 5.781e12, 42)
-  const sigB = new TemporalBlurrnSignal({ content: contentB || 'reference-signal' }, 5.782e12, 43)
+  const sigB = new TemporalBlurrnSignal({ content: contentB ?? 'reference-signal' }, 5.782e12, 43)
   const result = sigA.crossCorrelate(sigB)
-  return c.json(result)
+  return ok(c, {
+    strength: result.strength,
+    lag: result.lag,
+    vortexVolume: result.metadata.vortexVolume,
+  })
 })
 
+// ===== Tool 3: compute_tdf =====
 const TdfSchema = z.object({
   phi: z.number().min(1.566).max(1.766).default(1.666),
-  delta_t: z.number().default(1e-6),
-  e_t: z.number().default(0.5),
+  delta_t: z.number().positive().default(1e-6),
+  e_t: z.number().min(0).default(0.5),
 })
 
 app.post('/compute_tdf', async (c) => {
-  const { phi, delta_t, e_t } = TdfSchema.parse(await c.req.json())
+  const parsed = TdfSchema.safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
+
+  const { phi, delta_t, e_t } = parsed.data
   const tdf = (phi * 5.781e12) / (delta_t * (1 + e_t))
-  return c.json({
+  const BlackHole_Seq = (3 * 7 * Math.pow(phi, 2)) % Math.PI
+
+  return ok(c, {
     tdfValue: tdf,
     S_L: tdf * phi,
     tau: 0.865,
-    BlackHole_Seq: (3 * 7 * Math.pow(phi, 2)) % Math.PI,
-    message: 'TDF computed inside the temporal vortex.',
+    BlackHole_Seq,
   })
 })
 
+// ===== Tool 4: list_isotopes =====
 app.post('/list_isotopes', async (c) => {
-  return c.json({
-    isotopes: [
-      { id: 'trinitarium-core', name: 'Trinitarium Light', ratio: 0.999 },
-      { id: 'yah-modulated', name: 'Yah-Modulated Principle', ratio: 0.997 },
-      { id: 'isosceles-vortex', name: 'Isosceles Temporal Vortex', ratio: 0.994 },
-    ],
-  })
+  const isotopes = ISOTOPES.map((iso, i) => ({
+    id: `isotope-${i}`,
+    name: iso.type,
+    factor: iso.factor,
+  }))
+  return ok(c, { isotopes })
+})
+
+// ===== Tool 5: triangulate_signals =====
+const TriangulateSchema = z.object({
+  signals: z.array(z.object({
+    content: z.string(),
+    tdf: z.number().positive().optional(),
+  })).min(2, 'Need at least 2 signals'),
 })
 
 app.post('/triangulate_signals', async (c) => {
-  const { signals } = z.object({
-    signals: z.array(z.object({ content: z.string(), tdf: z.number().optional() })),
-  }).parse(await c.req.json())
+  const parsed = TriangulateSchema.safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const sigs = signals.map((s, i) =>
-    new TemporalBlurrnSignal({ content: s.content }, s.tdf || 5.781e12 + i * 137, i)
+  const sigs: TemporalBlurrnSignal[] = parsed.data.signals.map((s, i) =>
+    new TemporalBlurrnSignal({ content: s.content }, s.tdf ?? 5.781e12 + i * 137, i)
   )
 
   const results = sigs.map((s, i) => ({
     index: i,
     fingerprint: s.getIsotopicFingerprint(),
-    correlations: sigs.filter((_, j) => j !== i).map((o) => s.crossCorrelate(o)),
+    correlations: sigs.filter((_, j) => j !== i).map(o => s.crossCorrelate(o)),
   }))
 
-  return c.json({ signalCount: signals.length, results })
+  return ok(c, { signalCount: parsed.data.signals.length, results })
+})
+
+// ===== Tool 6: fuse_symbiotic =====
+const FuseSchema = z.object({
+  partners: z.array(z.object({ content: z.string() })).min(2, 'Need at least 2 partners'),
 })
 
 app.post('/fuse_symbiotic', async (c) => {
-  const { partners } = z.object({
-    partners: z.array(z.object({ content: z.string() })).min(2),
-  }).parse(await c.req.json())
+  const parsed = FuseSchema.safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const sigs = partners.map((p, i) => new TemporalBlurrnSignal(p, 5.781e12 + i * 100, i))
-  const pairs = sigs.flatMap((s, i) => sigs.slice(i + 1).map((o) => s.crossCorrelate(o)))
-  const avgStrength = pairs.reduce((a, p) => a + p.strength, 0) / pairs.length
+  const sigs: TemporalBlurrnSignal[] = parsed.data.partners.map((p, i) =>
+    new TemporalBlurrnSignal(p, 5.781e12 + i * 100, i)
+  )
+  const fused = sigs[0].fuseSymbiotically(sigs.slice(1))
 
-  return c.json({
+  return ok(c, {
     fused: true,
-    partnerCount: partners.length,
-    symbioticStrength: avgStrength,
-    avgVortexVolume: pairs.reduce((a, p) => a + p.metadata.vortexVolume, 0) / pairs.length,
+    partnerCount: parsed.data.partners.length,
+    fusedEmbedding: fused.embed(),
+    fusedIsotopeId: fused.getIsotopeId(),
   })
 })
 
-app.post('/optimize_cascade', async (c) => {
-  const { n, deltaPhase } = z.object({
-    n: z.number().default(100),
-    deltaPhase: z.number().default(0.1),
-  }).parse(await c.req.json())
+// ===== Tool 7: optimize_cascade =====
+const CascadeSchema = z.object({
+  n: z.number().int().min(1).max(5000).default(100),
+  deltaPhase: z.number().default(0.1),
+})
 
+app.post('/optimize_cascade', async (c) => {
+  const parsed = CascadeSchema.safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
+
+  const { n, deltaPhase } = parsed.data
   const results = Array.from({ length: n }, (_, i) => ({
     iteration: i,
     efficiency: Math.min(100, (i / n) * 100 * (1 + Math.sin(i * deltaPhase) * 0.2)),
   }))
 
-  return c.json({
+  return ok(c, {
     iterations: n,
     finalEfficiency: results[results.length - 1].efficiency,
-    peakEfficiency: Math.max(...results.map((r) => r.efficiency)),
+    peakEfficiency: Math.max(...results.map(r => r.efficiency)),
     results,
   })
 })
 
-app.post('/get_phase_coherence', async (c) => {
-  const { signalId } = z.object({ signalId: z.string() }).parse(await c.req.json())
-  const signal = new TemporalBlurrnSignal({ id: signalId }, 5.781e12, 42)
-  return c.json({ signalId, phaseCoherence: signal.phaseCoherence })
+// ===== Tool 8: get_phase_coherence =====
+const CoherenceSchema = z.object({
+  signalId: z.string().min(1),
 })
 
+app.post('/get_phase_coherence', async (c) => {
+  const parsed = CoherenceSchema.safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
+
+  const signal = new TemporalBlurrnSignal({ id: parsed.data.signalId }, 5.781e12, 42)
+  return ok(c, { signalId: parsed.data.signalId, phaseCoherence: signal['phaseCoherence'] })
+})
+
+// ===== Health =====
+app.get('/health', (c) => {
+  return c.json({ status: 'ok', name: 'blurrn-mcp', version: '4.8.0', tools: 8 })
+})
+
+// ===== Vercel Edge Runtime =====
 export const config = { runtime: 'edge' }
 export default app.fetch
+export { app }

@@ -1,6 +1,5 @@
 // src/lib/temporalBlurrnSignal.ts
 import { IsotopicSignal, CorrelationResult, TriangulationResult, FusedSignal } from './isotopicSignal';
-import { calculateTDF, BlackHole_Seq, phaseSync } from './temporalCalculatorV4_6';
 
 export { FusedSignal };
 

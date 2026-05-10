@@ -1,5 +1,4 @@
 // src/lib/isotopicSignal.ts
-import { Signal } from '../types/blurrn-v4-7';
 
 export interface CorrelationResult {
   strength: number;
@@ -19,7 +18,7 @@ export interface IsotopicFingerprint {
   provenance: string[];
 }
 
-export abstract class IsotopicSignal implements Signal {
+export abstract class IsotopicSignal {
   abstract embed(): number[];
   abstract crossCorrelate(other: IsotopicSignal): CorrelationResult;
   abstract triangulate(others: IsotopicSignal[]): TriangulationResult;
