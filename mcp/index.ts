@@ -1,4 +1,5 @@
-import { Hono } from 'hono'
+import { Hono, Context } from 'hono'
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { z } from 'zod'
 import { TemporalBlurrnSignal, FusedSignal } from '@/lib/temporalBlurrnSignal'
@@ -7,11 +8,11 @@ import { ISOTOPES } from '@/lib/temporalCalculator'
 const app = new Hono()
 app.use('/*', cors())
 
-function ok(c: any, data: Record<string, unknown>) {
+function ok(c: Context, data: Record<string, unknown>) {
   return c.json({ success: true, ...data })
 }
 
-function fail(c: any, message: string, status = 400) {
+function fail(c: Context, message: string, status: ContentfulStatusCode = 400) {
   return c.json({ success: false, error: message }, status)
 }
 
@@ -22,7 +23,7 @@ const EmitSchema = z.object({
   cascadeIndex: z.number().int().min(0).optional(),
 })
 
-app.post('/emit_isotopic_signal', async (c) => {
+app.post('/emit_isotopic_signal', async (c: Context) => {
   const parsed = EmitSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
@@ -36,8 +37,8 @@ app.post('/emit_isotopic_signal', async (c) => {
   return ok(c, {
     signalId: fp.coreId,
     isotopicRatio: fp.isotopicRatio,
-    phaseCoherence: signal['phaseCoherence'],
-    tdfValue: signal['tdfValue'],
+    phaseCoherence: signal.getPhaseCoherence(),
+    tdfValue: signal.getTdfValue(),
   })
 })
 
@@ -47,7 +48,7 @@ const CrossSchema = z.object({
   contentB: z.string().optional(),
 })
 
-app.post('/cross_correlate', async (c) => {
+app.post('/cross_correlate', async (c: Context) => {
   const parsed = CrossSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
@@ -69,7 +70,7 @@ const TdfSchema = z.object({
   e_t: z.number().min(0).default(0.5),
 })
 
-app.post('/compute_tdf', async (c) => {
+app.post('/compute_tdf', async (c: Context) => {
   const parsed = TdfSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
@@ -86,7 +87,7 @@ app.post('/compute_tdf', async (c) => {
 })
 
 // ===== Tool 4: list_isotopes =====
-app.post('/list_isotopes', async (c) => {
+app.post('/list_isotopes', async (c: Context) => {
   const isotopes = ISOTOPES.map((iso, i) => ({
     id: `isotope-${i}`,
     name: iso.type,
@@ -103,7 +104,7 @@ const TriangulateSchema = z.object({
   })).min(2, 'Need at least 2 signals'),
 })
 
-app.post('/triangulate_signals', async (c) => {
+app.post('/triangulate_signals', async (c: Context) => {
   const parsed = TriangulateSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
@@ -125,7 +126,7 @@ const FuseSchema = z.object({
   partners: z.array(z.object({ content: z.string() })).min(2, 'Need at least 2 partners'),
 })
 
-app.post('/fuse_symbiotic', async (c) => {
+app.post('/fuse_symbiotic', async (c: Context) => {
   const parsed = FuseSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
@@ -148,7 +149,7 @@ const CascadeSchema = z.object({
   deltaPhase: z.number().default(0.1),
 })
 
-app.post('/optimize_cascade', async (c) => {
+app.post('/optimize_cascade', async (c: Context) => {
   const parsed = CascadeSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
@@ -171,16 +172,16 @@ const CoherenceSchema = z.object({
   signalId: z.string().min(1),
 })
 
-app.post('/get_phase_coherence', async (c) => {
+app.post('/get_phase_coherence', async (c: Context) => {
   const parsed = CoherenceSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
   const signal = new TemporalBlurrnSignal({ id: parsed.data.signalId }, 5.781e12, 42)
-  return ok(c, { signalId: parsed.data.signalId, phaseCoherence: signal['phaseCoherence'] })
+  return ok(c, { signalId: parsed.data.signalId, phaseCoherence: signal.getPhaseCoherence() })
 })
 
 // ===== Health =====
-app.get('/health', (c) => {
+app.get('/health', (c: Context) => {
   return c.json({ status: 'ok', name: 'blurrn-mcp', version: '4.8.0', tools: 8 })
 })
 
