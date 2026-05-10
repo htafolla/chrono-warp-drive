@@ -547,6 +547,19 @@ app.post('/validate_tlm', async (c: Context) => {
   })
 })
 
+// Root — tool index
+app.get('/', (c: Context) => {
+  return c.json({
+    name: 'blurrn-mcp',
+    version: '4.8.0',
+    tools: 14,
+    endpoints: {
+      GET: ['/', '/health', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator'],
+      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm'],
+    },
+  })
+})
+
 // Health
 app.get('/health', (c: Context) => {
   return c.json({
@@ -556,6 +569,56 @@ app.get('/health', (c: Context) => {
     tools: 14,
     storedSignals: signalStore.size,
   })
+})
+
+// ----- GET helpers for read-only tools (sandbox-friendly) -----
+
+function getQueryParams(c: Context): Record<string, any> {
+  const url = new URL(c.req.url)
+  const params: Record<string, any> = {}
+  url.searchParams.forEach((v, k) => {
+    const num = Number(v)
+    params[k] = isNaN(num) ? v : num
+  })
+  return params
+}
+
+app.get('/list_isotopes', (c: Context) => {
+  const std = ISOTOPES.map((iso, i) => ({ id: `isotope-${i}`, name: iso.type, factor: iso.factor, type: 'standard' }))
+  const blurrn = BLURRN_ISOTOPES.map((iso, i) => ({ id: `blurrn-${i}`, name: iso.type, factor: iso.factor, type: 'blurrn' }))
+  return c.json({ success: true, isotopes: [...std, ...blurrn] })
+})
+
+app.get('/compute_tdf', (c: Context) => {
+  const p = getQueryParams(c)
+  const { tptt, bhs, tdf, s_l } = computeFullTDF(
+    p.T_c ?? 137, p.P_s ?? 1.0, p.E_t ?? 0.5, p.delta_t ?? 1e-6,
+    p.voids ?? 7, p.bhs_n ?? 3,
+  )
+  return c.json({ success: true, tdfValue: tdf, S_L: s_l, tau: TAU, tPTT: tptt, BlackHole_Seq: bhs })
+})
+
+app.get('/compute_tptt', (c: Context) => {
+  const p = getQueryParams(c)
+  const result = tPTT(p.T_c ?? 137, p.P_s ?? 1.0, p.E_t ?? 0.5, p.delta_t ?? 1e-6)
+  return c.json({ success: true, tPTT: result })
+})
+
+app.get('/black_hole_sequence', (c: Context) => {
+  const p = getQueryParams(c)
+  const result = blackHoleSequence(p.voids ?? 7, p.n ?? 3)
+  return c.json({ success: true, BlackHole_Seq: result })
+})
+
+app.get('/validate_tlm', (c: Context) => {
+  const p = getQueryParams(c)
+  const phi = p.phi ?? 1.666
+  return c.json({ success: true, valid: validateTLM(phi), phi, range: { min: 1.566, max: 1.766 } })
+})
+
+app.get('/harmonic_oscillator', (c: Context) => {
+  const p = getQueryParams(c)
+  return c.json({ success: true, P_o: harmonicOscillator(p.t ?? 0.0) })
 })
 
 export default app
