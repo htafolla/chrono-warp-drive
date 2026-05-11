@@ -269,3 +269,112 @@ describe('MCP - GET endpoints', () => {
     expect(json.P_o).toBeDefined()
   })
 })
+
+// ===== MCP Standard Protocol Tests (SSE + JSON-RPC) =====
+
+describe('MCP - SSE /messages endpoint', () => {
+  it('returns 400 without sessionId', async () => {
+    const res = await app.request('/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+    })
+    expect(res.status).toBe(400)
+    const json: any = await res.json()
+    expect(json.error).toContain('Invalid')
+  })
+
+  it('rejects with fake sessionId', async () => {
+    const res = await app.request('/messages?sessionId=nonexistent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+    })
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('MCP - JSON-RPC via injected session', () => {
+  it('handles initialize request', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-session', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '1.0' } } }),
+    })
+    expect(res.status).toBe(200)
+
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    expect(data.jsonrpc).toBe('2.0')
+    expect(data.result.protocolVersion).toBe('2024-11-05')
+    expect(data.result.serverInfo.name).toBe('blurrn-mcp')
+
+    await unsub()
+  })
+
+  it('handles tools/list via injected session', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-session-2', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-session-2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+    })
+    expect(res.status).toBe(200)
+
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    expect(data.result.tools.length).toBe(14)
+    const names = data.result.tools.map((t: any) => t.name)
+    expect(names).toContain('compute_tdf')
+    expect(names).toContain('kuramoto_sync')
+    expect(names).toContain('validate_tlm')
+
+    await unsub()
+  })
+
+  it('handles tools/call via injected session', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-session-3', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-session-3', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'validate_tlm', arguments: { phi: 1.666 } } }),
+    })
+    expect(res.status).toBe(200)
+
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    const text = JSON.parse(data.result.content[0].text)
+    expect(text.valid).toBe(true)
+
+    await unsub()
+  })
+
+  it('returns error for unknown tool', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-session-4', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-session-4', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'nonexistent_tool', arguments: {} } }),
+    })
+    expect(res.status).toBe(200)
+
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    expect(data.error.message).toContain('Unknown tool')
+
+    await unsub()
+  })
+})

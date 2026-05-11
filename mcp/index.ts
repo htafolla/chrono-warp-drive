@@ -1,7 +1,9 @@
 import { Hono, Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
+import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
+import { publish, subscribe } from './pubsub'
 
 // ===== Inlined: isotopicSignal.ts =====
 interface CorrelationResult {
@@ -621,5 +623,266 @@ app.get('/harmonic_oscillator', (c: Context) => {
   return c.json({ success: true, P_o: harmonicOscillator(p.t ?? 0.0) })
 })
 
+// ===== MCP Standard Protocol (SSE + JSON-RPC) for grok.com Custom Connector =====
+
+// Tool definitions for MCP tools/list
+const TOOL_DEFINITIONS = [
+  {
+    name: 'compute_tdf',
+    description: 'Compute TDF = tPTT(T_c, P_s, E_t, delta_t) * TAU * (1 / BlackHole_Seq(voids, n)). Full temporal displacement chain from the v4.8 spec.',
+    inputSchema: { type: 'object', properties: { T_c: { type: 'number', default: 137, description: 'Temporal constant' }, P_s: { type: 'number', default: 1.0, description: 'Power spectral' }, E_t: { type: 'number', default: 0.5, description: 'Entropy' }, delta_t: { type: 'number', default: 1e-6, description: 'Time step' }, voids: { type: 'number', default: 7, description: 'Voids for BlackHole_Seq' }, bhs_n: { type: 'number', default: 3, description: 'Exponent for BlackHole_Seq' } } },
+  },
+  {
+    name: 'emit_isotopic_signal',
+    description: 'Emit and store an isotopic signal. Returns signalId, isotopicRatio, phaseCoherence, tdfValue. Optionally accepts referenceId for pairwise ratio.',
+    inputSchema: { type: 'object', properties: { content: { type: 'string', description: 'Signal content' }, tdf: { type: 'number', default: 5.781e12, description: 'TDF value' }, cascadeIndex: { type: 'number', default: 42, description: 'Cascade index' }, referenceId: { type: 'string', description: 'Reference signal ID for pairwise isotopic ratio' } }, required: ['content'] },
+  },
+  {
+    name: 'cross_correlate',
+    description: 'Cross-correlate two isotopic signals. Returns strength, lag, vortexVolume (W x M = V), and pairwise isotopicRatio.',
+    inputSchema: { type: 'object', properties: { contentA: { type: 'string', description: 'First signal content' }, contentB: { type: 'string', description: 'Second signal content (optional, defaults to reference)' } }, required: ['contentA'] },
+  },
+  {
+    name: 'list_isotopes',
+    description: 'List all available isotopes including standard (C-12, C-14) and Blurrn-themed (Trinitarium-166, Chronovium-865, Vortexite-528).',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'triangulate_signals',
+    description: 'Triangulate 2+ signals with fingerprinting and cross-correlation matrix.',
+    inputSchema: { type: 'object', properties: { signals: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' }, tdf: { type: 'number' } } }, minItems: 2 } }, required: ['signals'] },
+  },
+  {
+    name: 'fuse_symbiotic',
+    description: 'Fuse signals symbiotically (not aggregation — polymorphic fusion preserving phase relationships).',
+    inputSchema: { type: 'object', properties: { partners: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' } } }, minItems: 2 } }, required: ['partners'] },
+  },
+  {
+    name: 'optimize_cascade',
+    description: 'Optimize cascade iteration efficiency with configurable deltaPhase.',
+    inputSchema: { type: 'object', properties: { n: { type: 'number', default: 100, description: 'Iteration count (max 5000)' }, deltaPhase: { type: 'number', default: 0.1, description: 'Phase delta' } } },
+  },
+  {
+    name: 'get_phase_coherence',
+    description: 'Get phase coherence of a stored signal by ID. Checks in-memory store first (from emit_isotopic_signal), falls back to reconstruction.',
+    inputSchema: { type: 'object', properties: { signalId: { type: 'string', description: 'Signal ID from emit_isotopic_signal' } }, required: ['signalId'] },
+  },
+  {
+    name: 'compute_tptt',
+    description: 'Standalone tPTT = T_c * (P_s / E_t) * PHI * (C / delta_t). Temporal Photonic Transpondent Transporter.',
+    inputSchema: { type: 'object', properties: { T_c: { type: 'number', default: 137 }, P_s: { type: 'number', default: 1.0 }, E_t: { type: 'number', default: 0.5 }, delta_t: { type: 'number', default: 1e-6 } } },
+  },
+  {
+    name: 'black_hole_sequence',
+    description: 'Standalone BlackHole_Seq = (L * voids * PHI^n) % PI. L=3, PHI=1.666.',
+    inputSchema: { type: 'object', properties: { voids: { type: 'number', default: 7 }, n: { type: 'number', default: 3 } } },
+  },
+  {
+    name: 'kuramoto_sync',
+    description: 'Kuramoto phase synchronization with push-pull dynamics. Returns frequency update and phase coherence order parameter R.',
+    inputSchema: { type: 'object', properties: { phases: { type: 'array', items: { type: 'number' }, minItems: 2 }, frequencies: { type: 'array', items: { type: 'number' }, minItems: 2 }, fractalToggle: { type: 'boolean', default: false }, isotope: { type: 'string', default: 'C-12' }, phaseType: { type: 'string', enum: ['push', 'pull'], default: 'push' }, oscillatorIndex: { type: 'number', default: 0 } }, required: ['phases', 'frequencies'] },
+  },
+  {
+    name: 'wave_function',
+    description: 'Compute wave amplitude with isotope modulation. Uses G=1.0, FREQ=528, PHI=1.666.',
+    inputSchema: { type: 'object', properties: { x: { type: 'number', default: 1.0 }, t: { type: 'number', default: 0.0 }, n: { type: 'number', default: 1 }, isotope: { type: 'string', default: 'C-12' }, lambda: { type: 'number', default: 0.53 }, phaseType: { type: 'string', enum: ['push', 'pull'], default: 'push' } } },
+  },
+  {
+    name: 'harmonic_oscillator',
+    description: 'P_o = sin(2pi * 528 * t + pi / PHI). Harmonic oscillator frequency calculation.',
+    inputSchema: { type: 'object', properties: { t: { type: 'number', default: 0.0, description: 'Time' } } },
+  },
+  {
+    name: 'validate_tlm',
+    description: 'Validate Trinitarium ratio is within [1.566, 1.766]. Returns boolean.',
+    inputSchema: { type: 'object', properties: { phi: { type: 'number', default: 1.666, description: 'PHI to validate' } } },
+  },
+]
+
+// MCP JSON-RPC helpers
+function mcpResult(id: any, result: any) {
+  return { jsonrpc: '2.0', id, result }
+}
+
+function mcpError(id: any, code: number, message: string, data?: any) {
+  return { jsonrpc: '2.0', id, error: { code, message, data } }
+}
+
+// Map tool calls to actual handlers
+const TOOL_HANDLERS: Record<string, (args: any) => any> = {
+  compute_tdf: (args: any) => {
+    const { tptt, bhs, tdf, s_l } = computeFullTDF(
+      args.T_c ?? 137, args.P_s ?? 1.0, args.E_t ?? 0.5, args.delta_t ?? 1e-6,
+      args.voids ?? 7, args.bhs_n ?? 3,
+    )
+    return { tdfValue: tdf, S_L: s_l, tau: TAU, tPTT: tptt, BlackHole_Seq: bhs }
+  },
+  emit_isotopic_signal: (args: any) => {
+    const signal = new TemporalBlurrnSignal(
+      { id: `sig-${Date.now()}`, content: args.content },
+      args.tdf ?? 5.781e12 + args.content.length * 137,
+      args.cascadeIndex ?? 42,
+    )
+    const id = signal.getIsotopeId()
+    signalStore.set(id, signal)
+    let ratio = signal.getPhaseCoherence()
+    if (args.referenceId && signalStore.has(args.referenceId)) {
+      ratio = signal.calculateIsotopicRatio(signalStore.get(args.referenceId)!)
+    }
+    return { signalId: id, isotopicRatio: ratio, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue() }
+  },
+  cross_correlate: (args: any) => {
+    const sigA = new TemporalBlurrnSignal({ content: args.contentA }, 5.781e12, 42)
+    const sigB = new TemporalBlurrnSignal({ content: args.contentB ?? 'reference-signal' }, 5.782e12, 43)
+    const result = sigA.crossCorrelate(sigB)
+    return { strength: result.strength, lag: result.lag, vortexVolume: result.metadata.vortexVolume, isotopicRatio: sigA.calculateIsotopicRatio(sigB) }
+  },
+  list_isotopes: () => {
+    const std = ISOTOPES.map((iso, i) => ({ id: `isotope-${i}`, name: iso.type, factor: iso.factor, type: 'standard' }))
+    const blurrn = BLURRN_ISOTOPES.map((iso, i) => ({ id: `blurrn-${i}`, name: iso.type, factor: iso.factor, type: 'blurrn' }))
+    return { isotopes: [...std, ...blurrn] }
+  },
+  triangulate_signals: (args: any) => {
+    const sigs: TemporalBlurrnSignal[] = args.signals.map((s: any, i: number) =>
+      new TemporalBlurrnSignal({ content: s.content }, s.tdf ?? 5.781e12 + i * 137, i)
+    )
+    const results = sigs.map((s: any, i: number) => ({
+      index: i,
+      fingerprint: s.getIsotopicFingerprint(),
+      correlations: sigs.filter((_: any, j: number) => j !== i).map((o: any) => s.crossCorrelate(o)),
+    }))
+    return { signalCount: args.signals.length, results }
+  },
+  fuse_symbiotic: (args: any) => {
+    const sigs: TemporalBlurrnSignal[] = args.partners.map((p: any, i: number) => new TemporalBlurrnSignal(p, 5.781e12 + i * 100, i))
+    const fused = sigs[0].fuseSymbiotically(sigs.slice(1))
+    return { fused: true, partnerCount: args.partners.length, fusedEmbedding: fused.embed(), fusedIsotopeId: fused.getIsotopeId() }
+  },
+  optimize_cascade: (args: any) => {
+    const { n, deltaPhase } = args
+    const results = Array.from({ length: n }, (_: any, i: number) => ({
+      iteration: i, efficiency: Math.min(100, (i / n) * 100 * (1 + Math.sin(i * deltaPhase) * 0.2)),
+    }))
+    return { iterations: n, finalEfficiency: results[results.length - 1].efficiency, peakEfficiency: Math.max(...results.map((r: any) => r.efficiency)), results }
+  },
+  get_phase_coherence: (args: any) => {
+    if (signalStore.has(args.signalId)) {
+      const signal = signalStore.get(args.signalId)!
+      return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue(), cascadeIndex: signal.getCascadeIndex(), stored: true }
+    }
+    const signal = new TemporalBlurrnSignal({ id: args.signalId }, 5.781e12, 42)
+    return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), stored: false }
+  },
+  compute_tptt: (args: any) => {
+    return { tPTT: tPTT(args.T_c ?? 137, args.P_s ?? 1.0, args.E_t ?? 0.5, args.delta_t ?? 1e-6) }
+  },
+  black_hole_sequence: (args: any) => {
+    return { BlackHole_Seq: blackHoleSequence(args.voids ?? 7, args.n ?? 3) }
+  },
+  kuramoto_sync: (args: any) => {
+    const allIsotopes = [...ISOTOPES, ...BLURRN_ISOTOPES]
+    const isotope = allIsotopes.find((i: any) => i.type === args.isotope) ?? ISOTOPES[0]
+    const freqUpdate = kuramoto(args.phases, args.frequencies, args.fractalToggle ?? false, isotope, args.phaseType ?? 'push', args.oscillatorIndex ?? 0)
+    const coherence = calculatePhaseCoherence(args.phases)
+    return { frequencyUpdate: freqUpdate, phaseCoherence: coherence, oscillatorIndex: args.oscillatorIndex ?? 0, isotopeUsed: isotope.type, phaseType: args.phaseType ?? 'push' }
+  },
+  wave_function: (args: any) => {
+    const allIsotopes = [...ISOTOPES, ...BLURRN_ISOTOPES]
+    const isotope = allIsotopes.find((i: any) => i.type === args.isotope) ?? ISOTOPES[0]
+    return { amplitude: wave(args.x ?? 1, args.t ?? 0, args.n ?? 1, isotope, args.lambda ?? 0.53, args.phaseType ?? 'push') }
+  },
+  harmonic_oscillator: (args: any) => {
+    return { P_o: harmonicOscillator(args.t ?? 0) }
+  },
+  validate_tlm: (args: any) => {
+    return { valid: validateTLM(args.phi ?? 1.666), phi: args.phi ?? 1.666, range: { min: 1.566, max: 1.766 } }
+  },
+}
+
+function handleMCPMessage(sessionId: string, msg: any): any {
+  const { jsonrpc, id, method, params } = msg || {}
+  if (jsonrpc !== '2.0' || id === undefined) return null // notifications are ignored
+
+  try {
+    switch (method) {
+      case 'initialize':
+        return mcpResult(id, {
+          protocolVersion: '2024-11-05',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'blurrn-mcp', version: '4.8.0' },
+        })
+      case 'ping':
+        return mcpResult(id, {})
+      case 'tools/list':
+        return mcpResult(id, { tools: TOOL_DEFINITIONS })
+      case 'tools/call': {
+        const { name, arguments: args } = params || {}
+        if (!name) return mcpError(id, -32602, 'Missing tool name')
+        const handler = TOOL_HANDLERS[name]
+        if (!handler) return mcpError(id, -32601, `Unknown tool: ${name}`)
+        const result = handler(args ?? {})
+        return mcpResult(id, { content: [{ type: 'text', text: JSON.stringify(result) }] })
+      }
+      default:
+        return mcpError(id, -32601, `Method not found: ${method}`)
+    }
+  } catch (err: any) {
+    return mcpError(id, -32603, 'Internal error', err.message)
+  }
+}
+
+// SSE session store — uses Redis Pub/Sub (production) or in-memory EventEmitter (dev/test)
+app.get('/sse', (c: Context) => {
+  const sessionId = crypto.randomUUID()
+  const channel = `session:${sessionId}`
+
+  const cleanup = () => {
+    unsub().catch(() => {})
+  }
+  c.req.raw.signal.addEventListener('abort', cleanup)
+
+  let unsub: () => Promise<void> = () => Promise.resolve()
+
+  return streamSSE(c, async (stream) => {
+    // Subscribe before endpoint event to avoid race
+    unsub = await subscribe(channel, async (raw: string) => {
+      try {
+        await stream.writeSSE({ data: raw })
+      } catch {
+        cleanup()
+      }
+    })
+
+    await stream.writeSSE({
+      event: 'endpoint',
+      data: `/messages?sessionId=${sessionId}`,
+    })
+
+    await new Promise<void>((resolve) => {
+      c.req.raw.signal.addEventListener('abort', () => {
+        resolve()
+      })
+    })
+  })
+})
+
+app.post('/messages', async (c: Context) => {
+  const sessionId = c.req.query('sessionId')
+  if (!sessionId) {
+    return c.json({ error: 'Invalid or expired session' }, 400)
+  }
+
+  const body = await c.req.json()
+  const result = handleMCPMessage(sessionId, body)
+  if (result) {
+    const delivered = await publish(`session:${sessionId}`, JSON.stringify(result))
+    if (!delivered) {
+      return c.json({ error: 'Invalid or expired session' }, 400)
+    }
+  }
+
+  return c.json({ ok: true })
+})
+
 export default app
-export { app }
+export { app, TOOL_DEFINITIONS }
