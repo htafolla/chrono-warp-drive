@@ -216,7 +216,7 @@ describe('MCP - GET endpoints', () => {
   it('GET / returns tool index', async () => {
     const json: any = await get('/')
     expect(json.name).toBe('blurrn-mcp')
-    expect(json.tools).toBe(14)
+    expect(json.tools).toBe(16)
     expect(json.endpoints.GET).toContain('/health')
   })
 
@@ -330,11 +330,13 @@ describe('MCP - JSON-RPC via injected session', () => {
 
     expect(messages.length).toBe(1)
     const data = JSON.parse(messages[0])
-    expect(data.result.tools.length).toBe(14)
+    expect(data.result.tools.length).toBe(16)
     const names = data.result.tools.map((t: any) => t.name)
     expect(names).toContain('compute_tdf')
     expect(names).toContain('kuramoto_sync')
     expect(names).toContain('validate_tlm')
+    expect(names).toContain('evaluate_governance')
+    expect(names).toContain('govern_with_solar')
 
     await unsub()
   })
@@ -359,12 +361,40 @@ describe('MCP - JSON-RPC via injected session', () => {
     await unsub()
   })
 
+  it('handles tools/call - govern_with_solar', async () => {
+    // Mock fetch to avoid network calls in tests
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async () => new Response(JSON.stringify([{ time_tag: '2026-05-11T12:00:00Z', flux: '1e-7', satellite: 16 }]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-session-solar', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-session-solar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'govern_with_solar', arguments: { proposal: 'Test solar governance', baseVoteWeight: 1.0 } } }),
+    })
+    expect(res.status).toBe(200)
+
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    const text = JSON.parse(data.result.content[0].text)
+    expect(text.solarContext).toBeDefined()
+    expect(text.solarContext.solarActivityLevel).toBeDefined()
+    expect(text.adjustedVoteWeight).toBeGreaterThan(0)
+    expect(text.finalRecommendation).toContain('Test solar governance')
+
+    await unsub()
+    globalThis.fetch = originalFetch
+  })
+
   it('returns error for unknown tool', async () => {
     const { subscribe } = await import('../../mcp/pubsub')
     const messages: string[] = []
-    const unsub = await subscribe('session:test-session-4', (msg) => messages.push(msg))
+    const unsub = await subscribe('session:test-session-unknown', (msg) => messages.push(msg))
 
-    const res = await app.request('/messages?sessionId=test-session-4', {
+    const res = await app.request('/messages?sessionId=test-session-unknown', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'nonexistent_tool', arguments: {} } }),

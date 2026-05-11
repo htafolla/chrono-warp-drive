@@ -4,6 +4,8 @@ import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { publish, subscribe } from './pubsub'
+import { createGovernanceRouter, evaluateGovernance } from './governance'
+import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance'
 
 // ===== Inlined: isotopicSignal.ts =====
 interface CorrelationResult {
@@ -553,11 +555,11 @@ app.post('/validate_tlm', async (c: Context) => {
 app.get('/', (c: Context) => {
   return c.json({
     name: 'blurrn-mcp',
-    version: '4.8.0',
-    tools: 14,
+    version: '4.8.3',
+    tools: 16,
     endpoints: {
       GET: ['/', '/health', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator'],
-      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm'],
+      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar'],
     },
   })
 })
@@ -567,8 +569,8 @@ app.get('/health', (c: Context) => {
   return c.json({
     status: 'ok',
     name: 'blurrn-mcp',
-    version: '4.8.0',
-    tools: 14,
+    version: '4.8.3',
+    tools: 16,
     storedSignals: signalStore.size,
   })
 })
@@ -697,6 +699,16 @@ const TOOL_DEFINITIONS = [
     description: 'Validate Trinitarium ratio is within [1.566, 1.766]. Returns boolean.',
     inputSchema: { type: 'object', properties: { phi: { type: 'number', default: 1.666, description: 'PHI to validate' } } },
   },
+  {
+    name: 'evaluate_governance',
+    description: 'Evaluate a proposal through the Dynamo Governance Layer. Emits isotopic signal, cross-correlates with code diff, triangulates agent reviews, fuses symbiotically, and applies Blurrn-native decision matrix. Returns recommendation (PASS/REJECT/NEEDS REVISION), confidence, voteWeight, and reasoning.',
+    inputSchema: { type: 'object', properties: { proposalId: { type: 'string', minLength: 3, description: 'Proposal identifier' }, proposalText: { type: 'string', minLength: 30, description: 'Full proposal text' }, codeDiff: { type: 'string', description: 'Optional code diff for correlation' }, agentReviews: { type: 'array', items: { type: 'string' }, minItems: 1, description: 'Agent review texts' }, historicalSignalIds: { type: 'array', items: { type: 'string' }, description: 'Past signal IDs for historical coherence' } }, required: ['proposalId', 'proposalText', 'agentReviews'] },
+  },
+  {
+    name: 'govern_with_solar',
+    description: 'Enhanced governance decision with real-time solar context from NOAA GOES. Fetches current solar activity level (quiet/moderate/active/storm), adjusts vote weight and confidence based on solar conditions, and returns enhanced recommendation with solar warnings.',
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' } }, required: ['proposal'] },
+  },
 ]
 
 // MCP JSON-RPC helpers
@@ -797,9 +809,38 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   validate_tlm: (args: any) => {
     return { valid: validateTLM(args.phi ?? 1.666), phi: args.phi ?? 1.666, range: { min: 1.566, max: 1.766 } }
   },
+  evaluate_governance: async (args: any) => {
+    return evaluateGovernance(TOOL_HANDLERS, args)
+  },
+  govern_with_solar: async (args: any) => {
+    const proposal = args?.proposal || 'No proposal provided'
+    const baseVoteWeight = args?.baseVoteWeight ?? 1.0
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight)
+  },
 }
 
-function handleMCPMessage(sessionId: string, msg: any): any {
+// ===== Governance Layer =====
+app.route('/', createGovernanceRouter(TOOL_HANDLERS))
+
+app.post('/govern_with_solar', async (c: Context) => {
+  const body = await c.req.json()
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0)
+  return c.json({ success: true, ...result })
+})
+
+// Debug endpoint to test MCP tool handler directly
+app.get('/debug-govern', async (c: Context) => {
+  try {
+    const handler = TOOL_HANDLERS['govern_with_solar']
+    if (!handler) return c.json({ error: 'handler not found' })
+    const result = await handler({ proposal: 'Debug test', baseVoteWeight: 1.0 })
+    return c.json({ success: true, result, handlerType: typeof handler })
+  } catch (err: any) {
+    return c.json({ error: err.message, stack: err.stack })
+  }
+})
+
+async function handleMCPMessage(sessionId: string, msg: any): Promise<any> {
   const { jsonrpc, id, method, params } = msg || {}
   if (jsonrpc !== '2.0' || id === undefined) return null // notifications are ignored
 
@@ -820,7 +861,7 @@ function handleMCPMessage(sessionId: string, msg: any): any {
         if (!name) return mcpError(id, -32602, 'Missing tool name')
         const handler = TOOL_HANDLERS[name]
         if (!handler) return mcpError(id, -32601, `Unknown tool: ${name}`)
-        const result = handler(args ?? {})
+        const result = await handler(args ?? {})
         return mcpResult(id, { content: [{ type: 'text', text: JSON.stringify(result) }] })
       }
       default:
@@ -873,7 +914,7 @@ app.post('/messages', async (c: Context) => {
   }
 
   const body = await c.req.json()
-  const result = handleMCPMessage(sessionId, body)
+  const result = await handleMCPMessage(sessionId, body)
   if (result) {
     const delivered = await publish(`session:${sessionId}`, JSON.stringify(result))
     if (!delivered) {
