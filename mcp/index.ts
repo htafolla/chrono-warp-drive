@@ -837,6 +837,53 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   },
 }
 
+// Auto-generate GET documentation for all tools
+function buildToolDocs(tool: any) {
+  const params: Record<string, any> = {}
+  const schema = tool.inputSchema?.properties || {}
+  const required = tool.inputSchema?.required || []
+
+  for (const [key, val] of Object.entries(schema as Record<string, any>)) {
+    params[key] = {
+      type: val.type,
+      required: required.includes(key),
+      default: val.default,
+      description: val.description,
+      ...(val.enum ? { enum: val.enum } : {}),
+      ...(val.minItems ? { minItems: val.minItems } : {}),
+    }
+  }
+
+  return {
+    name: tool.name,
+    description: tool.description,
+    method: 'POST',
+    url: `https://mcp-production-80e2.up.railway.app/${tool.name}`,
+    parameters: params,
+    note: 'Send parameters as JSON body with Content-Type: application/json',
+  }
+}
+
+// Add GET docs for all tools that don't have custom GET handlers
+const toolsNeedingDocs = [
+  'emit_isotopic_signal',
+  'cross_correlate',
+  'triangulate_signals',
+  'fuse_symbiotic',
+  'optimize_cascade',
+  'get_phase_coherence',
+  'kuramoto_sync',
+  'wave_function',
+  'evaluate_governance',
+]
+
+for (const toolName of toolsNeedingDocs) {
+  const toolDef = TOOL_DEFINITIONS.find((t: any) => t.name === toolName)
+  if (toolDef) {
+    app.get(`/${toolName}`, (c: Context) => c.json(buildToolDocs(toolDef)))
+  }
+}
+
 // ===== Governance Layer =====
 app.route('/', createGovernanceRouter(TOOL_HANDLERS))
 
