@@ -216,7 +216,7 @@ describe('MCP - GET endpoints', () => {
   it('GET / returns tool index', async () => {
     const json: any = await get('/')
     expect(json.name).toBe('blurrn-mcp')
-    expect(json.tools).toBe(16)
+    expect(json.tools).toBe(17)
     expect(json.endpoints.GET).toContain('/health')
   })
 
@@ -330,13 +330,14 @@ describe('MCP - JSON-RPC via injected session', () => {
 
     expect(messages.length).toBe(1)
     const data = JSON.parse(messages[0])
-    expect(data.result.tools.length).toBe(16)
+    expect(data.result.tools.length).toBe(17)
     const names = data.result.tools.map((t: any) => t.name)
     expect(names).toContain('compute_tdf')
     expect(names).toContain('kuramoto_sync')
     expect(names).toContain('validate_tlm')
     expect(names).toContain('evaluate_governance')
     expect(names).toContain('govern_with_solar')
+    expect(names).toContain('call_connected_tool')
 
     await unsub()
   })
@@ -387,6 +388,28 @@ describe('MCP - JSON-RPC via injected session', () => {
 
     await unsub()
     globalThis.fetch = originalFetch
+  })
+
+  it('handles tools/call - call_connected_tool proxy', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-session-proxy', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-session-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'call_connected_tool', arguments: { tool_name: 'validate_tlm', params: { phi: 1.666 } } } }),
+    })
+    expect(res.status).toBe(200)
+
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    const text = JSON.parse(data.result.content[0].text)
+    expect(text.success).toBe(true)
+    expect(text.tool).toBe('validate_tlm')
+    expect(text.result.valid).toBe(true)
+
+    await unsub()
   })
 
   it('returns error for unknown tool', async () => {

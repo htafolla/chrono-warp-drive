@@ -556,10 +556,10 @@ app.get('/', (c: Context) => {
   return c.json({
     name: 'blurrn-mcp',
     version: '4.8.3',
-    tools: 16,
+    tools: 17,
     endpoints: {
       GET: ['/', '/health', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator'],
-      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar'],
+      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar', '/call_connected_tool'],
     },
   })
 })
@@ -570,7 +570,7 @@ app.get('/health', (c: Context) => {
     status: 'ok',
     name: 'blurrn-mcp',
     version: '4.8.3',
-    tools: 16,
+    tools: 17,
     storedSignals: signalStore.size,
   })
 })
@@ -709,6 +709,11 @@ const TOOL_DEFINITIONS = [
     description: 'Enhanced governance decision with real-time solar context from NOAA GOES. Fetches current solar activity level (quiet/moderate/active/storm), adjusts vote weight and confidence based on solar conditions, and returns enhanced recommendation with solar warnings.',
     inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' } }, required: ['proposal'] },
   },
+  {
+    name: 'call_connected_tool',
+    description: 'Universal tool dispatcher. Call any connected tool by name with its parameters. Acts as a proxy/router to all available tools.',
+    inputSchema: { type: 'object', properties: { tool_name: { type: 'string', description: 'Name of the tool to call (e.g. compute_tdf, govern_with_solar, process_current_sun)' }, params: { type: 'object', description: 'Tool-specific parameters as a JSON object' } }, required: ['tool_name'] },
+  },
 ]
 
 // MCP JSON-RPC helpers
@@ -817,6 +822,19 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const baseVoteWeight = args?.baseVoteWeight ?? 1.0
     return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight)
   },
+  call_connected_tool: async (args: any) => {
+    const toolName = args?.tool_name
+    const params = args?.params ?? {}
+    if (!toolName) return { error: 'Missing tool_name parameter' }
+    const handler = TOOL_HANDLERS[toolName]
+    if (!handler) return { error: `Unknown tool: ${toolName}`, available_tools: Object.keys(TOOL_HANDLERS) }
+    try {
+      const result = await handler(params)
+      return { success: true, tool: toolName, result }
+    } catch (err: any) {
+      return { success: false, tool: toolName, error: err.message }
+    }
+  },
 }
 
 // ===== Governance Layer =====
@@ -826,6 +844,21 @@ app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0)
   return c.json({ success: true, ...result })
+})
+
+app.post('/call_connected_tool', async (c: Context) => {
+  const body = await c.req.json()
+  const toolName = body.tool_name
+  const params = body.params ?? {}
+  if (!toolName) return c.json({ error: 'Missing tool_name parameter' }, 400)
+  const handler = TOOL_HANDLERS[toolName]
+  if (!handler) return c.json({ error: `Unknown tool: ${toolName}`, available_tools: Object.keys(TOOL_HANDLERS) }, 404)
+  try {
+    const result = await handler(params)
+    return c.json({ success: true, tool: toolName, result })
+  } catch (err: any) {
+    return c.json({ success: false, tool: toolName, error: err.message }, 500)
+  }
 })
 
 // Debug endpoint to test MCP tool handler directly
