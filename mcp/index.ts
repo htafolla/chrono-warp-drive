@@ -840,10 +840,62 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
 // ===== Governance Layer =====
 app.route('/', createGovernanceRouter(TOOL_HANDLERS))
 
+app.get('/govern_with_solar', (c: Context) => {
+  return c.json({
+    name: 'govern_with_solar',
+    description: 'Enhanced governance decision with real-time solar context from NOAA GOES. Fetches current solar activity level (quiet/moderate/active/storm), adjusts vote weight and confidence based on solar conditions, and returns enhanced recommendation with solar warnings.',
+    method: 'POST',
+    url: 'https://mcp-production-80e2.up.railway.app/govern_with_solar',
+    parameters: {
+      proposal: { type: 'string', required: true, minLength: 10, description: 'Governance proposal text' },
+      baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight' },
+    },
+    example: {
+      request: '{"proposal":"Deploy new solar observatory","baseVoteWeight":1.0}',
+      response: {
+        success: true,
+        originalRecommendation: 'Deploy new solar observatory',
+        solarContext: {
+          solarActivityLevel: 'storm',
+          solarResonance: 0.5935,
+          solarActivityModifier: -0.15,
+          recommendation: 'Solar storm detected - recommend delayed or weighted decisions',
+        },
+        adjustedVoteWeight: 0.85,
+        finalRecommendation: 'Deploy new solar observatory [SOLAR STORM WARNING]',
+        confidenceAdjustment: -0.15,
+      },
+    },
+    note: 'Current solar activity level is fetched live from NOAA GOES. During solar storms, vote weights are reduced and warnings are appended.',
+  })
+})
+
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0)
   return c.json({ success: true, ...result })
+})
+
+app.get('/call_connected_tool', (c: Context) => {
+  return c.json({
+    name: 'call_connected_tool',
+    description: 'Universal proxy to call any Dynamo MCP tool by name. Use this to dynamically invoke tools without hardcoding endpoints.',
+    method: 'POST',
+    url: 'https://mcp-production-80e2.up.railway.app/call_connected_tool',
+    parameters: {
+      tool_name: { type: 'string', required: true, description: 'Name of the tool to invoke' },
+      params: { type: 'object', required: false, default: {}, description: 'Tool-specific parameters' },
+    },
+    example: {
+      request: '{"tool_name":"govern_with_solar","params":{"proposal":"Test","baseVoteWeight":1.0}}',
+      response: {
+        success: true,
+        tool: 'govern_with_solar',
+        result: { /* ... tool result ... */ },
+      },
+    },
+    available_tools: Object.keys(TOOL_HANDLERS),
+  })
 })
 
 app.post('/call_connected_tool', async (c: Context) => {
