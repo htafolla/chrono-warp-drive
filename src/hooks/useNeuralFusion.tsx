@@ -202,9 +202,7 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
       tau: number = 0.865,
       phi: number = 1.666
     ): Promise<{ cascade_index: number; efficiency: number }> => {
-      if (!workerRef.current || !isInitialized) {
-        console.warn('[Neural Fusion] Worker not initialized, using fallback calculation');
-        // Fallback calculation - efficiency normalized to [0..1]
+      if (!workerRef.current) {
         const cascade_index = Math.floor(Math.PI / 7) + n;
         const target_tptt = 5.3e12;
         const efficiency = Math.min(1, tdf_value / target_tptt);
