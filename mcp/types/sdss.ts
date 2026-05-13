@@ -40,6 +40,18 @@ export interface NeuralInput {
   temporalPhases: number[];
   isotopeFactor: number;
   fractalToggle: boolean;
+  // Optional live solar feature vector (NOAA SWPC). When present, the
+  // neural fusion engines apply a contained modulation to outputs to
+  // reflect quiet-Sun vs storm conditions. See SOLAR_COUPLING in
+  // mcp/lib/neuralFusion.ts for coefficients and rationale.
+  solarFeatures?: {
+    hardnessRatio: number;
+    xrayUVLift: number;
+    magPerturbation: number;
+    windBroadeningA: number;
+    kpIndex: number;
+    activityLevel: 'quiet' | 'moderate' | 'active' | 'storm';
+  };
 }
 
 export interface NeuralOutput {
