@@ -43,23 +43,22 @@ export class TemporalCalculatorV4 {
     const Sp_g = this.computeSp_g(); // Spectral granularity
     const G_r = this.computeG_r(); // Granularity reactor - enhanced
 
-    // Neural computations
-    const neuralOutput = await this.computeNeuralFusion();
-    const Syn_c = neuralOutput ? neuralOutput.metamorphosisIndex : 0.8;
-    const N_s = this.computeN_s(neuralOutput); // Neural synchronization - enhanced
+    // Neural fusion is computed by the v4.7 worker in TPTTApp and
+    // injected into neuralOutput by the caller. We use stable defaults here.
+    const Syn_c = 0.8;
+    const N_s = this.computeN_s(null);
 
     // v4.5 tPTT Formula
-    const tPTT_value = T_c * (P_s / E_t) * this.phi * (this.c / this.delta_t) * 
+    const tPTT_value = T_c * (P_s / E_t) * this.phi * (this.c / this.delta_t) *
                        W_c * C_m * K_l * F_r * S_l * Syn_c * Q_e * Sp_g * N_s * G_r;
 
-    // Generate enhanced rippel
-    const rippel = this.generateEnhancedRippel(tPTT_value, E_t, neuralOutput);
+    // Generate rippel (neural decoration is appended later by caller if available)
+    const rippel = this.generateRippel(tPTT_value, E_t);
 
     return {
       tPTT_value,
       components: { T_c, P_s, E_t, W_c, C_m, K_l, F_r, S_l, Syn_c, Q_e, Sp_g, N_s, G_r },
-      rippel,
-      neuralOutput
+      rippel
     };
   }
 
