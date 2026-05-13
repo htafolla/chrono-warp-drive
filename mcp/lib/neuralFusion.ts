@@ -122,7 +122,7 @@ export class NeuralFusion {
       // Calculate confidence score
       const confidenceScore = this.calculateConfidence(neuralSpectra, input);
 
-      const { metamorphosisIndex: mi, confidenceScore: cs } = applySolarOutputModulation(
+      const { metamorphosisIndex: mi, confidenceScore: cs, modulation } = applySolarOutputModulation(
         metamorphosisIndex, confidenceScore, input.solarFeatures
       );
 
@@ -131,6 +131,7 @@ export class NeuralFusion {
         neuralSpectra,
         metamorphosisIndex: mi,
         confidenceScore: cs,
+        solarModulation: modulation,
       };
     } catch (error) {
       console.warn('Neural processing failed, using fallback:', error);
