@@ -1,6 +1,4 @@
 // src/lib/isotopicSignal.ts
-
-
 export interface CorrelationResult {
   strength: number;
   lag: number;

@@ -1074,7 +1074,14 @@ export function TPTTApp() {
                   </div>
                   <div>
                     <p className="font-medium">Neural Fusion</p>
-                    <p className="text-muted-foreground">{tpttV4Result?.neuralOutput ? "Active" : "Standby"}</p>
+                    <p className="text-muted-foreground">
+                      {tpttV4Result?.neuralOutput ? "Active" : "Standby"}
+                      {neuralFusionResult.modulated?.solar_applied && (
+                        <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1.5 border-amber-500/50 text-amber-500">
+                          ☀ solar
+                        </Badge>
+                      )}
+                    </p>
                   </div>
                   <div>
                     <p className="font-medium">tPTT Version</p>
@@ -1085,10 +1092,20 @@ export function TPTTApp() {
                 {tpttV4Result?.neuralOutput && (
                   <div className="pt-4 border-t">
                     <p className="font-medium text-sm mb-2">Neural Output</p>
-                    <div className="bg-muted p-3 rounded text-xs">
+                    <div className="bg-muted p-3 rounded text-xs space-y-1">
                       <p><strong>Sequence:</strong> {tpttV4Result.neuralOutput.synapticSequence}</p>
                       <p><strong>Metamorphosis:</strong> {(tpttV4Result.neuralOutput.metamorphosisIndex * 100).toFixed(1)}%</p>
                       <p><strong>Confidence:</strong> {(tpttV4Result.neuralOutput.confidenceScore * 100).toFixed(1)}%</p>
+                      {neuralFusionResult.modulated?.solar_applied ? (
+                        <p className="text-amber-500/90">
+                          <strong>Solar coupling:</strong> on — Δφ′ {neuralFusionResult.modulated.delta_phase.toFixed(3)}, τ′ {neuralFusionResult.modulated.tau.toFixed(3)}
+                          {solarFeatures && (
+                            <> · UV {solarFeatures.xrayUVLift.toFixed(2)} / mag {solarFeatures.magPerturbation.toFixed(2)} · {solarFeatures.activityLevel}</>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground"><strong>Solar coupling:</strong> off (quiet-Sun fallback)</p>
+                      )}
                     </div>
                   </div>
                 )}

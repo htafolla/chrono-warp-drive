@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install"
+
+[deploy]
+startCommand = "tsx ${ENTRY_POINT:-server.ts}"
+healthcheckPath = "/health"
+healthcheckTimeout = 5
