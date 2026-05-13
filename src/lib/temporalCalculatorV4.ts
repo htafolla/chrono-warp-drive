@@ -7,8 +7,6 @@ import { PHI, FREQ, C, DELTA_T } from './temporalCalculator';
 
 export class TemporalCalculatorV4 {
   private inputData: SpectrumData | null = null;
-  private neuralModel: tf.LayersModel | null = null;
-  private isModelLoaded: boolean = false;
 
   // v4.5 Constants
   private readonly L = 3; // Trinity constant
@@ -18,45 +16,6 @@ export class TemporalCalculatorV4 {
 
   constructor(inputData?: SpectrumData) {
     this.inputData = inputData || null;
-    this.initializeNeuralModel();
-  }
-
-  private async initializeNeuralModel(): Promise<void> {
-    try {
-      // Initialize TensorFlow.js with backend selection
-      await tf.ready();
-      
-      // Try WebGL backend first, fallback to CPU
-      try {
-        await tf.setBackend('webgl');
-        console.log('TemporalCalculatorV4: WebGL backend active');
-      } catch (webglError) {
-        console.warn('WebGL failed, using CPU backend:', webglError);
-        await tf.setBackend('cpu');
-      }
-
-      // Create a simple neural network for spectral analysis
-      this.neuralModel = tf.sequential({
-        layers: [
-          tf.layers.dense({ inputShape: [100], units: 64, activation: 'relu' }),
-          tf.layers.dropout({ rate: 0.2 }),
-          tf.layers.dense({ units: 32, activation: 'relu' }),
-          tf.layers.dense({ units: 16, activation: 'sigmoid' })
-        ]
-      });
-
-      this.neuralModel.compile({
-        optimizer: 'adam',
-        loss: 'meanSquaredError',
-        metrics: ['accuracy']
-      });
-
-      this.isModelLoaded = true;
-      console.log('TemporalCalculatorV4: Neural model initialized');
-    } catch (error) {
-      console.warn('Neural model initialization failed, using fallback mode:', error);
-      this.isModelLoaded = false;
-    }
   }
 
   setInputData(data: SpectrumData): void {
