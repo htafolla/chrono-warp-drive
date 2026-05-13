@@ -187,9 +187,8 @@ export function TPTTApp() {
         setSystemStatus("Initializing Pickles Atlas...");
         await picklesAtlas.initialize();
         
-        setSystemStatus("Loading neural fusion engine...");
-        await neuralFusion.initialize();
-        
+        setSystemStatus("Loading neural fusion engine (v4.7 worker)...");
+        // Worker initializes itself via useNeuralFusion hook autoInitialize
         setSystemStatus("Generating initial spectrum data...");
         const initialSpectrum = picklesAtlas.getRandomSpectrum();
         setSpectrumData(initialSpectrum);
