@@ -59,14 +59,18 @@ export function createNeuralWorker(): Worker {
     
     // Initialize TensorFlow.js model
     async function initialize() {
+      // Mark initialized immediately so the main thread engages the engine.
+      // TF.js load is attempted in the background; if it succeeds the model
+      // upgrades the q_ent calc, otherwise we stay on the analytic path.
+      if (!isInitialized) {
+        isInitialized = true;
+        self.postMessage({ type: 'initialized', data: { fallbackMode: true } });
+      }
       try {
-        console.log('[Neural Worker] Initializing...');
+        console.log('[Neural Worker] Attempting TF.js load in background...');
         const tfLoaded = await loadTensorFlow();
-        
         if (!tfLoaded) {
-          console.warn('[Neural Worker] TensorFlow.js not available, using fallback mode');
-          isInitialized = true; // Still mark as initialized for fallback calculations
-          self.postMessage({ type: 'initialized', data: { fallbackMode: true } });
+          console.warn('[Neural Worker] TensorFlow.js unavailable, staying in fallback mode');
           return;
         }
         // Create a simple sequential model for Q_ent calculations
