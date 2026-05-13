@@ -223,22 +223,26 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
       n: number,
       tdf_value: number,
       tau: number = 0.865,
-      phi: number = 1.666
+      phi: number = 1.666,
+      solar?: SolarFeatures | null
     ): Promise<NeuralFusionResult> => {
       const startTime = performance.now();
 
+      const mod = applySolarModulation(delta_phase, tau, solar);
+
       const [q_ent_result, cascade_result] = await Promise.all([
-        computeQEnt(delta_phase, n, phi),
-        computeCascade(tdf_value, n, tau, phi)
+        computeQEnt(mod.delta_phase, n, phi),
+        computeCascade(tdf_value, n, mod.tau, phi),
       ]);
 
       const compute_time = performance.now() - startTime;
 
-      const fullResult = {
+      const fullResult: NeuralFusionResult = {
         q_ent: q_ent_result,
         cascade_index: cascade_result.cascade_index,
         efficiency: cascade_result.efficiency,
-        compute_time
+        compute_time,
+        modulated: mod,
       };
 
       // Ensure UI gets updated even if messages are delayed
