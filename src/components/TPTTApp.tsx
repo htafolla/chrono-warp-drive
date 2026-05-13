@@ -386,6 +386,12 @@ export function TPTTApp() {
             solarFeatures
           );
 
+          // Diagnostic: confirm whether solar coupling is firing each cycle.
+          // If solar_applied=false, useSolarFeatures has not delivered a vector
+          // (offline / first poll pending). If true but Δφ/τ unchanged, the Sun
+          // is quiet (uv≈0, mag≈0) and the modulation factor collapses to 1.
+          console.log('[Neural Fusion] Modulated inputs:', fusionResult.modulated, 'solarFeatures:', solarFeatures);
+
           const neuralOutput: NeuralOutput = {
             metamorphosisIndex: Math.max(0, Math.min(1, fusionResult.q_ent)),
             confidenceScore: Math.max(0, Math.min(1, fusionResult.efficiency)),
