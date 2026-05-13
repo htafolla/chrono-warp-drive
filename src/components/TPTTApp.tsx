@@ -159,7 +159,8 @@ export function TPTTApp() {
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
   const [temporalCalcV46, setTemporalCalcV46] = useState<TemporalCalculatorV4_6 | null>(null);
   const [picklesAtlas] = useState(() => new PicklesAtlas());
-  const [neuralFusion] = useState(() => new NeuralFusion());
+  // v4.7 Neural fusion (TF.js worker) — replaces dead v4.5 NeuralFusion class
+  const { lastResult: neuralFusionResult, computeFull: computeNeuralFusion } = useNeuralFusion({ enabled: true, autoInitialize: true });
   
   // v4.7 Chrono Transport Cascade System
   const [chronoEngine] = useState(() => new ChronoTransportEngine());
