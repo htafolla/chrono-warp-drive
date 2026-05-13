@@ -48,8 +48,9 @@ import {
 import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
 import { TemporalCalculatorV4_6 } from '@/lib/temporalCalculatorV4_6';
 import { PicklesAtlas } from '@/lib/picklesAtlas';
-import { NeuralFusion } from '@/lib/neuralFusion';
-import { SpectrumData, TPTTv4Result } from '@/types/sdss';
+import { useNeuralFusion } from '@/hooks/useNeuralFusion';
+import { useSolarFeatures } from '@/hooks/useSolarFeatures';
+import { SpectrumData, TPTTv4Result, NeuralOutput } from '@/types/sdss';
 import { TPTTv4_6Result, BlurrnV46Config } from '@/types/blurrn-v4-6';
 import { TimeShiftDisplay } from './TimeShiftDisplay';
 import { ExperimentLogger } from './ExperimentLogger';
@@ -73,6 +74,23 @@ import TransportControl from './TransportControl';
 import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
 import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
 import { APP_VERSION, APP_TAGLINE, APP_FEATURE, APP_TAG } from '@/lib/version';
+import { Link } from 'react-router-dom';
+
+// Derive a synaptic phrase from live cascade index + isotope.
+// Replaces the hardcoded "isotropic metamorphosis" hash from the old v4.5 fake layer.
+function synapticPhrase(cascadeIndex: number, isotopeType: string): string {
+  const phrases = [
+    "quantum entanglement detected",
+    "temporal phase coherence achieved",
+    "spectral metamorphosis in progress",
+    "dimensional flux stabilized",
+    "neural pathway synchronized",
+    "cascade resonance amplified",
+    "isotopic vortex aligned",
+  ];
+  const idx = Math.abs(Math.floor(cascadeIndex)) % phrases.length;
+  return `${phrases[idx]} [${isotopeType}]`;
+}
 
 export function TPTTApp() {
   // Initialize memory manager
@@ -158,7 +176,10 @@ export function TPTTApp() {
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
   const [temporalCalcV46, setTemporalCalcV46] = useState<TemporalCalculatorV4_6 | null>(null);
   const [picklesAtlas] = useState(() => new PicklesAtlas());
-  const [neuralFusion] = useState(() => new NeuralFusion());
+  // v4.7 Neural fusion (TF.js worker) — replaces dead v4.5 NeuralFusion class
+  const { lastResult: neuralFusionResult, computeFull: computeNeuralFusion } = useNeuralFusion({ enabled: true, autoInitialize: true });
+  // v4.7 option-a coupling: live solar features modulate delta_phase / tau
+  const { solarFeatures } = useSolarFeatures({ enabled: true });
   
   // v4.7 Chrono Transport Cascade System
   const [chronoEngine] = useState(() => new ChronoTransportEngine());
@@ -185,9 +206,8 @@ export function TPTTApp() {
         setSystemStatus("Initializing Pickles Atlas...");
         await picklesAtlas.initialize();
         
-        setSystemStatus("Loading neural fusion engine...");
-        await neuralFusion.initialize();
-        
+        setSystemStatus("Loading neural fusion engine (v4.7 worker)...");
+        // Worker initializes itself via useNeuralFusion hook autoInitialize
         setSystemStatus("Generating initial spectrum data...");
         const initialSpectrum = picklesAtlas.getRandomSpectrum();
         setSpectrumData(initialSpectrum);
@@ -348,11 +368,37 @@ export function TPTTApp() {
         })
       );
 
-      // v4.5 Enhanced calculations
+      // v4.5 Enhanced calculations (with v4.7 neural output injected)
       if (isV4Initialized && spectrumData) {
         try {
           const v4Result = await temporalCalcV4.computeTPTTv4_5();
-          setTpttV4Result(v4Result);
+
+          // Kick off real neural fusion via v4.7 TF.js worker (fire-and-forget;
+          // result is read from neuralFusionResult on the next tick).
+          computeNeuralFusion(
+            cascadeParams.delta_phase,
+            cascadeParams.n,
+            v4Result.tPTT_value,
+            0.865,
+            PHI,
+            solarFeatures
+          ).catch((e) => console.warn('Neural fusion compute failed:', e));
+
+          // Inject real neural output if we have prior worker results
+          const neuralOutput: NeuralOutput | undefined =
+            neuralFusionResult.q_ent != null
+              ? {
+                  metamorphosisIndex: Math.max(0, Math.min(1, neuralFusionResult.q_ent ?? 0)),
+                  confidenceScore: Math.max(0, Math.min(1, neuralFusionResult.efficiency ?? 0)),
+                  synapticSequence: synapticPhrase(
+                    neuralFusionResult.cascade_index ?? cascadeParams.n,
+                    isotope.type
+                  ),
+                  neuralSpectra: spectrumData.intensities.slice(0, 16),
+                }
+              : undefined;
+
+          setTpttV4Result({ ...v4Result, neuralOutput });
         } catch (error) {
           console.warn("v4.5 calculation failed:", error);
         }
@@ -700,47 +746,56 @@ export function TPTTApp() {
           <p className="text-muted-foreground">
             {systemStatus}
           </p>
+          <nav className="mt-3 flex items-center justify-center gap-4 text-sm">
+            <Link to="/" className="text-primary hover:underline">Dashboard</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/isotopic-vortex" className="text-primary hover:underline">Isotopic Vortex</Link>
+            <span className="text-muted-foreground">·</span>
+            <Link to="/about" className="text-primary hover:underline">About</Link>
+          </nav>
         </header>
 
         <Tabs value={currentView} onValueChange={setCurrentView} className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <Star className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="simulation" className="flex items-center gap-2">
-              <Waves className="h-4 w-4" />
-              3D Scene
-            </TabsTrigger>
-            <TabsTrigger value="controls" className="flex items-center gap-2">
-              <Sprout className="h-4 w-4" />
-              Controls
-            </TabsTrigger>
-            <TabsTrigger value="spectrum" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Spectrum
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Reports
-            </TabsTrigger>
-            <TabsTrigger value="advanced" className="flex items-center gap-2">
-              <Rocket className="h-4 w-4" />
-              Advanced
-            </TabsTrigger>
-            <TabsTrigger value="timeshift" className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Time Shift
-            </TabsTrigger>
-            <TabsTrigger value="v47cascade" className="flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              v{APP_VERSION} Cascade
-            </TabsTrigger>
-            <TabsTrigger value="system" className="flex items-center gap-2">
-              <Laptop className="h-4 w-4" />
-              System
-            </TabsTrigger>
-          </TabsList>
+          <div className="-mx-6 px-6 mb-6 overflow-x-auto lg:overflow-visible">
+            <TabsList className="inline-flex w-max gap-1 lg:grid lg:w-full lg:grid-cols-9">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2 whitespace-nowrap">
+                <Star className="h-4 w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="simulation" className="flex items-center gap-2 whitespace-nowrap">
+                <Waves className="h-4 w-4" />
+                <span className="hidden sm:inline">3D Scene</span>
+              </TabsTrigger>
+              <TabsTrigger value="controls" className="flex items-center gap-2 whitespace-nowrap">
+                <Sprout className="h-4 w-4" />
+                <span className="hidden sm:inline">Controls</span>
+              </TabsTrigger>
+              <TabsTrigger value="spectrum" className="flex items-center gap-2 whitespace-nowrap">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Spectrum</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="flex items-center gap-2 whitespace-nowrap">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Reports</span>
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="flex items-center gap-2 whitespace-nowrap">
+                <Rocket className="h-4 w-4" />
+                <span className="hidden sm:inline">Advanced</span>
+              </TabsTrigger>
+              <TabsTrigger value="timeshift" className="flex items-center gap-2 whitespace-nowrap">
+                <Clock className="h-4 w-4" />
+                <span className="hidden sm:inline">Time Shift</span>
+              </TabsTrigger>
+              <TabsTrigger value="v47cascade" className="flex items-center gap-2 whitespace-nowrap">
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">v{APP_VERSION} Cascade</span>
+              </TabsTrigger>
+              <TabsTrigger value="system" className="flex items-center gap-2 whitespace-nowrap">
+                <Laptop className="h-4 w-4" />
+                <span className="hidden sm:inline">System</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="dashboard" className="space-y-6">
             {/* 1. Neural Fusion - Prominent First Position */}
@@ -1019,7 +1074,14 @@ export function TPTTApp() {
                   </div>
                   <div>
                     <p className="font-medium">Neural Fusion</p>
-                    <p className="text-muted-foreground">{tpttV4Result?.neuralOutput ? "Active" : "Standby"}</p>
+                    <p className="text-muted-foreground">
+                      {tpttV4Result?.neuralOutput ? "Active" : "Standby"}
+                      {neuralFusionResult.modulated?.solar_applied && (
+                        <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1.5 border-amber-500/50 text-amber-500">
+                          ☀ solar
+                        </Badge>
+                      )}
+                    </p>
                   </div>
                   <div>
                     <p className="font-medium">tPTT Version</p>
@@ -1030,10 +1092,20 @@ export function TPTTApp() {
                 {tpttV4Result?.neuralOutput && (
                   <div className="pt-4 border-t">
                     <p className="font-medium text-sm mb-2">Neural Output</p>
-                    <div className="bg-muted p-3 rounded text-xs">
+                    <div className="bg-muted p-3 rounded text-xs space-y-1">
                       <p><strong>Sequence:</strong> {tpttV4Result.neuralOutput.synapticSequence}</p>
                       <p><strong>Metamorphosis:</strong> {(tpttV4Result.neuralOutput.metamorphosisIndex * 100).toFixed(1)}%</p>
                       <p><strong>Confidence:</strong> {(tpttV4Result.neuralOutput.confidenceScore * 100).toFixed(1)}%</p>
+                      {neuralFusionResult.modulated?.solar_applied ? (
+                        <p className="text-amber-500/90">
+                          <strong>Solar coupling:</strong> on — Δφ′ {neuralFusionResult.modulated.delta_phase.toFixed(3)}, τ′ {neuralFusionResult.modulated.tau.toFixed(3)}
+                          {solarFeatures && (
+                            <> · UV {solarFeatures.xrayUVLift.toFixed(2)} / mag {solarFeatures.magPerturbation.toFixed(2)} · {solarFeatures.activityLevel}</>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground"><strong>Solar coupling:</strong> off (quiet-Sun fallback)</p>
+                      )}
                     </div>
                   </div>
                 )}

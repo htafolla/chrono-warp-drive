@@ -3,12 +3,52 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createNeuralWorker, NeuralWorkerMessage, NeuralWorkerResponse } from '@/lib/neuralWorker';
+import type { SolarFeatures } from '@/lib/solarDataFetcher';
 
 export interface NeuralFusionResult {
   q_ent: number;
   cascade_index: number;
   efficiency: number;
   compute_time: number;
+  // Echo of the (possibly solar-modulated) inputs the worker actually saw.
+  // Lets the UI distinguish quiet-Sun runs from storm-driven shifts.
+  modulated?: { delta_phase: number; tau: number; solar_applied: boolean };
+}
+
+/**
+ * Solar → neural input modulation (Codex v4.7 option-a coupling).
+ *
+ * Rationale:
+ *   The TF.js worker only consumes scalar cascade params. Rather than
+ *   touching the model architecture, we *shift* the two scalars that have
+ *   the clearest physical analog to chromospheric / geomagnetic forcing:
+ *
+ *     delta_phase  ← amplified by xrayUVLift (chromospheric UV response)
+ *                    and magPerturbation (|dB/dt| proxy). Active Sun =
+ *                    larger phase excursions reaching the cascade.
+ *     tau          ← biased slightly by the same channels. xrayUVLift
+ *                    raises coherence (more UV pumping); magPerturbation
+ *                    lowers it (geomagnetic decoherence).
+ *
+ *   Coefficients are intentionally small and bounded so a quiet Sun
+ *   (xrayUVLift≈0, magPerturbation≈0) is a no-op, and a storm-class
+ *   forcing shifts each scalar by at most ~25%.
+ */
+function applySolarModulation(
+  delta_phase: number,
+  tau: number,
+  solar?: SolarFeatures | null
+): { delta_phase: number; tau: number; solar_applied: boolean } {
+  if (!solar) return { delta_phase, tau, solar_applied: false };
+  const uv = Math.max(-0.3, Math.min(1.0, solar.xrayUVLift));
+  const mag = Math.max(0, Math.min(1, solar.magPerturbation));
+
+  const dpFactor = 1 + 0.15 * uv + 0.10 * mag;          // 0.955 .. 1.25
+  const tauFactor = 1 + 0.03 * uv - 0.05 * mag;          // 0.941 .. 1.03
+
+  const dp = Math.max(0, Math.min(1, delta_phase * dpFactor));
+  const t = Math.max(0.7, Math.min(0.95, tau * tauFactor));
+  return { delta_phase: dp, tau: t, solar_applied: true };
 }
 
 export interface NeuralFusionOptions {
@@ -183,22 +223,26 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
       n: number,
       tdf_value: number,
       tau: number = 0.865,
-      phi: number = 1.666
+      phi: number = 1.666,
+      solar?: SolarFeatures | null
     ): Promise<NeuralFusionResult> => {
       const startTime = performance.now();
 
+      const mod = applySolarModulation(delta_phase, tau, solar);
+
       const [q_ent_result, cascade_result] = await Promise.all([
-        computeQEnt(delta_phase, n, phi),
-        computeCascade(tdf_value, n, tau, phi)
+        computeQEnt(mod.delta_phase, n, phi),
+        computeCascade(tdf_value, n, mod.tau, phi),
       ]);
 
       const compute_time = performance.now() - startTime;
 
-      const fullResult = {
+      const fullResult: NeuralFusionResult = {
         q_ent: q_ent_result,
         cascade_index: cascade_result.cascade_index,
         efficiency: cascade_result.efficiency,
-        compute_time
+        compute_time,
+        modulated: mod,
       };
 
       // Ensure UI gets updated even if messages are delayed

@@ -7,9 +7,9 @@ const PHI = 1.666;
 const TAU = 0.865;
 
 export class TemporalBlurrnSignal extends IsotopicSignal {
-  private tdfValue: number;
-  private cascadeIndex: number;
-  private phaseCoherence: number;
+  public readonly tdfValue: number;
+  public readonly cascadeIndex: number;
+  public readonly phaseCoherence: number;
   private rawSignal: any;
 
   constructor(rawSignal: any, tdfValue: number, cascadeIndex: number) {

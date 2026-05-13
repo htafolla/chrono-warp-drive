@@ -3,11 +3,12 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, type Isotope } from '@/lib/temporalCalculator';
-import { useMemoryManager } from '@/lib/memoryManager';
+import { useMemoryManager, memoryManager } from '@/lib/memoryManager';
 import { TPTTv4_6Result, TDFComponents } from '@/types/blurrn-v4-6';
 import { SpectrumData } from '@/types/sdss';
 import { CustomStars } from './CustomStars';
 import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 
 
 interface ParticleSystemProps {
@@ -19,7 +20,8 @@ interface ParticleSystemProps {
 
 function ParticleSystem({ spectrumData, time, phases, count = 500 }: ParticleSystemProps) {
   const pointsRef = useRef<THREE.Points>(null);
-  const memoryManager = useMemoryManager();
+  const isPageVisible = usePageVisibility();
+  // memoryManager is the module singleton — no hook needed in children
   
   useEffect(() => {
     return () => {
@@ -58,7 +60,7 @@ function ParticleSystem({ spectrumData, time, phases, count = 500 }: ParticleSys
   }, [count, spectrumData]);
   
   useFrame(() => {
-    if (!pointsRef.current) return;
+    if (!pointsRef.current || !isPageVisible) return;
     
     const positions = pointsRef.current.geometry.attributes.position.array as Float32Array;
     const colors = pointsRef.current.geometry.attributes.color.array as Float32Array;
@@ -125,7 +127,8 @@ interface CleanWavePlaneProps {
 function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, totalPlanes }: CleanWavePlaneProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const geometryRef = useRef<THREE.PlaneGeometry>(null);
-  const memoryManager = useMemoryManager();
+  const isPageVisible = usePageVisibility();
+  // memoryManager is the module singleton — no hook needed in children
 
   useEffect(() => {
     return () => {
@@ -139,7 +142,7 @@ function CleanWavePlane({ band, phases, isotope, tdfComponents, index, time, tot
   }, [memoryManager]);
   
   useFrame(() => {
-    if (!meshRef.current || !geometryRef.current) return;
+    if (!meshRef.current || !geometryRef.current || !isPageVisible) return;
     
     try {
       const geometry = geometryRef.current;
@@ -306,6 +309,7 @@ export function CleanTemporalScene({
   spectrumData,
   activeTab = 'Scene'
 }: CleanTemporalSceneProps) {
+  useMemoryManager(); // initialize once at scene root
   const [fpsData, setFpsData] = React.useState<FPSData>({
     current: 60,
     average: 60,

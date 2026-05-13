@@ -7,6 +7,7 @@ import { NeuralOutput } from '@/types/sdss';
 import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
 import { SequenceDial } from './dials/SequenceDial';
 import { TimelineDial } from './dials/TimelineDial';
+import { usePageVisibility } from '@/hooks/usePageVisibility';
 
 interface NeuralFusionDisplayProps {
   neuralOutput: NeuralOutput | null;
@@ -25,23 +26,24 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
   const [layerActivations, setLayerActivations] = useState<LayerActivation[]>([]);
   const [metamorphosisHistory, setMetamorphosisHistory] = useState<number[]>([]);
   const [animatedOutput, setAnimatedOutput] = useState(neuralOutput);
+  const isPageVisible = usePageVisibility();
 
   // Add micro-variations to make data more dynamic (throttled for performance)
   useEffect(() => {
-    if (!neuralOutput || !isActive) return;
-    
+    if (!neuralOutput || !isActive || !isPageVisible) return;
+
     const interval = setInterval(() => {
       const microVariation = () => 0.98 + (Math.random() * 0.04); // ±2% variation (reduced for performance)
-      
+
       setAnimatedOutput({
         ...neuralOutput,
         confidenceScore: Math.min(1, neuralOutput.confidenceScore * microVariation()),
         metamorphosisIndex: Math.min(1, neuralOutput.metamorphosisIndex * microVariation())
       });
     }, 2000); // Throttled to 2000ms for transport system performance
-    
+
     return () => clearInterval(interval);
-  }, [neuralOutput, isActive]);
+  }, [neuralOutput, isActive, isPageVisible]);
 
   useEffect(() => {
     if (animatedOutput) {
