@@ -216,13 +216,15 @@ describe('MCP - GET endpoints', () => {
   it('GET / returns tool index', async () => {
     const json: any = await get('/')
     expect(json.name).toBe('blurrn-mcp')
-    expect(json.tools).toBe(17)
+    expect(json.tools).toBe(20)
     expect(json.endpoints.GET).toContain('/health')
+    expect(json.endpoints.GET).toContain('/docs')
   })
 
   it('GET /health returns status', async () => {
     const json: any = await get('/health')
     expect(json.status).toBe('ok')
+    expect(json.tools).toBe(20)
   })
 
   it('GET /list_isotopes returns isotopes', async () => {
@@ -330,7 +332,7 @@ describe('MCP - JSON-RPC via injected session', () => {
 
     expect(messages.length).toBe(1)
     const data = JSON.parse(messages[0])
-    expect(data.result.tools.length).toBe(17)
+    expect(data.result.tools.length).toBe(20)
     const names = data.result.tools.map((t: any) => t.name)
     expect(names).toContain('compute_tdf')
     expect(names).toContain('kuramoto_sync')
@@ -338,6 +340,9 @@ describe('MCP - JSON-RPC via injected session', () => {
     expect(names).toContain('evaluate_governance')
     expect(names).toContain('govern_with_solar')
     expect(names).toContain('call_connected_tool')
+    expect(names).toContain('get_docs')
+    expect(names).toContain('explain_term')
+    expect(names).toContain('explain_governance_output')
 
     await unsub()
   })
@@ -427,6 +432,261 @@ describe('MCP - JSON-RPC via injected session', () => {
     expect(messages.length).toBe(1)
     const data = JSON.parse(messages[0])
     expect(data.error.message).toContain('Unknown tool')
+
+    await unsub()
+  })
+})
+
+// ===== Documentation Tools Tests =====
+
+describe('MCP - get_docs', () => {
+  async function get(path: string) {
+    const res = await app.request(path, { method: 'GET' })
+    return res.json()
+  }
+  async function post(path: string, body: unknown) {
+    const res = await app.request(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  }
+
+  it('GET /get_docs returns full docs', async () => {
+    const json: any = await get('/get_docs')
+    expect(json.success).toBe(true)
+    expect(json.docs).toContain('# Dynamo MCP v4.8')
+    expect(json.toolCount).toBe(20)
+  })
+
+  it('GET /get_docs?tool filters to specific tool', async () => {
+    const json: any = await get('/get_docs?tool=compute_tdf')
+    expect(json.success).toBe(true)
+    expect(json.docs).toContain('tPTT')
+  })
+
+  it('POST /get_docs returns full docs', async () => {
+    const json: any = await post('/get_docs', {})
+    expect(json.success).toBe(true)
+    expect(json.docs).toContain('# Dynamo MCP v4.8')
+    expect(json.toolCount).toBe(20)
+  })
+
+  it('POST /get_docs with tool filter', async () => {
+    const json: any = await post('/get_docs', { tool: 'govern_with_solar' })
+    expect(json.success).toBe(true)
+    expect(json.docs).toContain('solar')
+  })
+
+  it('GET /docs returns full documentation', async () => {
+    const json: any = await get('/docs')
+    expect(json.success).toBe(true)
+    expect(json.docs).toContain('# Dynamo MCP v4.8')
+    expect(json.toolCount).toBe(20)
+    expect(json.glossaryTerms).toBeGreaterThan(0)
+  })
+})
+
+describe('MCP - explain_term', () => {
+  async function get(path: string) {
+    const res = await app.request(path, { method: 'GET' })
+    return res.json()
+  }
+  async function post(path: string, body: unknown) {
+    const res = await app.request(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  }
+
+  it('GET /explain_term lists terms when no query', async () => {
+    const json: any = await get('/explain_term')
+    expect(json.success).toBe(true)
+    expect(json.available_terms).toContain('TAU')
+    expect(json.available_terms).toContain('PHI')
+  })
+
+  it('GET /explain_term?term=TAU returns definition', async () => {
+    const json: any = await get('/explain_term?term=TAU')
+    expect(json.success).toBe(true)
+    expect(json.term).toContain('TAU')
+    expect(json.short).toBeTruthy()
+    expect(json.long).toBeTruthy()
+    expect(json.formula).toBeTruthy()
+  })
+
+  it('GET /explain_term?term=PHI returns definition', async () => {
+    const json: any = await get('/explain_term?term=PHI')
+    expect(json.success).toBe(true)
+    expect(json.term).toContain('PHI')
+    expect(json.short).toBeTruthy()
+    expect(json.formula).toContain('1.566')
+  })
+
+  it('POST /explain_term looks up TDF', async () => {
+    const json: any = await post('/explain_term', { term: 'TDF' })
+    expect(json.success).toBe(true)
+    expect(json.term).toContain('TDF')
+    expect(json.short).toContain('signal displacement')
+    expect(json.formula).toContain('tPTT')
+  })
+
+  it('POST /explain_term handles case-insensitive lookup', async () => {
+    const json: any = await post('/explain_term', { term: 'vortexvolume' })
+    expect(json.success).toBe(true)
+    expect(json.term).toBeTruthy()
+  })
+
+  it('POST /explain_term returns error for unknown term', async () => {
+    const json: any = await post('/explain_term', { term: 'nonexistent_term_xyz' })
+    expect(json.success).toBe(false)
+    expect(json.error).toContain('Unknown term')
+    expect(json.available_terms).toBeDefined()
+  })
+
+  it('POST /explain_term handles missing term', async () => {
+    const json: any = await post('/explain_term', {})
+    expect(json.success).toBe(false)
+    expect(json.error).toContain('Missing term')
+  })
+})
+
+describe('MCP - explain_governance_output', () => {
+  async function post(path: string, body: unknown) {
+    const res = await app.request(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  }
+
+  it('explains a PASS recommendation', async () => {
+    const json: any = await post('/explain_governance_output', {
+      governanceOutput: { recommendation: 'PASS', confidence: 0.85, voteWeight: 1.0, reasoning: 'Strong alignment' },
+    })
+    expect(json.success).toBe(true)
+    expect(json.explanation).toContain('PASS')
+    expect(json.explanation).toContain('85%')
+    expect(json.explanation).toContain('approve and proceed')
+  })
+
+  it('explains a REJECT recommendation', async () => {
+    const json: any = await post('/explain_governance_output', {
+      governanceOutput: { recommendation: 'REJECT', confidence: 0.3, voteWeight: 0.5, reasoning: 'Poor signal coherence' },
+    })
+    expect(json.success).toBe(true)
+    expect(json.explanation).toContain('REJECT')
+    expect(json.explanation).toContain('decline and revisit')
+  })
+
+  it('explains NEEDS REVISION', async () => {
+    const json: any = await post('/explain_governance_output', {
+      governanceOutput: { recommendation: 'NEEDS REVISION', confidence: 0.6, voteWeight: 0.8, reasoning: 'Insufficient data' },
+    })
+    expect(json.success).toBe(true)
+    expect(json.explanation).toContain('NEEDS REVISION')
+    expect(json.explanation).toContain('revise based on the reasoning')
+  })
+
+  it('explains solar-enhanced output', async () => {
+    const json: any = await post('/explain_governance_output', {
+      governanceOutput: {
+        recommendation: 'PASS',
+        finalRecommendation: 'Deploy now [SOLAR STORM WARNING]',
+        confidence: 0.7,
+        confidenceAdjustment: -0.15,
+        adjustedVoteWeight: 0.85,
+        solarContext: {
+          solarActivityLevel: 'storm',
+          solarResonance: 0.5935,
+          solarActivityModifier: -0.15,
+          recommendation: 'Solar storm detected - recommend delayed or weighted decisions',
+        },
+      },
+    })
+    expect(json.success).toBe(true)
+    expect(json.explanation).toContain('Solar context')
+    expect(json.explanation).toContain('storm')
+    expect(json.explanation).toContain('-0.150')
+    expect(json.explanation).toContain('SOLAR STORM WARNING')
+  })
+
+  it('GET /explain_governance_output returns docs', async () => {
+    const res = await app.request('/explain_governance_output', { method: 'GET' })
+    const json: any = await res.json()
+    expect(json.name).toBe('explain_governance_output')
+    expect(json.description).toContain('governance output')
+    expect(json.parameters.governanceOutput).toBeDefined()
+  })
+
+  it('returns error for missing governanceOutput', async () => {
+    const json: any = await post('/explain_governance_output', {})
+    expect(json.success).toBe(false)
+    expect(json.error).toContain('Missing or invalid')
+  })
+})
+
+describe('MCP - JOSN-RPC docs tools via injected session', () => {
+  it('handles tools/call - get_docs', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-get-docs', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-get-docs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_docs', arguments: {} } }),
+    })
+    expect(res.status).toBe(200)
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    const text = JSON.parse(data.result.content[0].text)
+    expect(text.docs).toContain('# Dynamo MCP v4.8')
+    expect(text.toolCount).toBe(20)
+
+    await unsub()
+  })
+
+  it('handles tools/call - explain_term', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-explain-term', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-explain-term', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'explain_term', arguments: { term: 'TAU' } } }),
+    })
+    expect(res.status).toBe(200)
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    const text = JSON.parse(data.result.content[0].text)
+    expect(text.term).toContain('TAU')
+    expect(text.formula).toContain('TDF')
+
+    await unsub()
+  })
+
+  it('handles tools/call - explain_governance_output', async () => {
+    const { subscribe } = await import('../../mcp/pubsub')
+    const messages: string[] = []
+    const unsub = await subscribe('session:test-explain-gov', (msg) => messages.push(msg))
+
+    const res = await app.request('/messages?sessionId=test-explain-gov', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'explain_governance_output', arguments: { governanceOutput: { recommendation: 'PASS', confidence: 0.9 } } } }),
+    })
+    expect(res.status).toBe(200)
+    expect(messages.length).toBe(1)
+    const data = JSON.parse(messages[0])
+    const text = JSON.parse(data.result.content[0].text)
+    expect(text.explanation).toContain('PASS')
+    expect(text.explanation).toContain('90%')
 
     await unsub()
   })
