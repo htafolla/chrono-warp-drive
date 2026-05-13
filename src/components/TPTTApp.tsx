@@ -373,30 +373,28 @@ export function TPTTApp() {
         try {
           const v4Result = await temporalCalcV4.computeTPTTv4_5();
 
-          // Kick off real neural fusion via v4.7 TF.js worker (fire-and-forget;
-          // result is read from neuralFusionResult on the next tick).
-          computeNeuralFusion(
+          // Compute real neural fusion via v4.7 TF.js worker and inject the
+          // resolved result into this same render cycle. The previous
+          // fire-and-forget path depended on a stale interval closure, leaving
+          // the display in Standby even while the worker was producing values.
+          const fusionResult = await computeNeuralFusion(
             cascadeParams.delta_phase,
             cascadeParams.n,
             v4Result.tPTT_value,
             0.865,
             PHI,
             solarFeatures
-          ).catch((e) => console.warn('Neural fusion compute failed:', e));
+          );
 
-          // Inject real neural output if we have prior worker results
-          const neuralOutput: NeuralOutput | undefined =
-            neuralFusionResult.q_ent != null
-              ? {
-                  metamorphosisIndex: Math.max(0, Math.min(1, neuralFusionResult.q_ent ?? 0)),
-                  confidenceScore: Math.max(0, Math.min(1, neuralFusionResult.efficiency ?? 0)),
-                  synapticSequence: synapticPhrase(
-                    neuralFusionResult.cascade_index ?? cascadeParams.n,
-                    isotope.type
-                  ),
-                  neuralSpectra: spectrumData.intensities.slice(0, 16),
-                }
-              : undefined;
+          const neuralOutput: NeuralOutput = {
+            metamorphosisIndex: Math.max(0, Math.min(1, fusionResult.q_ent)),
+            confidenceScore: Math.max(0, Math.min(1, fusionResult.efficiency)),
+            synapticSequence: synapticPhrase(
+              fusionResult.cascade_index,
+              isotope.type
+            ),
+            neuralSpectra: spectrumData.intensities.slice(0, 16),
+          };
 
           setTpttV4Result({ ...v4Result, neuralOutput });
         } catch (error) {
@@ -464,7 +462,19 @@ export function TPTTApp() {
       if (intervalId) clearInterval(intervalId);
       if (countdownId) clearInterval(countdownId);
     };
-  }, [fractalToggle, isotope, isV4Initialized, spectrumData, isPlaying, updateInterval, animationMode]);
+  }, [
+    fractalToggle,
+    isotope,
+    isV4Initialized,
+    spectrumData,
+    isPlaying,
+    updateInterval,
+    animationMode,
+    computeNeuralFusion,
+    cascadeParams.delta_phase,
+    cascadeParams.n,
+    solarFeatures,
+  ]);
 
   // Enhanced calculations with v4.5 compatibility
   const waves = spectrumData?.intensities || SPECTRUM_BANDS.map((band, i) => 
