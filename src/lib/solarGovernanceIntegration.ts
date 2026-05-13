@@ -27,7 +27,7 @@ export class SolarGovernanceIntegration {
       let activityModifier = 0;
       let recommendation = "Standard governance conditions";
 
-      switch (solarData.solarActivityLevel) {
+      switch (solarData.activityLevel) {
         case 'quiet':
           resonanceModifier = 0.02;
           activityModifier = 0.05;
@@ -54,7 +54,7 @@ export class SolarGovernanceIntegration {
       const finalModifier = activityModifier;
 
       return {
-        solarActivityLevel: solarData.solarActivityLevel,
+        solarActivityLevel: solarData.activityLevel,
         solarResonance: finalResonance,
         solarActivityModifier: finalModifier,
         currentSunMetamorphosisIndex: baseResonance,
