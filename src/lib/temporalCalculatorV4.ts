@@ -1,14 +1,12 @@
 // BLURRN v4.5 Temporal Photonic Transpondent Transporter Calculator
-// Enhanced with SDSS integration and Neural Fusion
-import * as tf from '@tensorflow/tfjs';
-import { SpectrumData, NeuralInput, NeuralOutput, TPTTv4Result } from '@/types/sdss';
+// Enhanced with SDSS integration. Neural fusion is now sourced from the
+// v4.7 TF.js worker in TPTTApp; the v4 calculator no longer fabricates
+// neuralOutput here.
+import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 import { PHI, FREQ, C, DELTA_T } from './temporalCalculator';
-import { deterministicRandom, generateCycle } from './deterministicUtils';
 
 export class TemporalCalculatorV4 {
   private inputData: SpectrumData | null = null;
-  private neuralModel: tf.LayersModel | null = null;
-  private isModelLoaded: boolean = false;
 
   // v4.5 Constants
   private readonly L = 3; // Trinity constant
@@ -18,45 +16,6 @@ export class TemporalCalculatorV4 {
 
   constructor(inputData?: SpectrumData) {
     this.inputData = inputData || null;
-    this.initializeNeuralModel();
-  }
-
-  private async initializeNeuralModel(): Promise<void> {
-    try {
-      // Initialize TensorFlow.js with backend selection
-      await tf.ready();
-      
-      // Try WebGL backend first, fallback to CPU
-      try {
-        await tf.setBackend('webgl');
-        console.log('TemporalCalculatorV4: WebGL backend active');
-      } catch (webglError) {
-        console.warn('WebGL failed, using CPU backend:', webglError);
-        await tf.setBackend('cpu');
-      }
-
-      // Create a simple neural network for spectral analysis
-      this.neuralModel = tf.sequential({
-        layers: [
-          tf.layers.dense({ inputShape: [100], units: 64, activation: 'relu' }),
-          tf.layers.dropout({ rate: 0.2 }),
-          tf.layers.dense({ units: 32, activation: 'relu' }),
-          tf.layers.dense({ units: 16, activation: 'sigmoid' })
-        ]
-      });
-
-      this.neuralModel.compile({
-        optimizer: 'adam',
-        loss: 'meanSquaredError',
-        metrics: ['accuracy']
-      });
-
-      this.isModelLoaded = true;
-      console.log('TemporalCalculatorV4: Neural model initialized');
-    } catch (error) {
-      console.warn('Neural model initialization failed, using fallback mode:', error);
-      this.isModelLoaded = false;
-    }
   }
 
   setInputData(data: SpectrumData): void {
@@ -84,23 +43,22 @@ export class TemporalCalculatorV4 {
     const Sp_g = this.computeSp_g(); // Spectral granularity
     const G_r = this.computeG_r(); // Granularity reactor - enhanced
 
-    // Neural computations
-    const neuralOutput = await this.computeNeuralFusion();
-    const Syn_c = neuralOutput ? neuralOutput.metamorphosisIndex : 0.8;
-    const N_s = this.computeN_s(neuralOutput); // Neural synchronization - enhanced
+    // Neural fusion is computed by the v4.7 worker in TPTTApp and
+    // injected into neuralOutput by the caller. We use stable defaults here.
+    const Syn_c = 0.8;
+    const N_s = this.computeN_s(null);
 
     // v4.5 tPTT Formula
-    const tPTT_value = T_c * (P_s / E_t) * this.phi * (this.c / this.delta_t) * 
+    const tPTT_value = T_c * (P_s / E_t) * this.phi * (this.c / this.delta_t) *
                        W_c * C_m * K_l * F_r * S_l * Syn_c * Q_e * Sp_g * N_s * G_r;
 
-    // Generate enhanced rippel
-    const rippel = this.generateEnhancedRippel(tPTT_value, E_t, neuralOutput);
+    // Generate rippel (neural decoration is appended later by caller if available)
+    const rippel = this.generateRippel(tPTT_value, E_t);
 
     return {
       tPTT_value,
       components: { T_c, P_s, E_t, W_c, C_m, K_l, F_r, S_l, Syn_c, Q_e, Sp_g, N_s, G_r },
-      rippel,
-      neuralOutput
+      rippel
     };
   }
 
@@ -333,71 +291,10 @@ export class TemporalCalculatorV4 {
     return denominator > 0 ? numerator / denominator : 0;
   }
 
-  private async computeNeuralFusion(): Promise<NeuralOutput | null> {
-    if (!this.isModelLoaded || !this.neuralModel || !this.inputData) {
-      return null;
-    }
-
-    try {
-      // Prepare input tensor (downsample to 100 features for simplicity)
-      const sampledIntensities = this.sampleArray(this.inputData.intensities, 100);
-      const inputTensor = tf.tensor2d([sampledIntensities]);
-
-      // Neural prediction
-      const prediction = this.neuralModel.predict(inputTensor) as tf.Tensor;
-      const predictionData = await prediction.data();
-
-      // Generate synaptic sequence
-      const synapticSequence = this.computeSynapticSequence("isotropic metamorphosis");
-      
-      // Neural spectra generation
-      const neuralSpectra = Array.from(predictionData).map(val => val * 100);
-
-      // Metamorphosis index
-      const metamorphosisIndex = synapticSequence.length > 0 ? 0.8 : 0.3;
-
-      // Cleanup tensors
-      inputTensor.dispose();
-      prediction.dispose();
-
-      return {
-        synapticSequence,
-        neuralSpectra,
-        metamorphosisIndex,
-        confidenceScore: deterministicRandom(generateCycle(), 0) * 0.3 + 0.7 // 0.7-1.0 range
-      };
-    } catch (error) {
-      console.warn('Neural fusion computation failed:', error);
-      return null;
-    }
-  }
-
-  private computeSynapticSequence(pattern: string): string {
-    // Enhanced synaptic sequence generation
-    const sequences = [
-      "quantum entanglement detected",
-      "temporal phase coherence achieved", 
-      "spectral metamorphosis in progress",
-      "dimensional flux stabilized",
-      "neural pathway synchronized"
-    ];
-    
-    const hash = this.simpleHash(pattern);
-    return sequences[hash % sequences.length];
-  }
-
-  private generateEnhancedRippel(tPTT: number, E_t: number, neuralOutput: NeuralOutput | null): string {
-    const baseWords = ["surge", "pivot", "chrono", "flux", "phase", "neural"];
-    const neuralWords = neuralOutput ? ["sync", "morph", "neural", "quantum"] : [];
-    const allWords = [...baseWords, ...neuralWords];
-    
-    const wordIndex = Math.floor(Date.now()) % allWords.length;
-    const word = allWords[wordIndex];
-    
-    const neuralInfo = neuralOutput ? 
-      `, neural: ${neuralOutput.confidenceScore.toFixed(2)}` : '';
-    
-    return `a ${word}. ${word} bends spacetime. tPTT: ${tPTT.toFixed(2)}, E_t: ${E_t.toFixed(3)}${neuralInfo} ~ zap 🌠`;
+  private generateRippel(tPTT: number, E_t: number): string {
+    const words = ["surge", "pivot", "chrono", "flux", "phase", "neural"];
+    const word = words[Math.floor(Date.now()) % words.length];
+    return `a ${word}. ${word} bends spacetime. tPTT: ${tPTT.toFixed(2)}, E_t: ${E_t.toFixed(3)} ~ zap 🌠`;
   }
 
   // Utility methods
@@ -407,34 +304,6 @@ export class TemporalCalculatorV4 {
     return squaredDiffs.reduce((a, b) => a + b) / values.length;
   }
 
-  private sampleArray(array: number[], targetSize: number): number[] {
-    if (array.length <= targetSize) return array;
-    
-    const step = array.length / targetSize;
-    const sampled: number[] = [];
-    
-    for (let i = 0; i < targetSize; i++) {
-      const index = Math.floor(i * step);
-      sampled.push(array[index]);
-    }
-    
-    return sampled;
-  }
-
-  private simpleHash(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash);
-  }
-
-  // Cleanup method
-  dispose(): void {
-    if (this.neuralModel) {
-      this.neuralModel.dispose();
-    }
-  }
+  // No-op for API compatibility (no TF model held here anymore)
+  dispose(): void {}
 }

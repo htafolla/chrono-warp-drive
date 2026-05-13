@@ -48,8 +48,8 @@ import {
 import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
 import { TemporalCalculatorV4_6 } from '@/lib/temporalCalculatorV4_6';
 import { PicklesAtlas } from '@/lib/picklesAtlas';
-import { NeuralFusion } from '@/lib/neuralFusion';
-import { SpectrumData, TPTTv4Result } from '@/types/sdss';
+import { useNeuralFusion } from '@/hooks/useNeuralFusion';
+import { SpectrumData, TPTTv4Result, NeuralOutput } from '@/types/sdss';
 import { TPTTv4_6Result, BlurrnV46Config } from '@/types/blurrn-v4-6';
 import { TimeShiftDisplay } from './TimeShiftDisplay';
 import { ExperimentLogger } from './ExperimentLogger';
@@ -74,6 +74,22 @@ import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
 import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
 import { APP_VERSION, APP_TAGLINE, APP_FEATURE, APP_TAG } from '@/lib/version';
 import { Link } from 'react-router-dom';
+
+// Derive a synaptic phrase from live cascade index + isotope.
+// Replaces the hardcoded "isotropic metamorphosis" hash from the old v4.5 fake layer.
+function synapticPhrase(cascadeIndex: number, isotopeType: string): string {
+  const phrases = [
+    "quantum entanglement detected",
+    "temporal phase coherence achieved",
+    "spectral metamorphosis in progress",
+    "dimensional flux stabilized",
+    "neural pathway synchronized",
+    "cascade resonance amplified",
+    "isotopic vortex aligned",
+  ];
+  const idx = Math.abs(Math.floor(cascadeIndex)) % phrases.length;
+  return `${phrases[idx]} [${isotopeType}]`;
+}
 
 export function TPTTApp() {
   // Initialize memory manager
@@ -159,7 +175,8 @@ export function TPTTApp() {
   const [temporalCalcV4] = useState(() => new TemporalCalculatorV4());
   const [temporalCalcV46, setTemporalCalcV46] = useState<TemporalCalculatorV4_6 | null>(null);
   const [picklesAtlas] = useState(() => new PicklesAtlas());
-  const [neuralFusion] = useState(() => new NeuralFusion());
+  // v4.7 Neural fusion (TF.js worker) — replaces dead v4.5 NeuralFusion class
+  const { lastResult: neuralFusionResult, computeFull: computeNeuralFusion } = useNeuralFusion({ enabled: true, autoInitialize: true });
   
   // v4.7 Chrono Transport Cascade System
   const [chronoEngine] = useState(() => new ChronoTransportEngine());
@@ -186,9 +203,8 @@ export function TPTTApp() {
         setSystemStatus("Initializing Pickles Atlas...");
         await picklesAtlas.initialize();
         
-        setSystemStatus("Loading neural fusion engine...");
-        await neuralFusion.initialize();
-        
+        setSystemStatus("Loading neural fusion engine (v4.7 worker)...");
+        // Worker initializes itself via useNeuralFusion hook autoInitialize
         setSystemStatus("Generating initial spectrum data...");
         const initialSpectrum = picklesAtlas.getRandomSpectrum();
         setSpectrumData(initialSpectrum);
@@ -349,11 +365,36 @@ export function TPTTApp() {
         })
       );
 
-      // v4.5 Enhanced calculations
+      // v4.5 Enhanced calculations (with v4.7 neural output injected)
       if (isV4Initialized && spectrumData) {
         try {
           const v4Result = await temporalCalcV4.computeTPTTv4_5();
-          setTpttV4Result(v4Result);
+
+          // Kick off real neural fusion via v4.7 TF.js worker (fire-and-forget;
+          // result is read from neuralFusionResult on the next tick).
+          computeNeuralFusion(
+            cascadeParams.delta_phase,
+            cascadeParams.n,
+            v4Result.tPTT_value,
+            0.865,
+            PHI
+          ).catch((e) => console.warn('Neural fusion compute failed:', e));
+
+          // Inject real neural output if we have prior worker results
+          const neuralOutput: NeuralOutput | undefined =
+            neuralFusionResult.q_ent != null
+              ? {
+                  metamorphosisIndex: Math.max(0, Math.min(1, neuralFusionResult.q_ent ?? 0)),
+                  confidenceScore: Math.max(0, Math.min(1, neuralFusionResult.efficiency ?? 0)),
+                  synapticSequence: synapticPhrase(
+                    neuralFusionResult.cascade_index ?? cascadeParams.n,
+                    isotope.type
+                  ),
+                  neuralSpectra: spectrumData.intensities.slice(0, 16),
+                }
+              : undefined;
+
+          setTpttV4Result({ ...v4Result, neuralOutput });
         } catch (error) {
           console.warn("v4.5 calculation failed:", error);
         }
