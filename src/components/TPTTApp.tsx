@@ -380,7 +380,8 @@ export function TPTTApp() {
             cascadeParams.n,
             v4Result.tPTT_value,
             0.865,
-            PHI
+            PHI,
+            solarFeatures
           ).catch((e) => console.warn('Neural fusion compute failed:', e));
 
           // Inject real neural output if we have prior worker results
