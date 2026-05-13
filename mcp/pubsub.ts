@@ -14,7 +14,10 @@ if (process.env.REDIS_URL) {
 
 async function getRedis() {
   if (!redisClient && pubsubMode === 'redis') {
-    const { Redis } = await import('ioredis')
+    // ioredis is an optional runtime dep installed only inside mcp/.
+    // Cast to any so the frontend tsc pass doesn't need its types.
+    const mod: any = await import(/* @vite-ignore */ 'ioredis' as any)
+    const Redis = mod.Redis ?? mod.default
     redisClient = new Redis(process.env.REDIS_URL!)
     redisSubscriber = new Redis(process.env.REDIS_URL!)
   }
