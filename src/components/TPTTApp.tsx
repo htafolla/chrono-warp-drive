@@ -349,11 +349,36 @@ export function TPTTApp() {
         })
       );
 
-      // v4.5 Enhanced calculations
+      // v4.5 Enhanced calculations (with v4.7 neural output injected)
       if (isV4Initialized && spectrumData) {
         try {
           const v4Result = await temporalCalcV4.computeTPTTv4_5();
-          setTpttV4Result(v4Result);
+
+          // Kick off real neural fusion via v4.7 TF.js worker (fire-and-forget;
+          // result is read from neuralFusionResult on the next tick).
+          computeNeuralFusion(
+            cascadeParams.delta_phase,
+            cascadeParams.n,
+            v4Result.tPTT_value,
+            0.865,
+            PHI
+          ).catch((e) => console.warn('Neural fusion compute failed:', e));
+
+          // Inject real neural output if we have prior worker results
+          const neuralOutput: NeuralOutput | undefined =
+            neuralFusionResult.q_ent != null
+              ? {
+                  metamorphosisIndex: Math.max(0, Math.min(1, neuralFusionResult.q_ent ?? 0)),
+                  confidenceScore: Math.max(0, Math.min(1, neuralFusionResult.efficiency ?? 0)),
+                  synapticSequence: synapticPhrase(
+                    neuralFusionResult.cascade_index ?? cascadeParams.n,
+                    isotope.type
+                  ),
+                  neuralSpectra: spectrumData.intensities.slice(0, 16),
+                }
+              : undefined;
+
+          setTpttV4Result({ ...v4Result, neuralOutput });
         } catch (error) {
           console.warn("v4.5 calculation failed:", error);
         }
