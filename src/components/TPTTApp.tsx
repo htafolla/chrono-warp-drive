@@ -377,8 +377,16 @@ export function TPTTApp() {
           // resolved result into this same render cycle. The previous
           // fire-and-forget path depended on a stale interval closure, leaving
           // the display in Standby even while the worker was producing values.
+          // Drive Δφ with the live cycle counter so Q_ent breathes per frame
+          // while solar features still set the envelope (via applySolarModulation).
+          // Oscillation amplitude is small (±0.05) and clamped downstream to [0,1].
+          const cyclePhase = 0.05 * Math.sin((cycle * PHI) / 34);
+          const dynamicDeltaPhase = Math.max(
+            0,
+            Math.min(1, cascadeParams.delta_phase + cyclePhase)
+          );
           const fusionResult = await computeNeuralFusion(
-            cascadeParams.delta_phase,
+            dynamicDeltaPhase,
             cascadeParams.n,
             v4Result.tPTT_value,
             0.865,
