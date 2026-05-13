@@ -378,16 +378,28 @@ export function TPTTApp() {
           // fire-and-forget path depended on a stale interval closure, leaving
           // the display in Standby even while the worker was producing values.
           // Option-A coupling (v4.7): derive Δφ from the real per-cycle tPTT
-          // value rather than treating it as a static input. Uses log-ratio
-          // against the 5.3e12 target so Δφ tracks how close the cascade is to
-          // breakthrough. cascadeParams.delta_phase becomes the floor/baseline;
-          // TDF residual lifts it within [baseline, 0.8]. Solar coupling then
-          // applies its envelope on top via applySolarModulation().
+          // value rather than treating it as a static input. Solar coupling
+          // then applies its envelope on top via applySolarModulation().
+          //
+          // TPTT_TARGET (5.3e12) is the Codex v4.7/v4.8 breakthrough reference
+          // for tPTT_value — see docs/Blurrn-Quantum-Codex-v4.5-Full-Spectrum.md
+          // and src/lib/temporalCalculatorV4_6.ts. Same constant is used in the
+          // worker's cascade efficiency (Math.log10(tdf) / Math.log10(5.3e12)).
+          //
+          // Mapping: tdfRatio ∈ [0, 1+] expresses how close tPTT is to target.
+          // cascadeParams.delta_phase is the user/baseline floor; the residual
+          // (0.5 × tdfRatio) lifts Δφ toward 0.8 as the cascade approaches
+          // breakthrough. Hard clamp [0.01, 0.8] keeps the worker input inside
+          // its trained/valid range even on tPTT spikes or sub-1 values.
           const TPTT_TARGET = 5.3e12;
-          const tdfRatio = Math.log10(Math.max(1, v4Result.tPTT_value)) / Math.log10(TPTT_TARGET);
+          const safeTptt = Math.max(1, Math.abs(v4Result.tPTT_value));
+          const tdfRatio = Math.log10(safeTptt) / Math.log10(TPTT_TARGET);
           const tdfDrivenDeltaPhase = Math.max(
-            cascadeParams.delta_phase,
-            Math.min(0.8, cascadeParams.delta_phase + 0.5 * tdfRatio)
+            0.01,
+            Math.min(
+              0.8,
+              Math.max(cascadeParams.delta_phase, cascadeParams.delta_phase + 0.5 * tdfRatio)
+            )
           );
           const fusionResult = await computeNeuralFusion(
             tdfDrivenDeltaPhase,
