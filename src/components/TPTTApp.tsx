@@ -377,8 +377,20 @@ export function TPTTApp() {
           // resolved result into this same render cycle. The previous
           // fire-and-forget path depended on a stale interval closure, leaving
           // the display in Standby even while the worker was producing values.
-          const fusionResult = await computeNeuralFusion(
+          // Option-A coupling (v4.7): derive Δφ from the real per-cycle tPTT
+          // value rather than treating it as a static input. Uses log-ratio
+          // against the 5.3e12 target so Δφ tracks how close the cascade is to
+          // breakthrough. cascadeParams.delta_phase becomes the floor/baseline;
+          // TDF residual lifts it within [baseline, 0.8]. Solar coupling then
+          // applies its envelope on top via applySolarModulation().
+          const TPTT_TARGET = 5.3e12;
+          const tdfRatio = Math.log10(Math.max(1, v4Result.tPTT_value)) / Math.log10(TPTT_TARGET);
+          const tdfDrivenDeltaPhase = Math.max(
             cascadeParams.delta_phase,
+            Math.min(0.8, cascadeParams.delta_phase + 0.5 * tdfRatio)
+          );
+          const fusionResult = await computeNeuralFusion(
+            tdfDrivenDeltaPhase,
             cascadeParams.n,
             v4Result.tPTT_value,
             0.865,
