@@ -49,6 +49,7 @@ import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
 import { TemporalCalculatorV4_6 } from '@/lib/temporalCalculatorV4_6';
 import { PicklesAtlas } from '@/lib/picklesAtlas';
 import { useNeuralFusion } from '@/hooks/useNeuralFusion';
+import { useSolarFeatures } from '@/hooks/useSolarFeatures';
 import { SpectrumData, TPTTv4Result, NeuralOutput } from '@/types/sdss';
 import { TPTTv4_6Result, BlurrnV46Config } from '@/types/blurrn-v4-6';
 import { TimeShiftDisplay } from './TimeShiftDisplay';
@@ -177,6 +178,8 @@ export function TPTTApp() {
   const [picklesAtlas] = useState(() => new PicklesAtlas());
   // v4.7 Neural fusion (TF.js worker) — replaces dead v4.5 NeuralFusion class
   const { lastResult: neuralFusionResult, computeFull: computeNeuralFusion } = useNeuralFusion({ enabled: true, autoInitialize: true });
+  // v4.7 option-a coupling: live solar features modulate delta_phase / tau
+  const { solarFeatures } = useSolarFeatures({ enabled: true });
   
   // v4.7 Chrono Transport Cascade System
   const [chronoEngine] = useState(() => new ChronoTransportEngine());
@@ -377,7 +380,8 @@ export function TPTTApp() {
             cascadeParams.n,
             v4Result.tPTT_value,
             0.865,
-            PHI
+            PHI,
+            solarFeatures
           ).catch((e) => console.warn('Neural fusion compute failed:', e));
 
           // Inject real neural output if we have prior worker results
