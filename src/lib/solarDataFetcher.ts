@@ -238,13 +238,6 @@ function absorptionLine(l: number, center: number, sigma: number, depth: number)
   return depth * Math.exp(-Math.pow(l - center, 2) / (2 * sigma * sigma));
 }
 
-function emissionCore(l: number, center: number, sigma: number, height: number) {
-  return height * Math.exp(-Math.pow(l - center, 2) / (2 * sigma * sigma));
-}
-
-function pseudoNoise(i: number, l: number) {
-  return (Math.sin(i * 12.34) * Math.cos(l * 0.01) + 1) / 2;
-}
 
 function linearSlope(points: number[][]) {
   const n = points.length;
