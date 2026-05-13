@@ -59,14 +59,18 @@ export function createNeuralWorker(): Worker {
     
     // Initialize TensorFlow.js model
     async function initialize() {
+      // Mark initialized immediately so the main thread engages the engine.
+      // TF.js load is attempted in the background; if it succeeds the model
+      // upgrades the q_ent calc, otherwise we stay on the analytic path.
+      if (!isInitialized) {
+        isInitialized = true;
+        self.postMessage({ type: 'initialized', data: { fallbackMode: true } });
+      }
       try {
-        console.log('[Neural Worker] Initializing...');
+        console.log('[Neural Worker] Attempting TF.js load in background...');
         const tfLoaded = await loadTensorFlow();
-        
         if (!tfLoaded) {
-          console.warn('[Neural Worker] TensorFlow.js not available, using fallback mode');
-          isInitialized = true; // Still mark as initialized for fallback calculations
-          self.postMessage({ type: 'initialized', data: { fallbackMode: true } });
+          console.warn('[Neural Worker] TensorFlow.js unavailable, staying in fallback mode');
           return;
         }
         // Create a simple sequential model for Q_ent calculations
@@ -84,14 +88,9 @@ export function createNeuralWorker(): Worker {
           loss: 'meanSquaredError'
         });
         
-        isInitialized = true;
-        console.log('[Neural Worker] Model created and compiled successfully');
-        self.postMessage({ type: 'initialized', data: { fallbackMode: false } });
+        console.log('[Neural Worker] TF.js model compiled — upgraded from fallback mode');
       } catch (error) {
-        self.postMessage({ 
-          type: 'error', 
-          error: 'Failed to initialize TensorFlow.js: ' + error.message 
-        });
+        console.warn('[Neural Worker] TF.js init error, staying in fallback:', error.message);
       }
     }
     
