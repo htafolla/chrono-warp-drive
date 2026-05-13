@@ -2,6 +2,7 @@
 import * as tf from '@tensorflow/tfjs';
 import { NeuralInput, NeuralOutput, SpectrumData } from '../types/sdss';
 import { deterministicRandom, deterministicSelect, generateCycle } from './deterministicUtils';
+import { applySolarOutputModulation } from './solarCoupling';
 
 export class NeuralFusion {
   private spectralModel: tf.LayersModel | null = null;
@@ -121,11 +122,15 @@ export class NeuralFusion {
       // Calculate confidence score
       const confidenceScore = this.calculateConfidence(neuralSpectra, input);
 
+      const { metamorphosisIndex: mi, confidenceScore: cs } = applySolarOutputModulation(
+        metamorphosisIndex, confidenceScore, input.solarFeatures
+      );
+
       return {
         synapticSequence,
         neuralSpectra,
-        metamorphosisIndex,
-        confidenceScore
+        metamorphosisIndex: mi,
+        confidenceScore: cs,
       };
     } catch (error) {
       console.warn('Neural processing failed, using fallback:', error);

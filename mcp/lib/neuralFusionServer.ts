@@ -3,6 +3,7 @@
 // without relying on browser TF.js models in Node.js
 
 import { NeuralInput, NeuralOutput, SpectrumData } from '../types/sdss'
+import { applySolarOutputModulation } from './solarCoupling'
 
 const PHI = 1.666
 const SEQUENCES = [
@@ -62,12 +63,17 @@ export class NeuralFusionServer {
     }
 
     // Clamp to [0, 1]
-    const metamorphosisIndex = Math.min(Math.max(index, 0), 1)
+    const metamorphosisIndexBase = Math.min(Math.max(index, 0), 1)
 
     // Confidence based on data quality
     const dataQuality = input.spectrumData.source === 'SDSS' ? 0.95 : input.spectrumData.source === 'STELLAR_LIBRARY' ? 0.9 : 0.75
     const sampleSizeBonus = Math.min(intensities.length / 100, 0.1)
-    const confidenceScore = Math.min(0.5 + metamorphosisIndex * 0.4 + dataQuality * 0.1 + sampleSizeBonus, 0.99)
+    const confidenceScoreBase = Math.min(0.5 + metamorphosisIndexBase * 0.4 + dataQuality * 0.1 + sampleSizeBonus, 0.99)
+
+    // Apply contained solar coupling (mirrors frontend useNeuralFusion v1).
+    const { metamorphosisIndex, confidenceScore } = applySolarOutputModulation(
+      metamorphosisIndexBase, confidenceScoreBase, input.solarFeatures,
+    )
 
     // Synaptic sequence based on actual metamorphosis index
     const synapticSequence = SEQUENCES[Math.floor(metamorphosisIndex * SEQUENCES.length) % SEQUENCES.length]
