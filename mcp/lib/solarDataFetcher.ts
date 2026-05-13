@@ -321,19 +321,30 @@ export async function fetchCurrentSolarData(): Promise<SolarActivityData> {
     }
   } catch (error: any) {
     console.error('Failed to fetch solar data:', error.message)
-    // Return fallback synthetic data
-    const { wavelengths, flux } = generateSolarSpectrum(1e-7, 'quiet')
-    return {
+    // Quiet-Sun fallback via the new pipeline (no synthetic Gaussian).
+    const quiet: SolarData = {
       timestamp: new Date().toISOString(),
-      xrayFlux: 1e-7,
-      xrayFluxString: '1.0e-7',
+      source: 'NOAA_SWPC',
+      xray: { short: 1e-9, long: 1e-8, hardnessRatio: 0.1, flareClass: 'A' },
+      particles: { protons: { ge1: 0, ge5: 0, ge10: 0, ge30: 0, ge50: 0, ge100: 0 }, electrons: { ge2MeV: 0 }, spectralIndex: 0 },
+      magnetometer: { hp: 0, he: 0, hn: 0, total: 0, perturbation: 0 },
+      solarWind: { speed: 400, density: 5, temperature: 1e5, bz: 0, bt: 0 },
+      kpIndex: 0,
       activityLevel: 'quiet',
-      wavelengths,
-      flux,
+      channelStatus: { xray: 'fallback', protons: 'fallback', electrons: 'fallback', mag: 'fallback', wind: 'fallback', kp: 'fallback' },
+    }
+    const spec = solarDataFetcher.solarDataToSpectrum(quiet, 50)
+    return {
+      timestamp: quiet.timestamp,
+      xrayFlux: 1e-8,
+      xrayFluxString: '1.0e-8',
+      activityLevel: 'quiet',
+      wavelengths: spec.wavelengths.map((a) => a / 10),
+      flux: spec.intensities,
       source: 'NOAA-GOES (fallback)',
       metadata: {
         satellite: 'GOES-16',
-        dataType: 'synthetic fallback',
+        dataType: 'quiet-Sun fallback (Planck baseline)',
         url: 'https://services.swpc.noaa.gov',
       },
     }
