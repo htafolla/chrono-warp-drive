@@ -35,13 +35,6 @@ export interface SpectrumData {
   };
 }
 
-export interface NeuralInput {
-  spectrumData: SpectrumData;
-  temporalPhases: number[];
-  isotopeFactor: number;
-  fractalToggle: boolean;
-}
-
 export interface NeuralOutput {
   synapticSequence: string;
   neuralSpectra: number[];
