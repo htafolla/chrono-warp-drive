@@ -59,6 +59,14 @@ export interface NeuralOutput {
   neuralSpectra: number[];
   metamorphosisIndex: number;
   confidenceScore: number;
+  // Observability: present when solarFeatures was supplied as input.
+  solarModulation?: {
+    solar_applied: boolean;
+    metaShift: number;
+    confShift: number;
+    metaDelta: number;
+    confDelta: number;
+  };
 }
 
 export interface TPTTv4Result {

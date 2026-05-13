@@ -512,7 +512,38 @@ Converts a governance output (from either \`evaluate_governance\` or \`govern_wi
 - Use \`govern_with_solar\` for most proposals (especially strategy or direction).
 - Use \`evaluate_governance\` for low-level technical decisions.
 - For high-stakes decisions, consider running both and comparing.
+
+## Solar → Neural Coupling (v1)
+
+The Neural Fusion engine accepts an optional \`solarFeatures\` vector
+(\`xrayUVLift\`, \`magPerturbation\`, \`hardnessRatio\`, \`windBroadeningA\`,
+\`kpIndex\`, \`activityLevel\`) derived from a multi-channel NOAA SWPC pull.
+When supplied, outputs are modulated as:
+
+\`\`\`
+metaShift = 0.25 * uv + 0.15 * mag      // bounded in [-0.075, +0.40]
+confShift = 0.06 * uv - 0.08 * mag      // bounded in [-0.098, +0.06]
+metamorphosisIndex' = clamp(metamorphosisIndex * (1 + metaShift), 0, 1)
+confidenceScore'    = clamp(confidenceScore    * (1 + confShift), 0, 0.99)
+\`\`\`
+
+This mirrors the frontend's \`useNeuralFusion\` v1 coupling, which instead
+modulates \`delta_phase\` and \`tau\` at the input stage. Both produce the
+same qualitative behavior: active Sun ⇒ stronger metamorphosis, geomagnetic
+storms ⇒ lower confidence.
+
+### Best Practices
+- Always pass live \`solarFeatures\` for \`/process-current-sun\` (already wired).
+- For deterministic offline runs, omit \`solarFeatures\` — the engine becomes a
+  pure no-op on the solar axis (\`solar_applied: false\`).
+- Read \`solarModulation.metaDelta\` / \`confDelta\` for observability —
+  these report the absolute output change attributable to the Sun this tick.
+- Coefficients live in \`mcp/lib/solarCoupling.ts\` (\`SOLAR_COUPLING\`). Bump
+  the file version comment when tuning.
+
+See \`mcp/docs/solar-coupling.md\` for the full rationale.
 `
+
 
 // ===== MCP Server =====
 const app = new Hono()
