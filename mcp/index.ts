@@ -230,6 +230,290 @@ function computeFullTDF(
 // ===== Signal Store (in-memory, persists within a warm invocation) =====
 const signalStore = new Map<string, TemporalBlurrnSignal>();
 
+// ===== Comprehensive Glossary for explain_term =====
+const GLOSSARY: Record<string, { term: string; short: string; long: string; formula?: string; example?: string }> = {
+  'TAU': {
+    term: 'TAU (τ)',
+    short: 'Temporal Attenuation Unit — damping/scaling factor set at 0.865',
+    long: 'TAU is the fundamental damping constant in the Temporal Displacement Factor (TDF) computation. It scales tPTT output before division by BlackHole_Seq. TAU = 0.865 is derived from Chronovium-865 isotope. In cross-correlation, TAU determines the lag scaling between cascades.',
+    formula: 'TDF = tPTT × TAU × (1 / BlackHole_Seq)',
+  },
+  'PHI': {
+    term: 'PHI (φ) — Trinitarium Ratio',
+    short: 'Fundamental Blurrn constant, valid range [1.566, 1.766]',
+    long: 'PHI is the Trinitarium ratio constant set at 1.666 (from Trinitarium-166 isotope). It appears throughout the v4.8 engine: as the exponent base in BlackHole_Seq, as a multiplier in tPTT, as a phase offset in harmonic oscillator (π/PHI), and as a signal embed component. Validated by validate_tlm to be within [1.566, 1.766].',
+    formula: 'validate_tlm: 1.566 ≤ PHI ≤ 1.766',
+  },
+  'TDF': {
+    term: 'Temporal Displacement Factor (TDF)',
+    short: 'Composite measure of signal displacement through time',
+    long: 'TDF is the core output of the v4.8 formula chain. It combines tPTT (energy-time product), TAU (damping), and BlackHole_Seq (void resonance) into a single scalar. Higher TDF values indicate greater temporal displacement or "warp." The S_L variant scales TDF by PHI.',
+    formula: 'TDF = tPTT × TAU × (1 / BlackHole_Seq)\nS_L = TDF × PHI',
+  },
+  'tPTT': {
+    term: 'Temporal Photonic Transpondent Transporter (tPTT)',
+    short: 'Energy-time product with isotopic modulation. See compute_tptt tool.',
+    long: 'tPTT measures the energy-time product of a signal modulated by PHI and the speed of light constant C. Higher T_c (temporal constant) increases tPTT; higher E_t (entropy) decreases it. The formula encodes how much "photonic work" is transported across a time step.',
+    formula: 'tPTT = T_c × (P_s / E_t) × PHI × (C / delta_t)',
+    example: 'Default: T_c=137, P_s=1.0, E_t=0.5, delta_t=1e-6 → tPTT ≈ 137 × 2.0 × 1.666 × 3e14 ≈ 1.37e17',
+  },
+  'BlackHole_Seq': {
+    term: 'Black Hole Sequence',
+    short: 'Void resonance function using PHI exponentiation. See black_hole_sequence tool.',
+    long: 'BlackHole_Seq computes a resonance value from void count and PHI exponentiation, modulo π. It represents the "gravitational" component of the TDF chain — more voids or higher n produce larger resonance. The modulo operation wraps it into [0, π) range.',
+    formula: 'BlackHole_Seq(L, voids, n) = (L × voids × PHI^n) % π',
+    example: 'Default: L=3, voids=7, n=3, PHI=1.666 → (3 × 7 × 1.666^3) % π ≈ 97.22 % 3.1416 ≈ 2.08',
+  },
+  'vortexVolume': {
+    term: 'Vortex Volume',
+    short: 'Cross-correlation product W × M = V. Output of cross_correlate tool.',
+    long: 'Vortex volume is a metadata output of cross_correlate representing the "volume" of temporal overlap between two signals. Computed as the product of the two signals\' TDF values. Higher vortex volume indicates stronger temporal entanglement.',
+    formula: 'vortexVolume = TDF_A × TDF_B',
+  },
+  'isotopicRatio': {
+    term: 'Isotopic Ratio',
+    short: 'Pairwise similarity measure between isotopic signals, range [0, 1]',
+    long: 'Isotopic ratio measures how similar two signals\' variant deltas are. Computed as 1 minus the normalized absolute difference of the first delta component. Higher values (closer to 1) indicate near-identical isotopic composition. Used in cross_correlate and pairwise signal comparison.',
+    formula: 'isotopicRatio(A, B) = 1 − |δA₀ − δB₀| / max(|δA₀|, |δB₀|)',
+  },
+  'phaseCoherence': {
+    term: 'Phase Coherence (R)',
+    short: 'Kuramoto order parameter measuring phase synchronization',
+    long: 'Phase coherence R is the Kuramoto order parameter. It measures how synchronized a set of oscillators are. R=1 means perfect synchronization (all phases aligned), R=0 means complete desynchronization (phases uniformly distributed). Computed from the circular mean of phases.',
+    formula: 'R = sqrt( (Σ cos(θᵢ)/N)² + (Σ sin(θᵢ)/N)² )',
+  },
+  'cascadeIndex': {
+    term: 'Cascade Index',
+    short: 'Iteration number in a signal cascade sequence',
+    long: 'Cascade index tracks which iteration of a cascade process a signal belongs to. It affects the variant delta and phase coherence computation. Higher cascade indices represent later stages of temporal evolution, with increasing TAU-based damping.',
+  },
+  'blurrn-native matrix': {
+    term: 'Blurrn-native Matrix',
+    short: 'The mathematical framework built on PHI and TAU constants',
+    long: 'The Blurrn-native matrix refers to the entire v4.8 computational framework centered on the Trinitarium ratio (PHI=1.666) and Chronovium damping (TAU=0.865). It encompasses TDF computation, isotopic fingerprinting, cross-correlation, symbiotic fusion, and phase coherence — all built on these two fundamental constants.',
+  },
+  'FREQ': {
+    term: 'Base Frequency (528 Hz)',
+    short: 'Fundamental oscillation frequency, also known as the "Love Frequency"',
+    long: '528 Hz is the base frequency used in harmonic_oscillator and wave_function computations. Known as the "Love Frequency" in cymatics. In the v4.8 engine, it drives the harmonic oscillator and appears in the wave function\'s phase argument.',
+    formula: 'P_o = sin(2π × 528 × t + π/PHI)',
+  },
+  'kuramoto': {
+    term: 'Kuramoto Synchronization',
+    short: 'Phase-coupled oscillator model with push-pull dynamics. See kuramoto_sync tool.',
+    long: 'The Kuramoto model describes the synchronization of coupled oscillators. In v4.8, it uses push-pull phase dynamics (push = +π/4 offset, pull = -π/4 offset), fractal toggle for isotopic modulation, and configurable coupling strength K=0.5. oscillatorIndex selects which oscillator receives the frequency update.',
+    formula: 'dθᵢ/dt = ωᵢ + (K/N) × Σⱼ sin(θⱼ − θᵢ + φ_dark + φ_type + S × isotope.factor)',
+  },
+  'symbiotic fusion': {
+    term: 'Symbiotic Fusion',
+    short: 'Polymorphic signal fusion preserving phase relationships. See fuse_symbiotic tool.',
+    long: 'Symbiotic fusion combines multiple isotopic signals into a single FusedSignal by averaging their embeddings. Unlike simple aggregation, it preserves the phase relationships between signals — each contributes equally to the fused output. The result has isotopeId "fused-core" and perfect isotopic ratio (1.0).',
+  },
+  'push-pull': {
+    term: 'Push-Pull Dynamics',
+    short: 'Phase offset mode: push (+π/4) amplifies, pull (-π/4) damps',
+    long: 'Push-pull dynamics control whether oscillator coupling is constructive (push) or destructive (pull). Push mode adds +π/4 to the phase offset, amplifying synchronization. Pull mode subtracts π/4, damping synchronization. Also affects wave function amplitude: push amplifies (G×1.2), pull damps (G×0.8).',
+  },
+  'C': {
+    term: 'Speed of Light (C = 3e8)',
+    short: 'Universal constant used in tPTT computation',
+    long: 'The speed of light C = 3×10⁸ m/s appears in the tPTT formula as a scaling factor, encoding relativistic effects into temporal displacement. Multiplies the energy-time product to produce extremely large tPTT values (~10¹⁷ range).',
+  },
+  'isotope': {
+    term: 'Isotopes (Standard & Blurrn)',
+    short: 'Configurable factors that modulate computations across v4.8 engine',
+    long: 'Isotopes provide configurable modulation factors across the v4.8 engine. Standard isotopes: C-12 (1.0), C-14 (0.8). Blurrn isotopes: Trinitarium-166 (1.666 = PHI), Chronovium-865 (0.865 = TAU), Vortexite-528 (0.528). Isotope selection affects wave amplitude, Kuramoto sync (fractal toggle), and isotopic fingerprinting.',
+  },
+  'S_L': {
+    term: 'Spectral Luminance (S_L)',
+    short: 'TDF scaled by PHI — higher-order displacement measure',
+    long: 'S_L (Spectral Luminance) is computed as TDF × PHI. It represents a higher-order temporal displacement measure, factoring in the Trinitarium ratio for additional amplification. Returned alongside TDF in compute_tdf output.',
+    formula: 'S_L = TDF × PHI',
+  },
+  'voids': {
+    term: 'Voids',
+    short: 'Count parameter for BlackHole_Seq — represents topological cavities',
+    long: 'Voids represent topological cavities or "holes" in the temporal manifold. Used as a multiplier in BlackHole_Seq, more voids amplify the resonance output. Default: 7.',
+    formula: 'BlackHole_Seq ∝ voids',
+  },
+}
+
+// ===== Comprehensive Markdown Documentation for get_docs =====
+const FULL_DOCS = `# Dynamo MCP v4.8 — Full Documentation
+
+## Overview
+Dynamo MCP (Blurrn) is a Temporal Displacement Engine providing tools for isotopic signal processing, TDF (Temporal Displacement Factor) computation, phase synchronization, symbiotic fusion, governance, and solar-enhanced decision-making.
+
+## Core Constants
+| Constant | Value     | Description |
+|----------|-----------|-------------|
+| PHI      | 1.666     | Trinitarium ratio (valid range: 1.566–1.766) |
+| TAU      | 0.865     | Temporal Attenuation Unit (Chronovium-865) |
+| FREQ     | 528 Hz    | Base oscillation frequency |
+| C        | 3e8 m/s   | Speed of light |
+| L        | 3         | BlackHole_Seq scale factor |
+
+## Tool Reference
+
+### 1. compute_tdf
+Full Temporal Displacement Factor chain: \`TDF = tPTT × TAU × (1 / BlackHole_Seq)\`.
+- **Inputs**: \`T_c\`, \`P_s\`, \`E_t\`, \`delta_t\`, \`voids\`, \`bhs_n\`
+- **Outputs**: \`tdfValue\`, \`S_L\`, \`tau\`, \`tPTT\`, \`BlackHole_Seq\`
+- **Example**: \`{"T_c":137,"P_s":1.0,"E_t":0.5,"delta_t":1e-6,"voids":7,"bhs_n":3}\`
+
+### 2. emit_isotopic_signal
+Emits a new isotopic signal, stores it in memory, and returns its fingerprint.
+- **Inputs**: \`content\` (required), \`tdf\`, \`cascadeIndex\`, \`referenceId\`
+- **Outputs**: \`signalId\`, \`isotopicRatio\`, \`phaseCoherence\`, \`tdfValue\`
+- **Use case**: Create traceable signals for later cross-correlation, triangulation, or fusion.
+
+### 3. cross_correlate
+Cross-correlates two isotopic signals. Returns strength (0–1), lag, \`vortexVolume\` (W × M = V), and \`isotopicRatio\`.
+- **Inputs**: \`contentA\` (required), \`contentB\` (optional)
+- **Outputs**: \`strength\`, \`lag\`, \`vortexVolume\`, \`isotopicRatio\`
+- **Use case**: Measure similarity and temporal entanglement between two signals.
+
+### 4. list_isotopes
+Lists all available isotopes (standard + Blurrn-native). Use the exact \`name\` when selecting isotopes for other tools.
+- **Inputs**: none
+- **Outputs**: Array of isotopes with \`id\`, \`name\`, \`factor\`, and \`type\`
+- **Gotcha**: Isotope names are case-sensitive (e.g., use \`"Trinitarium-166"\`, not \`"trinitarium-166"\`).
+
+### 5. triangulate_signals
+Triangulates 2+ signals and returns isotopic fingerprints plus a full pairwise correlation matrix.
+- **Inputs**: \`signals\` array (min 2)
+- **Outputs**: \`signalCount\`, \`results\` (with fingerprints and correlations)
+- **Use case**: Multi-signal analysis to identify the strongest relationships.
+- **Gotcha**: Computation is O(n²). Keep signal count reasonable (< 20) for performance.
+
+### 6. fuse_symbiotic
+Fuses 2+ signals using **polymorphic isotopic fusion**. Unlike simple averaging, this method preserves phase relationships between signals and creates a new composite identity (\`"fused-core"\`).
+- **Inputs**: \`partners\` array (min 2)
+- **Outputs**: \`fused\`, \`partnerCount\`, \`fusedEmbedding\`, \`fusedIsotopeId\`
+- **Use case**: Combine multiple perspectives (e.g., agent reviews) into one coherent signal before governance.
+
+### 7. optimize_cascade
+Simulates cascade iterations to find efficient \`deltaPhase\` values.
+- **Inputs**: \`n\` (max 5000), \`deltaPhase\`
+- **Outputs**: \`iterations\`, \`finalEfficiency\`, \`peakEfficiency\`, results array
+
+### 8. get_phase_coherence
+Returns phase coherence of a stored signal. Checks memory first, falls back to reconstruction if needed.
+- **Inputs**: \`signalId\`
+- **Outputs**: \`signalId\`, \`phaseCoherence\`, \`tdfValue\`, \`cascadeIndex\`, \`stored\` (boolean)
+- **Gotcha**: Reconstructed signals use default values and may differ from the original stored signal.
+
+### 9. compute_tptt
+Standalone \`tPTT\` calculation.
+- **Inputs**: \`T_c\`, \`P_s\`, \`E_t\`, \`delta_t\`
+- **Outputs**: \`tPTT\` value
+
+### 10. black_hole_sequence
+Standalone \`BlackHole_Seq\` calculation.
+- **Inputs**: \`voids\`, \`n\`
+- **Outputs**: \`BlackHole_Seq\` value
+
+### 11. kuramoto_sync
+Kuramoto synchronization with push-pull dynamics.
+- **Inputs**: \`phases\`, \`frequencies\`, \`isotope\`, \`phaseType\` ("push" / "pull")
+- **Outputs**: \`frequencyUpdate\`, \`phaseCoherence\`, \`isotopeUsed\`, \`phaseType\`
+- **Gotcha**: Both arrays must be the same length.
+
+### 12. wave_function
+Computes wave amplitude with isotope modulation.
+- **Inputs**: \`x\`, \`t\`, \`n\`, \`isotope\`, \`lambda\`, \`phaseType\`
+- **Outputs**: \`amplitude\` (capped at 2.0)
+
+### 13. harmonic_oscillator
+\`P_o = sin(2π × 528 × t + π/PHI)\`
+- **Inputs**: \`t\`
+- **Outputs**: \`P_o\`, \`FREQ\`, \`PHI\`
+
+### 14. validate_tlm
+Validates that the Trinitarium ratio (\`phi\`) is within the valid range [1.566, 1.766].
+- **Inputs**: \`phi\` (default 1.666)
+- **Outputs**: \`valid\` (boolean), \`range\`
+
+### 15. evaluate_governance
+Full governance pipeline (emit → cross-correlate → triangulate → fuse → decide).
+- **Inputs**: \`proposalText\`, \`agentReviews\`, \`codeDiff\`, \`historicalSignalIds\`
+- **Outputs**: \`recommendation\`, \`confidence\`, \`voteWeight\`, \`reasoning\`
+
+### 16. govern_with_solar
+Enhanced governance with real-time solar context from NOAA GOES.
+
+Runs the full governance pipeline while injecting live solar activity. Automatically adjusts vote weight and can append warnings such as \`[SOLAR STORM WARNING]\`.
+
+**When to use:**
+- Most strategic or high-impact proposals (**recommended default**)
+- When you want decisions to include live cosmic context
+- During elevated solar activity (applies more conservative weighting)
+
+**When to use \`evaluate_governance\` instead:**
+- Purely technical or low-level protocol decisions
+- When you want to exclude external modifiers
+
+**Inputs:** \`proposal\`, \`baseVoteWeight\` (0.5–1.5)
+
+**Outputs:** \`originalRecommendation\`, \`solarContext\`, \`adjustedVoteWeight\`, \`finalRecommendation\`, \`confidenceAdjustment\`
+
+**Solar Behavior:**
+- **Quiet**: Slight stability boost
+- **Moderate**: Neutral (no adjustment)
+- **Active**: Mild reduction in vote weight
+- **Storm**: Significant reduction in vote weight + \`[SOLAR STORM WARNING]\`
+
+**Decision Logic Note:**
+When implementing logic on top of \`govern_with_solar\`, prefer using the numeric \`confidenceAdjustment\` for decision-making rather than switching on the \`solarActivityLevel\` string. The numeric adjustment is the direct output from the governance pipeline and is more robust if finer-grained solar levels are added in the future. Continue to use \`solarActivityLevel\` and the human-readable \`recommendation\` for logging, explanations, and transparency.
+
+### 17. call_connected_tool
+Universal proxy tool. Dynamically calls **any** other Dynamo MCP tool by name.
+- **Inputs**: \`tool_name\`, \`params\`
+- **Outputs**: \`success\`, \`tool\`, \`result\` (or \`error\`)
+- **Use case**: Meta-orchestration and dynamic tool routing.
+
+### 18. get_docs
+Returns this documentation. Optionally filter by tool name.
+- **Inputs**: \`tool\` (optional)
+- **Outputs**: \`docs\`, \`toolCount\`
+
+### 19. explain_term
+Looks up a term from the Dynamo glossary.
+- **Inputs**: \`term\`
+- **Outputs**: \`term\`, \`short\`, \`long\`, \`formula\`, \`example\`
+
+### 20. explain_governance_output
+Converts a governance output (from either \`evaluate_governance\` or \`govern_with_solar\`) into human-readable plain text.
+- **Inputs**: \`governanceOutput\`
+- **Outputs**: \`explanation\`
+
+## Data Flow
+1. Emit signals → store in memory
+2. Cross-correlate or triangulate for fingerprinting
+3. Fuse signals symbiotically
+4. Compute TDF / tPTT / BlackHole_Seq
+5. Analyze phase with Kuramoto and wave functions
+6. Evaluate governance (with optional solar context)
+
+## Common Workflows
+- **Signal Analysis**: \`emit_isotopic_signal\` → \`cross_correlate\` → \`triangulate_signals\`
+- **Temporal Analysis**: \`compute_tdf\` → \`compute_tptt\` → \`black_hole_sequence\`
+- **Governance**: \`evaluate_governance\` or \`govern_with_solar\`
+- **Phase Analysis**: \`kuramoto_sync\` → \`wave_function\` → \`harmonic_oscillator\`
+
+## Choosing Between \`evaluate_governance\` and \`govern_with_solar\`
+
+| Tool                    | Solar Context | Best For                          | Recommendation                          |
+|-------------------------|---------------|-----------------------------------|-----------------------------------------|
+| \`evaluate_governance\`   | No            | Purely technical decisions        | Use when external modifiers are undesired |
+| \`govern_with_solar\`     | Yes           | Strategic / high-impact decisions | **Preferred default** for most proposals   |
+
+**Quick Guidance:**
+- Use \`govern_with_solar\` for most proposals (especially strategy or direction).
+- Use \`evaluate_governance\` for low-level technical decisions.
+- For high-stakes decisions, consider running both and comparing.
+`
+
 // ===== MCP Server =====
 const app = new Hono()
 app.use('/*', cors())
@@ -556,10 +840,10 @@ app.get('/', (c: Context) => {
   return c.json({
     name: 'blurrn-mcp',
     version: '4.8.3',
-    tools: 17,
+    tools: 20,
     endpoints: {
-      GET: ['/', '/health', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator'],
-      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar', '/call_connected_tool'],
+      GET: ['/', '/health', '/docs', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator', '/get_docs', '/explain_term', '/explain_governance_output'],
+      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar', '/call_connected_tool', '/get_docs', '/explain_term', '/explain_governance_output'],
     },
   })
 })
@@ -570,7 +854,7 @@ app.get('/health', (c: Context) => {
     status: 'ok',
     name: 'blurrn-mcp',
     version: '4.8.3',
-    tools: 17,
+    tools: 20,
     storedSignals: signalStore.size,
   })
 })
@@ -631,62 +915,62 @@ app.get('/harmonic_oscillator', (c: Context) => {
 const TOOL_DEFINITIONS = [
   {
     name: 'compute_tdf',
-    description: 'Compute TDF = tPTT(T_c, P_s, E_t, delta_t) * TAU * (1 / BlackHole_Seq(voids, n)). Full temporal displacement chain from the v4.8 spec.',
+    description: 'Full Temporal Displacement Factor chain: TDF = tPTT × TAU × (1 / BlackHole_Seq).',
     inputSchema: { type: 'object', properties: { T_c: { type: 'number', default: 137, description: 'Temporal constant' }, P_s: { type: 'number', default: 1.0, description: 'Power spectral' }, E_t: { type: 'number', default: 0.5, description: 'Entropy' }, delta_t: { type: 'number', default: 1e-6, description: 'Time step' }, voids: { type: 'number', default: 7, description: 'Voids for BlackHole_Seq' }, bhs_n: { type: 'number', default: 3, description: 'Exponent for BlackHole_Seq' } } },
   },
   {
     name: 'emit_isotopic_signal',
-    description: 'Emit and store an isotopic signal. Returns signalId, isotopicRatio, phaseCoherence, tdfValue. Optionally accepts referenceId for pairwise ratio.',
+    description: 'Emits a new isotopic signal, stores it in memory, and returns its fingerprint. Create traceable signals for later cross-correlation, triangulation, or fusion.',
     inputSchema: { type: 'object', properties: { content: { type: 'string', description: 'Signal content' }, tdf: { type: 'number', default: 5.781e12, description: 'TDF value' }, cascadeIndex: { type: 'number', default: 42, description: 'Cascade index' }, referenceId: { type: 'string', description: 'Reference signal ID for pairwise isotopic ratio' } }, required: ['content'] },
   },
   {
     name: 'cross_correlate',
-    description: 'Cross-correlate two isotopic signals. Returns strength, lag, vortexVolume (W x M = V), and pairwise isotopicRatio.',
-    inputSchema: { type: 'object', properties: { contentA: { type: 'string', description: 'First signal content' }, contentB: { type: 'string', description: 'Second signal content (optional, defaults to reference)' } }, required: ['contentA'] },
+    description: 'Cross-correlates two isotopic signals. Returns strength (0–1), lag, vortexVolume (W × M = V), and isotopicRatio. Measures similarity and temporal entanglement between two signals.',
+    inputSchema: { type: 'object', properties: { contentA: { type: 'string', description: 'First signal content' }, contentB: { type: 'string', description: 'Second signal content (optional)' } }, required: ['contentA'] },
   },
   {
     name: 'list_isotopes',
-    description: 'List all available isotopes including standard (C-12, C-14) and Blurrn-themed (Trinitarium-166, Chronovium-865, Vortexite-528).',
+    description: 'Lists all available isotopes (standard + Blurrn-native). Use the exact name when selecting isotopes for other tools. Isotope names are case-sensitive.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'triangulate_signals',
-    description: 'Triangulate 2+ signals with fingerprinting and cross-correlation matrix.',
+    description: 'Triangulates 2+ signals and returns isotopic fingerprints plus a full pairwise correlation matrix. Multi-signal analysis to identify the strongest relationships.',
     inputSchema: { type: 'object', properties: { signals: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' }, tdf: { type: 'number' } } }, minItems: 2 } }, required: ['signals'] },
   },
   {
     name: 'fuse_symbiotic',
-    description: 'Fuse signals symbiotically (not aggregation — polymorphic fusion preserving phase relationships).',
+    description: 'Fuses 2+ signals using polymorphic isotopic fusion. Unlike simple averaging, this method preserves phase relationships between signals and creates a new composite identity ("fused-core").',
     inputSchema: { type: 'object', properties: { partners: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' } } }, minItems: 2 } }, required: ['partners'] },
   },
   {
     name: 'optimize_cascade',
-    description: 'Optimize cascade iteration efficiency with configurable deltaPhase.',
+    description: 'Simulates cascade iterations to find efficient deltaPhase values.',
     inputSchema: { type: 'object', properties: { n: { type: 'number', default: 100, description: 'Iteration count (max 5000)' }, deltaPhase: { type: 'number', default: 0.1, description: 'Phase delta' } } },
   },
   {
     name: 'get_phase_coherence',
-    description: 'Get phase coherence of a stored signal by ID. Checks in-memory store first (from emit_isotopic_signal), falls back to reconstruction.',
+    description: 'Returns phase coherence of a stored signal. Checks memory first, falls back to reconstruction if needed.',
     inputSchema: { type: 'object', properties: { signalId: { type: 'string', description: 'Signal ID from emit_isotopic_signal' } }, required: ['signalId'] },
   },
   {
     name: 'compute_tptt',
-    description: 'Standalone tPTT = T_c * (P_s / E_t) * PHI * (C / delta_t). Temporal Photonic Transpondent Transporter.',
+    description: 'Standalone tPTT calculation.',
     inputSchema: { type: 'object', properties: { T_c: { type: 'number', default: 137 }, P_s: { type: 'number', default: 1.0 }, E_t: { type: 'number', default: 0.5 }, delta_t: { type: 'number', default: 1e-6 } } },
   },
   {
     name: 'black_hole_sequence',
-    description: 'Standalone BlackHole_Seq = (L * voids * PHI^n) % PI. L=3, PHI=1.666.',
+    description: 'Standalone BlackHole_Seq calculation.',
     inputSchema: { type: 'object', properties: { voids: { type: 'number', default: 7 }, n: { type: 'number', default: 3 } } },
   },
   {
     name: 'kuramoto_sync',
-    description: 'Kuramoto phase synchronization with push-pull dynamics. Returns frequency update and phase coherence order parameter R.',
+    description: 'Kuramoto synchronization with push-pull dynamics.',
     inputSchema: { type: 'object', properties: { phases: { type: 'array', items: { type: 'number' }, minItems: 2 }, frequencies: { type: 'array', items: { type: 'number' }, minItems: 2 }, fractalToggle: { type: 'boolean', default: false }, isotope: { type: 'string', default: 'C-12' }, phaseType: { type: 'string', enum: ['push', 'pull'], default: 'push' }, oscillatorIndex: { type: 'number', default: 0 } }, required: ['phases', 'frequencies'] },
   },
   {
     name: 'wave_function',
-    description: 'Compute wave amplitude with isotope modulation. Uses G=1.0, FREQ=528, PHI=1.666.',
+    description: 'Computes wave amplitude with isotope modulation.',
     inputSchema: { type: 'object', properties: { x: { type: 'number', default: 1.0 }, t: { type: 'number', default: 0.0 }, n: { type: 'number', default: 1 }, isotope: { type: 'string', default: 'C-12' }, lambda: { type: 'number', default: 0.53 }, phaseType: { type: 'string', enum: ['push', 'pull'], default: 'push' } } },
   },
   {
@@ -696,23 +980,38 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'validate_tlm',
-    description: 'Validate Trinitarium ratio is within [1.566, 1.766]. Returns boolean.',
+    description: 'Validates that the Trinitarium ratio (phi) is within the valid range [1.566, 1.766].',
     inputSchema: { type: 'object', properties: { phi: { type: 'number', default: 1.666, description: 'PHI to validate' } } },
   },
   {
     name: 'evaluate_governance',
-    description: 'Evaluate a proposal through the Dynamo Governance Layer. Emits isotopic signal, cross-correlates with code diff, triangulates agent reviews, fuses symbiotically, and applies Blurrn-native decision matrix. Returns recommendation (PASS/REJECT/NEEDS REVISION), confidence, voteWeight, and reasoning.',
+    description: 'Full governance pipeline (emit -> cross-correlate -> triangulate -> fuse -> decide).',
     inputSchema: { type: 'object', properties: { proposalId: { type: 'string', minLength: 3, description: 'Proposal identifier' }, proposalText: { type: 'string', minLength: 30, description: 'Full proposal text' }, codeDiff: { type: 'string', description: 'Optional code diff for correlation' }, agentReviews: { type: 'array', items: { type: 'string' }, minItems: 1, description: 'Agent review texts' }, historicalSignalIds: { type: 'array', items: { type: 'string' }, description: 'Past signal IDs for historical coherence' } }, required: ['proposalId', 'proposalText', 'agentReviews'] },
   },
   {
     name: 'govern_with_solar',
-    description: 'Enhanced governance decision with real-time solar context from NOAA GOES. Fetches current solar activity level (quiet/moderate/active/storm), adjusts vote weight and confidence based on solar conditions, and returns enhanced recommendation with solar warnings.',
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Runs the full governance pipeline while injecting live solar activity. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
     inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' } }, required: ['proposal'] },
   },
   {
     name: 'call_connected_tool',
-    description: 'Universal tool dispatcher. Call any connected tool by name with its parameters. Acts as a proxy/router to all available tools.',
-    inputSchema: { type: 'object', properties: { tool_name: { type: 'string', description: 'Name of the tool to call (e.g. compute_tdf, govern_with_solar, process_current_sun)' }, params: { type: 'object', description: 'Tool-specific parameters as a JSON object' } }, required: ['tool_name'] },
+    description: 'Universal proxy tool. Dynamically calls any other Dynamo MCP tool by name.',
+    inputSchema: { type: 'object', properties: { tool_name: { type: 'string', description: 'Name of the tool to call (e.g. compute_tdf, govern_with_solar)' }, params: { type: 'object', description: 'Tool-specific parameters as a JSON object' } }, required: ['tool_name'] },
+  },
+  {
+    name: 'get_docs',
+    description: 'Returns this documentation. Optionally filter by tool name.',
+    inputSchema: { type: 'object', properties: { tool: { type: 'string', description: 'Optional tool name to filter docs to a single tool. Omit for full docs.' } } },
+  },
+  {
+    name: 'explain_term',
+    description: 'Looks up a term from the Dynamo glossary.',
+    inputSchema: { type: 'object', properties: { term: { type: 'string', description: 'Glossary term to explain (case-insensitive). Examples: "TAU", "PHI", "TDF"' } }, required: ['term'] },
+  },
+  {
+    name: 'explain_governance_output',
+    description: 'Converts a governance output (from either evaluate_governance or govern_with_solar) into human-readable plain text.',
+    inputSchema: { type: 'object', properties: { governanceOutput: { type: 'object', description: 'The JSON output from evaluate_governance or govern_with_solar tool.' } }, required: ['governanceOutput'] },
   },
 ]
 
@@ -835,6 +1134,98 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
       return { success: false, tool: toolName, error: err.message }
     }
   },
+  get_docs: (args: any) => {
+    const filterTool = args?.tool
+    if (filterTool) {
+      const lines = FULL_DOCS.split('\n')
+      const filtered: string[] = []
+      let inSection = false
+      for (const line of lines) {
+        if (line.startsWith('### ') && line.toLowerCase().includes(filterTool.toLowerCase())) {
+          inSection = true
+          filtered.push(line)
+          continue
+        }
+        if (line.startsWith('### ') && inSection) {
+          inSection = false
+        }
+        if (inSection) filtered.push(line)
+      }
+      if (filtered.length > 0) {
+        return { docs: filtered.join('\n'), tool: filterTool, toolCount: 1 }
+      }
+      return { docs: `No documentation found for tool "${filterTool}". Use get_docs without parameters to see all tools.`, tool: filterTool, toolCount: 0 }
+    }
+    return { docs: FULL_DOCS, toolCount: Object.keys(TOOL_HANDLERS).length }
+  },
+  explain_term: (args: any) => {
+    const raw = args?.term
+    if (!raw) return { error: 'Missing term parameter', available_terms: Object.keys(GLOSSARY).sort() }
+    const termKey = raw.trim().toLowerCase()
+    const keyMatch = Object.keys(GLOSSARY).find(k => k.toLowerCase() === termKey)
+    let match = keyMatch ? GLOSSARY[keyMatch] : undefined
+    if (!match) match = Object.values(GLOSSARY).find(v => v.term.toLowerCase().includes(termKey))
+    if (!match) {
+      const available = Object.keys(GLOSSARY).sort()
+      return { error: `Unknown term "${raw}". Available terms: ${available.join(', ')}`, available_terms: available }
+    }
+    return {
+      term: match.term,
+      short: match.short,
+      long: match.long,
+      formula: match.formula ?? null,
+      example: match.example ?? null,
+    }
+  },
+  explain_governance_output: (args: any) => {
+    const output = args?.governanceOutput
+    if (!output || typeof output !== 'object') {
+      return { error: 'Missing or invalid governanceOutput. Provide the JSON output from evaluate_governance or govern_with_solar.' }
+    }
+    const lines: string[] = []
+    const rec = output.recommendation ?? output.finalRecommendation ?? 'unknown'
+    const conf = output.confidence ?? output.confidenceAdjustment ?? null
+    const weight = output.voteWeight ?? output.adjustedVoteWeight ?? null
+    const reason = output.reasoning ?? null
+    const solarCtx = output.solarContext ?? null
+
+    lines.push(`Recommendation: ${rec}`)
+    if (conf !== null) {
+      const confPct = typeof conf === 'number' && conf <= 1 ? `${(conf * 100).toFixed(0)}%` : conf
+      lines.push(`Confidence: ${confPct}`)
+    }
+    if (weight !== null) {
+      lines.push(`Vote weight: ${typeof weight === 'number' ? weight.toFixed(3) : weight}`)
+    }
+    if (reason) {
+      lines.push(`Reasoning: ${reason}`)
+    }
+
+    if (rec === 'PASS') {
+      lines.push('This proposal PASSED governance. The recommendation is to approve and proceed.')
+    } else if (rec === 'REJECT') {
+      lines.push('This proposal was REJECTED by governance. The recommendation is to decline and revisit.')
+    } else if (rec === 'NEEDS REVISION') {
+      lines.push('This proposal NEEDS REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
+    }
+
+    if (solarCtx) {
+      lines.push('')
+      lines.push('Solar context:')
+      lines.push(`  Activity level: ${solarCtx.solarActivityLevel ?? 'unknown'}`)
+      if (solarCtx.solarResonance !== undefined) lines.push(`  Solar resonance: ${solarCtx.solarResonance.toFixed(4)}`)
+      if (solarCtx.solarActivityModifier !== undefined) {
+        const mod = solarCtx.solarActivityModifier
+        const sign = mod >= 0 ? '+' : ''
+        lines.push(`  Solar modifier: ${sign}${mod.toFixed(3)} (${mod >= 0 ? 'boosts' : 'reduces'} confidence and weight)`)
+      }
+      if (solarCtx.recommendation) lines.push(`  Solar advice: ${solarCtx.recommendation}`)
+      if (output.finalRecommendation && output.finalRecommendation !== rec) {
+        lines.push(`  Final recommendation (with solar): ${output.finalRecommendation}`)
+      }
+    }
+    return { explanation: lines.join('\n') }
+  },
 }
 
 // Auto-generate GET documentation for all tools
@@ -890,13 +1281,30 @@ app.route('/', createGovernanceRouter(TOOL_HANDLERS))
 app.get('/govern_with_solar', (c: Context) => {
   return c.json({
     name: 'govern_with_solar',
-    description: 'Enhanced governance decision with real-time solar context from NOAA GOES. Fetches current solar activity level (quiet/moderate/active/storm), adjusts vote weight and confidence based on solar conditions, and returns enhanced recommendation with solar warnings.',
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Runs the full governance pipeline while injecting live solar activity. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING]. Recommended default for most proposals.',
     method: 'POST',
     url: 'https://mcp-production-80e2.up.railway.app/govern_with_solar',
     parameters: {
       proposal: { type: 'string', required: true, minLength: 10, description: 'Governance proposal text' },
-      baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight' },
+      baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight (0.5-1.5)' },
     },
+    when_to_use: [
+      'Most strategic or high-impact proposals (recommended default)',
+      'When you want decisions to include live cosmic context',
+      'During elevated solar activity (applies more conservative weighting)',
+    ],
+    when_to_use_evaluate_governance_instead: [
+      'Purely technical or low-level protocol decisions',
+      'When you want to exclude external modifiers',
+    ],
+    solar_behavior: {
+      quiet: 'Slight stability boost',
+      moderate: 'Neutral (no adjustment)',
+      active: 'Mild reduction in vote weight',
+      storm: 'Significant reduction in vote weight + [SOLAR STORM WARNING]',
+    },
+    decision_logic_note: 'Prefer using the numeric confidenceAdjustment for decision-making rather than switching on solarActivityLevel string. The numeric adjustment is the direct governance pipeline output and is more robust if finer-grained solar levels are added later. Use solarActivityLevel and recommendation for logging and transparency.',
+    outputs: ['originalRecommendation', 'solarContext', 'adjustedVoteWeight', 'finalRecommendation', 'confidenceAdjustment'],
     example: {
       request: '{"proposal":"Deploy new solar observatory","baseVoteWeight":1.0}',
       response: {
@@ -913,7 +1321,6 @@ app.get('/govern_with_solar', (c: Context) => {
         confidenceAdjustment: -0.15,
       },
     },
-    note: 'Current solar activity level is fetched live from NOAA GOES. During solar storms, vote weights are reduced and warnings are appended.',
   })
 })
 
@@ -926,15 +1333,17 @@ app.post('/govern_with_solar', async (c: Context) => {
 app.get('/call_connected_tool', (c: Context) => {
   return c.json({
     name: 'call_connected_tool',
-    description: 'Universal proxy to call any Dynamo MCP tool by name. Use this to dynamically invoke tools without hardcoding endpoints.',
+    description: 'Universal proxy tool. Dynamically calls any other Dynamo MCP tool by name. Useful for meta-orchestration and dynamic tool routing.',
     method: 'POST',
     url: 'https://mcp-production-80e2.up.railway.app/call_connected_tool',
     parameters: {
-      tool_name: { type: 'string', required: true, description: 'Name of the tool to invoke' },
-      params: { type: 'object', required: false, default: {}, description: 'Tool-specific parameters' },
+      tool_name: { type: 'string', required: true, description: 'Name of the tool to call (e.g. compute_tdf, govern_with_solar)' },
+      params: { type: 'object', required: false, default: {}, description: 'Tool-specific parameters passed directly to the target tool' },
     },
+    outputs: ['success', 'tool', 'result (or error)'],
+    use_case: 'Meta-orchestration — call tool X based on the output of tool Y.',
     example: {
-      request: '{"tool_name":"govern_with_solar","params":{"proposal":"Test","baseVoteWeight":1.0}}',
+      request: '{"tool_name":"govern_with_solar","params":{"proposal":"Deploy new observatory","baseVoteWeight":1.0}}',
       response: {
         success: true,
         tool: 'govern_with_solar',
@@ -958,6 +1367,155 @@ app.post('/call_connected_tool', async (c: Context) => {
   } catch (err: any) {
     return c.json({ success: false, tool: toolName, error: err.message }, 500)
   }
+})
+
+// ===== Documentation Tools =====
+
+app.get('/get_docs', (c: Context) => {
+  const tool = c.req.query('tool')
+  if (tool) {
+    const lines = FULL_DOCS.split('\n')
+    const filtered: string[] = []
+    let inSection = false
+    for (const line of lines) {
+      if (line.startsWith('### ') && line.toLowerCase().includes(tool.toLowerCase())) {
+        inSection = true
+        filtered.push(line)
+        continue
+      }
+      if (line.startsWith('### ') && inSection) inSection = false
+      if (inSection) filtered.push(line)
+    }
+    if (filtered.length > 0) {
+      return c.json({ success: true, docs: filtered.join('\n'), tool, toolCount: 1 })
+    }
+    return c.json({ success: true, docs: FULL_DOCS, toolCount: Object.keys(TOOL_HANDLERS).length })
+  }
+  return c.json({ success: true, docs: FULL_DOCS, toolCount: Object.keys(TOOL_HANDLERS).length })
+})
+
+app.post('/get_docs', async (c: Context) => {
+  const body = await c.req.json().catch(() => ({}))
+  const tool = body?.tool
+  if (tool) {
+    const lines = FULL_DOCS.split('\n')
+    const filtered: string[] = []
+    let inSection = false
+    for (const line of lines) {
+      if (line.startsWith('### ') && line.toLowerCase().includes(tool.toLowerCase())) {
+        inSection = true
+        filtered.push(line)
+        continue
+      }
+      if (line.startsWith('### ') && inSection) inSection = false
+      if (inSection) filtered.push(line)
+    }
+    if (filtered.length > 0) {
+      return c.json({ success: true, docs: filtered.join('\n'), tool, toolCount: 1 })
+    }
+    return c.json({ success: true, docs: `No documentation found for tool "${tool}". Use get_docs without parameters to see all tools.`, tool, toolCount: 0 })
+  }
+  return c.json({ success: true, docs: FULL_DOCS, toolCount: Object.keys(TOOL_HANDLERS).length })
+})
+
+app.get('/explain_term', (c: Context) => {
+  const raw = c.req.query('term')
+  if (!raw) {
+    return c.json({ success: true, available_terms: Object.keys(GLOSSARY).sort(), note: 'Use ?term=<name> to look up a term' })
+  }
+  const termKey = raw.trim().toLowerCase()
+  const match = GLOSSARY[termKey] ?? Object.values(GLOSSARY).find(v => v.term.toLowerCase().includes(termKey))
+  if (!match) {
+    return c.json({ success: false, error: `Unknown term "${raw}". Available terms: ${Object.keys(GLOSSARY).sort().join(', ')}` })
+  }
+  return c.json({ success: true, term: match.term, short: match.short, long: match.long, formula: match.formula ?? null, example: match.example ?? null })
+})
+
+app.post('/explain_term', async (c: Context) => {
+  const body = await c.req.json().catch(() => ({}))
+  const raw = body?.term
+  if (!raw) {
+    return c.json({ success: false, error: 'Missing term parameter', available_terms: Object.keys(GLOSSARY).sort() })
+  }
+  const termKey = raw.trim().toLowerCase()
+  const keyMatch = Object.keys(GLOSSARY).find(k => k.toLowerCase() === termKey)
+  let match = keyMatch ? GLOSSARY[keyMatch] : undefined
+  if (!match) match = Object.values(GLOSSARY).find(v => v.term.toLowerCase().includes(termKey))
+  if (!match) {
+    const available = Object.keys(GLOSSARY).sort()
+    return c.json({ success: false, error: `Unknown term "${raw}". Available terms: ${available.join(', ')}`, available_terms: available })
+  }
+  return c.json({ success: true, term: match.term, short: match.short, long: match.long, formula: match.formula ?? null, example: match.example ?? null })
+})
+
+app.get('/explain_governance_output', (c: Context) => {
+  return c.json({
+    name: 'explain_governance_output',
+    description: 'Converts a governance output (from either evaluate_governance or govern_with_solar) into human-readable plain text. Decodes the recommendation (PASS/REJECT/NEEDS REVISION), confidence, vote weight, reasoning, and solar context.',
+    method: 'POST',
+    parameters: {
+      governanceOutput: { type: 'object', required: true, description: 'The JSON output from evaluate_governance or govern_with_solar' },
+    },
+    outputs: ['explanation (human-readable analysis of the governance decision)'],
+    example: {
+      request: '{"governanceOutput":{"recommendation":"PASS","confidence":0.85,"voteWeight":1.0,"reasoning":"Strong alignment"}}',
+      response: {
+        success: true,
+        explanation: 'Recommendation: PASS\nConfidence: 85%\nVote weight: 1.000\nReasoning: Strong alignment\nThis proposal PASSED governance. The recommendation is to approve and proceed.',
+      },
+    },
+  })
+})
+
+app.post('/explain_governance_output', async (c: Context) => {
+  const body = await c.req.json().catch(() => ({}))
+  const output = body?.governanceOutput
+  if (!output || typeof output !== 'object') {
+    return c.json({ success: false, error: 'Missing or invalid governanceOutput. Provide the JSON output from evaluate_governance or govern_with_solar.' })
+  }
+  const lines: string[] = []
+  const rec = output.recommendation ?? output.finalRecommendation ?? 'unknown'
+  const conf = output.confidence ?? output.confidenceAdjustment ?? null
+  const weight = output.voteWeight ?? output.adjustedVoteWeight ?? null
+  const reason = output.reasoning ?? null
+  const solarCtx = output.solarContext ?? null
+
+  lines.push(`Recommendation: ${rec}`)
+  if (conf !== null) {
+    const confPct = typeof conf === 'number' && conf <= 1 ? `${(conf * 100).toFixed(0)}%` : String(conf)
+    lines.push(`Confidence: ${confPct}`)
+  }
+  if (weight !== null) {
+    lines.push(`Vote weight: ${typeof weight === 'number' ? weight.toFixed(3) : weight}`)
+  }
+  if (reason) lines.push(`Reasoning: ${reason}`)
+
+  if (rec === 'PASS') lines.push('This proposal PASSED governance. The recommendation is to approve and proceed.')
+  else if (rec === 'REJECT') lines.push('This proposal was REJECTED by governance. The recommendation is to decline and revisit.')
+  else if (rec === 'NEEDS REVISION') lines.push('This proposal NEEDS REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
+
+  if (solarCtx) {
+    lines.push('')
+    lines.push('Solar context:')
+    lines.push(`  Activity level: ${solarCtx.solarActivityLevel ?? 'unknown'}`)
+    if (solarCtx.solarResonance !== undefined) lines.push(`  Solar resonance: ${solarCtx.solarResonance.toFixed(4)}`)
+    if (solarCtx.solarActivityModifier !== undefined) {
+      const mod = solarCtx.solarActivityModifier
+      const sign = mod >= 0 ? '+' : ''
+      lines.push(`  Solar modifier: ${sign}${mod.toFixed(3)} (${mod >= 0 ? 'boosts' : 'reduces'} confidence and weight)`)
+    }
+    if (solarCtx.recommendation) lines.push(`  Solar advice: ${solarCtx.recommendation}`)
+    if (output.finalRecommendation && output.finalRecommendation !== rec) {
+      lines.push(`  Final recommendation (with solar): ${output.finalRecommendation}`)
+    }
+  }
+
+  return c.json({ success: true, explanation: lines.join('\n') })
+})
+
+// ===== GET /docs — Full documentation page =====
+app.get('/docs', (c: Context) => {
+  return c.json({ success: true, docs: FULL_DOCS, toolCount: Object.keys(TOOL_HANDLERS).length, glossaryTerms: Object.keys(GLOSSARY).length })
 })
 
 // Debug endpoint to test MCP tool handler directly
