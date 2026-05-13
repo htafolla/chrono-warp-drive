@@ -131,40 +131,75 @@ export class SolarDataFetcher {
     }
   }
 
-  solarDataToSpectrum(solar: SolarData, points = 540): SpectrumData {
+  /**
+   * Derive a small, high-value feature vector from the multi-channel solar state.
+   * These are the *physically meaningful* scalars that consumers (UI, neural
+   * pipeline) should prefer over re-extracting them from the spectrum.
+   *
+   * Modeling assumptions (kept deliberately conservative):
+   *  - hardnessRatio: short/long X-ray ratio, proxy for flare temperature.
+   *  - xrayUVLift:    log-scaled long X-ray flux, proxy for chromospheric UV response.
+   *  - magPerturbation: magnetometer |dB| over a short window, proxy for geomagnetic activity.
+   *  - windBroadeningA: H-α Doppler sigma in Ångströms, scales with solar-wind speed.
+   *  - kpIndex:       planetary K, included as-is for downstream weighting.
+   */
+  deriveSolarFeatures(solar: SolarData): SolarFeatures {
+    return {
+      hardnessRatio: clamp(solar.xray.hardnessRatio, 0, 2),
+      xrayUVLift: clamp(Math.log10(Math.max(solar.xray.long, 1e-9) / 1e-7) / 3, -0.3, 1.0),
+      magPerturbation: clamp(solar.magnetometer.perturbation / 50, 0, 1),
+      windBroadeningA: clamp(solar.solarWind.speed / 800, 0.4, 2.5) * 8,
+      kpIndex: solar.kpIndex,
+      activityLevel: solar.activityLevel,
+    };
+  }
+
+  /**
+   * Map measured solar state into a 3800–9200 Å spectrum compatible with the
+   * existing SpectrumData neural-fusion pipeline.
+   *
+   * Modeling assumptions (intentionally minimal — the model downsamples to
+   * 200 points and renormalizes, so high-fidelity line lists are wasted):
+   *   1. Planck @ 5778 K continuum baseline.
+   *   2. Hardness-ratio tilt: hot flares brighten the blue continuum.
+   *   3. Long-X-ray UV lift: chromospheric response on the blue end.
+   *   4. Single H-α absorption line, Doppler-broadened by solar-wind speed.
+   *
+   * Removed (vs. earlier richer version) because they introduced unvalidated
+   * heuristics or got flattened by downstream normalization:
+   *   - Ca II H+K and Na D absorption (decorative after normalization)
+   *   - Magnetometer-driven H-α emission core (no clear physical coupling)
+   *   - SEP proton noise floor (added bias without measured benefit)
+   *
+   * Magnetometer/proton/Kp signal is preserved via deriveSolarFeatures().
+   */
+  solarDataToSpectrum(solar: SolarData, points = 256): SpectrumData {
     const lambdaStartA = 3800;
-    const lambdaEndA   = 9200;
-    const wavelengths: number[] = new Array(points);
-    const intensities: number[] = new Array(points);
+    const lambdaEndA = 9200;
+    const f = this.deriveSolarFeatures(solar);
 
-    const hardness = clamp(solar.xray.hardnessRatio, 0, 2);
-    const xrayLift = clamp(Math.log10(Math.max(solar.xray.long, 1e-9) / 1e-7) / 3, -0.3, 1.0);
-    const protonNoise = clamp(Math.log10(Math.max(solar.particles.protons.ge10, 0.01) + 1) / 4, 0, 0.25);
-    const magMod  = clamp(solar.magnetometer.perturbation / 50, 0, 1);
-    const windBroadenA = clamp(solar.solarWind.speed / 800, 0.4, 2.5) * 8;
-
-    const haCenter = 6563;
-    const caK = 3934;
-    const caH = 3968;
-    const naD = 5893;
+    const wavelengths = new Array<number>(points);
+    const intensities = new Array<number>(points);
 
     for (let i = 0; i < points; i++) {
       const lambdaA = lambdaStartA + (lambdaEndA - lambdaStartA) * (i / (points - 1));
+
+      // (1) Quiet-Sun Planckian baseline at 5778 K
       let I = planckNormalized(lambdaA, 5778);
-      const tilt = 1 + 0.35 * hardness * (5500 - lambdaA) / 5500;
+
+      // (2) Hardness tilt — bluer continuum during hot flares
+      const tilt = 1 + 0.35 * f.hardnessRatio * (5500 - lambdaA) / 5500;
       I *= clamp(tilt, 0.6, 1.6);
+
+      // (3) UV/blue lift from long X-ray flux
       const blueWeight = Math.exp(-Math.pow((lambdaA - 3900) / 400, 2));
-      I += xrayLift * blueWeight * 0.6;
-      I -= absorptionLine(lambdaA, haCenter, windBroadenA, 0.45 * (1 - 0.5 * magMod));
-      I -= absorptionLine(lambdaA, caK, 4, 0.55);
-      I -= absorptionLine(lambdaA, caH, 4, 0.50);
-      I -= absorptionLine(lambdaA, naD, 3, 0.30);
-      if (magMod > 0.15) {
-        I += emissionCore(lambdaA, haCenter, 1.2, 0.25 * magMod);
-      }
-      I += protonNoise * pseudoNoise(i, lambdaA);
-      intensities[i] = clamp(I, 0, 2);
+      I += f.xrayUVLift * blueWeight * 0.6;
+
+      // (4) H-α absorption, broadened by solar-wind speed
+      I -= absorptionLine(lambdaA, 6563, f.windBroadeningA, 0.45);
+
       wavelengths[i] = lambdaA;
+      intensities[i] = clamp(I, 0, 2);
     }
 
     return {
@@ -172,12 +207,20 @@ export class SolarDataFetcher {
       intensities,
       granularity: (lambdaEndA - lambdaStartA) / points,
       source: 'STELLAR_LIBRARY',
-      metadata: {
-        class: `Sun (${solar.activityLevel})`,
-        snr: 1 / Math.max(protonNoise, 0.01),
-      },
+      metadata: { class: `Sun (${solar.activityLevel})` },
     };
   }
+}
+
+// ---------- Derived feature vector ---------------------------------------
+
+export interface SolarFeatures {
+  hardnessRatio: number;     // 0..2
+  xrayUVLift: number;        // -0.3..1.0
+  magPerturbation: number;   // 0..1
+  windBroadeningA: number;   // Å sigma for H-α
+  kpIndex: number;           // 0..9
+  activityLevel: ActivityLevel;
 }
 
 // ---------- Helpers -------------------------------------------------------
@@ -195,13 +238,6 @@ function absorptionLine(l: number, center: number, sigma: number, depth: number)
   return depth * Math.exp(-Math.pow(l - center, 2) / (2 * sigma * sigma));
 }
 
-function emissionCore(l: number, center: number, sigma: number, height: number) {
-  return height * Math.exp(-Math.pow(l - center, 2) / (2 * sigma * sigma));
-}
-
-function pseudoNoise(i: number, l: number) {
-  return (Math.sin(i * 12.34) * Math.cos(l * 0.01) + 1) / 2;
-}
 
 function linearSlope(points: number[][]) {
   const n = points.length;
