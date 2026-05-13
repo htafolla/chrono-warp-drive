@@ -1,9 +1,9 @@
 // BLURRN v4.5 Temporal Photonic Transpondent Transporter Calculator
-// Enhanced with SDSS integration and Neural Fusion
-import * as tf from '@tensorflow/tfjs';
-import { SpectrumData, NeuralInput, NeuralOutput, TPTTv4Result } from '@/types/sdss';
+// Enhanced with SDSS integration. Neural fusion is now sourced from the
+// v4.7 TF.js worker in TPTTApp; the v4 calculator no longer fabricates
+// neuralOutput here.
+import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 import { PHI, FREQ, C, DELTA_T } from './temporalCalculator';
-import { deterministicRandom, generateCycle } from './deterministicUtils';
 
 export class TemporalCalculatorV4 {
   private inputData: SpectrumData | null = null;
