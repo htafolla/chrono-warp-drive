@@ -205,7 +205,8 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
       if (!workerRef.current) {
         const cascade_index = Math.floor(Math.PI / 7) + n;
         const target_tptt = 5.3e12;
-        const efficiency = Math.min(1, tdf_value / target_tptt);
+        const safe_tdf = Math.max(1, Math.abs(tdf_value));
+        const efficiency = Math.max(0, Math.min(1, Math.log10(safe_tdf) / Math.log10(target_tptt)));
         return { cascade_index, efficiency };
       }
 

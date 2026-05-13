@@ -150,9 +150,13 @@ export function createNeuralWorker(): Worker {
         const voids = 7;
         const cascade_index = Math.floor(pi / voids) + n;
         
-        // Efficiency calculation normalized to [0..1] based on tPTT target (5.3e12)
+        // Log-scaled efficiency in [0..1] against tPTT target (5.3e12).
+        // Linear ratio collapses to 0 for typical sub-target tdf values; log
+        // scaling keeps the metric responsive across the full tPTT range.
         const target_tptt = 5.3e12;
-        const efficiency = Math.min(1, tdf_value / target_tptt);
+        const safe_tdf = Math.max(1, Math.abs(tdf_value));
+        const log_target = Math.log10(target_tptt);
+        const efficiency = Math.max(0, Math.min(1, Math.log10(safe_tdf) / log_target));
         
         const computeTime = performance.now() - startTime;
         
