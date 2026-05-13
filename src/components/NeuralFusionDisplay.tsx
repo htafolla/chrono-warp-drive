@@ -28,6 +28,10 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
   const [animatedOutput, setAnimatedOutput] = useState(neuralOutput);
   const isPageVisible = usePageVisibility();
 
+  useEffect(() => {
+    setAnimatedOutput(neuralOutput);
+  }, [neuralOutput]);
+
   // Add micro-variations to make data more dynamic (throttled for performance)
   useEffect(() => {
     if (!neuralOutput || !isActive || !isPageVisible) return;
