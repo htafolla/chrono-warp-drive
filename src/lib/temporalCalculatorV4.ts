@@ -291,71 +291,10 @@ export class TemporalCalculatorV4 {
     return denominator > 0 ? numerator / denominator : 0;
   }
 
-  private async computeNeuralFusion(): Promise<NeuralOutput | null> {
-    if (!this.isModelLoaded || !this.neuralModel || !this.inputData) {
-      return null;
-    }
-
-    try {
-      // Prepare input tensor (downsample to 100 features for simplicity)
-      const sampledIntensities = this.sampleArray(this.inputData.intensities, 100);
-      const inputTensor = tf.tensor2d([sampledIntensities]);
-
-      // Neural prediction
-      const prediction = this.neuralModel.predict(inputTensor) as tf.Tensor;
-      const predictionData = await prediction.data();
-
-      // Generate synaptic sequence
-      const synapticSequence = this.computeSynapticSequence("isotropic metamorphosis");
-      
-      // Neural spectra generation
-      const neuralSpectra = Array.from(predictionData).map(val => val * 100);
-
-      // Metamorphosis index
-      const metamorphosisIndex = synapticSequence.length > 0 ? 0.8 : 0.3;
-
-      // Cleanup tensors
-      inputTensor.dispose();
-      prediction.dispose();
-
-      return {
-        synapticSequence,
-        neuralSpectra,
-        metamorphosisIndex,
-        confidenceScore: deterministicRandom(generateCycle(), 0) * 0.3 + 0.7 // 0.7-1.0 range
-      };
-    } catch (error) {
-      console.warn('Neural fusion computation failed:', error);
-      return null;
-    }
-  }
-
-  private computeSynapticSequence(pattern: string): string {
-    // Enhanced synaptic sequence generation
-    const sequences = [
-      "quantum entanglement detected",
-      "temporal phase coherence achieved", 
-      "spectral metamorphosis in progress",
-      "dimensional flux stabilized",
-      "neural pathway synchronized"
-    ];
-    
-    const hash = this.simpleHash(pattern);
-    return sequences[hash % sequences.length];
-  }
-
-  private generateEnhancedRippel(tPTT: number, E_t: number, neuralOutput: NeuralOutput | null): string {
-    const baseWords = ["surge", "pivot", "chrono", "flux", "phase", "neural"];
-    const neuralWords = neuralOutput ? ["sync", "morph", "neural", "quantum"] : [];
-    const allWords = [...baseWords, ...neuralWords];
-    
-    const wordIndex = Math.floor(Date.now()) % allWords.length;
-    const word = allWords[wordIndex];
-    
-    const neuralInfo = neuralOutput ? 
-      `, neural: ${neuralOutput.confidenceScore.toFixed(2)}` : '';
-    
-    return `a ${word}. ${word} bends spacetime. tPTT: ${tPTT.toFixed(2)}, E_t: ${E_t.toFixed(3)}${neuralInfo} ~ zap 🌠`;
+  private generateRippel(tPTT: number, E_t: number): string {
+    const words = ["surge", "pivot", "chrono", "flux", "phase", "neural"];
+    const word = words[Math.floor(Date.now()) % words.length];
+    return `a ${word}. ${word} bends spacetime. tPTT: ${tPTT.toFixed(2)}, E_t: ${E_t.toFixed(3)} ~ zap 🌠`;
   }
 
   // Utility methods
@@ -365,34 +304,6 @@ export class TemporalCalculatorV4 {
     return squaredDiffs.reduce((a, b) => a + b) / values.length;
   }
 
-  private sampleArray(array: number[], targetSize: number): number[] {
-    if (array.length <= targetSize) return array;
-    
-    const step = array.length / targetSize;
-    const sampled: number[] = [];
-    
-    for (let i = 0; i < targetSize; i++) {
-      const index = Math.floor(i * step);
-      sampled.push(array[index]);
-    }
-    
-    return sampled;
-  }
-
-  private simpleHash(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash);
-  }
-
-  // Cleanup method
-  dispose(): void {
-    if (this.neuralModel) {
-      this.neuralModel.dispose();
-    }
-  }
+  // No-op for API compatibility (no TF model held here anymore)
+  dispose(): void {}
 }
