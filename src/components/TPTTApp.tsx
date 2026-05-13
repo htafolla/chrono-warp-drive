@@ -75,6 +75,22 @@ import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
 import { APP_VERSION, APP_TAGLINE, APP_FEATURE, APP_TAG } from '@/lib/version';
 import { Link } from 'react-router-dom';
 
+// Derive a synaptic phrase from live cascade index + isotope.
+// Replaces the hardcoded "isotropic metamorphosis" hash from the old v4.5 fake layer.
+function synapticPhrase(cascadeIndex: number, isotopeType: string): string {
+  const phrases = [
+    "quantum entanglement detected",
+    "temporal phase coherence achieved",
+    "spectral metamorphosis in progress",
+    "dimensional flux stabilized",
+    "neural pathway synchronized",
+    "cascade resonance amplified",
+    "isotopic vortex aligned",
+  ];
+  const idx = Math.abs(Math.floor(cascadeIndex)) % phrases.length;
+  return `${phrases[idx]} [${isotopeType}]`;
+}
+
 export function TPTTApp() {
   // Initialize memory manager
   React.useEffect(() => {
