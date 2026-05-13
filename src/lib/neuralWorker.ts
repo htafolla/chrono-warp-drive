@@ -88,14 +88,9 @@ export function createNeuralWorker(): Worker {
           loss: 'meanSquaredError'
         });
         
-        isInitialized = true;
-        console.log('[Neural Worker] Model created and compiled successfully');
-        self.postMessage({ type: 'initialized', data: { fallbackMode: false } });
+        console.log('[Neural Worker] TF.js model compiled — upgraded from fallback mode');
       } catch (error) {
-        self.postMessage({ 
-          type: 'error', 
-          error: 'Failed to initialize TensorFlow.js: ' + error.message 
-        });
+        console.warn('[Neural Worker] TF.js init error, staying in fallback:', error.message);
       }
     }
     
