@@ -5,7 +5,7 @@ import express from 'express'
 import cors from 'cors'
 import { NeuralFusion } from './lib/neuralFusion'
 import { stellarLibrary } from './lib/stellarLibraryLoader'
-import { fetchCurrentSolarData } from './lib/solarDataFetcher'
+import { solarDataFetcher } from './lib/solarDataFetcher'
 import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance'
 
 const app = express()
@@ -134,28 +134,37 @@ app.post('/process-current-sun', async (req, res) => {
   try {
     if (!neuralFusion) return res.status(503).json({ error: 'Neural Fusion engine not initialized' })
 
-    const solarData = await fetchCurrentSolarData()
+    // Multi-channel NOAA pull → physically-motivated 3800–9200 Å spectrum +
+    // SolarFeatures vector that the engine uses to modulate outputs.
+    const solarData = await solarDataFetcher.fetchCurrentSolarData()
+    const spectrum = solarDataFetcher.solarDataToSpectrum(solarData, 256)
+    const solarFeatures = solarDataFetcher.deriveSolarFeatures(solarData)
+
     const result = await neuralFusion.processNeuralInput({
-      spectrumData: { wavelengths: solarData.wavelengths, intensities: solarData.flux, granularity: solarData.wavelengths.length, source: 'NOAA-GOES' },
+      spectrumData: spectrum,
       temporalPhases: [0.1, 0.5, 0.9],
       isotopeFactor: 1.666,
       fractalToggle: false,
+      solarFeatures,
     })
 
     res.json({
       success: true,
       solarData: {
         timestamp: solarData.timestamp,
-        xrayFlux: solarData.xrayFlux,
-        xrayFluxString: solarData.xrayFluxString,
+        xrayFlux: solarData.xray.long,
+        xrayFluxString: solarData.xray.long.toExponential(2),
         activityLevel: solarData.activityLevel,
+        kpIndex: solarData.kpIndex,
+        flareClass: solarData.xray.flareClass,
         source: solarData.source,
-        metadata: solarData.metadata,
+        channelStatus: solarData.channelStatus,
       },
+      solarFeatures,
       metamorphosisIndex: result.metamorphosisIndex,
       confidenceScore: result.confidenceScore,
       synapticSequence: result.synapticSequence,
-      engine: 'real-tensorflow + real-time-solar-data',
+      engine: 'real-tensorflow + multi-channel-noaa + solar-coupled',
     })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
