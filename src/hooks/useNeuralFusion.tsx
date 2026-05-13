@@ -168,9 +168,8 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
    */
   const computeQEnt = useCallback(
     async (delta_phase: number, n: number, phi: number = 1.666): Promise<number> => {
-      if (!workerRef.current || !isInitialized) {
-        console.warn('[Neural Fusion] Worker not initialized, using fallback calculation');
-        // Fallback calculation
+      if (!workerRef.current) {
+        // Worker not constructed (disabled). Use analytic fallback.
         const phase_factor = Math.abs(Math.cos(phi * n / 2) / Math.PI);
         const cascade_factor = Math.sin(phi * n / 4) * Math.exp(-n / 20);
         const delta_weight = delta_phase * (1 + (n - 25) / 10);
