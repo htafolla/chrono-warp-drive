@@ -16,24 +16,39 @@ export interface NeuralFusionResult {
 }
 
 /**
- * Solar → neural input modulation (Codex v4.7 option-a coupling).
+ * Solar → neural input modulation (Codex v4.7 option-a coupling, v1).
  *
- * Rationale:
- *   The TF.js worker only consumes scalar cascade params. Rather than
- *   touching the model architecture, we *shift* the two scalars that have
- *   the clearest physical analog to chromospheric / geomagnetic forcing:
+ * STATUS: starting point, not the final form. This is a *contained* coupling
+ * that nudges the two scalars the worker already consumes; it does NOT feed
+ * SolarFeatures into the model tensor. A future pass should expose the full
+ * feature vector as direct model input.
  *
- *     delta_phase  ← amplified by xrayUVLift (chromospheric UV response)
- *                    and magPerturbation (|dB/dt| proxy). Active Sun =
- *                    larger phase excursions reaching the cascade.
- *     tau          ← biased slightly by the same channels. xrayUVLift
- *                    raises coherence (more UV pumping); magPerturbation
- *                    lowers it (geomagnetic decoherence).
+ * Rationale (which scalars and why):
+ *   delta_phase ← amplified by xrayUVLift (chromospheric UV response) and
+ *                 magPerturbation (|dB/dt| proxy). Active Sun ⇒ larger phase
+ *                 excursions reaching the cascade.
+ *   tau         ← xrayUVLift raises coherence (UV pumping); magPerturbation
+ *                 lowers it (geomagnetic decoherence).
  *
- *   Coefficients are intentionally small and bounded so a quiet Sun
- *   (xrayUVLift≈0, magPerturbation≈0) is a no-op, and a storm-class
- *   forcing shifts each scalar by at most ~25%.
+ * Coefficients are tunable; bumped from the v0 (0.15/0.10/0.03/0.05) defaults
+ * so the effect is observable during moderate activity. Hard clamps keep the
+ * worker inputs in their original valid ranges.
+ *
+ *   Quiet Sun (uv≈0, mag≈0)        ⇒ no-op.
+ *   Storm-class (uv≈1, mag≈1)      ⇒ Δφ scaled ×1.40, τ scaled ×1.06 then clamped.
  */
+export const SOLAR_COUPLING = {
+  // delta_phase modulation
+  DELTA_PHASE_UV_GAIN: 0.25,   // xrayUVLift weight
+  DELTA_PHASE_MAG_GAIN: 0.15,  // magPerturbation weight
+  // tau modulation
+  TAU_UV_GAIN: 0.06,           // raises coherence
+  TAU_MAG_GAIN: 0.08,          // lowers coherence
+  // hard output clamps (must match the worker's valid input ranges)
+  TAU_MIN: 0.7,
+  TAU_MAX: 0.95,
+} as const;
+
 function applySolarModulation(
   delta_phase: number,
   tau: number,
@@ -43,11 +58,13 @@ function applySolarModulation(
   const uv = Math.max(-0.3, Math.min(1.0, solar.xrayUVLift));
   const mag = Math.max(0, Math.min(1, solar.magPerturbation));
 
-  const dpFactor = 1 + 0.15 * uv + 0.10 * mag;          // 0.955 .. 1.25
-  const tauFactor = 1 + 0.03 * uv - 0.05 * mag;          // 0.941 .. 1.03
+  const dpFactor = 1 + SOLAR_COUPLING.DELTA_PHASE_UV_GAIN * uv
+                     + SOLAR_COUPLING.DELTA_PHASE_MAG_GAIN * mag;
+  const tauFactor = 1 + SOLAR_COUPLING.TAU_UV_GAIN * uv
+                      - SOLAR_COUPLING.TAU_MAG_GAIN * mag;
 
   const dp = Math.max(0, Math.min(1, delta_phase * dpFactor));
-  const t = Math.max(0.7, Math.min(0.95, tau * tauFactor));
+  const t = Math.max(SOLAR_COUPLING.TAU_MIN, Math.min(SOLAR_COUPLING.TAU_MAX, tau * tauFactor));
   return { delta_phase: dp, tau: t, solar_applied: true };
 }
 
