@@ -48,8 +48,8 @@ import {
 import { TemporalCalculatorV4 } from '@/lib/temporalCalculatorV4';
 import { TemporalCalculatorV4_6 } from '@/lib/temporalCalculatorV4_6';
 import { PicklesAtlas } from '@/lib/picklesAtlas';
-import { NeuralFusion } from '@/lib/neuralFusion';
-import { SpectrumData, TPTTv4Result } from '@/types/sdss';
+import { useNeuralFusion } from '@/hooks/useNeuralFusion';
+import { SpectrumData, TPTTv4Result, NeuralOutput } from '@/types/sdss';
 import { TPTTv4_6Result, BlurrnV46Config } from '@/types/blurrn-v4-6';
 import { TimeShiftDisplay } from './TimeShiftDisplay';
 import { ExperimentLogger } from './ExperimentLogger';
