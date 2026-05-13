@@ -178,6 +178,8 @@ export function TPTTApp() {
   const [picklesAtlas] = useState(() => new PicklesAtlas());
   // v4.7 Neural fusion (TF.js worker) — replaces dead v4.5 NeuralFusion class
   const { lastResult: neuralFusionResult, computeFull: computeNeuralFusion } = useNeuralFusion({ enabled: true, autoInitialize: true });
+  // v4.7 option-a coupling: live solar features modulate delta_phase / tau
+  const { solarFeatures } = useSolarFeatures({ enabled: true });
   
   // v4.7 Chrono Transport Cascade System
   const [chronoEngine] = useState(() => new ChronoTransportEngine());
