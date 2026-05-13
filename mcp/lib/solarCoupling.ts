@@ -35,12 +35,28 @@ export const SOLAR_COUPLING = {
   CONF_MAX: 0.99,
 } as const
 
+export interface SolarModulation {
+  solar_applied: boolean
+  // Multiplicative shifts actually applied (post-clamp on inputs, pre-clamp on outputs).
+  metaShift: number
+  confShift: number
+  // Absolute output deltas: post - pre. Useful for UI/observability.
+  metaDelta: number
+  confDelta: number
+}
+
 export function applySolarOutputModulation(
   metamorphosisIndex: number,
   confidenceScore: number,
   solar?: SolarFeaturesLike | null,
-): { metamorphosisIndex: number; confidenceScore: number; solar_applied: boolean } {
-  if (!solar) return { metamorphosisIndex, confidenceScore, solar_applied: false }
+): { metamorphosisIndex: number; confidenceScore: number; modulation: SolarModulation } {
+  if (!solar) {
+    return {
+      metamorphosisIndex,
+      confidenceScore,
+      modulation: { solar_applied: false, metaShift: 0, confShift: 0, metaDelta: 0, confDelta: 0 },
+    }
+  }
   const uv = Math.max(-0.3, Math.min(1.0, solar.xrayUVLift))
   const mag = Math.max(0, Math.min(1, solar.magPerturbation))
 
@@ -50,5 +66,15 @@ export function applySolarOutputModulation(
   const mi = Math.max(SOLAR_COUPLING.META_MIN, Math.min(SOLAR_COUPLING.META_MAX, metamorphosisIndex * (1 + metaShift)))
   const cs = Math.max(SOLAR_COUPLING.CONF_MIN, Math.min(SOLAR_COUPLING.CONF_MAX, confidenceScore * (1 + confShift)))
 
-  return { metamorphosisIndex: mi, confidenceScore: cs, solar_applied: true }
+  return {
+    metamorphosisIndex: mi,
+    confidenceScore: cs,
+    modulation: {
+      solar_applied: true,
+      metaShift,
+      confShift,
+      metaDelta: mi - metamorphosisIndex,
+      confDelta: cs - confidenceScore,
+    },
+  }
 }

@@ -161,6 +161,7 @@ app.post('/process-current-sun', async (req, res) => {
         channelStatus: solarData.channelStatus,
       },
       solarFeatures,
+      solarModulation: result.solarModulation,
       metamorphosisIndex: result.metamorphosisIndex,
       confidenceScore: result.confidenceScore,
       synapticSequence: result.synapticSequence,
