@@ -71,7 +71,7 @@ export class NeuralFusionServer {
     const confidenceScoreBase = Math.min(0.5 + metamorphosisIndexBase * 0.4 + dataQuality * 0.1 + sampleSizeBonus, 0.99)
 
     // Apply contained solar coupling (mirrors frontend useNeuralFusion v1).
-    const { metamorphosisIndex, confidenceScore } = applySolarOutputModulation(
+    const { metamorphosisIndex, confidenceScore, modulation } = applySolarOutputModulation(
       metamorphosisIndexBase, confidenceScoreBase, input.solarFeatures,
     )
 
@@ -83,6 +83,7 @@ export class NeuralFusionServer {
       neuralSpectra,
       metamorphosisIndex,
       confidenceScore,
+      solarModulation: modulation,
     }
   }
 
