@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+mcp
+.strray
+.opencode
+docs/reflections
+scripts
+*.test.ts
+*.test.tsx

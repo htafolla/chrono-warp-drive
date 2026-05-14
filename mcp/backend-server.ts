@@ -167,7 +167,7 @@ app.post('/process-current-sun', async (req, res) => {
         synapticSequence: result.synapticSequence,
         solarApplied: result.solarModulation?.solar_applied ?? false,
         solarAdjustment: result.solarModulation?.metaDelta ?? 0,
-        activityLevel: result.solarModulation?.activityLevel ?? 'none',
+        activityLevel: result.solarModulation?.activity_level ?? 'none',
         gainMultiplier: result.solarModulation?.gainMultiplier ?? 0,
       },
       solarModulation: result.solarModulation,
