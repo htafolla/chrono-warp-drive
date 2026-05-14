@@ -62,7 +62,7 @@ export interface NeuralOutput {
   // Observability: present when solarFeatures was supplied as input.
   solarModulation?: {
     solar_applied: boolean;
-    activityLevel: string;
+    activity_level: string;
     gainMultiplier: number;
     metaShift: number;
     confShift: number;

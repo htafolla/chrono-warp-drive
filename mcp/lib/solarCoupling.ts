@@ -44,7 +44,7 @@ export const SOLAR_COUPLING = {
 
 export interface SolarModulation {
   solar_applied: boolean
-  activityLevel: string
+  activity_level: string
   gainMultiplier: number
   // Multiplicative shifts actually applied (post-clamp on inputs, pre-clamp on outputs).
   metaShift: number
@@ -71,7 +71,7 @@ export function applySolarOutputModulation(
       confidenceScore,
       modulation: {
         solar_applied: false,
-        activityLevel: 'none',
+        activity_level: 'none',
         gainMultiplier: 0,
         metaShift: 0,
         confShift: 0,
@@ -96,7 +96,7 @@ export function applySolarOutputModulation(
     confidenceScore: cs,
     modulation: {
       solar_applied: true,
-      activityLevel: solar.activityLevel ?? 'moderate',
+      activity_level: solar.activityLevel ?? 'moderate',
       gainMultiplier,
       metaShift,
       confShift,
