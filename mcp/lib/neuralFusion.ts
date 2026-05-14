@@ -268,12 +268,18 @@ export class NeuralFusion {
   }
 
   private getFallbackOutput(input: NeuralInput): NeuralOutput {
+    const baseMetamorphosis = 0.5 + deterministicRandom(generateCycle(), 0) * 0.3
+    const baseConfidence = 0.6 + deterministicRandom(generateCycle(), 1) * 0.2
+    const { metamorphosisIndex, confidenceScore, modulation } = applySolarOutputModulation(
+      baseMetamorphosis, baseConfidence, input.solarFeatures
+    )
     return {
       synapticSequence: this.getFallbackSynapticSequence(),
       neuralSpectra: this.generateFallbackSpectra(input.spectrumData.intensities.length),
-      metamorphosisIndex: 0.5 + deterministicRandom(generateCycle(), 0) * 0.3,
-      confidenceScore: 0.6 + deterministicRandom(generateCycle(), 1) * 0.2
-    };
+      metamorphosisIndex,
+      confidenceScore,
+      solarModulation: modulation,
+    }
   }
 
   private getFallbackSynapticSequence(): string {
