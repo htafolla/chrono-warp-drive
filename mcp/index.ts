@@ -434,6 +434,38 @@ Validates that the Trinitarium ratio (\`phi\`) is within the valid range [1.566,
 - **Inputs**: \`phi\` (default 1.666)
 - **Outputs**: \`valid\` (boolean), \`range\`
 
+## Governance System Overview (v4.8)
+
+Dynamo uses a **dual-oscillator governance model** for go/no-go decisions:
+
+### The Two Oscillators
+
+| Oscillator     | Endpoint                | Purpose                                      | Key Outputs |
+|----------------|-------------------------|----------------------------------------------|-------------|
+| **Solar**      | \`/govern_with_solar\`    | Real-world environmental conditions (NOAA)   | \`adjustedVoteWeight\`, \`solarModulation\`, solar context |
+| **Alignment**  | \`/governance\`           | Proposal-specific resonance & alignment      | \`resonanceScore\`, \`isotopicRatio\`, \`recommendation\` |
+
+### Decision Logic
+
+The final verdict merges **both oscillators**:
+
+- **Solar conditions** (storm, active, moderate, quiet) set the environmental context.
+- **Governance alignment** (\`resonanceScore\`, \`recommendation\`) evaluates how well the proposal fits known patterns.
+- **Merge rules** (simplified):
+  - Storm → No (regardless of alignment)
+  - Clear + REJECT → No
+  - Caution + NEEDS_REVISION → Maybe
+  - Clear + PASS → Yes
+
+### Neural Metrics (Supporting)
+
+The UI also pulls neural metrics from \`/process-current-sun\`:
+- \`metamorphosisIndex\`
+- \`confidenceScore\`
+- \`solarModulation\`
+
+These provide deeper insight but do not override the dual-oscillator verdict.
+
 ### 15. evaluate_governance
 Full governance pipeline (emit → cross-correlate → triangulate → fuse → decide).
 - **Inputs**: \`proposalText\`, \`agentReviews\`, \`codeDiff\`, \`historicalSignalIds\`
