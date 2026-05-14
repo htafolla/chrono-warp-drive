@@ -1,9 +1,0 @@
-{
-  "experimentalServices": {
-    "mcp": {
-      "entrypoint": "mcp",
-      "routePrefix": "/",
-      "buildCommand": "npm install"
-    }
-  }
-}
