@@ -1236,8 +1236,8 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
       lines.push('This proposal PASSED governance. The recommendation is to approve and proceed.')
     } else if (rec === 'REJECT') {
       lines.push('This proposal was REJECTED by governance. The recommendation is to decline and revisit.')
-    } else if (rec === 'NEEDS REVISION') {
-      lines.push('This proposal NEEDS REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
+    } else if (rec === 'NEEDS_REVISION') {
+      lines.push('This proposal NEEDS_REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
     }
 
     if (solarCtx) {
@@ -1482,7 +1482,7 @@ app.post('/explain_term', async (c: Context) => {
 app.get('/explain_governance_output', (c: Context) => {
   return c.json({
     name: 'explain_governance_output',
-    description: 'Converts a governance output (from either evaluate_governance or govern_with_solar) into human-readable plain text. Decodes the recommendation (PASS/REJECT/NEEDS REVISION), confidence, vote weight, reasoning, and solar context.',
+    description: 'Converts a governance output (from either evaluate_governance or govern_with_solar) into human-readable plain text. Decodes the recommendation (PASS/REJECT/NEEDS_REVISION), confidence, vote weight, reasoning, and solar context.',
     method: 'POST',
     parameters: {
       governanceOutput: { type: 'object', required: true, description: 'The JSON output from evaluate_governance or govern_with_solar' },
@@ -1523,7 +1523,7 @@ app.post('/explain_governance_output', async (c: Context) => {
 
   if (rec === 'PASS') lines.push('This proposal PASSED governance. The recommendation is to approve and proceed.')
   else if (rec === 'REJECT') lines.push('This proposal was REJECTED by governance. The recommendation is to decline and revisit.')
-  else if (rec === 'NEEDS REVISION') lines.push('This proposal NEEDS REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
+  else if (rec === 'NEEDS_REVISION') lines.push('This proposal NEEDS_REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
 
   if (solarCtx) {
     lines.push('')

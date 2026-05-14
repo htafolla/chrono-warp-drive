@@ -26,7 +26,7 @@ export function applyDecisionMatrix(
   historicalCoherence: number,
 ) {
   const reasons: string[] = []
-  let recommendation = 'NEEDS REVISION'
+  let recommendation = 'NEEDS_REVISION'
   let confidence = 0.75
   let voteWeight = 1.0
 
@@ -50,12 +50,12 @@ export function applyDecisionMatrix(
 
   if (vortexVolume < 2.5e25) {
     reasons.push('Low inertial mass (W x M = V)')
-    if (recommendation === 'PASS') recommendation = 'NEEDS REVISION'
+    if (recommendation === 'PASS') recommendation = 'NEEDS_REVISION'
   }
 
   if (historicalCoherence < 0.70) {
     reasons.push('Weak historical alignment with past decisions')
-    if (recommendation === 'PASS') recommendation = 'NEEDS REVISION'
+    if (recommendation === 'PASS') recommendation = 'NEEDS_REVISION'
   } else if (historicalCoherence > 0.90) {
     reasons.push('Strong continuity with previous governance')
     voteWeight *= 1.1
