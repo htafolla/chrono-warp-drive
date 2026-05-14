@@ -161,11 +161,17 @@ app.post('/process-current-sun', async (req, res) => {
         channelStatus: solarData.channelStatus,
       },
       solarFeatures,
+      neuralOutput: {
+        metamorphosisIndex: result.metamorphosisIndex,
+        confidenceScore: result.confidenceScore,
+        synapticSequence: result.synapticSequence,
+        solarApplied: result.solarModulation?.solar_applied ?? false,
+        solarAdjustment: result.solarModulation?.metaDelta ?? 0,
+        activityLevel: result.solarModulation?.activityLevel ?? 'none',
+        gainMultiplier: result.solarModulation?.gainMultiplier ?? 0,
+      },
       solarModulation: result.solarModulation,
-      metamorphosisIndex: result.metamorphosisIndex,
-      confidenceScore: result.confidenceScore,
-      synapticSequence: result.synapticSequence,
-      engine: 'real-tensorflow + multi-channel-noaa + solar-coupled',
+      engine: 'real-tensorflow + multi-channel-noaa + activity-level-coupled',
     })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
