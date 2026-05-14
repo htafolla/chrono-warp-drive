@@ -440,28 +440,43 @@ Full governance pipeline (emit → cross-correlate → triangulate → fuse → 
 - **Outputs**: \`recommendation\`, \`confidence\`, \`voteWeight\`, \`reasoning\`
 
 ### 16. govern_with_solar
-Enhanced governance with real-time solar context from NOAA GOES.
 
-Runs the full governance pipeline while injecting live solar activity. Automatically adjusts vote weight and can append warnings such as \`[SOLAR STORM WARNING]\`.
+Enhanced governance decision with real-time solar context from NOAA GOES (7 channels: X-ray, protons, electrons, magnetometer, solar wind, Kp).
+
+This tool runs the full governance pipeline while applying **activity-level-aware solar modulation** to the outputs.
+
+**Solar Coupling (v1):**
+- Uses \`SolarFeatures\` (hardness ratio, xrayUVLift, magPerturbation, etc.)
+- Applies bounded modulation to \`metamorphosisIndex\` and \`confidenceScore\`
+- Modulation strength increases with solar activity (quiet = 0.5×, storm = 1.3×)
+- Returns detailed \`solarModulation\` object for observability
+
+**Key Response Fields:**
+- \`metamorphosisIndex\` — modulated by solar conditions
+- \`confidenceScore\` — modulated by solar conditions
+- \`solarApplied\` — whether solar data was used
+- \`solarAdjustment\` — total adjustment applied
+- \`solarModulation\` — detailed breakdown (activity_level, gainMultiplier, metaDelta, confDelta)
+- \`solarFeatures\` — full derived solar feature vector
 
 **When to use:**
 - Most strategic or high-impact proposals (**recommended default**)
-- When you want decisions to include live cosmic context
-- During elevated solar activity (applies more conservative weighting)
+- When real-world solar conditions should influence the decision
+- During elevated solar activity (storm/active periods apply stronger modulation)
 
 **When to use \`evaluate_governance\` instead:**
 - Purely technical or low-level protocol decisions
 - When you want to exclude external modifiers
 
-**Inputs:** \`proposal\`, \`baseVoteWeight\` (0.5–1.5)
+**Inputs:** \`proposal\` (string, min 10 characters), \`baseVoteWeight\` (0.5–1.5, default 1.0)
 
-**Outputs:** \`originalRecommendation\`, \`solarContext\`, \`adjustedVoteWeight\`, \`finalRecommendation\`, \`confidenceAdjustment\`
+**Outputs:** \`originalRecommendation\`, \`solarContext\`, \`adjustedVoteWeight\`, \`finalRecommendation\`, \`confidenceAdjustment\`, \`solarFeatures\`, \`solarModulation\`
 
 **Solar Behavior:**
-- **Quiet**: Slight stability boost
-- **Moderate**: Neutral (no adjustment)
-- **Active**: Mild reduction in vote weight
-- **Storm**: Significant reduction in vote weight + \`[SOLAR STORM WARNING]\`
+- **Quiet** (0.5× coupling): Slight stability boost
+- **Moderate** (0.75× coupling): Neutral adjustment
+- **Active** (1.0× coupling): Mild reduction in vote weight
+- **Storm** (1.3× coupling): Significant reduction + \`[SOLAR STORM WARNING]\`
 
 **Decision Logic Note:**
 When implementing logic on top of \`govern_with_solar\`, prefer using the numeric \`confidenceAdjustment\` for decision-making rather than switching on the \`solarActivityLevel\` string. The numeric adjustment is the direct output from the governance pipeline and is more robust if finer-grained solar levels are added in the future. Continue to use \`solarActivityLevel\` and the human-readable \`recommendation\` for logging, explanations, and transparency.
@@ -515,33 +530,47 @@ Converts a governance output (from either \`evaluate_governance\` or \`govern_wi
 
 ## Solar → Neural Coupling (v1)
 
+> **Note (May 2026):** Dynamo now uses v1 activity-level-aware solar coupling across both frontend and MCP backend. Solar data modulates governance outputs in real time using live NOAA GOES data.
+
 The Neural Fusion engine accepts an optional \`solarFeatures\` vector
 (\`xrayUVLift\`, \`magPerturbation\`, \`hardnessRatio\`, \`windBroadeningA\`,
 \`kpIndex\`, \`activityLevel\`) derived from a multi-channel NOAA SWPC pull.
-When supplied, outputs are modulated as:
+When supplied, outputs are modulated with **activity-level-aware gain**:
 
 \`\`\`
-metaShift = 0.25 * uv + 0.15 * mag      // bounded in [-0.075, +0.40]
-confShift = 0.06 * uv - 0.08 * mag      // bounded in [-0.098, +0.06]
-metamorphosisIndex' = clamp(metamorphosisIndex * (1 + metaShift), 0, 1)
-confidenceScore'    = clamp(confidenceScore    * (1 + confShift), 0, 0.99)
+gainMultiplier = { quiet: 0.5, moderate: 0.75, active: 1.0, storm: 1.3 }
+metaShift = (0.25 * uv + 0.15 * mag) * gainMultiplier
+confShift = (0.06 * uv - 0.08 * mag) * gainMultiplier
+metamorphosisIndex' = clamp(metamorphosisIndex * (1 + metaShift), 0.1, 0.95)
+confidenceScore'    = clamp(confidenceScore    * (1 + confShift), 0.5, 0.98)
 \`\`\`
-
-This mirrors the frontend's \`useNeuralFusion\` v1 coupling, which instead
-modulates \`delta_phase\` and \`tau\` at the input stage. Both produce the
-same qualitative behavior: active Sun ⇒ stronger metamorphosis, geomagnetic
-storms ⇒ lower confidence.
 
 ### Best Practices
+
+- Use \`/govern_with_solar\` for most decisions (especially strategic ones).
+- Solar context is most valuable for high-impact or time-sensitive proposals.
+- Technical fixes can use \`/governance\` alone, but solar context is still available for awareness.
 - Always pass live \`solarFeatures\` for \`/process-current-sun\` (already wired).
 - For deterministic offline runs, omit \`solarFeatures\` — the engine becomes a
   pure no-op on the solar axis (\`solar_applied: false\`).
-- Read \`solarModulation.metaDelta\` / \`confDelta\` for observability —
-  these report the absolute output change attributable to the Sun this tick.
-- Coefficients live in \`mcp/lib/solarCoupling.ts\` (\`SOLAR_COUPLING\`). Bump
-  the file version comment when tuning.
 
-See \`mcp/docs/solar-coupling.md\` for the full rationale.
+### Observability
+
+All responses include:
+- \`solar_applied\` (boolean) — whether solar data was used
+- \`solarAdjustment\` (numeric delta) — total adjustment applied
+- \`solarModulation\` (detailed breakdown) — \`activity_level\`, \`gainMultiplier\`, \`metaShift\`, \`confShift\`, \`metaDelta\`, \`confDelta\`
+- \`solarFeatures\` (full feature vector) — \`hardnessRatio\`, \`xrayUVLift\`, \`magPerturbation\`, \`windBroadeningA\`, \`kpIndex\`, \`activityLevel\`
+
+This allows consumers to understand exactly how solar conditions influenced each decision.
+
+### Current Behavior
+
+- During **quiet** periods: Minimal adjustment (0.5× gain)
+- During **storms**: Strongest modulation (1.3× gain, can shift outputs by up to ~25%)
+- Solar coupling is **transparent** — every response includes the full modulation breakdown
+
+See \`mcp/lib/solarCoupling.ts\` for coefficients and \`mcp/docs/solar-coupling.md\` for the full rationale.
 `
 
 
