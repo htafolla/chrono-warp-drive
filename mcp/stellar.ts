@@ -270,12 +270,19 @@ async function handleMCPMessage(msg: any): Promise<any> {
   }
 }
 
+// Session registry — decouples session validity from active SSE subscriber
+const activeSessions = new Map<string, true>()
+
 // SSE endpoint
 app.get('/sse', (c: Context) => {
   const sessionId = crypto.randomUUID()
   const channel = `stellar:${sessionId}`
+  activeSessions.set(sessionId, true)
 
-  const cleanup = () => { unsub().catch(() => {}) }
+  const cleanup = () => {
+    activeSessions.delete(sessionId)
+    unsub().catch(() => {})
+  }
   c.req.raw.signal.addEventListener('abort', cleanup)
 
   let unsub: () => Promise<void> = () => Promise.resolve()
@@ -296,13 +303,22 @@ app.get('/sse', (c: Context) => {
 
 app.post('/messages', async (c: Context) => {
   const sessionId = c.req.query('sessionId')
-  if (!sessionId) return c.json({ error: 'Invalid or expired session' }, 400)
+  if (!sessionId) {
+    console.log('[stellar] POST /messages rejected: missing sessionId query param')
+    return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
+  }
+  if (!activeSessions.has(sessionId)) {
+    console.log(`[stellar] POST /messages rejected: session ${sessionId} not in registry`)
+    return c.json({ error: 'Session not found — reconnect to GET /sse first' }, 400)
+  }
 
   const body = await c.req.json()
   const result = await handleMCPMessage(body)
   if (result) {
     const delivered = await publish(`stellar:${sessionId}`, JSON.stringify(result))
-    if (!delivered) return c.json({ error: 'Invalid or expired session' }, 400)
+    if (!delivered) {
+      console.log(`[stellar] POST /messages: session ${sessionId} has no SSE subscriber (ok, ack sent)`)
+    }
   }
 
   return c.json({ ok: true })

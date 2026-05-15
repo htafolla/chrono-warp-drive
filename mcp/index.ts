@@ -1654,12 +1654,17 @@ async function handleMCPMessage(sessionId: string, msg: any): Promise<any> {
   }
 }
 
+// Session registry — decouples session validity from active SSE subscriber
+const activeSessions = new Map<string, true>()
+
 // SSE session store — uses Redis Pub/Sub (production) or in-memory EventEmitter (dev/test)
 app.get('/sse', (c: Context) => {
   const sessionId = crypto.randomUUID()
   const channel = `session:${sessionId}`
+  activeSessions.set(sessionId, true)
 
   const cleanup = () => {
+    activeSessions.delete(sessionId)
     unsub().catch(() => {})
   }
   c.req.raw.signal.addEventListener('abort', cleanup)
@@ -1692,7 +1697,12 @@ app.get('/sse', (c: Context) => {
 app.post('/messages', async (c: Context) => {
   const sessionId = c.req.query('sessionId')
   if (!sessionId) {
-    return c.json({ error: 'Invalid or expired session' }, 400)
+    console.log('[mcp] POST /messages rejected: missing sessionId query param')
+    return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
+  }
+  if (!activeSessions.has(sessionId)) {
+    console.log(`[mcp] POST /messages rejected: session ${sessionId} not in registry (expired or never connected)`)
+    return c.json({ error: 'Session not found — reconnect to GET /sse first' }, 400)
   }
 
   const body = await c.req.json()
@@ -1700,7 +1710,7 @@ app.post('/messages', async (c: Context) => {
   if (result) {
     const delivered = await publish(`session:${sessionId}`, JSON.stringify(result))
     if (!delivered) {
-      return c.json({ error: 'Invalid or expired session' }, 400)
+      console.log(`[mcp] POST /messages: session ${sessionId} has no SSE subscriber (ok, ack still sent)`)
     }
   }
 
