@@ -944,6 +944,9 @@ app.get('/', (c: Context) => {
 app.post('/', async (c: Context) => {
   const body = await c.req.json()
   const result = await handleMCPMessage('streamable-http', body)
+  if (!result) {
+    return c.body(null, 202)
+  }
   return c.json(result)
 })
 
