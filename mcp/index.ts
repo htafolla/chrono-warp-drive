@@ -927,7 +927,7 @@ app.post('/validate_tlm', async (c: Context) => {
   })
 })
 
-// Root — tool index
+// Root — tool index (GET = API listing, POST = Streamable HTTP MCP transport)
 app.get('/', (c: Context) => {
   return c.json({
     name: 'blurrn-mcp',
@@ -935,9 +935,16 @@ app.get('/', (c: Context) => {
     tools: 20,
     endpoints: {
       GET: ['/', '/health', '/docs', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator', '/get_docs', '/explain_term', '/explain_governance_output'],
-      POST: ['/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar', '/call_connected_tool', '/get_docs', '/explain_term', '/explain_governance_output'],
+      POST: ['/', '/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar', '/call_connected_tool', '/get_docs', '/explain_term', '/explain_governance_output'],
     },
   })
+})
+
+// Streamable HTTP MCP transport — accept JSON-RPC POST at root
+app.post('/', async (c: Context) => {
+  const body = await c.req.json()
+  const result = await handleMCPMessage('streamable-http', body)
+  return c.json(result)
 })
 
 // Health
