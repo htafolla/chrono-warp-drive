@@ -1697,20 +1697,18 @@ app.get('/sse', (c: Context) => {
 app.post('/messages', async (c: Context) => {
   const sessionId = c.req.query('sessionId')
   if (!sessionId) {
-    console.log('[mcp] POST /messages rejected: missing sessionId query param')
+    console.log('[mcp] POST /messages: missing sessionId query param')
     return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
   }
-  if (!activeSessions.has(sessionId)) {
-    console.log(`[mcp] POST /messages rejected: session ${sessionId} not in registry (expired or never connected)`)
-    return c.json({ error: 'Session not found — reconnect to GET /sse first' }, 400)
-  }
+
+  console.log(`[mcp] POST /messages: session ${sessionId.slice(0, 8)}… ${activeSessions.has(sessionId) ? '' : '(registry missing — SSE may have disconnected)'}`)
 
   const body = await c.req.json()
   const result = await handleMCPMessage(sessionId, body)
   if (result) {
     const delivered = await publish(`session:${sessionId}`, JSON.stringify(result))
     if (!delivered) {
-      console.log(`[mcp] POST /messages: session ${sessionId} has no SSE subscriber (ok, ack still sent)`)
+      console.log(`[mcp] POST /messages: session ${sessionId} has no SSE subscriber (response will not reach client)`)
     }
   }
 
