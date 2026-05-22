@@ -401,24 +401,26 @@ export default function DynamoDeploy() {
 
         {/* Input */}
         <div className="space-y-3">
-          <textarea
-            value={proposal}
-            onChange={e => setProposal(e.target.value)}
-            placeholder="Should I go hiking tomorrow?"
-            rows={3}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-white text-base placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none transition-all"
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
-            disabled={loading}
-          />
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={sharePublicly}
-              onChange={e => setSharePublicly(e.target.checked)}
-              className="w-4 h-4 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
+          <div className="relative">
+            <textarea
+              value={proposal}
+              onChange={e => setProposal(e.target.value)}
+              placeholder="Should I go hiking tomorrow?"
+              rows={3}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 pt-4 pb-8 text-white text-base placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none transition-all"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
+              disabled={loading}
             />
-            <span className="text-xs text-white/30">Share publicly</span>
-          </label>
+            <label className="absolute bottom-2 left-4 flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sharePublicly}
+                onChange={e => setSharePublicly(e.target.checked)}
+                className="w-3 h-3 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
+              />
+              <span className="text-[10px] text-white/20">Share publicly</span>
+            </label>
+          </div>
           <div className="flex flex-wrap gap-2">
             {EXAMPLE_PROPOSALS.map(p => (
               <button
