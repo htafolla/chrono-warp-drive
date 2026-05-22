@@ -5,9 +5,9 @@
 import { describe, it, expect } from 'vitest'
 import { applySolarOutputModulation, SOLAR_COUPLING } from '../solarCoupling'
 
-const QUIET = { xrayUVLift: 0, magPerturbation: 0 }
-const ACTIVE = { xrayUVLift: 0.8, magPerturbation: 0.2 }
-const STORM = { xrayUVLift: 1.0, magPerturbation: 1.0 }
+const QUIET = { xrayUVLift: 0, magPerturbation: 0, activityLevel: 'quiet' as const }
+const ACTIVE = { xrayUVLift: 0.8, magPerturbation: 0.2, activityLevel: 'active' as const }
+const STORM = { xrayUVLift: 1.0, magPerturbation: 1.0, activityLevel: 'storm' as const }
 
 describe('applySolarOutputModulation', () => {
   it('is a no-op when solar features are missing', () => {
@@ -35,8 +35,8 @@ describe('applySolarOutputModulation', () => {
   })
 
   it('lowers confidence when geomagnetic perturbation dominates', () => {
-    const r = applySolarOutputModulation(0.5, 0.7, { xrayUVLift: 0, magPerturbation: 1 })
-    // confShift = 0.06*0 - 0.08*1 = -0.08
+    const r = applySolarOutputModulation(0.5, 0.7, { xrayUVLift: 0, magPerturbation: 1, activityLevel: 'active' })
+    // confShift = (0.06*0 - 0.08*1) * 1.0 = -0.08
     expect(r.modulation.confShift).toBeCloseTo(-0.08, 10)
     expect(r.confidenceScore).toBeLessThan(0.7)
     expect(r.modulation.confDelta).toBeLessThan(0)
@@ -51,8 +51,8 @@ describe('applySolarOutputModulation', () => {
   })
 
   it('clamps xrayUVLift and magPerturbation to documented input ranges', () => {
-    const r = applySolarOutputModulation(0.5, 0.7, { xrayUVLift: 99, magPerturbation: 99 })
-    // Effective uv=1, mag=1 → metaShift = 0.25 + 0.15 = 0.40
+    const r = applySolarOutputModulation(0.5, 0.7, { xrayUVLift: 99, magPerturbation: 99, activityLevel: 'active' })
+    // Effective uv=1, mag=1 → metaShift = (0.25 + 0.15) * 1.0 = 0.40
     expect(r.modulation.metaShift).toBeCloseTo(0.4, 10)
   })
 })
