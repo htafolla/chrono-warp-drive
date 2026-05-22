@@ -4,6 +4,7 @@
 
 import { Hono, Context } from 'hono'
 import { z } from 'zod'
+import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
 
 // Blurrn Constants
 const PHI = 1.666
@@ -139,18 +140,34 @@ export async function evaluateGovernance(
     historicalCoherence = historicalTri.coreResonance || 0.80
   }
 
-  // 5. Run the cleaned decision matrix
+  // 5. Solar isotopic hammer (direct from sun, can override)
+  let solarHammerRes = resonance
+  let hammerNote = ''
+  try {
+    const hammer = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, 1.0)
+    if (typeof hammer.resonanceScore === 'number') {
+      solarHammerRes = hammer.resonanceScore
+      hammerNote = ` | solar-hammer:${(solarHammerRes*100).toFixed(0)}%`
+      // If hammer is extreme, let it drive the rec (override)
+      if (solarHammerRes >= 0.88 || solarHammerRes <= 0.45) {
+        resonance = solarHammerRes // use hammer as the resonance for matrix
+      }
+    }
+  } catch {}
+
+  // 6. Run the decision matrix (now with possible hammer override)
   const decision = applyDecisionMatrix(resonance, isotopicRatio, vortexVolume, historicalCoherence)
 
   return {
     proposalId,
     governanceIsotopeId,
     resonanceScore: resonance,
+    solarHammerResonance: solarHammerRes,
     recommendation: decision.recommendation,
     confidence: decision.confidence,
     voteWeight: decision.voteWeight,
     reasons: decision.reasons,
-    note: 'Refined v4.8.4 - resonance derived from cross_correlate strengths',
+    note: 'v4.8.6-solar-hammer - resonance prioritizes sun-isotopic alignment' + hammerNote,
     diagnostics: {
       isotopicRatio,
       vortexVolume,

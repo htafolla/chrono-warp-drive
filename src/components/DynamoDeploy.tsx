@@ -182,12 +182,14 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
     const governanceConfidence = alignment?.confidence ?? null;
     const solarApplied = neural?.neuralOutput?.solarApplied ?? neural?.solarModulation?.solar_applied ?? (solar?.solarContext != null) ?? false;
 
-    const resonanceScore = alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null;
+    // Prefer the SOLAR ISOTOPIC HAMMER resonance/recommendation (direct sun-grounded override)
+    // Fall back to alignment (review cross) only if solar hammer unavailable
+    const resonanceScore = solar?.resonanceScore != null ? Number(solar.resonanceScore) : (alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null);
     const diag = alignment?.diagnostics;
     const isotopicRatio = diag?.isotopicRatio != null ? Number(diag.isotopicRatio) : null;
     const historicalCoherence = diag?.historicalCoherence != null ? Number(diag.historicalCoherence) : null;
-    const alignmentRec = alignment?.recommendation ?? null;
-    const alignmentReason = alignment?.reasons?.[0] ?? null;
+    const alignmentRec = solar?.recommendation ?? alignment?.recommendation ?? null;
+    const alignmentReason = solar?.hammerReason ?? alignment?.reasons?.[0] ?? null;
 
     const isStorm = isStormWarning || solarLevel === 'storm';
     const isBadSignal = confidenceAdjustment <= -0.08;
@@ -232,7 +234,7 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
     else if (!clearSolar && clearAlign) tension = 'Proposal aligned but conditions unfavorable';
     else if (isBadSignal && isNeedsRevision) tension = 'Both oscillators flag caution';
 
-    const sources = [solar ? 'Solar' : '', alignment ? 'Alignment' : '', neural ? 'Neural' : ''].filter(Boolean);
+    const sources = [solar ? 'Solar' : '', alignment ? 'Resonance' : '', neural ? 'Neural' : ''].filter(Boolean);
     const source = sources.length >= 2 ? sources.join(' + ') : sources[0] || 'unknown';
 
     const sigInput = [proposal, alignment?.resonanceScore ?? '', alignment?.recommendation ?? ''].join('|');
@@ -334,12 +336,6 @@ export default function DynamoDeploy() {
     navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
   }, [result, lastProposal]);
 
-  const beacons = [
-    { name: 'Dynamo', emoji: '⚡', sub: 'MCP', on: services[0] },
-    { name: 'Stellar', emoji: '✦', sub: 'MCP', on: services[1] },
-    { name: 'Neural', emoji: '🧬', sub: neuralVersion, on: services[2] },
-  ];
-
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-5 py-8">
       <div className="w-full max-w-sm space-y-6">
@@ -347,17 +343,29 @@ export default function DynamoDeploy() {
         <div className="text-center">
           <div className="text-5xl mb-2">⚡</div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Dynamo</h1>
-          <p className="text-sm text-white/40 mt-1">Resonance · Solar · Neural · Should you? The sun knows.</p>
+          <p className="text-sm text-white/40 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
         </div>
 
-        {/* Beacon dots */}
-        <div className="flex items-center justify-center gap-3">
-          {beacons.map(b => (
-            <div key={b.name} className="flex items-center gap-1.5">
-              <div className={`h-1.5 w-1.5 rounded-full ${b.on ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
-              <span className="text-xs text-white/40">{b.emoji} {b.name} <span className="text-white/20">{b.sub}</span></span>
-            </div>
-          ))}
+        {/* Three service cards */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className={`rounded-lg border p-3 text-center ${services[0] ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
+            <div className="text-lg mb-0.5">⚡</div>
+            <div className="text-xs font-semibold text-white">Dynamo MCP</div>
+            <div className="text-[10px] text-white/30 mt-0.5">Resonance Engine</div>
+            <div className={`h-1 w-1 rounded-full mx-auto mt-1.5 ${services[0] ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
+          </div>
+          <div className={`rounded-lg border p-3 text-center ${services[1] ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
+            <div className="text-lg mb-0.5">✦</div>
+            <div className="text-xs font-semibold text-white">Stellar MCP</div>
+            <div className="text-[10px] text-white/30 mt-0.5">Supporting Context</div>
+            <div className={`h-1 w-1 rounded-full mx-auto mt-1.5 ${services[1] ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
+          </div>
+          <div className={`rounded-lg border p-3 text-center ${services[2] ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
+            <div className="text-lg mb-0.5">🧬</div>
+            <div className="text-xs font-semibold text-white">Neural {neuralVersion}</div>
+            <div className="text-[10px] text-white/30 mt-0.5">Raw Neural Output</div>
+            <div className={`h-1 w-1 rounded-full mx-auto mt-1.5 ${services[2] ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
+          </div>
         </div>
 
         {/* Solar status */}
@@ -374,15 +382,8 @@ export default function DynamoDeploy() {
         )}
 
         {/* Info */}
-        <div className="text-center space-y-1">
-          <p className="text-xs text-white/25">Resonance + solar context + neural metrics = your verdict</p>
-          <div className="flex items-center justify-center gap-2 text-[10px] text-white/15">
-            <Shield className="h-3 w-3" /><span>Resonance</span>
-            <span>+</span>
-            <Zap className="h-3 w-3" /><span>Solar</span>
-            <span>+</span>
-            <Brain className="h-3 w-3" /><span>Neural</span>
-          </div>
+        <div className="text-center">
+          <p className="text-xs text-white/25">Resonance-Driven governance with solar context and neural metrics</p>
         </div>
 
         {/* Input */}
@@ -429,114 +430,71 @@ export default function DynamoDeploy() {
             <p className="text-xl font-bold text-white">
               {result.answer === 'yes' ? 'Go for it' : result.answer === 'no' ? 'Not now' : 'Be careful'}
             </p>
-            <p className="text-sm text-white/50 italic">&ldquo;{result.phrase}&rdquo;</p>
+            <p className="text-sm text-white/50 italic">&ldquo;{result.alignmentReason || result.phrase}&rdquo;</p>
 
-            {/* Solar + Signal */}
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                <p className="text-[10px] text-white/30 uppercase">Solar</p>
-                <p className="text-sm font-semibold text-white">{result.level}</p>
-              </div>
-              <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                <p className="text-[10px] text-white/30 uppercase">Signal</p>
-                <p className="text-sm font-semibold text-white">{result.signal}</p>
-              </div>
-            </div>
-
-            {/* Resonance + Alignment */}
+            {/* Primary Metrics */}
             {result.resonanceScore != null && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Shield className="h-2.5 w-2.5 text-blue-400/60" />
-                      <p className="text-[10px] text-white/30 uppercase">Res.</p>
-                    </div>
-                    <p className="text-sm font-semibold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
-                  </div>
-                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <span className={`text-[10px] font-bold ${alignColor(result.alignmentRec)}`}>{alignIcon(result.alignmentRec)}</span>
-                      <p className="text-[10px] text-white/30 uppercase">Align</p>
-                    </div>
-                    <p className={`text-sm font-semibold ${alignColor(result.alignmentRec)}`}>{alignLabel(result.alignmentRec)}</p>
-                  </div>
+              <div className="space-y-3 mt-4">
+                <div>
+                  <p className="text-xs text-white/30 uppercase">Resonance</p>
+                  <p className="text-2xl font-bold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
                 </div>
-                {result.signature && (
-                  <div className="bg-white/[0.02] rounded-lg px-3 py-1.5 text-center">
-                    <p className="text-[10px] text-white/30 font-mono tracking-widest">{result.signature}</p>
+                {result.governanceConfidence != null && (
+                  <div>
+                    <p className="text-xs text-white/30 uppercase">Governance Confidence</p>
+                    <p className="text-2xl font-bold text-white">{(result.governanceConfidence * 100).toFixed(1)}%</p>
                   </div>
-                )}
-                {result.alignmentReason && (
-                  <p className="text-[10px] text-white/30 italic text-center">&ldquo;{result.alignmentReason}&rdquo;</p>
                 )}
               </div>
             )}
 
-            {/* Neural metrics */}
-            {(result.metamorphosisIndex != null || result.governanceConfidence != null) && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  {result.metamorphosisIndex != null && (
-                    <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Brain className="h-2.5 w-2.5 text-violet-400/60" />
-                        <p className="text-[10px] text-white/30 uppercase">MI</p>
-                      </div>
-                      <p className="text-sm font-semibold text-white">{(result.metamorphosisIndex * 100).toFixed(1)}%</p>
-                    </div>
-                  )}
-                  {result.governanceConfidence != null && (
-                    <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Shield className="h-2.5 w-2.5 text-emerald-400/60" />
-                        <p className="text-[10px] text-white/30 uppercase">Gov</p>
-                      </div>
-                      <p className="text-sm font-semibold text-white">{(result.governanceConfidence * 100).toFixed(1)}%</p>
-                    </div>
-                  )}
+            {/* Raw Neural Output */}
+            {result.confidenceScore != null && (
+              <details className="group mt-4">
+                <summary className="bg-white/[0.03] rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
+                  <Brain className="h-3 w-3 text-white/20" />
+                  <span className="text-xs text-white/20">Raw Neural Output ({(result.confidenceScore * 100).toFixed(1)}%)</span>
+                  <span className="text-xs text-white/20 group-open:rotate-180 transition-transform">▾</span>
+                </summary>
+                <div className="bg-white/[0.03] rounded-lg p-2 text-center mt-1">
+                  <p className="text-[10px] text-white/30 uppercase">Neural Confidence</p>
+                  <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
                 </div>
-                {result.confidenceScore != null && (
-                  <details className="group">
-                    <summary className="bg-white/[0.03] rounded-lg p-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
-                      <Brain className="h-2.5 w-2.5 text-white/20" />
-                      <span className="text-[10px] text-white/20 uppercase">Raw neural output: {(result.confidenceScore * 100).toFixed(1)}%</span>
-                      <span className="text-[10px] text-white/20 group-open:rotate-180 transition-transform">▾</span>
-                    </summary>
-                    <div className="bg-white/[0.03] rounded-lg p-2 text-center mt-1">
-                      <p className="text-[10px] text-white/30 uppercase">Neural Confidence</p>
-                      <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
-                    </div>
-                  </details>
-                )}
-              </div>
+              </details>
             )}
 
-            {/* Gain bar */}
-            <div className="bg-white/[0.02] rounded-lg p-2 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Activity className="h-3 w-3 text-white/30" />
-                  <span className="text-[10px] text-white/30">Solar Coupling</span>
-                </div>
-                <span className="text-[10px] text-white/40">{result.gain}x · {gainLabel(result.gain)}</span>
+            {/* Additional Context */}
+            <details className="group mt-2">
+              <summary className="bg-white/[0.03] rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
+                <Activity className="h-3 w-3 text-white/20" />
+                <span className="text-xs text-white/20">Additional Context</span>
+                <span className="text-xs text-white/20 group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <div className="bg-white/[0.03] rounded-lg p-2 mt-1 space-y-1 text-center">
+                <p className="text-[10px] text-white/30">Solar: {result.level} ({result.signal})</p>
+                <p className="text-[10px] text-white/30">Solar Coupling: {result.gain}x · {gainLabel(result.gain)}</p>
+                {result.metamorphosisIndex != null && (
+                  <p className="text-[10px] text-white/30">Metamorphosis Index: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                )}
               </div>
-              <div className="w-full h-1 rounded-full bg-white/[0.06] overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${
-                  result.gain >= 1.3 ? 'bg-red-400' : result.gain >= 1 ? 'bg-amber-400' : result.gain >= 0.75 ? 'bg-violet-400' : 'bg-emerald-400'
-                } ${gainWidth(result.gain)}`} />
+            </details>
+
+            {/* Signature */}
+            {result.signature && (
+              <div className="bg-white/[0.02] rounded-lg px-3 py-1.5 text-center mt-3">
+                <p className="text-[10px] text-white/30 font-mono tracking-widest">{result.signature}</p>
               </div>
-            </div>
+            )}
 
             {/* Tension */}
             {result.tension && (
-              <div className="bg-amber-500/[0.08] border border-amber-500/20 rounded-lg px-3 py-2 text-center">
+              <div className="bg-amber-500/[0.08] border border-amber-500/20 rounded-lg px-3 py-2 text-center mt-3">
                 <p className="text-[11px] text-amber-300/80">⚠ {result.tension}</p>
               </div>
             )}
 
             {/* Source */}
-            <div className="flex items-center justify-center gap-2 text-[10px] text-white/20">
+            <div className="flex items-center justify-center gap-2 text-[10px] text-white/20 mt-3">
               <Shield className="h-3 w-3" /><Zap className="h-3 w-3" /><Brain className="h-3 w-3" />
               <span>{result.source}</span>
             </div>

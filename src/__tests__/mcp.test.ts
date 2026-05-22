@@ -604,7 +604,6 @@ describe('MCP - explain_governance_output', () => {
         adjustedVoteWeight: 0.85,
         solarContext: {
           solarActivityLevel: 'storm',
-          solarResonance: 0.5935,
           solarActivityModifier: -0.15,
           recommendation: 'Solar storm detected - recommend delayed or weighted decisions',
         },

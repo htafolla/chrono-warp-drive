@@ -1340,7 +1340,6 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
       lines.push('')
       lines.push('Solar context:')
       lines.push(`  Activity level: ${solarCtx.solarActivityLevel ?? 'unknown'}`)
-      if (solarCtx.solarResonance !== undefined) lines.push(`  Solar resonance: ${solarCtx.solarResonance.toFixed(4)}`)
       if (solarCtx.solarActivityModifier !== undefined) {
         const mod = solarCtx.solarActivityModifier
         const sign = mod >= 0 ? '+' : ''
@@ -1439,7 +1438,6 @@ app.get('/govern_with_solar', (c: Context) => {
         originalRecommendation: 'Deploy new solar observatory',
         solarContext: {
           solarActivityLevel: 'storm',
-          solarResonance: 0.5935,
           solarActivityModifier: -0.15,
           recommendation: 'Solar storm detected - recommend delayed or weighted decisions',
         },
@@ -1626,7 +1624,6 @@ app.post('/explain_governance_output', async (c: Context) => {
     lines.push('')
     lines.push('Solar context:')
     lines.push(`  Activity level: ${solarCtx.solarActivityLevel ?? 'unknown'}`)
-    if (solarCtx.solarResonance !== undefined) lines.push(`  Solar resonance: ${solarCtx.solarResonance.toFixed(4)}`)
     if (solarCtx.solarActivityModifier !== undefined) {
       const mod = solarCtx.solarActivityModifier
       const sign = mod >= 0 ? '+' : ''

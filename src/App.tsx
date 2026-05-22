@@ -10,9 +10,9 @@ import IsotopicVortex from "./pages/IsotopicVortex";
 import DynamoDeploy from "./pages/DynamoDeploy";
 import NotFound from "./pages/NotFound";
 
-// Simple consumer site (dynamo-ui) should show the lightweight beacon dashboard as root
+// Simple consumer site should show the lightweight beacon dashboard as root
 const isSimpleConsumer = typeof window !== 'undefined' &&
-  window.location.hostname.includes('dynamo-ui');
+  (window.location.hostname.includes('dynamo-ui') || window.location.hostname.includes('rippel.ai'));
 
 const queryClient = new QueryClient();
 

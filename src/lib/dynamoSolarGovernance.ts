@@ -7,7 +7,6 @@ export interface EnhancedGovernanceDecision {
   originalRecommendation: string;
   solarContext: {
     solarActivityLevel: string;
-    solarResonance: number;
     solarActivityModifier: number;
     recommendation: string;
   };
@@ -51,7 +50,6 @@ export class DynamoSolarGovernance {
       originalRecommendation,
       solarContext: {
         solarActivityLevel: solarContext.solarActivityLevel,
-        solarResonance: solarContext.solarResonance,
         solarActivityModifier: solarContext.solarActivityModifier,
         recommendation: solarContext.recommendation
       },
