@@ -148,14 +148,16 @@ export async function evaluateGovernance(
     proposalId,
     governanceIsotopeId,
     resonanceScore: resonance,
-    isotopicRatio,
-    vortexVolume,
-    historicalCoherence,
     recommendation: decision.recommendation,
     confidence: decision.confidence,
     voteWeight: decision.voteWeight,
     reasons: decision.reasons,
     note: 'Refined v4.8.4 - resonance derived from cross_correlate strengths',
+    diagnostics: {
+      isotopicRatio,
+      vortexVolume,
+      historicalCoherence,
+    },
   }
 }
 

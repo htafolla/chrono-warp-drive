@@ -113,6 +113,12 @@ async function checkBeacons(): Promise<BeaconStatus> {
   return { online, sun, services, neuralVersion };
 }
 
+interface Diagnostics {
+  isotopicRatio: number | null;
+  vortexVolume: number | null;
+  historicalCoherence: number | null;
+}
+
 interface GovernanceResult {
   answer: string;
   detail: string;
@@ -126,8 +132,7 @@ interface GovernanceResult {
   governanceConfidence: number | null;
   solarApplied: boolean;
   resonanceScore: number | null;
-  isotopicRatio: number | null;
-  historicalCoherence: number | null;
+  diagnostics: Diagnostics;
   signature: string;
   alignmentRec: string | null;
   alignmentReason: string | null;
@@ -178,8 +183,9 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
     const solarApplied = neural?.neuralOutput?.solarApplied ?? neural?.solarModulation?.solar_applied ?? (solar?.solarContext != null) ?? false;
 
     const resonanceScore = alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null;
-    const isotopicRatio = alignment?.isotopicRatio != null ? Number(alignment.isotopicRatio) : null;
-    const historicalCoherence = alignment?.historicalCoherence != null ? Number(alignment.historicalCoherence) : null;
+    const diag = alignment?.diagnostics;
+    const isotopicRatio = diag?.isotopicRatio != null ? Number(diag.isotopicRatio) : null;
+    const historicalCoherence = diag?.historicalCoherence != null ? Number(diag.historicalCoherence) : null;
     const alignmentRec = alignment?.recommendation ?? null;
     const alignmentReason = alignment?.reasons?.[0] ?? null;
 
@@ -229,13 +235,14 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
     const sources = [solar ? 'Solar' : '', alignment ? 'Alignment' : '', neural ? 'Neural' : ''].filter(Boolean);
     const source = sources.length >= 2 ? sources.join(' + ') : sources[0] || 'unknown';
 
-    const sigInput = [proposal, alignment?.resonanceScore ?? '', alignment?.isotopicRatio ?? '', alignment?.recommendation ?? ''].join('|');
+    const sigInput = [proposal, alignment?.resonanceScore ?? '', alignment?.recommendation ?? ''].join('|');
     const signature = `dynamo-${hashProposal(sigInput)}`;
 
     return {
       answer, detail, phrase, level: levelLabel, signal: signalLabel,
       weight: adjustedWeight, gain, metamorphosisIndex, confidenceScore, governanceConfidence,
-      solarApplied, resonanceScore, isotopicRatio, historicalCoherence,
+      solarApplied, resonanceScore,
+      diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, tension, source,
     };
   } catch {
