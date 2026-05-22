@@ -377,10 +377,10 @@ export default function DynamoDeploy() {
             { icon: '🧬', name: `Neural ${neuralVersion}`, desc: 'Raw Neural Output', ok: services[2] },
           ].map((s, i) => (
             <div key={i} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${s.ok ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
-              <span className="text-base shrink-0">{s.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-white truncate">{s.name}</div>
-                <div className="text-[10px] text-white/30 truncate">{s.desc}</div>
+              <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
+                <span className="text-xs">{s.icon}</span>
+                <span className="text-xs font-semibold text-white truncate">{s.name}</span>
+                <span className="text-[10px] text-white/30 truncate">{s.desc}</span>
               </div>
               <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${s.ok ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
             </div>
