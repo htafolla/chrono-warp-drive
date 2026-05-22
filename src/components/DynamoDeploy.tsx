@@ -366,7 +366,7 @@ export default function DynamoDeploy() {
         <div className="text-center">
           <div className="text-5xl mb-2">⚡</div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Dynamo</h1>
-          <p className="text-sm text-white/40 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
+          <p className="text-xs text-white/30 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
         </div>
 
         {/* Three service cards — horizontal compact */}
@@ -400,10 +400,7 @@ export default function DynamoDeploy() {
           </div>
         )}
 
-        {/* Info */}
-        <div className="text-center">
-          <p className="text-xs text-white/25">Resonance-Driven governance with solar context and neural metrics</p>
-        </div>
+
 
         {/* Input */}
         <div className="space-y-3">
