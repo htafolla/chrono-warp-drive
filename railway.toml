@@ -1,8 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "cd mcp && npm install"
-
-[deploy]
-startCommand = "cd mcp && npx tsx ${ENTRY_POINT:-backend-server.ts}"
-healthcheckPath = "/health"
-healthcheckTimeout = 5
