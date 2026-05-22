@@ -14,7 +14,6 @@ const EXAMPLE_PROPOSALS = [
   'Should I go hiking tomorrow?',
   'Can I fly my drone this weekend?',
   'Is it safe to deploy tonight?',
-  'Should I schedule surgery Friday?',
 ];
 
 const GO_PHRASES = [
