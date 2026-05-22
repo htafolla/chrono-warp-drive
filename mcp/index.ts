@@ -1303,11 +1303,12 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
       lines.push(`Reasoning: ${reason}`)
     }
 
-    if (rec === 'PASS') {
+    const normalizedRec = rec.replace(/ /g, '_')
+    if (normalizedRec === 'PASS') {
       lines.push('This proposal PASSED governance. The recommendation is to approve and proceed.')
-    } else if (rec === 'REJECT') {
+    } else if (normalizedRec === 'REJECT') {
       lines.push('This proposal was REJECTED by governance. The recommendation is to decline and revisit.')
-    } else if (rec === 'NEEDS_REVISION') {
+    } else if (normalizedRec === 'NEEDS_REVISION') {
       lines.push('This proposal NEEDS_REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
     }
 
@@ -1592,9 +1593,10 @@ app.post('/explain_governance_output', async (c: Context) => {
   }
   if (reason) lines.push(`Reasoning: ${reason}`)
 
-  if (rec === 'PASS') lines.push('This proposal PASSED governance. The recommendation is to approve and proceed.')
-  else if (rec === 'REJECT') lines.push('This proposal was REJECTED by governance. The recommendation is to decline and revisit.')
-  else if (rec === 'NEEDS_REVISION') lines.push('This proposal NEEDS_REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
+  const normalizedRec = rec.replace(/ /g, '_')
+  if (normalizedRec === 'PASS') lines.push('This proposal PASSED governance. The recommendation is to approve and proceed.')
+  else if (normalizedRec === 'REJECT') lines.push('This proposal was REJECTED by governance. The recommendation is to decline and revisit.')
+  else if (normalizedRec === 'NEEDS_REVISION') lines.push('This proposal NEEDS_REVISION. The recommendation is to revise based on the reasoning provided and resubmit.')
 
   if (solarCtx) {
     lines.push('')

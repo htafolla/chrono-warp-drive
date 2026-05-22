@@ -177,7 +177,7 @@ export function TPTTApp() {
   const [temporalCalcV46, setTemporalCalcV46] = useState<TemporalCalculatorV4_6 | null>(null);
   const [picklesAtlas] = useState(() => new PicklesAtlas());
   // v4.7 Neural fusion (TF.js worker) — replaces dead v4.5 NeuralFusion class
-  const { lastResult: neuralFusionResult, computeFull: computeNeuralFusion } = useNeuralFusion({ enabled: true, autoInitialize: true });
+  const { lastResult: neuralFusionResult, computeFull: computeNeuralFusion, isTrained: neuralTrained, isFallback: neuralFallback } = useNeuralFusion({ enabled: true, autoInitialize: true });
   // v4.7 option-a coupling: live solar features modulate delta_phase / tau
   const { solarFeatures } = useSolarFeatures({ enabled: true });
   
@@ -846,6 +846,8 @@ export function TPTTApp() {
                 <NeuralFusionDisplay 
                   neuralOutput={tpttV4Result?.neuralOutput || null}
                   isActive={!!tpttV4Result?.neuralOutput}
+                  isTrained={neuralTrained}
+                  isFallback={neuralFallback}
                 />
               </div>
             )}
