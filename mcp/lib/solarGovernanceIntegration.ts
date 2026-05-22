@@ -3,18 +3,44 @@
 
 import { fetchCurrentSolarData, SolarData } from './solarDataFetcher.js'
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
+import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 
-// Solar-Isotopic Hammer now models EXACTLY the deep researched isotopic-vortex implementation.
-// We create proper TemporalBlurrnSignal instances for both the proposal and the current sun,
-// then use the canonical crossCorrelate / calculateIsotopicRatio / phase logic from the vortex form.
-function hashProposalToTdf(proposal: string): number {
-  let h = 2166136261 >>> 0 // FNV-1a 32-bit (stable content fingerprint)
-  for (let i = 0; i < proposal.length; i++) {
-    h ^= proposal.charCodeAt(i)
-    h = Math.imul(h, 16777619) >>> 0
+// Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
+// Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
+// compute rich TDF with canonical formulas, create proper TemporalBlurrnSignal objects,
+// and derive resonance from the exact vortex crossCorrelate implementation.
+
+function normalizeProposalText(text: string): string {
+  let t = text.toLowerCase();
+  t = t.replace(/[^\w\s?]/g, ' ');
+  t = t.replace(/\s+/g, ' ').trim();
+  const stop = ['the', 'a', 'an', 'is', 'are', 'of', 'for', 'to', 'and', 'or', 'but', 'in', 'on', 'with', 'that', 'this'];
+  return t.split(' ').filter(w => w && !stop.includes(w)).join(' ');
+}
+
+function deriveTdfParametersFromNormalized(normalized: string): VortexTdfParams {
+  let h = 2166136261;
+  for (let i = 0; i < normalized.length; i++) {
+    h ^= normalized.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  const norm = (h % 100000000) / 1e8
-  return 5.781e12 + norm * 137000000
+  h = Math.abs(h);
+
+  return {
+    T_c: 100 + (h % 80),
+    P_s: 0.6 + ((h >> 8) % 80) / 100,
+    E_t: 0.3 + ((h >> 16) % 60) / 100,
+    delta_t: 1e-6,
+    voids: 3 + ((h >> 24) % 9),
+    bhs_n: 2 + ((h >> 5) % 4),
+  };
+}
+
+function deriveCascadeFromContent(content: string): number {
+  const norm = normalizeProposalText(content);
+  let h = 0;
+  for (let i = 0; i < norm.length; i++) h = (h * 31 + norm.charCodeAt(i)) | 0;
+  return Math.abs(h) % 100;
 }
 
 function getSolarReferenceTdf(solarData: SolarData): number {
@@ -25,15 +51,8 @@ function getSolarReferenceTdf(solarData: SolarData): number {
   return 5.781e12 + seed
 }
 
-// Simple but deterministic cascade derivation (can be improved with full TDF param seeding later)
-function deriveCascadeFromContent(content: string): number {
-  let h = 0
-  for (let i = 0; i < content.length; i++) h = (h * 31 + content.charCodeAt(i)) | 0
-  return Math.abs(h) % 100
-}
-
 function deriveCascadeFromSolar(solarData: SolarData): number {
-  return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100
+  return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100;
 }
 
 export interface SolarGovernanceContext {
@@ -113,18 +132,20 @@ export class SolarGovernanceIntegration {
     phaseCoherenceProposal: number
     phaseCoherenceSun: number
     activityModifier: number
-    // New: full vortex metrics from the canonical crossCorrelate
     crossCorrelationStrength?: number
     vortexVolume?: number
   }> {
     try {
       const solarData = await fetchCurrentSolarData()
 
-      const propTdf = hashProposalToTdf(proposal || 'empty-proposal')
+      const normalized = normalizeProposalText(proposal || 'empty-proposal')
+      const params = deriveTdfParametersFromNormalized(normalized)
+      const { tdf: richTdf } = computeFullTDF(params)
       const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
+
       const proposalSignal = new TemporalBlurrnSignal(
         { content: proposal },
-        propTdf,
+        richTdf,
         propCascade
       )
 
@@ -136,10 +157,7 @@ export class SolarGovernanceIntegration {
         sunCascade
       )
 
-      // Exact isotopic-vortex calculation
       const correlation = proposalSignal.crossCorrelate(sunSignal)
-
-      // The hammer resonance is the symbiotic strength from the real vortex form
       const solarIsotopicResonance = Math.max(0.15, Math.min(0.98, correlation.strength))
 
       let activityModifier = 0
@@ -154,7 +172,7 @@ export class SolarGovernanceIntegration {
         solarIsotopicResonance,
         solarActivityLevel: solarData.activityLevel || 'moderate',
         solarReferenceTdf: solarRefTdf,
-        proposalTdf: propTdf,
+        proposalTdf: richTdf,
         phaseCoherenceProposal: proposalSignal.phaseCoherence,
         phaseCoherenceSun: sunSignal.phaseCoherence,
         activityModifier,
@@ -164,8 +182,7 @@ export class SolarGovernanceIntegration {
     } catch (error) {
       console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
       const fallbackTdf = 5.781e12 + 424242
-      const fallbackCascade = 42
-      const proposalSignal = new TemporalBlurrnSignal({ content: proposal }, fallbackTdf, fallbackCascade)
+      const proposalSignal = new TemporalBlurrnSignal({ content: proposal }, fallbackTdf, 42)
       const sunSignal = new TemporalBlurrnSignal({ source: 'sun' }, fallbackTdf + 1000, 43)
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 

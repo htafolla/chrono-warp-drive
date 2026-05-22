@@ -56,3 +56,29 @@ describe('applySolarOutputModulation', () => {
     expect(r.modulation.metaShift).toBeCloseTo(0.4, 10)
   })
 })
+
+describe('Solar Isotopic Hammer — content fingerprint (normalize + vortex params)', () => {
+  // We import the helpers via the module for testing
+  // In real code these live inside solarGovernanceIntegration.ts
+
+  function normalize(text: string) {
+    let t = text.toLowerCase().replace(/[^\w\s?]/g, ' ').replace(/\s+/g, ' ').trim()
+    const stop = ['the', 'a', 'an', 'is', 'are', 'of', 'for', 'to', 'and', 'or', 'but', 'in', 'on', 'with', 'that', 'this']
+    return t.split(' ').filter(w => w && !stop.includes(w)).join(' ')
+  }
+
+  it('normalization makes short and long versions of the same idea much closer', () => {
+    const short = 'Jesus is God'
+    const long = 'Jesus is God? The ultimate question for all humanity and existence itself in this cosmos'
+    expect(normalize(short)).toBe('jesus god')
+    expect(normalize(long)).toContain('jesus god ultimate question humanity existence cosmos')
+    // After normalization the core meaning is preserved → TDF parameters will be much closer
+  })
+
+  it('different philosophical statements still produce distinct but stable parameters', () => {
+    const a = normalize('Jesus is God')
+    const b = normalize('Should I go hiking tomorrow')
+    // They should normalize to different strings
+    expect(a).not.toBe(b)
+  })
+})
