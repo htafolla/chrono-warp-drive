@@ -190,14 +190,14 @@ export class SolarGovernanceIntegration {
       const sunSignal = new TemporalBlurrnSignal({ source: 'sun' }, fallbackTdf + 1000, 43)
 
       return {
-        solarIsotopicResonance: 0.67,
+        solarIsotopicResonance: 0.80,
         solarActivityLevel: 'moderate',
         solarReferenceTdf: fallbackTdf,
         proposalTdf: fallbackTdf,
         phaseCoherenceProposal: proposalSignal.phaseCoherence,
         phaseCoherenceSun: sunSignal.phaseCoherence,
         activityModifier: 0,
-        crossCorrelationStrength: 0.67,
+        crossCorrelationStrength: 0.80,
         vortexVolume: fallbackTdf * (fallbackTdf + 1000),
       }
     }
