@@ -27,6 +27,11 @@ export function blackHoleSequence(voids: number, n: number): number {
 export function computeFullTDF(params: VortexTdfParams): { tptt: number; bhs: number; tdf: number } {
   const tptt = tPTT(params.T_c, params.P_s, params.E_t, params.delta_t);
   const bhs = blackHoleSequence(params.voids, params.bhs_n);
-  const tdf = tptt * TAU * (1 / bhs);
+  const rawTdf = tptt * TAU * (1 / bhs);
+  // Raw TDF is ~10^16-10^17 (from C/delta_t = 3e14), which exceeds JS float64
+  // safe integer range (2^53 ≈ 9e15), breaking % math in phaseCoherence and
+  // calculateIsotopicRatio. Normalize to 5.78e12 base preserving vortex variation.
+  const fingerprint = Math.round(rawTdf / 1e9) % 100000000;
+  const tdf = 5.781e12 + fingerprint;
   return { tptt, bhs, tdf };
 }
