@@ -127,7 +127,7 @@ export async function evaluateGovernance(
     }
   }
 
-  const resonance = strengths.length > 0
+  let resonance = strengths.length > 0
     ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length
     : 0.78
 
