@@ -129,6 +129,8 @@ interface GovernanceResult {
   gain: number;
   metamorphosisIndex: number | null;
   confidenceScore: number | null;
+  spectralQuality?: number | null;
+  reconstructionError?: number | null;
   governanceConfidence: number | null;
   solarApplied: boolean;
   resonanceScore: number | null;
@@ -179,6 +181,8 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
 
     const metamorphosisIndex = neural?.neuralOutput?.metamorphosisIndex ?? neural?.metamorphosisIndex ?? null;
     const confidenceScore = neural?.neuralOutput?.confidenceScore ?? neural?.confidenceScore ?? null;
+    const spectralQuality = neural?.neuralOutput?.spectralQuality ?? neural?.spectralQuality ?? null;
+    const reconstructionError = neural?.neuralOutput?.reconstructionError ?? neural?.reconstructionError ?? null;
     const governanceConfidence = alignment?.confidence ?? null;
     const solarApplied = neural?.neuralOutput?.solarApplied ?? neural?.solarModulation?.solar_applied ?? (solar?.solarContext != null) ?? false;
 
@@ -242,7 +246,7 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
 
     return {
       answer, detail, phrase, level: levelLabel, signal: signalLabel,
-      weight: adjustedWeight, gain, metamorphosisIndex, confidenceScore, governanceConfidence,
+      weight: adjustedWeight, gain, metamorphosisIndex, confidenceScore, spectralQuality, reconstructionError, governanceConfidence,
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, tension, source,
@@ -331,7 +335,9 @@ export default function DynamoDeploy() {
     if (result.signature) lines.push(`ID: ${result.signature}`);
     if (result.metamorphosisIndex != null) lines.push(`MI ${(result.metamorphosisIndex * 100).toFixed(1)}%`);
     if (result.governanceConfidence != null) lines.push(`Gov ${(result.governanceConfidence * 100).toFixed(1)}%`);
+    if (result.spectralQuality != null) lines.push(`Spectral Quality ${(result.spectralQuality * 100).toFixed(1)}%`);
     if (result.confidenceScore != null) lines.push(`Neural ${(result.confidenceScore * 100).toFixed(1)}%`);
+    if (result.reconstructionError != null) lines.push(`Recon Err ${result.reconstructionError.toFixed(3)}`);
     lines.push('dynamo-ui-psi.vercel.app');
     navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
   }, [result, lastProposal]);
@@ -448,17 +454,36 @@ export default function DynamoDeploy() {
               </div>
             )}
 
-            {/* Raw Neural Output */}
-            {result.confidenceScore != null && (
+            {/* Raw Neural Output — now reconstruction-driven */}
+            {(result.confidenceScore != null || result.spectralQuality != null) && (
               <details className="group mt-4">
                 <summary className="bg-white/[0.03] rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
                   <Brain className="h-3 w-3 text-white/20" />
-                  <span className="text-xs text-white/20">Raw Neural Output ({(result.confidenceScore * 100).toFixed(1)}%)</span>
+                  <span className="text-xs text-white/20">
+                    Neural {result.spectralQuality != null ? 'Quality' : 'Output'} 
+                    {result.confidenceScore != null && ` (${(result.confidenceScore * 100).toFixed(1)}%)`}
+                  </span>
                   <span className="text-xs text-white/20 group-open:rotate-180 transition-transform">▾</span>
                 </summary>
-                <div className="bg-white/[0.03] rounded-lg p-2 text-center mt-1">
-                  <p className="text-[10px] text-white/30 uppercase">Neural Confidence</p>
-                  <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
+                <div className="bg-white/[0.03] rounded-lg p-2 mt-1 space-y-1 text-center">
+                  {result.spectralQuality != null && (
+                    <div>
+                      <p className="text-[10px] text-white/30 uppercase">Spectral Quality (reconstruction)</p>
+                      <p className="text-sm font-semibold text-white">{(result.spectralQuality * 100).toFixed(1)}%</p>
+                    </div>
+                  )}
+                  {result.reconstructionError != null && (
+                    <p className="text-[10px] text-white/30">Recon Error: {result.reconstructionError.toFixed(3)}</p>
+                  )}
+                  {result.confidenceScore != null && (
+                    <div>
+                      <p className="text-[10px] text-white/30 uppercase">Neural Confidence</p>
+                      <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
+                    </div>
+                  )}
+                  {result.metamorphosisIndex != null && (
+                    <p className="text-[10px] text-white/30">Metamorphosis: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                  )}
                 </div>
               </details>
             )}

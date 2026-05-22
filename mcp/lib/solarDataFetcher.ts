@@ -85,6 +85,10 @@ export class SolarDataFetcher {
   private cache: { data: SolarData; expiresAt: number } | null = null
   private readonly TTL_MS = 60_000
 
+  // Lightweight rolling history of real NOAA observations (for training the neural embedding)
+  private recentObservations: SolarData[] = []
+  private readonly MAX_HISTORY = 32
+
   async fetchCurrentSolarData(force = false): Promise<SolarData> {
     if (!force && this.cache && Date.now() < this.cache.expiresAt) {
       return this.cache.data
@@ -121,7 +125,39 @@ export class SolarDataFetcher {
     }
 
     this.cache = { data, expiresAt: Date.now() + this.TTL_MS }
+
+    // Lightweight history for neural training (only real-ish observations)
+    this.addToHistory(data)
+
     return data
+  }
+
+  private addToHistory(data: SolarData) {
+    // Simple dedup: only store if meaningfully different from the most recent entry
+    const last = this.recentObservations[this.recentObservations.length - 1]
+    if (last && !this.isSufficientlyDifferent(last, data)) {
+      return
+    }
+
+    this.recentObservations.push(data)
+    if (this.recentObservations.length > this.MAX_HISTORY) {
+      this.recentObservations.shift()
+    }
+  }
+
+  private isSufficientlyDifferent(a: SolarData, b: SolarData): boolean {
+    const xrayDiff = Math.abs(Math.log10(b.xray.long + 1e-12) - Math.log10(a.xray.long + 1e-12))
+    const kpDiff = Math.abs(b.kpIndex - a.kpIndex)
+    const magDiff = Math.abs(b.magnetometer.perturbation - a.magnetometer.perturbation)
+    const actChanged = a.activityLevel !== b.activityLevel
+
+    // Thresholds are intentionally loose — we want regime changes, not tiny fluctuations
+    return xrayDiff > 0.35 || kpDiff >= 1.5 || magDiff > 12 || actChanged
+  }
+
+  /** Returns the most recent real solar observations (newest last). Useful for neural training. */
+  getRecentObservations(limit = 12): SolarData[] {
+    return this.recentObservations.slice(-limit)
   }
 
   private async safeJson(url: string, onFail: () => void): Promise<any> {

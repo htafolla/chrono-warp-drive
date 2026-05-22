@@ -120,6 +120,9 @@ app.post('/process-current-sun', async (req, res) => {
         solarAdjustment: result.solarModulation?.metaDelta ?? 0,
         activityLevel: result.solarModulation?.activity_level ?? 'none',
         gainMultiplier: result.solarModulation?.gainMultiplier ?? 0,
+        // New reconstruction-based signals
+        reconstructionError: result.reconstructionError,
+        spectralQuality: result.spectralQuality,
       },
       engine: 'real-tensorflow + solar-trained + multi-channel-noaa',
     });

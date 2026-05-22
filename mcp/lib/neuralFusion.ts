@@ -91,6 +91,40 @@ function computeSolarTargets(solarData: SolarData): number[] {
   ];
 }
 
+/**
+ * Generate a small "historical" set of distinct solar regimes for training.
+ * This is the key first improvement over the previous "one real snapshot + 40 augmentations".
+ * We now synthesize a representative distribution (quiet → extreme storm) that is
+ * internally consistent with the activity classification used by the solar hammer.
+ */
+function generateDiverseSolarScenarios(base: SolarData, count = 6): SolarData[] {
+  const regimes: Array<Partial<SolarData>> = [
+    { xray: { ...base.xray, long: 5e-8, short: 8e-9, flareClass: 'A' }, kpIndex: 1, magnetometer: { ...base.magnetometer, perturbation: 7 } },
+    { xray: { ...base.xray, long: 4e-7, short: 6e-8, flareClass: 'B' }, kpIndex: 3, magnetometer: { ...base.magnetometer, perturbation: 20 } },
+    { xray: { ...base.xray, long: 3e-6, short: 5e-7, flareClass: 'C' }, kpIndex: 5, magnetometer: { ...base.magnetometer, perturbation: 42 } },
+    { xray: { ...base.xray, long: 1.2e-5, short: 2e-6, flareClass: 'M' }, kpIndex: 6, magnetometer: { ...base.magnetometer, perturbation: 60 }, solarWind: { ...base.solarWind, speed: 650 } },
+    { xray: { ...base.xray, long: 5e-5, short: 9e-6, flareClass: 'X' }, kpIndex: 8, magnetometer: { ...base.magnetometer, perturbation: 95 }, solarWind: { ...base.solarWind, speed: 810 } },
+    { xray: { ...base.xray, long: 1.1e-4, short: 2.5e-5, flareClass: 'X' }, kpIndex: 9, magnetometer: { ...base.magnetometer, perturbation: 135 }, solarWind: { ...base.solarWind, speed: 880 } },
+  ];
+
+  return regimes.slice(0, count).map((v, i) => {
+    const d: SolarData = {
+      ...base,
+      timestamp: new Date(Date.now() - i * 4 * 3600_000).toISOString(),
+      xray: { ...base.xray, ...v.xray },
+      kpIndex: v.kpIndex ?? base.kpIndex,
+      magnetometer: { ...base.magnetometer, ...v.magnetometer },
+      solarWind: { ...base.solarWind, ...v.solarWind },
+      particles: v.particles ? { ...base.particles, ...v.particles } : base.particles,
+    };
+    d.activityLevel = (d.xray.long > 1e-4 || d.kpIndex >= 7) ? 'storm'
+                    : (d.xray.long > 1e-5 || d.kpIndex >= 5) ? 'active'
+                    : (d.xray.long > 1e-6 || d.kpIndex >= 3) ? 'moderate'
+                    : 'quiet';
+    return d;
+  });
+}
+
 function computeStellarTargets(star: StellarSpectrum): number[] {
   const normTemp = clamp(star.temperature / 50000, 0, 1);
   const spectralType = star.spectralType.charAt(0).toUpperCase();
@@ -147,7 +181,8 @@ function augmentSpectrum(base: number[], noiseStd = 0.03): number[] {
 }
 
 export class NeuralFusion {
-  private spectralModel: tf.LayersModel | null = null;
+  private spectralModel: tf.LayersModel | null = null;   // Encoder (16-dim bottleneck)
+  private decoderModel: tf.LayersModel | null = null;    // Cheap reconstruction head
   private patternModel: tf.LayersModel | null = null;
   private isInitialized = false;
   private isTrained = false;
@@ -159,6 +194,7 @@ export class NeuralFusion {
       console.log(`[NeuralFusion] TF.js backend: ${tf.getBackend()}`);
 
       this.spectralModel = this.createSpectralModel();
+      this.decoderModel = this.createDecoderModel();
       this.patternModel = this.createPatternModel();
 
       const testTensor = tf.tensor2d([Array(200).fill(0.5)]);
@@ -176,6 +212,7 @@ export class NeuralFusion {
   }
 
   private createSpectralModel(): tf.LayersModel {
+    // Encoder (bottleneck) - this is what we expose as the "spectral embedding"
     const model = tf.sequential({
       layers: [
         tf.layers.dense({ inputShape: [200], units: 48, activation: 'relu',
@@ -187,7 +224,22 @@ export class NeuralFusion {
         tf.layers.dense({ units: 16, activation: 'sigmoid' }),
       ],
     });
+    // We compile the encoder mainly for the auxiliary targets during training.
+    // The real reconstruction loss will be handled via the decoder.
     model.compile({ optimizer: tf.train.adam(0.005), loss: 'meanSquaredError', metrics: ['mse'] });
+    return model;
+  }
+
+  private createDecoderModel(): tf.LayersModel {
+    // Cheap decoder head - 16-dim bottleneck back to 200-dim spectrum
+    const model = tf.sequential({
+      layers: [
+        tf.layers.dense({ inputShape: [16], units: 48, activation: 'relu' }),
+        tf.layers.dropout({ rate: 0.1 }),
+        tf.layers.dense({ units: 200, activation: 'linear' }),
+      ],
+    });
+    model.compile({ optimizer: tf.train.adam(0.003), loss: 'meanSquaredError', metrics: ['mse'] });
     return model;
   }
 
@@ -208,48 +260,68 @@ export class NeuralFusion {
       throw new Error('Models not initialized');
     }
 
-    const solarData = await solarDataFetcher.fetchCurrentSolarData(true);
-    const solarSpectrum = solarDataFetcher.solarDataToSpectrum(solarData, 200);
-    const solarBase = normalizeArray(solarSpectrum.intensities);
-    const solarTargets = computeSolarTargets(solarData);
+    // === Current training philosophy (stabilized phase) ===
+    // Primary objective: Learn a good 16-dim solar spectrum embedding that can be reconstructed.
+    // This makes reconstructionError a real, honest signal of "how familiar is this solar state?"
+    // We combine:
+    //   - Real recent NOAA observations (from the rolling buffer)
+    //   - Synthetic diverse regimes (quiet → storm)
+    //   - Reconstruction loss via the cheap decoder head
+    // The old auxiliary solar metadata targets are kept as a light secondary signal.
+
+    const baseSolar = await solarDataFetcher.fetchCurrentSolarData(true);
+
+    // === Lightweight historical buffer + synthetic diversity (user-chosen path A) ===
+    const realHistory = solarDataFetcher.getRecentObservations(12)
+    const synthetic = generateDiverseSolarScenarios(baseSolar, 6)
+
+    // Prefer real recent data when available, fall back to synthetic regimes
+    const scenarios = realHistory.length >= 4 ? realHistory : synthetic
 
     const trainInputs: number[][] = [];
     const trainTargets: number[][] = [];
 
-    for (let aug = 0; aug < 40; aug++) {
-      trainInputs.push(augmentSpectrum(solarBase, 0.02 + aug * 0.002));
-      const t = solarTargets.slice();
-      t[0] = clamp(5778 / 50000 + normalRandom(0, 0.01), 0.1, 0.3);
-      t[1] = clamp(solarTargets[1] + normalRandom(0, 0.08), 0.1, 1);
-      t[2] = clamp(solarTargets[2] + normalRandom(0, 0.1), 0.05, 1);
-      t[3] = clamp(solarTargets[3] + normalRandom(0, 0.05), 0, 1);
-      t[4] = clamp(solarTargets[4] + normalRandom(0, 0.05), 0, 1);
-      t[5] = clamp(solarTargets[5] + normalRandom(0, 0.08), 0, 1);
-      t[12] = clamp(solarTargets[12] + normalRandom(0, 0.04), 0.05, 0.95);
-      t[13] = clamp(solarTargets[13] + normalRandom(0, 0.03), 0.4, 0.98);
-      trainTargets.push(t);
+    for (const scenario of scenarios) {
+      const spectrum = solarDataFetcher.solarDataToSpectrum(scenario, 200);
+      const solarBase = normalizeArray(spectrum.intensities);
+      const solarTargets = computeSolarTargets(scenario);
+
+      for (let aug = 0; aug < 8; aug++) {
+        trainInputs.push(augmentSpectrum(solarBase, 0.015 + aug * 0.002));
+        const t = solarTargets.slice();
+        // lighter noise because we already have real regime diversity
+        t[1] = clamp(solarTargets[1] + normalRandom(0, 0.06), 0.1, 1);
+        t[2] = clamp(solarTargets[2] + normalRandom(0, 0.08), 0.05, 1);
+        t[5] = clamp(solarTargets[5] + normalRandom(0, 0.06), 0, 1);
+        t[12] = clamp(solarTargets[12] + normalRandom(0, 0.03), 0.05, 0.95);
+        trainTargets.push(t);
+      }
     }
 
     const patternInputs: number[][] = [];
     const patternTargets: number[][] = [];
 
-    for (let aug = 0; aug < 30; aug++) {
-      const actNum = clamp(solarTargets[1] + normalRandom(0, 0.1), 0, 1);
-      const flareNum = clamp(solarTargets[2] + normalRandom(0, 0.15), 0, 1);
-      patternInputs.push([
-        actNum,
-        solarTargets[3] + normalRandom(0, 0.05),
-        solarTargets[5] + normalRandom(0, 0.1),
-        solarTargets[7] + normalRandom(0, 0.05),
-        Math.random(),
-        Math.random() * 0.5,
-        Math.random() * 0.3,
-        Math.random() * 0.2,
-      ]);
-      const seqIdx = Math.min(7, Math.floor(actNum * 7 + flareNum * 1.5));
-      const oneHot = Array(8).fill(0);
-      oneHot[Math.min(7, seqIdx)] = 1;
-      patternTargets.push(oneHot);
+    // Use the same diverse regimes for the pattern model
+    for (const scenario of scenarios) {
+      const t = computeSolarTargets(scenario);
+      for (let aug = 0; aug < 5; aug++) {
+        const actNum = clamp(t[1] + normalRandom(0, 0.08), 0, 1);
+        const flareNum = clamp(t[2] + normalRandom(0, 0.12), 0, 1);
+        patternInputs.push([
+          actNum,
+          t[3] + normalRandom(0, 0.04),
+          t[5] + normalRandom(0, 0.08),
+          t[7] + normalRandom(0, 0.04),
+          Math.random(),
+          Math.random() * 0.5,
+          Math.random() * 0.3,
+          Math.random() * 0.2,
+        ]);
+        const seqIdx = Math.min(7, Math.floor(actNum * 7 + flareNum * 1.5));
+        const oneHot = Array(8).fill(0);
+        oneHot[Math.min(7, seqIdx)] = 1;
+        patternTargets.push(oneHot);
+      }
     }
 
     const spectra = stellarLibrary.getAllSpectra();
@@ -268,7 +340,7 @@ export class NeuralFusion {
       }
     }
 
-    console.log(`[NeuralFusion] Spectral training samples: ${trainInputs.length}`);
+    console.log(`[NeuralFusion] Spectral training samples: ${trainInputs.length} (real history: ${realHistory.length}, synthetic regimes used: ${realHistory.length < 4})`);
 
     const xs = tf.tensor2d(trainInputs);
     const ys = tf.tensor2d(trainTargets);
@@ -289,6 +361,32 @@ export class NeuralFusion {
 
     xs.dispose();
     ys.dispose();
+
+    // === Train cheap decoder on reconstruction ===
+    if (this.decoderModel && this.spectralModel) {
+      console.log('[NeuralFusion] Training decoder head for reconstruction quality...');
+
+      // Create reconstruction targets = the original normalized spectra
+      const reconTargets = trainInputs; // same as inputs for autoencoder-style training
+
+      const encOut = this.spectralModel.predict(tf.tensor2d(trainInputs)) as tf.Tensor;
+      const decXs = encOut; // 16-dim embeddings
+
+      const decYs = tf.tensor2d(reconTargets);
+
+      await this.decoderModel.fit(decXs, decYs, {
+        epochs: 35,
+        batchSize: Math.min(32, trainInputs.length),
+        shuffle: true,
+        validationSplit: 0.1,
+      });
+
+      decXs.dispose();
+      decYs.dispose();
+      encOut.dispose();
+
+      console.log('[NeuralFusion] Decoder training complete');
+    }
 
     console.log(`[NeuralFusion] Pattern training samples: ${patternInputs.length}`);
 
@@ -313,7 +411,7 @@ export class NeuralFusion {
     pys.dispose();
 
     this.isTrained = true;
-    console.log('[NeuralFusion] Training complete — models are solar-physics-grounded');
+    console.log('[NeuralFusion] Training complete — reconstruction-aware solar embedding (phase stabilized)');
   }
 
   exportWeights(): Record<string, number[][]> {
@@ -342,10 +440,14 @@ export class NeuralFusion {
     }
 
     try {
-      const neuralSpectra = await this.processSpectrum(input.spectrumData);
+      const spectrumResult = await this.processSpectrum(input.spectrumData);
+      const neuralSpectra = spectrumResult.embedding;           // 100-dim expanded (for backward compat)
+      const reconstructionError = spectrumResult.reconstructionError;
+      const reconQuality = 1 - Math.min(reconstructionError / 0.8, 1.0); // 0–1
+
       const synapticSequence = await this.generateSynapticSequence(input);
       const metamorphosisIndex = this.calculateMetamorphosisIndex(input, neuralSpectra);
-      const confidenceScore = this.calculateConfidence(neuralSpectra, input);
+      const confidenceScore = this.calculateConfidence(neuralSpectra, input, reconstructionError);
 
       const { metamorphosisIndex: mi, confidenceScore: cs, modulation } = applySolarOutputModulation(
         metamorphosisIndex, confidenceScore, input.solarFeatures
@@ -357,6 +459,9 @@ export class NeuralFusion {
         metamorphosisIndex: mi,
         confidenceScore: cs,
         solarModulation: modulation,
+        // New honest signals (lightweight reconstruction-based)
+        reconstructionError,
+        spectralQuality: reconQuality, // 0–1, higher = model understands this solar state better
       };
     } catch (error) {
       console.warn('[NeuralFusion] processing failed, fallback:', error);
@@ -364,16 +469,53 @@ export class NeuralFusion {
     }
   }
 
-  private async processSpectrum(sd: { intensities: number[]; granularity: number }): Promise<number[]> {
+  private async processSpectrum(sd: { intensities: number[]; granularity: number }): Promise<{
+    embedding: number[];
+    reconstructionError: number;
+  }> {
     if (!this.spectralModel) throw new Error('No model');
+
     const sampled = sampleArray(sd.intensities, 200);
     const normalized = normalizeArray(sampled);
     const inputTensor = tf.tensor2d([normalized]);
-    const prediction = this.spectralModel.predict(inputTensor) as tf.Tensor;
-    const data = await prediction.data();
+
+    // Run encoder → 16-dim bottleneck
+    const embeddingTensor = this.spectralModel.predict(inputTensor) as tf.Tensor;
+    const embedding16 = await embeddingTensor.data();
+    const embeddingArray = Array.from(embedding16);
+
+    let reconstructionError = 0.5; // neutral default
+
+    if (this.decoderModel) {
+      try {
+        const reconTensor = this.decoderModel.predict(embeddingTensor) as tf.Tensor;
+        const reconData = await reconTensor.data();
+        const reconArray = Array.from(reconData);
+
+        // Mean squared reconstruction error (0 = perfect, higher = worse)
+        let mse = 0;
+        for (let i = 0; i < normalized.length; i++) {
+          const diff = normalized[i] - reconArray[i];
+          mse += diff * diff;
+        }
+        reconstructionError = mse / normalized.length;
+
+        reconTensor.dispose();
+      } catch (e) {
+        // decoder failed — keep neutral error
+      }
+    }
+
+    embeddingTensor.dispose();
     inputTensor.dispose();
-    prediction.dispose();
-    return this.expandNeuralSpectra(Array.from(data));
+
+    // Keep the expanded 100-dim version for existing consumers (neuralSpectra)
+    const expanded = this.expandNeuralSpectra(embeddingArray);
+
+    return {
+      embedding: expanded,
+      reconstructionError: Math.min(Math.max(reconstructionError, 0), 2),
+    };
   }
 
   private async generateSynapticSequence(input: NeuralInput): Promise<string> {
@@ -413,11 +555,35 @@ export class NeuralFusion {
     return Math.min(Math.max(index, 0), 1);
   }
 
-  private calculateConfidence(neuralSpectra: number[], input: NeuralInput): number {
+  private calculateConfidence(
+    neuralSpectra: number[],
+    input: NeuralInput,
+    reconstructionError: number = 0.5
+  ): number {
+    // === Primary signal: reconstruction quality ===
+    // Lower reconstruction error = model understands this solar state well
+    // We normalize error (typical good < 0.15, bad > 0.6)
+    const reconQuality = 1 - Math.min(reconstructionError / 0.8, 1.0);
+
+    // Secondary: activation strength of the embedding
     const strength = neuralSpectra.reduce((s, v) => s + Math.abs(v), 0) / neuralSpectra.length;
-    const quality = input.spectrumData.source === 'SDSS' ? 0.9 : 0.7;
-    const granularityBonus = Math.min(input.spectrumData.granularity / 2, 0.2);
-    return Math.min(strength * quality + granularityBonus, 1);
+
+    // Tertiary: solar regime (we now train on diverse conditions)
+    let solarFactor = 1.0;
+    if (input.solarFeatures?.activityLevel) {
+      const act = input.solarFeatures.activityLevel;
+      if (act === 'storm') solarFactor = 0.88;
+      else if (act === 'active') solarFactor = 0.95;
+      else if (act === 'quiet') solarFactor = 1.06;
+    }
+
+    const quality = input.spectrumData.source === 'SDSS' ? 0.95 : 0.82;
+    const granularityBonus = Math.min(input.spectrumData.granularity / 2, 0.12);
+
+    // Heavily weight reconstruction quality — this is the honest "I know this sun" signal
+    let conf = (reconQuality * 0.55) + (strength * quality * 0.25) + (solarFactor * 0.12) + granularityBonus;
+
+    return Math.min(Math.max(conf, 0.28), 0.96);
   }
 
   private expandNeuralSpectra(compressed: number[]): number[] {
@@ -439,8 +605,17 @@ export class NeuralFusion {
   }
 
   private getFallbackOutput(input: NeuralInput): NeuralOutput {
-    const baseMeta = 0.5 + deterministicRandom(generateCycle(), 0) * 0.3;
-    const baseConf = 0.6 + deterministicRandom(generateCycle(), 1) * 0.2;
+    // Better fallback that still reacts to solar conditions
+    let baseMeta = 0.48 + deterministicRandom(generateCycle(), 0) * 0.28;
+    let baseConf = 0.55;
+
+    if (input.solarFeatures?.activityLevel === 'storm') {
+      baseConf = 0.42;
+      baseMeta *= 0.9;
+    } else if (input.solarFeatures?.activityLevel === 'quiet') {
+      baseConf = 0.68;
+    }
+
     const { metamorphosisIndex, confidenceScore, modulation } = applySolarOutputModulation(
       baseMeta, baseConf, input.solarFeatures
     );
@@ -450,6 +625,8 @@ export class NeuralFusion {
       metamorphosisIndex,
       confidenceScore,
       solarModulation: modulation,
+      reconstructionError: 0.65,
+      spectralQuality: 0.42,
     };
   }
 

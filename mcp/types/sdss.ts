@@ -69,6 +69,10 @@ export interface NeuralOutput {
     metaDelta: number;
     confDelta: number;
   };
+
+  // New reconstruction-based signals (added for honest solar embedding quality)
+  reconstructionError?: number;   // MSE between input spectrum and decoder reconstruction
+  spectralQuality?: number;       // 0–1, higher = model understands this solar state well
 }
 
 export interface TPTTv4Result {
