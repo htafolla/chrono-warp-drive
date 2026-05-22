@@ -142,14 +142,14 @@ interface GovernanceResult {
   source: string;
 }
 
-async function checkGovernance(proposal: string): Promise<GovernanceResult | null> {
+async function checkGovernance(proposal: string, sharePublicly: boolean): Promise<GovernanceResult | null> {
   try {
     const proposalLabel = proposal.length < 30 ? proposal + ' — via Dynamo governance' : proposal;
     const [solarRes, alignRes, neuralRes] = await Promise.allSettled([
       fetch(`${MCP_URL}/govern_with_solar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal, baseVoteWeight: 1 }),
+        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly }),
         signal: AbortSignal.timeout(15000),
       }).then(async r => r.ok ? r.json() : null),
       fetch(`${MCP_URL}/governance`, {
@@ -298,6 +298,8 @@ export default function DynamoDeploy() {
   const [result, setResult] = useState<GovernanceResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastProposal, setLastProposal] = useState('');
+  const [sharePublicly, setSharePublicly] = useState(true);
+  const [feed, setFeed] = useState<Array<{proposal: string; resonanceScore: number; recommendation: string; activityLevel: string; timestamp: string}>>([]);
 
   useEffect(() => {
     checkBeacons().then(s => {
@@ -310,6 +312,21 @@ export default function DynamoDeploy() {
     });
   }, []);
 
+  useEffect(() => {
+    const fetchFeed = async () => {
+      try {
+        const res = await fetch(`${MCP_URL}/public_feed`, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.entries) setFeed(data.entries);
+        }
+      } catch {}
+    };
+    fetchFeed();
+    const interval = setInterval(fetchFeed, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const run = useCallback(async (text?: string) => {
     const input = (text || proposal).trim();
     if (!input) return;
@@ -317,10 +334,10 @@ export default function DynamoDeploy() {
     setResult(null);
     setLastProposal(input);
     if (text) setProposal(text);
-    const r = await checkGovernance(input);
+    const r = await checkGovernance(input, sharePublicly);
     setResult(r);
     setLoading(false);
-  }, [proposal]);
+  }, [proposal, sharePublicly]);
 
   const shareVerdict = useCallback(() => {
     if (!result) return;
@@ -403,6 +420,15 @@ export default function DynamoDeploy() {
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
             disabled={loading}
           />
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={sharePublicly}
+              onChange={e => setSharePublicly(e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
+            />
+            <span className="text-xs text-white/30">Share publicly</span>
+          </label>
           <div className="flex flex-wrap gap-2">
             {EXAMPLE_PROPOSALS.map(p => (
               <button
@@ -532,6 +558,32 @@ export default function DynamoDeploy() {
             <div className="text-3xl">⚠️</div>
             <p className="text-lg font-bold text-white">Could not reach governance</p>
             <p className="text-sm text-white/40">Check your connection and try again</p>
+          </div>
+        )}
+
+        {/* Public Feed */}
+        {feed.length > 0 && (
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+            <div className="px-4 py-2 border-b border-white/[0.04]">
+              <p className="text-[10px] text-white/20 uppercase tracking-wider font-semibold">Live feed</p>
+            </div>
+            <div className="divide-y divide-white/[0.03] max-h-64 overflow-y-auto">
+              {feed.slice(0, 20).map((entry, i) => (
+                <div key={i} className="px-4 py-2 flex items-center justify-between gap-3">
+                  <p className="text-xs text-white/60 truncate flex-1">{entry.proposal}</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-mono text-white/40">{entry.activityLevel}</span>
+                    <span className={`text-xs font-bold ${
+                      entry.recommendation === 'PASS' ? 'text-emerald-400' :
+                      entry.recommendation === 'REJECT' ? 'text-red-400' :
+                      'text-amber-400'
+                    }`}>
+                      {(entry.resonanceScore * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -25,11 +25,27 @@ export interface EnhancedGovernanceDecision {
   hammerReason?: string
 }
 
+export interface PublicFeedEntry {
+  proposal: string
+  resonanceScore: number
+  recommendation: string
+  activityLevel: string
+  timestamp: string
+}
+
+const MAX_FEED_ENTRIES = 50
+const publicFeed: PublicFeedEntry[] = []
+
+export function getPublicFeed(): PublicFeedEntry[] {
+  return publicFeed
+}
+
 export class DynamoSolarGovernance {
 
   async enhanceGovernanceDecision(
     originalRecommendation: string,
     baseVoteWeight: number = 1.0,
+    sharePublicly: boolean = false,
   ): Promise<EnhancedGovernanceDecision> {
     // Always fetch the generic context (for backward compat + UI labels)
     const solarContext = await solarGovernance.getSolarContextForGovernance()
@@ -84,6 +100,17 @@ export class DynamoSolarGovernance {
 
     const finalRec = hammerRec === 'PASS' ? 'PASS' : hammerRec === 'REJECT' ? 'REJECT' : 'NEEDS_REVISION'
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r*100).toFixed(0)}%]`
+
+    if (sharePublicly && originalRecommendation.length >= 3) {
+      publicFeed.unshift({
+        proposal: originalRecommendation,
+        resonanceScore: r,
+        recommendation: finalRec,
+        activityLevel: solarContext.solarActivityLevel,
+        timestamp: new Date().toISOString(),
+      })
+      if (publicFeed.length > MAX_FEED_ENTRIES) publicFeed.pop()
+    }
 
     return {
       originalRecommendation,

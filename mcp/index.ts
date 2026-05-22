@@ -5,7 +5,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { publish, subscribe } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
-import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
+import { dynamoSolarGovernance, getPublicFeed } from './lib/dynamoSolarGovernance.js'
 
 // ===== Inlined: isotopicSignal.ts =====
 interface CorrelationResult {
@@ -958,7 +958,7 @@ app.get('/', (c: Context) => {
     version: '4.8.3',
     tools: 20,
     endpoints: {
-      GET: ['/', '/health', '/docs', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator', '/get_docs', '/explain_term', '/explain_governance_output'],
+      GET: ['/', '/health', '/docs', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator', '/get_docs', '/explain_term', '/explain_governance_output', '/public_feed'],
       POST: ['/', '/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar', '/call_connected_tool', '/get_docs', '/explain_term', '/explain_governance_output'],
     },
   })
@@ -1245,7 +1245,8 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   govern_with_solar: async (args: any) => {
     const proposal = args?.proposal || 'No proposal provided'
     const baseVoteWeight = args?.baseVoteWeight ?? 1.0
-    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight)
+    const sharePublicly = args?.sharePublicly === true
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight, sharePublicly)
   },
   call_connected_tool: async (args: any) => {
     const toolName = args?.tool_name
@@ -1451,8 +1452,12 @@ app.get('/govern_with_solar', (c: Context) => {
 
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
-  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0)
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0, body.sharePublicly === true)
   return c.json({ success: true, ...result })
+})
+
+app.get('/public_feed', (c: Context) => {
+  return c.json({ success: true, entries: getPublicFeed() })
 })
 
 app.get('/call_connected_tool', (c: Context) => {
