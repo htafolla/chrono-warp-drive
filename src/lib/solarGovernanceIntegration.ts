@@ -1,7 +1,8 @@
 // src/lib/solarGovernanceIntegration.ts
 // Integrates real-time solar data into Dynamo governance decisions
 
-import { solarDataFetcher } from './solarDataFetcher';
+import { solarDataFetcher, SolarData } from './solarDataFetcher';
+import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 function hashProposalToTdf(proposal: string): number {
@@ -34,6 +35,17 @@ function getSolarReferenceTdf(solarData: any): number {
   const xray = Math.floor((solarData.xray?.long || 1e-6) * 1e15) % 10000000
   const seed = ((ts % 10000000) + kp + xray) % 100000000
   return 5.781e12 + seed
+}
+
+// Vortex-style cascade derivation (kept in sync with mcp/lib)
+function deriveCascadeFromContent(content: string): number {
+  let h = 0
+  for (let i = 0; i < content.length; i++) h = (h * 31 + content.charCodeAt(i)) | 0
+  return Math.abs(h) % 100
+}
+
+function deriveCascadeFromSolar(solarData: any): number {
+  return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100
 }
 
 export interface SolarGovernanceContext {
@@ -112,19 +124,30 @@ export class SolarGovernanceIntegration {
     phaseCoherenceProposal: number
     phaseCoherenceSun: number
     activityModifier: number
+    crossCorrelationStrength?: number
+    vortexVolume?: number
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
-      const solarRefTdf = getSolarReferenceTdf(solarData)
+
       const propTdf = hashProposalToTdf(proposal || 'empty-proposal')
+      const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
+      const proposalSignal = new TemporalBlurrnSignal(
+        { content: proposal },
+        propTdf,
+        propCascade
+      )
 
-      const pPhase = getPhaseCoherence(propTdf)
-      const sPhase = getPhaseCoherence(solarRefTdf)
-      const phaseAlign = 1 - Math.abs(pPhase - sPhase)
-      const isoR = calculateIsotopicRatio(propTdf, solarRefTdf)
+      const solarRefTdf = getSolarReferenceTdf(solarData)
+      const sunCascade = deriveCascadeFromSolar(solarData)
+      const sunSignal = new TemporalBlurrnSignal(
+        { source: 'sun', ...solarData },
+        solarRefTdf,
+        sunCascade
+      )
 
-      const rawRes = isoR * phaseAlign
-      const solarIsotopicResonance = Math.max(0.15, Math.min(0.98, rawRes))
+      const correlation = proposalSignal.crossCorrelate(sunSignal)
+      const solarIsotopicResonance = Math.max(0.15, Math.min(0.98, correlation.strength))
 
       let activityModifier = 0
       switch (solarData.activityLevel) {
@@ -139,22 +162,30 @@ export class SolarGovernanceIntegration {
         solarActivityLevel: solarData.activityLevel || 'moderate',
         solarReferenceTdf: solarRefTdf,
         proposalTdf: propTdf,
-        phaseCoherenceProposal: pPhase,
-        phaseCoherenceSun: sPhase,
+        phaseCoherenceProposal: proposalSignal.phaseCoherence,
+        phaseCoherenceSun: sunSignal.phaseCoherence,
         activityModifier,
+        crossCorrelationStrength: correlation.strength,
+        vortexVolume: correlation.metadata?.vortexVolume,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
       const fallbackTdf = 5.781e12 + 424242
       const pTdf = hashProposalToTdf(proposal)
+      const proposalSignal = new TemporalBlurrnSignal({ content: proposal }, pTdf, 42)
+      const sunSignal = new TemporalBlurrnSignal({ source: 'sun' }, fallbackTdf + 1000, 43)
+      const correlation = proposalSignal.crossCorrelate(sunSignal)
+
       return {
         solarIsotopicResonance: 0.67,
         solarActivityLevel: 'moderate',
         solarReferenceTdf: fallbackTdf,
         proposalTdf: pTdf,
-        phaseCoherenceProposal: getPhaseCoherence(pTdf),
-        phaseCoherenceSun: getPhaseCoherence(fallbackTdf),
+        phaseCoherenceProposal: proposalSignal.phaseCoherence,
+        phaseCoherenceSun: sunSignal.phaseCoherence,
         activityModifier: 0,
+        crossCorrelationStrength: correlation.strength,
+        vortexVolume: correlation.metadata?.vortexVolume,
       }
     }
   }
