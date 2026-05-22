@@ -663,3 +663,57 @@ npx strray-ai --version
 
 ---
 **Version**: 1.22.60 | [GitHub](https://github.com/htafolla/stringray)
+
+---
+
+## Deployment Guide
+
+### Service Map
+
+| Service | Platform | Deploy From | Entry Point | URL |
+|---------|----------|------------|-------------|-----|
+| **dynamo-ui** (frontend) | Vercel | Repo root (`/`) | `vite build` → `dist/` | `dynamo-ui.vercel.app` |
+| **neural-fusion-backend** | Railway | `mcp/` directory | `backend-server.ts` | `neural-fusion-backend-*.up.railway.app` |
+| **mcp** (main MCP server) | Railway | `mcp/` directory | `server.ts` | `mcp-*.up.railway.app` |
+| **stellar-mcp** | Railway | `mcp/` directory | `stellar-server.ts` | `stellar-mcp-*.up.railway.app` |
+
+### Railway Deploy Procedure
+
+All three Railway services share the same `mcp/` directory. To deploy:
+
+```bash
+# 1. Link to the desired service first
+railway service link neural-fusion-backend   # Port 3001, entry: backend-server.ts
+railway service link mcp                      # Port 3000, entry: server.ts
+railway service link stellar-mcp              # Port 3001, entry: stellar-server.ts
+
+# 2. Deploy from mcp/ directory (CRITICAL - must be mcp/, not root)
+cd mcp && railway up
+```
+
+**Key rules:**
+- **Always `cd mcp` before `railway up`** — deploying from the root builds the Vite frontend instead of the backend
+- The `mcp/railway.toml` and `mcp/package.json` configure the build automatically
+- `ENTRY_POINT` env var per service determines which server file to start
+- `mcp/` is pre-linked in Railway config at `~/.railway/config.json`
+
+### Vercel Deploy Procedure
+
+```bash
+# Frontend (dynamo-ui) — deploys from repo root
+vercel --prod
+```
+
+**Key rules:**
+- `.vercelignore` excludes `mcp/`, `.strray`, `.opencode`, `docs/reflections`, test files
+- Only the Vite React app at root is deployed
+- The `mcp/vercel.json` config is for Vercel-based MCP deployments (not currently used)
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Railway health returns HTML/Vite app | Deployed from root instead of `mcp/` | `cd mcp && railway up` |
+| Build fails: `npm: command not found` | Deployed from root without Node.js runtime | Deploy from `mcp/` where `package.json` is detected |
+| Railway health returns 404/error | Wrong `ENTRY_POINT` for the service | Check `railway variables` for the service |
+| Vercel shows wrong app | Wrong branch/project linked | `vercel link` then `vercel --prod` |
