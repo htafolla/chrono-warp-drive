@@ -364,9 +364,8 @@ export default function DynamoDeploy() {
       <div className="w-full max-w-sm space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="text-5xl mb-2">⚡</div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Dynamo</h1>
-          <p className="text-xs text-white/30 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight"><span className="text-2xl">⚡</span> Dynamo</h1>
+          <p className="text-xs text-white/60 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
         </div>
 
         {/* Three service cards — grid row, icon left of text */}
@@ -378,7 +377,7 @@ export default function DynamoDeploy() {
           ].map((s, i) => (
             <div key={i} className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 ${s.ok ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
               <span className="text-sm shrink-0">{s.icon}</span>
-              <span className="text-[11px] font-semibold text-white truncate">{s.name}</span>
+              <span className="text-[11px] font-semibold text-white/80 truncate">{s.name}</span>
               <div className={`ml-auto h-1.5 w-1.5 rounded-full shrink-0 ${s.ok ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
             </div>
           ))}
@@ -407,7 +406,7 @@ export default function DynamoDeploy() {
               onChange={e => setProposal(e.target.value)}
               placeholder="Should I go hiking tomorrow?"
               rows={3}
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 pt-4 pb-8 text-white text-base placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none transition-all"
+              className="w-full bg-white/[0.05] border border-white/20 rounded-xl px-4 pt-4 pb-8 text-white text-base placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none transition-all"
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
               disabled={loading}
             />
@@ -418,7 +417,7 @@ export default function DynamoDeploy() {
                 onChange={e => setSharePublicly(e.target.checked)}
                 className="w-3 h-3 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
               />
-              <span className="text-[10px] text-white/20">Share publicly</span>
+              <span className="text-[10px] text-white/50">Share publicly</span>
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -427,7 +426,7 @@ export default function DynamoDeploy() {
                 key={p}
                 onClick={() => run(p)}
                 disabled={loading}
-                className="text-xs bg-white/[0.04] hover:bg-white/[0.08] text-white/40 hover:text-white/70 border border-white/[0.06] rounded-full px-3 py-1.5 transition-all disabled:opacity-30"
+                className="text-xs bg-white/[0.06] hover:bg-white/[0.12] text-white/60 hover:text-white/90 border border-white/[0.10] rounded-full px-3 py-1.5 transition-all disabled:opacity-30"
               >
                 {p}
               </button>
@@ -436,7 +435,7 @@ export default function DynamoDeploy() {
           <button
             onClick={() => run()}
             disabled={loading || !proposal.trim()}
-            className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg shadow-violet-600/20"
+            className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg shadow-violet-600/30"
           >
             {loading && <Loader2 className="h-5 w-5 animate-spin" />}
             {loading ? 'Analyzing proposal...' : 'Ask Dynamo'}
@@ -454,18 +453,18 @@ export default function DynamoDeploy() {
             <p className="text-xl font-bold text-white">
               {result.answer === 'yes' ? 'Go for it' : result.answer === 'no' ? 'Not now' : 'Be careful'}
             </p>
-            <p className="text-sm text-white/50 italic">&ldquo;{result.alignmentReason || result.phrase}&rdquo;</p>
+            <p className="text-sm text-white/70 italic">&ldquo;{result.alignmentReason || result.phrase}&rdquo;</p>
 
             {/* Primary Metrics */}
             {result.resonanceScore != null && (
               <div className="space-y-3 mt-4">
                 <div>
-                  <p className="text-xs text-white/30 uppercase">Resonance</p>
+                  <p className="text-xs text-white/50 uppercase">Resonance</p>
                   <p className="text-2xl font-bold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
                 </div>
                 {result.governanceConfidence != null && (
                   <div>
-                    <p className="text-xs text-white/30 uppercase">Governance Confidence</p>
+                    <p className="text-xs text-white/50 uppercase">Governance Confidence</p>
                     <p className="text-2xl font-bold text-white">{(result.governanceConfidence * 100).toFixed(1)}%</p>
                   </div>
                 )}
@@ -476,31 +475,31 @@ export default function DynamoDeploy() {
             {(result.confidenceScore != null || result.spectralQuality != null) && (
               <details className="group mt-4">
                 <summary className="bg-white/[0.03] rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
-                  <Brain className="h-3 w-3 text-white/20" />
-                  <span className="text-xs text-white/20">
+                  <Brain className="h-3 w-3 text-white/40" />
+                  <span className="text-xs text-white/40">
                     Neural {result.spectralQuality != null ? 'Quality' : 'Output'} 
                     {result.confidenceScore != null && ` (${(result.confidenceScore * 100).toFixed(1)}%)`}
                   </span>
-                  <span className="text-xs text-white/20 group-open:rotate-180 transition-transform">▾</span>
+                  <span className="text-xs text-white/40 group-open:rotate-180 transition-transform">▾</span>
                 </summary>
                 <div className="bg-white/[0.03] rounded-lg p-2 mt-1 space-y-1 text-center">
                   {result.spectralQuality != null && (
                     <div>
-                      <p className="text-[10px] text-white/30 uppercase">Spectral Quality (reconstruction)</p>
+                      <p className="text-[10px] text-white/50 uppercase">Spectral Quality (reconstruction)</p>
                       <p className="text-sm font-semibold text-white">{(result.spectralQuality * 100).toFixed(1)}%</p>
                     </div>
                   )}
                   {result.reconstructionError != null && (
-                    <p className="text-[10px] text-white/30">Recon Error: {result.reconstructionError.toFixed(3)}</p>
+                    <p className="text-[10px] text-white/50">Recon Error: {result.reconstructionError.toFixed(3)}</p>
                   )}
                   {result.confidenceScore != null && (
                     <div>
-                      <p className="text-[10px] text-white/30 uppercase">Neural Confidence</p>
+                      <p className="text-[10px] text-white/50 uppercase">Neural Confidence</p>
                       <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
                     </div>
                   )}
                   {result.metamorphosisIndex != null && (
-                    <p className="text-[10px] text-white/30">Metamorphosis: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                    <p className="text-[10px] text-white/50">Metamorphosis: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
                   )}
                 </div>
               </details>
@@ -509,15 +508,15 @@ export default function DynamoDeploy() {
             {/* Additional Context */}
             <details className="group mt-2">
               <summary className="bg-white/[0.03] rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
-                <Activity className="h-3 w-3 text-white/20" />
-                <span className="text-xs text-white/20">Additional Context</span>
-                <span className="text-xs text-white/20 group-open:rotate-180 transition-transform">▾</span>
+                <Activity className="h-3 w-3 text-white/40" />
+                <span className="text-xs text-white/40">Additional Context</span>
+                <span className="text-xs text-white/40 group-open:rotate-180 transition-transform">▾</span>
               </summary>
               <div className="bg-white/[0.03] rounded-lg p-2 mt-1 space-y-1 text-center">
-                <p className="text-[10px] text-white/30">Solar: {result.level} ({result.signal})</p>
-                <p className="text-[10px] text-white/30">Solar Coupling: {result.gain}x · {gainLabel(result.gain)}</p>
+                <p className="text-[10px] text-white/50">Solar: {result.level} ({result.signal})</p>
+                <p className="text-[10px] text-white/50">Solar Coupling: {result.gain}x · {gainLabel(result.gain)}</p>
                 {result.metamorphosisIndex != null && (
-                  <p className="text-[10px] text-white/30">Metamorphosis Index: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                  <p className="text-[10px] text-white/50">Metamorphosis Index: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
                 )}
               </div>
             </details>
@@ -525,7 +524,7 @@ export default function DynamoDeploy() {
             {/* Signature */}
             {result.signature && (
               <div className="bg-white/[0.02] rounded-lg px-3 py-1.5 text-center mt-3">
-                <p className="text-[10px] text-white/30 font-mono tracking-widest">{result.signature}</p>
+                <p className="text-[10px] text-white/15 font-mono tracking-widest">{result.signature}</p>
               </div>
             )}
 
@@ -537,7 +536,7 @@ export default function DynamoDeploy() {
             )}
 
             {/* Source */}
-            <div className="flex items-center justify-center gap-2 text-[10px] text-white/20 mt-3">
+            <div className="flex items-center justify-center gap-2 text-[10px] text-white/40 mt-3">
               <Shield className="h-3 w-3" /><Zap className="h-3 w-3" /><Brain className="h-3 w-3" />
               <span>{result.source}</span>
             </div>
@@ -549,7 +548,7 @@ export default function DynamoDeploy() {
           <div className="rounded-2xl p-5 text-center space-y-2 bg-white/[0.03] border border-white/10">
             <div className="text-3xl">⚠️</div>
             <p className="text-lg font-bold text-white">Could not reach governance</p>
-            <p className="text-sm text-white/40">Check your connection and try again</p>
+            <p className="text-sm text-white/60">Check your connection and try again</p>
           </div>
         )}
 
@@ -557,14 +556,14 @@ export default function DynamoDeploy() {
         {feed.length > 0 && (
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
             <div className="px-4 py-2 border-b border-white/[0.04]">
-              <p className="text-[10px] text-white/20 uppercase tracking-wider font-semibold">Live feed</p>
+              <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Live feed</p>
             </div>
             <div className="divide-y divide-white/[0.03] max-h-64 overflow-y-auto">
               {feed.slice(0, 20).map((entry, i) => (
                 <div key={i} className="px-4 py-2 flex items-center justify-between gap-3">
                   <p className="text-xs text-white/60 truncate flex-1">{entry.proposal}</p>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs font-mono text-white/40">{entry.activityLevel}</span>
+                    <span className="text-xs font-mono text-white/50">{entry.activityLevel}</span>
                     <span className={`text-xs font-bold ${
                       entry.recommendation === 'PASS' ? 'text-emerald-400' :
                       entry.recommendation === 'REJECT' ? 'text-red-400' :
@@ -584,14 +583,14 @@ export default function DynamoDeploy() {
           <div className="flex gap-3">
             <button
               onClick={() => { setResult(null); setProposal(''); }}
-              className="flex-1 h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/60 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+              className="flex-1 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/70 text-sm font-medium flex items-center justify-center gap-2 transition-all"
             >
               <RotateCcw className="h-4 w-4" />
               Ask another
             </button>
             <button
               onClick={shareVerdict}
-              className="flex-1 h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/60 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+              className="flex-1 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/70 text-sm font-medium flex items-center justify-center gap-2 transition-all"
             >
               <Share2 className="h-4 w-4" />
               Share verdict
@@ -599,7 +598,7 @@ export default function DynamoDeploy() {
           </div>
         )}
 
-        <p className="text-center text-[10px] text-white/10">Powered by NOAA · Resonance + Solar + Neural</p>
+        <p className="text-center text-[10px] text-white/25">Powered by NOAA · Resonance + Solar + Neural</p>
       </div>
     </div>
   );
