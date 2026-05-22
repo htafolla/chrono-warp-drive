@@ -1,5 +1,19 @@
 // mcp/backend-server.ts
 // Real Neural Fusion Backend using @tensorflow/tfjs with CPU backend
+//
+// DEPLOYMENT NOTE (intentional duplication with backend/neural-fusion-server.ts):
+//   This file is the standalone Express server used by the MCP / Vercel deployment
+//   path (via vercel.json → index.ts or direct node usage).
+//   The near-identical copy in ../backend/neural-fusion-server.ts exists for
+//   Railway / local standalone deploys and quick `node backend/...` debugging.
+//
+//   Both must stay in sync for:
+//     - trainOnSolarData() on startup
+//     - multi-channel NOAA + solarFeatures handling in /process-current-sun
+//     - /health reporting the `trained` flag
+//     - all /process-spectrum, /list-stars, /govern-with-solar routes
+//
+// If you change one, update the other (or factor a shared router in a future pass).
 
 import express from 'express'
 import cors from 'cors'
@@ -18,17 +32,30 @@ async function initializeEngine() {
   try {
     neuralFusion = new NeuralFusion()
     await neuralFusion.initialize()
-    console.log('Real Neural Fusion Engine initialized successfully')
+    console.log('[Backend] Neural Fusion engine initialized')
+
     await stellarLibrary.loadLibrary('STELLAR_LIBRARY')
-    console.log(`Real Stellar Library loaded with ${stellarLibrary.getAllSpectra().length} stars`)
+    const starCount = stellarLibrary.getAllSpectra().length
+    console.log(`[Backend] Stellar library loaded: ${starCount} stars`)
+
+    // Train models on live NOAA SWPC solar data — the Sun creates 99% of life on Earth
+    console.log('[Backend] Starting solar-data training...')
+    await neuralFusion.trainOnSolarData()
+    console.log('[Backend] Solar-data training complete — models are Sun-grounded')
   } catch (error) {
-    console.error('Failed to initialize engines:', error)
+    console.error('[Backend] Failed to initialize engines:', error)
     process.exit(1)
   }
 }
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', engine: 'real-tensorflow', initialized: neuralFusion !== null, version: '1.0.0' })
+  res.json({
+    status: 'ok',
+    engine: 'real-tensorflow',
+    trained: neuralFusion?.isTrainedModel ?? false,
+    stars: stellarLibrary.getAllSpectra().length,
+    version: '1.0.0',
+  })
 })
 
 app.post('/govern-with-solar', async (req, res) => {
