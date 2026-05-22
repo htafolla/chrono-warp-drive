@@ -309,7 +309,7 @@ export default function DynamoDeploy() {
       `Solar ${result.level} · Signal ${result.signal} · ${result.gain}x`,
     ];
     if (result.resonanceScore != null) lines.push(`Resonance ${(result.resonanceScore * 100).toFixed(0)}%`);
-    if (result.isotopicRatio != null) lines.push(`Isotope ${(result.isotopicRatio * 100).toFixed(0)}%`);
+    if (result.isotopicRatio != null && result.isotopicRatio !== 0.85) lines.push(`Isotope ${(result.isotopicRatio * 100).toFixed(0)}%`);
     if (result.signature) lines.push(`ID: ${result.signature}`);
     if (result.metamorphosisIndex != null) lines.push(`MI ${(result.metamorphosisIndex * 100).toFixed(1)}%`);
     if (result.confidenceScore != null) lines.push(`Conf ${(result.confidenceScore * 100).toFixed(1)}%`);
@@ -438,7 +438,7 @@ export default function DynamoDeploy() {
                     <p className="text-sm font-semibold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                    <p className="text-[10px] text-white/30 uppercase">Isotope</p>
+                    <p className="text-[10px] text-white/30 uppercase">Base</p>
                     <p className="text-sm font-semibold text-white">{result.isotopicRatio != null ? (result.isotopicRatio * 100).toFixed(0) + '%' : '—'}</p>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-2 text-center">

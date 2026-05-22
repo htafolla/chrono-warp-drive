@@ -30,22 +30,27 @@ export function applyDecisionMatrix(
   let confidence = 0.75
   let voteWeight = 1.0
 
-  if (resonance >= 0.92 && isotopicRatio >= 0.95) {
+  if (resonance >= 0.92) {
     recommendation = 'PASS'
-    confidence = 0.97
-    voteWeight = 1.4
+    confidence = isotopicRatio >= 0.95 ? 0.97 : 0.93
+    voteWeight = isotopicRatio >= 0.95 ? 1.4 : 1.2
     reasons.push('High symbiotic resonance (PHI-aligned)')
-  } else if (resonance >= 0.82 && isotopicRatio >= 0.88) {
+  } else if (resonance >= 0.82) {
     recommendation = 'PASS'
-    confidence = 0.89
+    confidence = isotopicRatio >= 0.88 ? 0.89 : 0.85
     voteWeight = 1.15
     reasons.push('Solid alignment above TAU threshold')
-  } else if (resonance < 0.75 || isotopicRatio < 0.80) {
+  } else if (resonance < 0.75) {
     recommendation = 'REJECT'
     confidence = 0.84
     reasons.push('Signal below critical threshold (1 - TAU)')
   } else {
     reasons.push('Moderate resonance - requires refinement')
+  }
+
+  if (resonance >= 0.75 && isotopicRatio < 0.50) {
+    reasons.push('Low isotopic alignment — consider revision')
+    confidence *= 0.9
   }
 
   if (vortexVolume < 2.5e25) {
@@ -96,7 +101,7 @@ export async function evaluateGovernance(
   }
 
   const resonance = triangulation.coreResonance || 0.85
-  const isotopicRatio = proposalSignal.isotopicRatio || 0.90
+  const isotopicRatio = proposalSignal.isotopicRatio || 0.85
   const vortexVolume = triangulation.vortexVolume || 3.0e25
 
   const decision = applyDecisionMatrix(resonance, isotopicRatio, vortexVolume, historicalCoherence)

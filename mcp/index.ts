@@ -639,7 +639,7 @@ app.post('/emit_isotopic_signal', async (c: Context) => {
   const id = signal.getIsotopeId()
   signalStore.set(id, signal)
 
-  let ratio = signal.getPhaseCoherence()
+  let ratio = 0.85
   if (referenceId && signalStore.has(referenceId)) {
     ratio = signal.calculateIsotopicRatio(signalStore.get(referenceId)!)
   }
@@ -1143,7 +1143,7 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     )
     const id = signal.getIsotopeId()
     signalStore.set(id, signal)
-    let ratio = signal.getPhaseCoherence()
+    let ratio = 0.85
     if (args.referenceId && signalStore.has(args.referenceId)) {
       ratio = signal.calculateIsotopicRatio(signalStore.get(args.referenceId)!)
     }
