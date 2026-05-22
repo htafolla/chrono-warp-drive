@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio } from 'lucide-react';
 import { APP_TAG } from '@/lib/version';
 
-const MCP_URL = 'https://mcp-cyan-six.vercel.app';           // Main Dynamo + Governance + Solar MCP
-const STELLAR_URL = 'https://mcp-cyan-six.vercel.app';        // Stellar MCP (served from unified MCP for now)
-const NEURAL_URL = 'https://backend-flame-psi-14.vercel.app'; // Dedicated Neural Fusion backend
+const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
+const STELLAR_URL = 'https://stellar-mcp-production.up.railway.app';
+const NEURAL_URL = 'https://neural-fusion-backend-production.up.railway.app';
 
 interface Beacon {
   name: string;
