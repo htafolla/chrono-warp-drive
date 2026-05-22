@@ -56,9 +56,9 @@ export class SolarGovernanceIntegration {
     try {
       const solarData = await fetchCurrentSolarData()
 
-      // Use actual solar activity from NOAA
-      const baseResonance = 0.6735
-
+      // Generic solar context (activity level + modifier only).
+      // The real per-proposal resonance is the calculated solar isotopic hammer
+      // returned via getProposalSolarIsotopicResonance + resonanceScore.
       let activityModifier = 0
       let recommendation = 'Standard governance conditions'
 
@@ -84,7 +84,7 @@ export class SolarGovernanceIntegration {
       return {
         solarActivityLevel: solarData.activityLevel,
         solarActivityModifier: activityModifier,
-        currentSunMetamorphosisIndex: baseResonance,
+        currentSunMetamorphosisIndex: 0.5, // legacy neutral placeholder (real resonance is the hammer)
         timestamp: solarData.timestamp,
         recommendation,
       }
@@ -93,7 +93,7 @@ export class SolarGovernanceIntegration {
       return {
         solarActivityLevel: 'moderate',
         solarActivityModifier: 0,
-        currentSunMetamorphosisIndex: 0.6735,
+        currentSunMetamorphosisIndex: 0.5,
         timestamp: new Date().toISOString(),
         recommendation: 'Unable to fetch solar data - using neutral context',
       }
