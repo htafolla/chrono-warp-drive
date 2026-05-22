@@ -734,7 +734,31 @@ app.post('/triangulate_signals', async (c: Context) => {
     correlations: sigs.filter((_, j) => j !== i).map(o => s.crossCorrelate(o)),
   }))
 
-  return ok(c, { signalCount: parsed.data.signals.length, results })
+  const strengths = sigs.flatMap((s, i) =>
+    sigs.filter((_, j) => j !== i).map(o => s.crossCorrelate(o).strength)
+  )
+
+  const coreResonance = strengths.length > 0
+    ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length
+    : 0.78
+
+  const volumes = sigs.flatMap((s, i) =>
+    sigs.filter((_, j) => j !== i).map(o => {
+      const meta = s.crossCorrelate(o).metadata
+      return meta?.vortexVolume ?? 1.0e24
+    })
+  )
+
+  const vortexVolume = volumes.length > 0
+    ? volumes.reduce((sum, v) => sum + v, 0) / volumes.length
+    : 3.0e25
+
+  return ok(c, {
+    signalCount: sigs.length,
+    results,
+    coreResonance: Math.min(0.99, Math.max(0.5, coreResonance)),
+    vortexVolume,
+  })
 })
 
 // Tool 6: fuse_symbiotic

@@ -18,7 +18,7 @@ export const GovernanceSchema = z.object({
   historicalSignalIds: z.array(z.string()).optional(),
 })
 
-// Refined Blurrn-Native Decision Matrix (v4.8.3)
+// Refined Blurrn-Native Decision Matrix (v4.8.4)
 export function applyDecisionMatrix(
   resonance: number,
   isotopicRatio: number,
@@ -26,45 +26,70 @@ export function applyDecisionMatrix(
   historicalCoherence: number,
 ) {
   const reasons: string[] = []
-  let recommendation = 'NEEDS_REVISION'
-  let confidence = 0.75
+  let recommendation: 'PASS' | 'NEEDS_REVISION' | 'REJECT' = 'NEEDS_REVISION'
+  let confidence = 0.72
   let voteWeight = 1.0
 
-  if (resonance >= 0.92) {
+  // === Primary Driver: Resonance ===
+  if (resonance >= 0.90) {
     recommendation = 'PASS'
-    confidence = isotopicRatio >= 0.95 ? 0.97 : 0.93
-    voteWeight = isotopicRatio >= 0.95 ? 1.4 : 1.2
-    reasons.push('High symbiotic resonance (PHI-aligned)')
-  } else if (resonance >= 0.82) {
+    confidence = 0.93
+    voteWeight = 1.28
+    reasons.push('High symbiotic resonance')
+  } else if (resonance >= 0.80) {
     recommendation = 'PASS'
-    confidence = isotopicRatio >= 0.88 ? 0.89 : 0.85
+    confidence = 0.86
     voteWeight = 1.15
-    reasons.push('Solid alignment above TAU threshold')
-  } else if (resonance < 0.75) {
-    recommendation = 'REJECT'
-    confidence = 0.84
-    reasons.push('Signal below critical threshold (1 - TAU)')
+    reasons.push('Strong resonance above stability threshold')
+  } else if (resonance >= 0.68) {
+    recommendation = 'NEEDS_REVISION'
+    confidence = 0.76
+    voteWeight = 1.0
+    reasons.push('Moderate resonance — refinement recommended')
   } else {
-    reasons.push('Moderate resonance - requires refinement')
+    recommendation = 'REJECT'
+    confidence = 0.80
+    voteWeight = 0.65
+    reasons.push('Low resonance — insufficient signal coherence')
   }
 
-  if (resonance >= 0.75 && isotopicRatio < 0.50) {
-    reasons.push('Low isotopic alignment — consider revision')
-    confidence *= 0.9
-  }
+  // === Soft Modifiers Only (never change the primary recommendation) ===
 
+  // Vortex Volume (inertial mass)
   if (vortexVolume < 2.5e25) {
     reasons.push('Low inertial mass (W x M = V)')
-    if (recommendation === 'PASS') recommendation = 'NEEDS_REVISION'
+    if (recommendation === 'PASS') {
+      recommendation = 'NEEDS_REVISION'
+      confidence = Math.max(0.70, confidence - 0.06)
+      voteWeight *= 0.88
+    }
+  } else if (vortexVolume > 4.5e25) {
+    reasons.push('High inertial mass — strong decision anchoring')
+    voteWeight *= 1.07
   }
 
+  // Isotopic Ratio (phase coherence) — now purely advisory
+  if (isotopicRatio < 0.55) {
+    reasons.push('Low phase coherence')
+    confidence = Math.max(0.65, confidence - 0.07)
+    voteWeight *= 0.93
+  } else if (isotopicRatio > 0.88) {
+    reasons.push('High phase coherence')
+    voteWeight *= 1.03
+  }
+
+  // Historical Coherence
   if (historicalCoherence < 0.70) {
     reasons.push('Weak historical alignment with past decisions')
     if (recommendation === 'PASS') recommendation = 'NEEDS_REVISION'
   } else if (historicalCoherence > 0.90) {
     reasons.push('Strong continuity with previous governance')
-    voteWeight *= 1.1
+    voteWeight *= 1.08
   }
+
+  // Final clamping
+  confidence = Math.max(0.5, Math.min(0.98, confidence))
+  voteWeight = Math.max(0.5, Math.min(1.6, voteWeight))
 
   return { recommendation, confidence, voteWeight, reasons }
 }
