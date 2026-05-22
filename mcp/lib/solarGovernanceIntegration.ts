@@ -26,9 +26,15 @@ function wordFingerprint(word: string): number {
   return Math.abs(h) % 999983;
 }
 
+const MIN_FINGERPRINT_WORDS = 3;
+const ANCHOR_WORDS = ['general', 'proposal', 'matter'];
+
 function computeProposalTdf(words: string[]): number {
   if (words.length === 0) return 5.781e12 + 500000;
-  const avg = words.reduce((sum, w) => sum + wordFingerprint(w), 0) / words.length;
+  const effective = words.length >= MIN_FINGERPRINT_WORDS
+    ? words
+    : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
+  const avg = effective.reduce((sum, w) => sum + wordFingerprint(w), 0) / effective.length;
   return 5.781e12 + Math.round(avg);
 }
 
