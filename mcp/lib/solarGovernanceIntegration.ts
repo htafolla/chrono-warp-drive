@@ -3,7 +3,6 @@
 
 import { fetchCurrentSolarData, SolarData } from './solarDataFetcher.js'
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
-import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -18,22 +17,19 @@ function normalizeProposalText(text: string): string {
   return t.split(' ').filter(w => w && !stop.includes(w)).join(' ');
 }
 
-function deriveTdfParametersFromNormalized(normalized: string): VortexTdfParams {
+function wordFingerprint(word: string): number {
   let h = 2166136261;
-  for (let i = 0; i < normalized.length; i++) {
-    h ^= normalized.charCodeAt(i);
+  for (let i = 0; i < word.length; i++) {
+    h ^= word.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  h = Math.abs(h);
+  return Math.abs(h) % 999983;
+}
 
-  return {
-    T_c: 100 + (h % 80),
-    P_s: 0.6 + ((h >> 8) % 80) / 100,
-    E_t: 0.3 + ((h >> 16) % 60) / 100,
-    delta_t: 1e-6,
-    voids: 3 + ((h >> 24) % 9),
-    bhs_n: 2 + ((h >> 5) % 4),
-  };
+function computeProposalTdf(words: string[]): number {
+  if (words.length === 0) return 5.781e12 + 500000;
+  const avg = words.reduce((sum, w) => sum + wordFingerprint(w), 0) / words.length;
+  return 5.781e12 + Math.round(avg);
 }
 
 function deriveCascadeFromContent(content: string): number {
@@ -139,13 +135,13 @@ export class SolarGovernanceIntegration {
       const solarData = await fetchCurrentSolarData()
 
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
-      const params = deriveTdfParametersFromNormalized(normalized)
-      const { tdf: richTdf } = computeFullTDF(params)
+      const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
+      const proposalTdf = computeProposalTdf(words)
       const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
 
       const proposalSignal = new TemporalBlurrnSignal(
         { content: proposal },
-        richTdf,
+        proposalTdf,
         propCascade
       )
 
@@ -172,7 +168,7 @@ export class SolarGovernanceIntegration {
         solarIsotopicResonance,
         solarActivityLevel: solarData.activityLevel || 'moderate',
         solarReferenceTdf: solarRefTdf,
-        proposalTdf: richTdf,
+        proposalTdf: proposalTdf,
         phaseCoherenceProposal: proposalSignal.phaseCoherence,
         phaseCoherenceSun: sunSignal.phaseCoherence,
         activityModifier,
