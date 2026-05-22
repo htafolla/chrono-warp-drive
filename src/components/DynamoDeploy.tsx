@@ -2,266 +2,540 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
 
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
 const STELLAR_URL = 'https://stellar-mcp-production.up.railway.app';
 const NEURAL_URL = 'https://neural-fusion-backend-production.up.railway.app';
 
-interface Beacon {
-  name: string;
-  icon: string;
-  online: boolean;
-  channels?: number;
-  sunStatus?: string;
-  signalBoost?: string;
-  ping: number;
-  loading: boolean;
-  error?: string;
-}
+const EXAMPLE_PROPOSALS = [
+  'Should I go hiking tomorrow?',
+  'Can I fly my drone this weekend?',
+  'Is it safe to deploy tonight?',
+  'Should I schedule surgery Friday?',
+];
 
-const BEACON_ICONS: Record<string, string> = {
-  dynamo: '⚡',
-  stellar: '✦',
-  neural: '🧬',
+const GO_PHRASES = [
+  'The cosmos says yes. Pack your bags.',
+  'Clear solar skies. Full send.',
+  'The sun is smiling on this one.',
+  'Go for it — the stars are aligned.',
+];
+
+const MAYBE_PHRASES = [
+  'The sun is restless. Tread carefully.',
+  'Conditions shifting — stay alert.',
+  'Not a clear call. Have a backup plan.',
+];
+
+const NO_PHRASES = [
+  'Solar storm in progress. Shelter and wait.',
+  'The sun says not today. Try again soon.',
+  'Bad cosmic timing. Hold off.',
+];
+
+const GAIN_BY_LEVEL: Record<string, number> = {
+  quiet: 0.5,
+  moderate: 0.75,
+  active: 1,
+  storm: 1.3,
 };
 
-async function ping(url: string): Promise<{ ok: boolean; channels?: number; ping: number; error?: string; sunStatus?: string; signalBoost?: string }> {
-  const t0 = performance.now();
+function hashProposal(text: string): string {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return (hash >>> 0).toString(36).padStart(8, '0').slice(-8);
+}
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+interface BeaconStatus {
+  online: boolean;
+  sun: string;
+  services: boolean[];
+}
+
+async function checkBeacons(): Promise<BeaconStatus> {
+  let online = false;
+  let sun = '';
+  const services = [false, false, false];
+
   try {
-    const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return { ok: false, ping: performance.now() - t0, error: `HTTP ${res.status}` };
-    const data = await res.json();
-    const ping = performance.now() - t0;
-    let sunStatus: string | undefined;
-    let signalBoost: string | undefined;
-    if (data.name === 'blurrn-mcp') {
+    const mcp = await fetch(`${MCP_URL}/health`, { signal: AbortSignal.timeout(6000) });
+    services[0] = mcp.ok;
+    if (mcp.ok) {
+      online = true;
       try {
-        const gov = await fetch(`${url}/govern_with_solar`, {
+        const gov = await fetch(`${MCP_URL}/govern_with_solar`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ proposal: 'signal check', baseVoteWeight: 1.0 }),
-          signal: AbortSignal.timeout(10000),
+          body: JSON.stringify({ proposal: 'connectivity check for dynamo governance ui', baseVoteWeight: 1 }),
+          signal: AbortSignal.timeout(8000),
         });
         if (gov.ok) {
-          const g = await gov.json();
-          const level = g.solarContext?.solarActivityLevel;
-          const modifier = g.solarContext?.solarActivityModifier;
-          if (level === 'storm') sunStatus = 'storms';
-          else if (level === 'active') sunStatus = 'active';
-          else if (level === 'moderate') sunStatus = 'calm';
-          else sunStatus = 'quiet';
-          signalBoost = modifier >= 0 ? `+${(modifier * 100).toFixed(0)}%` : `${(modifier * 100).toFixed(0)}%`;
+          const data = await gov.json();
+          const level = data.solarContext?.solarActivityLevel;
+          sun = level === 'storm' ? 'storm' : level === 'active' ? 'active' : level === 'moderate' ? 'moderate' : '';
         }
       } catch { /* optional */ }
     }
-    return { ok: true, channels: data.tools, ping, sunStatus, signalBoost };
-  } catch (err: unknown) {
-    return { ok: false, ping: performance.now() - t0, error: err instanceof Error ? err.message : 'unreachable' };
+  } catch { /* offline */ }
+
+  try {
+    const stellar = await fetch(`${STELLAR_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    services[1] = stellar.ok;
+  } catch { /* offline */ }
+
+  try {
+    const neural = await fetch(`${NEURAL_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    services[2] = neural.ok;
+  } catch { /* offline */ }
+
+  return { online, sun, services };
+}
+
+interface GovernanceResult {
+  answer: string;
+  detail: string;
+  phrase: string;
+  level: string;
+  signal: string;
+  weight: number;
+  gain: number;
+  metamorphosisIndex: number | null;
+  confidenceScore: number | null;
+  solarApplied: boolean;
+  resonanceScore: number | null;
+  isotopicRatio: number | null;
+  historicalCoherence: number | null;
+  signature: string;
+  alignmentRec: string | null;
+  alignmentReason: string | null;
+  tension: string | null;
+  source: string;
+}
+
+async function checkGovernance(proposal: string): Promise<GovernanceResult | null> {
+  try {
+    const proposalLabel = proposal.length < 30 ? proposal + ' — via Dynamo governance' : proposal;
+    const [solarRes, alignRes, neuralRes] = await Promise.allSettled([
+      fetch(`${MCP_URL}/govern_with_solar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposal, baseVoteWeight: 1 }),
+        signal: AbortSignal.timeout(15000),
+      }).then(async r => r.ok ? r.json() : null),
+      fetch(`${MCP_URL}/governance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposalId: `ui-${Date.now()}`, proposalText: proposalLabel, agentReviews: ['UI submission'] }),
+        signal: AbortSignal.timeout(15000),
+      }).then(async r => r.ok ? r.json() : null),
+      fetch(`${NEURAL_URL}/process-current-sun`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(15000),
+      }).then(async r => r.ok ? r.json() : null),
+    ]);
+
+    const solar = solarRes.status === 'fulfilled' ? solarRes.value : null;
+    const alignment = alignRes.status === 'fulfilled' ? alignRes.value : null;
+    const neural = neuralRes.status === 'fulfilled' ? neuralRes.value : null;
+
+    if (!solar && !alignment && !neural) return null;
+
+    const confidenceAdjustment = solar?.confidenceAdjustment ?? 0;
+    const solarLevel = solar?.solarContext?.solarActivityLevel ?? neural?.solarFeatures?.activityLevel ?? '';
+    const adjustedWeight = solar?.adjustedVoteWeight ?? 1;
+    const isStormWarning = solar?.finalRecommendation?.includes('STORM_WARNING') ?? false;
+    const levelLabel = solarLevel === 'storm' ? 'Storm' : solarLevel === 'active' ? 'Active' : solarLevel === 'moderate' ? 'Fair' : 'Quiet';
+    const signalLabel = confidenceAdjustment >= 0 ? `+${(confidenceAdjustment * 100).toFixed(0)}%` : `${(confidenceAdjustment * 100).toFixed(0)}%`;
+    const gain = GAIN_BY_LEVEL[solarLevel] ?? 0.75;
+
+    const metamorphosisIndex = neural?.neuralOutput?.metamorphosisIndex ?? neural?.metamorphosisIndex ?? null;
+    const confidenceScore = neural?.neuralOutput?.confidenceScore ?? neural?.confidenceScore ?? null;
+    const solarApplied = neural?.neuralOutput?.solarApplied ?? neural?.solarModulation?.solar_applied ?? (solar?.solarContext != null) ?? false;
+
+    const resonanceScore = alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null;
+    const isotopicRatio = alignment?.isotopicRatio != null ? Number(alignment.isotopicRatio) : null;
+    const historicalCoherence = alignment?.historicalCoherence != null ? Number(alignment.historicalCoherence) : null;
+    const alignmentRec = alignment?.recommendation ?? null;
+    const alignmentReason = alignment?.reasons?.[0] ?? null;
+
+    const isStorm = isStormWarning || solarLevel === 'storm';
+    const isBadSignal = confidenceAdjustment <= -0.08;
+    const isRejected = alignmentRec === 'REJECT';
+    const isNeedsRevision = alignmentRec === 'NEEDS_REVISION';
+
+    let answer: string, detail: string, phrase: string;
+    if (isStorm) {
+      answer = 'no';
+      detail = 'Solar storm — wait for calmer skies';
+      phrase = pick(NO_PHRASES);
+    } else if (isRejected && isBadSignal) {
+      answer = 'no';
+      detail = 'Solar conditions shifting and proposal misaligned';
+      phrase = pick(NO_PHRASES);
+    } else if (isRejected) {
+      answer = 'no';
+      detail = 'Proposal misaligned — refine and resubmit';
+      phrase = pick(NO_PHRASES);
+    } else if (isBadSignal && isNeedsRevision) {
+      answer = 'maybe';
+      detail = 'Conditions shifting and proposal needs work';
+      phrase = pick(MAYBE_PHRASES);
+    } else if (isBadSignal) {
+      answer = 'maybe';
+      detail = 'Solar conditions shifting — proceed with caution';
+      phrase = pick(MAYBE_PHRASES);
+    } else if (isNeedsRevision) {
+      answer = 'maybe';
+      detail = 'Proposal needs refinement before proceeding';
+      phrase = pick(MAYBE_PHRASES);
+    } else {
+      answer = 'yes';
+      detail = 'Skies are clear and proposal aligned — go for it';
+      phrase = pick(GO_PHRASES);
+    }
+
+    const clearSolar = !isStorm && !isBadSignal;
+    const clearAlign = !isRejected && !isNeedsRevision;
+    let tension: string | null = null;
+    if (clearSolar && !clearAlign) tension = 'Solar clear but alignment weak';
+    else if (!clearSolar && clearAlign) tension = 'Proposal aligned but conditions unfavorable';
+    else if (isBadSignal && isNeedsRevision) tension = 'Both oscillators flag caution';
+
+    const sources = [solar ? 'Solar' : '', alignment ? 'Alignment' : '', neural ? 'Neural' : ''].filter(Boolean);
+    const source = sources.length >= 2 ? sources.join(' + ') : sources[0] || 'unknown';
+
+    const sigInput = [proposal, alignment?.resonanceScore ?? '', alignment?.isotopicRatio ?? '', alignment?.recommendation ?? ''].join('|');
+    const signature = `dynamo-${hashProposal(sigInput)}`;
+
+    return {
+      answer, detail, phrase, level: levelLabel, signal: signalLabel,
+      weight: adjustedWeight, gain, metamorphosisIndex, confidenceScore,
+      solarApplied, resonanceScore, isotopicRatio, historicalCoherence,
+      signature, alignmentRec, alignmentReason, tension, source,
+    };
+  } catch {
+    return null;
   }
 }
 
-function statusLabel(b: Beacon): string {
-  if (b.loading) return 'Checking...';
-  if (!b.online) return 'Offline';
-  if (b.sunStatus === 'storms') return 'Standing by — solar storm';
-  if (b.sunStatus === 'active') return 'Online — sun is active';
-  return 'Online — all clear';
+function gainWidth(gain: number): string {
+  const widths: Record<number, string> = { 0.5: 'w-1/4', 0.75: 'w-1/2', 1: 'w-3/4', 1.3: 'w-full' };
+  return widths[gain] ?? 'w-1/2';
+}
+
+function gainLabel(gain: number): string {
+  if (gain <= 0.5) return 'Light';
+  if (gain <= 0.75) return 'Moderate';
+  if (gain <= 1) return 'Strong';
+  return 'Maximum';
+}
+
+function alignIcon(rec: string | null): string {
+  if (rec === 'PASS') return '✓';
+  if (rec === 'REJECT') return '✗';
+  if (rec === 'NEEDS_REVISION') return '~';
+  return '?';
+}
+
+function alignColor(rec: string | null): string {
+  if (rec === 'PASS') return 'text-emerald-400';
+  if (rec === 'NEEDS_REVISION') return 'text-amber-400';
+  if (rec === 'REJECT') return 'text-red-400';
+  return 'text-white/40';
+}
+
+function alignLabel(rec: string | null): string {
+  if (rec === 'PASS') return 'Aligned';
+  if (rec === 'NEEDS_REVISION') return 'Needs work';
+  if (rec === 'REJECT') return 'Misaligned';
+  return '—';
 }
 
 export default function DynamoDeploy() {
-  const [beacons, setBeacons] = useState<Beacon[]>([
-    { name: 'dynamo', icon: BEACON_ICONS.dynamo, online: false, ping: 0, loading: false },
-    { name: 'stellar', icon: BEACON_ICONS.stellar, online: false, ping: 0, loading: false },
-    { name: 'neural', icon: BEACON_ICONS.neural, online: false, ping: 0, loading: false },
-  ]);
-  const [scanning, setScanning] = useState(false);
-  const [lastScan, setLastScan] = useState(0);
+  const [beaconOnline, setBeaconOnline] = useState<boolean | null>(null);
+  const [sunStatus, setSunStatus] = useState('');
+  const [services, setServices] = useState([false, false, false]);
+  const [proposal, setProposal] = useState('');
+  const [result, setResult] = useState<GovernanceResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [lastProposal, setLastProposal] = useState('');
 
-  const scan = useCallback(async () => {
-    setScanning(true);
-    const urls = [MCP_URL, STELLAR_URL, NEURAL_URL];
-    const names = ['dynamo', 'stellar', 'neural'];
-    for (let i = 0; i < 3; i++) {
-      setBeacons(prev => prev.map(b => b.name === names[i] ? { ...b, loading: true } : b));
-      const r = await ping(urls[i]);
-      setBeacons(prev => prev.map(b => b.name === names[i] ? {
-        ...b,
-        loading: false,
-        online: r.ok,
-        channels: r.channels,
-        ping: r.ping,
-        error: r.error,
-        sunStatus: r.sunStatus,
-        signalBoost: r.signalBoost,
-      } : b));
-    }
-    setScanning(false);
-    setLastScan(Date.now());
+  useEffect(() => {
+    checkBeacons().then(s => {
+      if (s) {
+        setBeaconOnline(s.online);
+        setSunStatus(s.sun);
+        setServices(s.services);
+      }
+    });
   }, []);
 
-  useEffect(() => { scan(); }, [scan]);
+  const run = useCallback(async (text?: string) => {
+    const input = (text || proposal).trim();
+    if (!input) return;
+    setLoading(true);
+    setResult(null);
+    setLastProposal(input);
+    if (text) setProposal(text);
+    const r = await checkGovernance(input);
+    setResult(r);
+    setLoading(false);
+  }, [proposal]);
 
-  const allOnline = beacons.every(b => b.online);
-  const totalChannels = beacons.reduce((s, b) => s + (b.channels ?? 0), 0);
-  const dynamo = beacons.find(b => b.name === 'dynamo');
+  const shareVerdict = useCallback(() => {
+    if (!result) return;
+    const icon = result.answer === 'yes' ? '✅' : result.answer === 'no' ? '❌' : '🔄';
+    const label = result.answer === 'yes' ? 'Go for it' : result.answer === 'no' ? 'Not now' : 'Be careful';
+    const lines = [
+      `${icon} Dynamo says: ${label}`,
+      `"${lastProposal}"`,
+      `Solar ${result.level} · Signal ${result.signal} · ${result.gain}x`,
+    ];
+    if (result.resonanceScore != null) lines.push(`Resonance ${(result.resonanceScore * 100).toFixed(0)}%`);
+    if (result.isotopicRatio != null) lines.push(`Isotope ${(result.isotopicRatio * 100).toFixed(0)}%`);
+    if (result.signature) lines.push(`ID: ${result.signature}`);
+    if (result.metamorphosisIndex != null) lines.push(`MI ${(result.metamorphosisIndex * 100).toFixed(1)}%`);
+    if (result.confidenceScore != null) lines.push(`Conf ${(result.confidenceScore * 100).toFixed(1)}%`);
+    lines.push('dynamo-ui-psi.vercel.app');
+    navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
+  }, [result, lastProposal]);
+
+  const beacons = [
+    { name: 'Dynamo', emoji: '⚡', sub: 'MCP', on: services[0] },
+    { name: 'Stellar', emoji: '✦', sub: 'MCP', on: services[1] },
+    { name: 'Neural', emoji: '🧬', sub: 'v4.7', on: services[2] },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-background/80 flex flex-col items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-md space-y-6">
-
+    <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-5 py-8">
+      <div className="w-full max-w-sm space-y-6">
         {/* Header */}
-        <div className="text-center space-y-1">
-          <div className="text-4xl">{allOnline ? '⚡' : scanning ? '📡' : '🌑'}</div>
-          <h1 className="text-xl font-bold text-foreground">
-            {allOnline ? 'All Beacons Online' : scanning ? 'Scanning...' : 'Some Beaacons Offline'}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {allOnline
-              ? `${totalChannels} channels open — ready to receive`
-              : 'Tap Scan to check again'}
-          </p>
+        <div className="text-center">
+          <div className="text-5xl mb-2">⚡</div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Dynamo</h1>
+          <p className="text-sm text-white/40 mt-1">Solar + Alignment + Neural · Should you? The sun knows.</p>
         </div>
 
-        {/* Big status */}
-        <Card className={`border-2 transition-all ${allOnline ? 'border-emerald-500/40 bg-emerald-500/5' : scanning ? 'border-amber-500/40 bg-amber-500/5' : 'border-red-500/40 bg-red-500/5'}`}>
-          <CardContent className="p-6 text-center space-y-3">
-            {scanning ? (
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-amber-400" />
-            ) : allOnline ? (
-              <CheckCircle2 className="h-8 w-8 mx-auto text-emerald-500" />
-            ) : (
-              <XCircle className="h-8 w-8 mx-auto text-red-500" />
-            )}
-            <p className="text-lg font-semibold">
-              {beacons.filter(b => b.online).length} of {beacons.length} beacons online
-            </p>
-            {dynamo?.sunStatus && (
-              <div className="flex items-center justify-center gap-2">
-                <Sun className={`h-4 w-4 ${dynamo.sunStatus === 'storms' ? 'text-red-400' : dynamo.sunStatus === 'active' ? 'text-amber-400' : 'text-emerald-400'}`} />
-                <span className="text-sm text-muted-foreground">
-                  Sun: <span className="text-foreground font-medium">{dynamo.sunStatus}</span>
-                  {dynamo.signalBoost && (
-                    <span className="ml-1">({dynamo.signalBoost} to readings)</span>
-                  )}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Beacon cards */}
-        <div className="space-y-2">
+        {/* Beacon dots */}
+        <div className="flex items-center justify-center gap-3">
           {beacons.map(b => (
-            <Card key={b.name} className={`transition-all ${b.online ? 'border-emerald-500/20' : b.loading ? 'border-amber-500/20' : 'border-red-500/20'}`}>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{b.icon}</span>
-                  <div>
-                    <p className="font-medium capitalize text-foreground">{b.name}</p>
-                    <p className="text-xs text-muted-foreground">{statusLabel(b)}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  {b.loading ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  ) : b.online ? (
-                    <div className="space-y-0.5 text-right">
-                      <div className="flex items-center gap-1">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                        <span className="text-xs text-muted-foreground">{b.ping.toFixed(0)}ms</span>
-                      </div>
-                      {b.channels && <p className="text-[10px] text-muted-foreground">{b.channels} channels</p>}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <div className="h-2 w-2 rounded-full bg-red-500" />
-                      <span className="text-xs text-red-400">{b.error ? 'Error' : 'Down'}</span>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <div key={b.name} className="flex items-center gap-1.5">
+              <div className={`h-1.5 w-1.5 rounded-full ${b.on ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
+              <span className="text-xs text-white/40">{b.emoji} {b.name} <span className="text-white/20">{b.sub}</span></span>
+            </div>
           ))}
         </div>
 
-        {/* Scan button */}
-        <Button onClick={scan} disabled={scanning} className="w-full h-12 text-base gap-2" variant={allOnline ? 'default' : 'secondary'}>
-          {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          {scanning ? 'Scanning...' : 'Scan Beacons'}
-        </Button>
-
-        {lastScan > 0 && (
-          <p className="text-center text-xs text-muted-foreground">
-            Last scan: {new Date(lastScan).toLocaleTimeString()}
-          </p>
+        {/* Solar status */}
+        {sunStatus && (
+          <div className={`rounded-xl p-3 text-center text-sm font-medium ${
+            sunStatus === 'storm' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
+            sunStatus === 'active' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+            'bg-violet-500/10 text-violet-400 border border-violet-500/30'
+          }`}>
+            {sunStatus === 'storm' ? '⛈️ Solar storm — stand by' :
+             sunStatus === 'active' ? '🌤️ Sun is active — expect shifts' :
+             '☀️ Fair conditions right now'}
+          </div>
         )}
 
-        {/* Quick signal test */}
-        <SignalTest />
+        {/* Info */}
+        <div className="text-center space-y-1">
+          <p className="text-xs text-white/25">Solar context + proposal alignment + neural metrics = your verdict</p>
+          <div className="flex items-center justify-center gap-2 text-[10px] text-white/15">
+            <Zap className="h-3 w-3" /><span>Solar</span>
+            <span>+</span>
+            <Shield className="h-3 w-3" /><span>Alignment</span>
+            <span>+</span>
+            <Brain className="h-3 w-3" /><span>Neural</span>
+          </div>
+        </div>
 
-        <p className="text-center text-[10px] text-muted-foreground/50 pt-4">{APP_TAG}</p>
+        {/* Input */}
+        <div className="space-y-3">
+          <textarea
+            value={proposal}
+            onChange={e => setProposal(e.target.value)}
+            placeholder="Should I go hiking tomorrow?"
+            rows={3}
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-4 text-white text-base placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none transition-all"
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
+            disabled={loading}
+          />
+          <div className="flex flex-wrap gap-2">
+            {EXAMPLE_PROPOSALS.map(p => (
+              <button
+                key={p}
+                onClick={() => run(p)}
+                disabled={loading}
+                className="text-xs bg-white/[0.04] hover:bg-white/[0.08] text-white/40 hover:text-white/70 border border-white/[0.06] rounded-full px-3 py-1.5 transition-all disabled:opacity-30"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => run()}
+            disabled={loading || !proposal.trim()}
+            className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg shadow-violet-600/20"
+          >
+            {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+            {loading ? 'Analyzing proposal...' : 'Ask Dynamo'}
+          </button>
+        </div>
+
+        {/* Result */}
+        {result && (
+          <div className={`rounded-2xl p-5 text-center space-y-3 border shadow-xl ${
+            result.answer === 'yes' ? 'bg-emerald-500/[0.07] border-emerald-500/30 shadow-emerald-500/5' :
+            result.answer === 'no' ? 'bg-red-500/[0.07] border-red-500/30 shadow-red-500/5' :
+            'bg-amber-500/[0.07] border-amber-500/30 shadow-amber-500/5'
+          }`}>
+            <div className="text-4xl">{result.answer === 'yes' ? '✅' : result.answer === 'no' ? '❌' : '🔄'}</div>
+            <p className="text-xl font-bold text-white">
+              {result.answer === 'yes' ? 'Go for it' : result.answer === 'no' ? 'Not now' : 'Be careful'}
+            </p>
+            <p className="text-sm text-white/50 italic">&ldquo;{result.phrase}&rdquo;</p>
+
+            {/* Solar + Signal */}
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                <p className="text-[10px] text-white/30 uppercase">Solar</p>
+                <p className="text-sm font-semibold text-white">{result.level}</p>
+              </div>
+              <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                <p className="text-[10px] text-white/30 uppercase">Signal</p>
+                <p className="text-sm font-semibold text-white">{result.signal}</p>
+              </div>
+            </div>
+
+            {/* Resonance + Isotope + Alignment */}
+            {result.resonanceScore != null && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <Shield className="h-2.5 w-2.5 text-blue-400/60" />
+                      <p className="text-[10px] text-white/30 uppercase">Res.</p>
+                    </div>
+                    <p className="text-sm font-semibold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                    <p className="text-[10px] text-white/30 uppercase">Isotope</p>
+                    <p className="text-sm font-semibold text-white">{result.isotopicRatio != null ? (result.isotopicRatio * 100).toFixed(0) + '%' : '—'}</p>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={`text-[10px] font-bold ${alignColor(result.alignmentRec)}`}>{alignIcon(result.alignmentRec)}</span>
+                      <p className="text-[10px] text-white/30 uppercase">Align</p>
+                    </div>
+                    <p className={`text-sm font-semibold ${alignColor(result.alignmentRec)}`}>{alignLabel(result.alignmentRec)}</p>
+                  </div>
+                </div>
+                {result.signature && (
+                  <div className="bg-white/[0.02] rounded-lg px-3 py-1.5 text-center">
+                    <p className="text-[10px] text-white/30 font-mono tracking-widest">{result.signature}</p>
+                  </div>
+                )}
+                {result.alignmentReason && (
+                  <p className="text-[10px] text-white/30 italic text-center">&ldquo;{result.alignmentReason}&rdquo;</p>
+                )}
+              </div>
+            )}
+
+            {/* Neural metrics */}
+            {result.metamorphosisIndex != null && result.confidenceScore != null && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Brain className="h-2.5 w-2.5 text-violet-400/60" />
+                    <p className="text-[10px] text-white/30 uppercase">MI</p>
+                  </div>
+                  <p className="text-sm font-semibold text-white">{(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Brain className="h-2.5 w-2.5 text-emerald-400/60" />
+                    <p className="text-[10px] text-white/30 uppercase">Confidence</p>
+                  </div>
+                  <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
+                </div>
+              </div>
+            )}
+
+            {/* Gain bar */}
+            <div className="bg-white/[0.02] rounded-lg p-2 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Activity className="h-3 w-3 text-white/30" />
+                  <span className="text-[10px] text-white/30">Coupling</span>
+                </div>
+                <span className="text-[10px] text-white/40">{result.gain}x · {gainLabel(result.gain)}</span>
+              </div>
+              <div className="w-full h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${
+                  result.gain >= 1.3 ? 'bg-red-400' : result.gain >= 1 ? 'bg-amber-400' : result.gain >= 0.75 ? 'bg-violet-400' : 'bg-emerald-400'
+                } ${gainWidth(result.gain)}`} />
+              </div>
+            </div>
+
+            {/* Tension */}
+            {result.tension && (
+              <div className="bg-amber-500/[0.08] border border-amber-500/20 rounded-lg px-3 py-2 text-center">
+                <p className="text-[11px] text-amber-300/80">⚠ {result.tension}</p>
+              </div>
+            )}
+
+            {/* Source */}
+            <div className="flex items-center justify-center gap-2 text-[10px] text-white/20">
+              <Zap className="h-3 w-3" /><Shield className="h-3 w-3" /><Brain className="h-3 w-3" />
+              <span>{result.source}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {result && result.answer === 'error' && (
+          <div className="rounded-2xl p-5 text-center space-y-2 bg-white/[0.03] border border-white/10">
+            <div className="text-3xl">⚠️</div>
+            <p className="text-lg font-bold text-white">Could not reach governance</p>
+            <p className="text-sm text-white/40">Check your connection and try again</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        {result && result.answer !== 'error' && (
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setResult(null); setProposal(''); }}
+              className="flex-1 h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/60 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Ask another
+            </button>
+            <button
+              onClick={shareVerdict}
+              className="flex-1 h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/60 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+            >
+              <Share2 className="h-4 w-4" />
+              Share verdict
+            </button>
+          </div>
+        )}
+
+        <p className="text-center text-[10px] text-white/10">Powered by NOAA · Solar + Alignment + Neural</p>
       </div>
     </div>
-  );
-}
-
-function SignalTest() {
-  const [data, setData] = useState<{ sun: string; boost: string; reading: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const run = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${MCP_URL}/govern_with_solar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal: 'signal test', baseVoteWeight: 1.0 }),
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const sc = json.solarContext || {};
-      const level = sc.solarActivityLevel || '?';
-      const modifier = sc.solarActivityModifier ?? 0;
-      const sunLabel = level === 'storm' ? 'Storm ⛈️' : level === 'active' ? 'Active 🌤️' : level === 'moderate' ? 'Calm ☀️' : 'Quiet 🌙';
-      const boostLabel = modifier >= 0 ? `+${(modifier * 100).toFixed(0)}%` : `${(modifier * 100).toFixed(0)}%`;
-      const reading = json.finalRecommendation?.includes('STORM WARNING') ? '⚠️ Hold — solar storm' : '✅ Clear to proceed';
-      setData({ sun: sunLabel, boost: boostLabel, reading });
-    } catch {
-      setData({ sun: '?', boost: '?', reading: '❌ Could not reach beacon' });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { run(); }, [run]);
-
-  if (loading) return <Card className="border-border/50"><CardContent className="p-4 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /><p className="text-sm text-muted-foreground mt-2">Reading signals...</p></CardContent></Card>;
-  if (!data) return null;
-
-  return (
-    <Card className="border-border/50">
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Radio className="h-4 w-4 text-violet-400" />
-          <span className="text-sm font-medium">Signal Reading</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-muted/50 rounded-lg p-2 text-center">
-            <p className="text-[10px] text-muted-foreground uppercase">Sun</p>
-            <p className="text-sm font-semibold">{data.sun}</p>
-          </div>
-          <div className="bg-muted/50 rounded-lg p-2 text-center">
-            <p className="text-[10px] text-muted-foreground uppercase">Boost</p>
-            <p className="text-sm font-semibold">{data.boost}</p>
-          </div>
-        </div>
-        <div className={`rounded-lg p-3 text-center text-sm font-medium ${data.reading.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-          {data.reading}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
