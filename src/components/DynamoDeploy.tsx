@@ -369,26 +369,22 @@ export default function DynamoDeploy() {
           <p className="text-sm text-white/40 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
         </div>
 
-        {/* Three service cards */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className={`rounded-lg border p-3 text-center ${services[0] ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
-            <div className="text-lg mb-0.5">⚡</div>
-            <div className="text-xs font-semibold text-white">Dynamo MCP</div>
-            <div className="text-[10px] text-white/30 mt-0.5">Resonance Engine</div>
-            <div className={`h-1 w-1 rounded-full mx-auto mt-1.5 ${services[0] ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
-          </div>
-          <div className={`rounded-lg border p-3 text-center ${services[1] ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
-            <div className="text-lg mb-0.5">✦</div>
-            <div className="text-xs font-semibold text-white">Stellar MCP</div>
-            <div className="text-[10px] text-white/30 mt-0.5">Supporting Context</div>
-            <div className={`h-1 w-1 rounded-full mx-auto mt-1.5 ${services[1] ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
-          </div>
-          <div className={`rounded-lg border p-3 text-center ${services[2] ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
-            <div className="text-lg mb-0.5">🧬</div>
-            <div className="text-xs font-semibold text-white">Neural {neuralVersion}</div>
-            <div className="text-[10px] text-white/30 mt-0.5">Raw Neural Output</div>
-            <div className={`h-1 w-1 rounded-full mx-auto mt-1.5 ${services[2] ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
-          </div>
+        {/* Three service cards — horizontal compact */}
+        <div className="flex flex-col gap-1.5">
+          {[
+            { icon: '⚡', name: 'Dynamo MCP', desc: 'Resonance Engine', ok: services[0] },
+            { icon: '✦', name: 'Stellar MCP', desc: 'Supporting Context', ok: services[1] },
+            { icon: '🧬', name: `Neural ${neuralVersion}`, desc: 'Raw Neural Output', ok: services[2] },
+          ].map((s, i) => (
+            <div key={i} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${s.ok ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
+              <span className="text-base shrink-0">{s.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-white truncate">{s.name}</div>
+                <div className="text-[10px] text-white/30 truncate">{s.desc}</div>
+              </div>
+              <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${s.ok ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
+            </div>
+          ))}
         </div>
 
         {/* Solar status */}
