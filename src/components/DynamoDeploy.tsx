@@ -66,11 +66,13 @@ interface BeaconStatus {
   online: boolean;
   sun: string;
   services: boolean[];
+  neuralVersion: string;
 }
 
 async function checkBeacons(): Promise<BeaconStatus> {
   let online = false;
   let sun = '';
+  let neuralVersion = 'v4.7';
   const services = [false, false, false];
 
   try {
@@ -101,10 +103,14 @@ async function checkBeacons(): Promise<BeaconStatus> {
 
   try {
     const neural = await fetch(`${NEURAL_URL}/health`, { signal: AbortSignal.timeout(4000) });
-    services[2] = neural.ok;
+    if (neural.ok) {
+      services[2] = true;
+      const body = await neural.json();
+      if (body?.version) neuralVersion = body.version;
+    }
   } catch { /* offline */ }
 
-  return { online, sun, services };
+  return { online, sun, services, neuralVersion };
 }
 
 interface GovernanceResult {
@@ -117,6 +123,7 @@ interface GovernanceResult {
   gain: number;
   metamorphosisIndex: number | null;
   confidenceScore: number | null;
+  governanceConfidence: number | null;
   solarApplied: boolean;
   resonanceScore: number | null;
   isotopicRatio: number | null;
@@ -167,6 +174,7 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
 
     const metamorphosisIndex = neural?.neuralOutput?.metamorphosisIndex ?? neural?.metamorphosisIndex ?? null;
     const confidenceScore = neural?.neuralOutput?.confidenceScore ?? neural?.confidenceScore ?? null;
+    const governanceConfidence = alignment?.confidence ?? null;
     const solarApplied = neural?.neuralOutput?.solarApplied ?? neural?.solarModulation?.solar_applied ?? (solar?.solarContext != null) ?? false;
 
     const resonanceScore = alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null;
@@ -226,7 +234,7 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
 
     return {
       answer, detail, phrase, level: levelLabel, signal: signalLabel,
-      weight: adjustedWeight, gain, metamorphosisIndex, confidenceScore,
+      weight: adjustedWeight, gain, metamorphosisIndex, confidenceScore, governanceConfidence,
       solarApplied, resonanceScore, isotopicRatio, historicalCoherence,
       signature, alignmentRec, alignmentReason, tension, source,
     };
@@ -272,6 +280,7 @@ export default function DynamoDeploy() {
   const [beaconOnline, setBeaconOnline] = useState<boolean | null>(null);
   const [sunStatus, setSunStatus] = useState('');
   const [services, setServices] = useState([false, false, false]);
+  const [neuralVersion, setNeuralVersion] = useState('v4.7');
   const [proposal, setProposal] = useState('');
   const [result, setResult] = useState<GovernanceResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -283,6 +292,7 @@ export default function DynamoDeploy() {
         setBeaconOnline(s.online);
         setSunStatus(s.sun);
         setServices(s.services);
+        setNeuralVersion(s.neuralVersion);
       }
     });
   }, []);
@@ -309,10 +319,10 @@ export default function DynamoDeploy() {
       `Solar ${result.level} · Signal ${result.signal} · ${result.gain}x`,
     ];
     if (result.resonanceScore != null) lines.push(`Resonance ${(result.resonanceScore * 100).toFixed(0)}%`);
-    if (result.isotopicRatio != null && result.isotopicRatio !== 0.85) lines.push(`Isotope ${(result.isotopicRatio * 100).toFixed(0)}%`);
     if (result.signature) lines.push(`ID: ${result.signature}`);
     if (result.metamorphosisIndex != null) lines.push(`MI ${(result.metamorphosisIndex * 100).toFixed(1)}%`);
-    if (result.confidenceScore != null) lines.push(`Conf ${(result.confidenceScore * 100).toFixed(1)}%`);
+    if (result.governanceConfidence != null) lines.push(`Gov ${(result.governanceConfidence * 100).toFixed(1)}%`);
+    if (result.confidenceScore != null) lines.push(`Neural ${(result.confidenceScore * 100).toFixed(1)}%`);
     lines.push('dynamo-ui-psi.vercel.app');
     navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
   }, [result, lastProposal]);
@@ -320,7 +330,7 @@ export default function DynamoDeploy() {
   const beacons = [
     { name: 'Dynamo', emoji: '⚡', sub: 'MCP', on: services[0] },
     { name: 'Stellar', emoji: '✦', sub: 'MCP', on: services[1] },
-    { name: 'Neural', emoji: '🧬', sub: 'v4.7', on: services[2] },
+    { name: 'Neural', emoji: '🧬', sub: neuralVersion, on: services[2] },
   ];
 
   return (
@@ -426,20 +436,16 @@ export default function DynamoDeploy() {
               </div>
             </div>
 
-            {/* Resonance + Isotope + Alignment */}
+            {/* Resonance + Alignment */}
             {result.resonanceScore != null && (
               <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white/[0.03] rounded-lg p-2 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <Shield className="h-2.5 w-2.5 text-blue-400/60" />
                       <p className="text-[10px] text-white/30 uppercase">Res.</p>
                     </div>
                     <p className="text-sm font-semibold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
-                  </div>
-                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                    <p className="text-[10px] text-white/30 uppercase">Base</p>
-                    <p className="text-sm font-semibold text-white">{result.isotopicRatio != null ? (result.isotopicRatio * 100).toFixed(0) + '%' : '—'}</p>
                   </div>
                   <div className="bg-white/[0.03] rounded-lg p-2 text-center">
                     <div className="flex items-center justify-center gap-1">
@@ -461,22 +467,37 @@ export default function DynamoDeploy() {
             )}
 
             {/* Neural metrics */}
-            {result.metamorphosisIndex != null && result.confidenceScore != null && (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Brain className="h-2.5 w-2.5 text-violet-400/60" />
-                    <p className="text-[10px] text-white/30 uppercase">MI</p>
-                  </div>
-                  <p className="text-sm font-semibold text-white">{(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+            {(result.metamorphosisIndex != null || result.governanceConfidence != null) && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  {result.metamorphosisIndex != null && (
+                    <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Brain className="h-2.5 w-2.5 text-violet-400/60" />
+                        <p className="text-[10px] text-white/30 uppercase">MI</p>
+                      </div>
+                      <p className="text-sm font-semibold text-white">{(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                    </div>
+                  )}
+                  {result.governanceConfidence != null && (
+                    <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Shield className="h-2.5 w-2.5 text-emerald-400/60" />
+                        <p className="text-[10px] text-white/30 uppercase">Gov</p>
+                      </div>
+                      <p className="text-sm font-semibold text-white">{(result.governanceConfidence * 100).toFixed(1)}%</p>
+                    </div>
+                  )}
                 </div>
-                <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Brain className="h-2.5 w-2.5 text-emerald-400/60" />
-                    <p className="text-[10px] text-white/30 uppercase">Confidence</p>
+                {result.confidenceScore != null && (
+                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <Brain className="h-2.5 w-2.5 text-emerald-400/60" />
+                      <p className="text-[10px] text-white/30 uppercase">Neural</p>
+                    </div>
+                    <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
                   </div>
-                  <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
-                </div>
+                )}
               </div>
             )}
 
