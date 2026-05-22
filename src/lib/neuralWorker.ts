@@ -1,5 +1,13 @@
-// TensorFlow.js Worker Thread for Neural Fusion (Codex v4.7 Phase 3)
-// Q_ent and cascade computations offloaded to worker thread
+// TensorFlow.js Worker Thread for Neural Fusion
+// Delegates to a Vite-bundled worker file (neural.worker.ts).
+
+export interface SolarFeaturesLike {
+  xrayUVLift: number;
+  magPerturbation: number;
+  kpIndex: number;
+  hardnessRatio?: number;
+  activityLevel?: string;
+}
 
 export interface NeuralWorkerMessage {
   type: 'compute-q-ent' | 'compute-cascade' | 'initialize';
@@ -9,6 +17,7 @@ export interface NeuralWorkerMessage {
     tdf_value?: number;
     tau?: number;
     phi?: number;
+    solarFeatures?: SolarFeaturesLike;
   };
 }
 
@@ -19,200 +28,47 @@ export interface NeuralWorkerResponse {
     cascade_index?: number;
     efficiency?: number;
     compute_time?: number;
+    trained?: boolean;
+    fallbackMode?: boolean;
   };
   error?: string;
 }
 
 /**
- * Creates a TensorFlow.js worker for neural fusion computations
- * This runs in a Web Worker to avoid blocking the main thread
+ * Create a neural fusion Web Worker (Vite-bundled).
+ *
+ * ## IIFE Bundling Contract (critical for maintenance)
+ *
+ * The worker source (`neural.worker.ts`) uses normal ESM `import` statements
+ * from `./solarWorkerUtils`. This is only possible because:
+ *
+ *   vite.config.ts → worker: { format: 'iife' }
+ *
+ * Vite/Rollup then bundles the entire worker + all its imports into a
+ * single classic IIFE (`(function(){...})()`) that is emitted as
+ * `dist/assets/neural.worker-*.js`.
+ *
+ * Inside that IIFE the original `import` statements no longer exist;
+ * everything is inlined. Therefore the worker can still call the classic
+ * `self.importScripts(...)` to fetch TF.js from the CDN at runtime.
+ *
+ * This gives us the best of both worlds:
+ *   - TypeScript + editor support + shared modules in source
+ *   - Classic worker + importScripts for TF.js in the browser
+ *
+ * If you ever change the bundling format, the importScripts line in
+ * neural.worker.ts will break. Keep this comment in sync with vite.config.ts.
+ *
+ * Returns null when the Vite worker transform is unavailable (tests, SSR, etc.).
+ * The consuming hook then transparently falls back to the pure-JS analytic formulas.
  */
-export function createNeuralWorker(): Worker {
-  const workerCode = `
-    // Import TensorFlow.js in worker with retry logic
-    let tf = null;
-    let loadAttempts = 0;
-    const maxAttempts = 3;
-    
-    async function loadTensorFlow() {
-      while (loadAttempts < maxAttempts && !tf) {
-        try {
-          loadAttempts++;
-          console.log('[Neural Worker] Loading TensorFlow.js, attempt ' + loadAttempts);
-          importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
-          tf = self.tf;
-          console.log('[Neural Worker] TensorFlow.js loaded successfully');
-          return true;
-        } catch (error) {
-          console.error('[Neural Worker] Failed to load TensorFlow.js:', error.message);
-          if (loadAttempts >= maxAttempts) {
-            return false;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-      return !!tf;
-    }
-    
-    let model = null;
-    let isInitialized = false;
-    
-    // Initialize TensorFlow.js model
-    async function initialize() {
-      // Mark initialized immediately so the main thread engages the engine.
-      // TF.js load is attempted in the background; if it succeeds the model
-      // upgrades the q_ent calc, otherwise we stay on the analytic path.
-      if (!isInitialized) {
-        isInitialized = true;
-        self.postMessage({ type: 'initialized', data: { fallbackMode: true } });
-      }
-      try {
-        console.log('[Neural Worker] Attempting TF.js load in background...');
-        const tfLoaded = await loadTensorFlow();
-        if (!tfLoaded) {
-          console.warn('[Neural Worker] TensorFlow.js unavailable, staying in fallback mode');
-          return;
-        }
-        // Create a simple sequential model for Q_ent calculations
-        model = tf.sequential({
-          layers: [
-            tf.layers.dense({ units: 16, activation: 'relu', inputShape: [3] }),
-            tf.layers.dense({ units: 8, activation: 'relu' }),
-            tf.layers.dense({ units: 1, activation: 'sigmoid' })
-          ]
-        });
-        
-        // Compile the model
-        model.compile({
-          optimizer: 'adam',
-          loss: 'meanSquaredError'
-        });
-        
-        console.log('[Neural Worker] TF.js model compiled — upgraded from fallback mode');
-      } catch (error) {
-        console.warn('[Neural Worker] TF.js init error, staying in fallback:', error.message);
-      }
-    }
-    
-    // Compute quantum entanglement (Q_ent)
-    function computeQEnt(delta_phase, n, phi = 1.666) {
-      const startTime = performance.now();
-      
-      try {
-        // Codex v4.7 formula: Q_ent calculation
-        // Q_ent represents quantum entanglement strength
-        const phase_factor = Math.abs(Math.cos(phi * n / 2) / Math.PI);
-        const cascade_factor = Math.sin(phi * n / 4) * Math.exp(-n / 20);
-        const delta_weight = delta_phase * (1 + (n - 25) / 10);
-        
-        let q_ent = Math.abs(phase_factor * cascade_factor * delta_weight * Math.log(n + 1));
-        
-        // Use neural model for refinement if available
-        if (isInitialized && model && tf) {
-          try {
-            const input = tf.tensor2d([[delta_phase, n / 34, phi / 2]]);
-            const prediction = model.predict(input);
-            const adjustment = prediction.dataSync()[0];
-            q_ent = q_ent * (0.9 + adjustment * 0.2); // Neural adjustment ±10%
-            input.dispose();
-            prediction.dispose();
-          } catch (error) {
-            console.warn('[Neural Worker] Model prediction failed, using base calculation:', error.message);
-          }
-        }
-        
-        // Clamp to valid range [0, 1]
-        q_ent = Math.max(0, Math.min(1, q_ent));
-        
-        const computeTime = performance.now() - startTime;
-        
-        console.log('[Neural Worker] Q_ent complete:', q_ent.toFixed(6));
-        
-        self.postMessage({
-          type: 'q-ent-result',
-          data: { q_ent, compute_time: computeTime }
-        });
-      } catch (error) {
-        self.postMessage({
-          type: 'error',
-          error: 'Q_ent computation failed: ' + error.message
-        });
-      }
-    }
-    
-    // Compute cascade index and efficiency
-    function computeCascade(tdf_value, n, tau = 0.865, phi = 1.666) {
-      const startTime = performance.now();
-      
-      try {
-        // Codex v4.7 formula: Cascade Index = floor(π / voids) + n
-        const pi = Math.PI;
-        const voids = 7;
-        const cascade_index = Math.floor(pi / voids) + n;
-        
-        // Log-scaled efficiency in [0..1] against tPTT target (5.3e12).
-        // Linear ratio collapses to 0 for typical sub-target tdf values; log
-        // scaling keeps the metric responsive across the full tPTT range.
-        const target_tptt = 5.3e12;
-        const safe_tdf = Math.max(1, Math.abs(tdf_value));
-        const log_target = Math.log10(target_tptt);
-        const efficiency = Math.max(0, Math.min(1, Math.log10(safe_tdf) / log_target));
-        
-        const computeTime = performance.now() - startTime;
-        
-        console.log('[Neural Worker] Cascade complete:', { cascade_index, efficiency: (efficiency * 100).toFixed(1) + '%' });
-        
-        self.postMessage({
-          type: 'cascade-result',
-          data: { cascade_index, efficiency, compute_time: computeTime }
-        });
-      } catch (error) {
-        self.postMessage({
-          type: 'error',
-          error: 'Cascade computation failed: ' + error.message
-        });
-      }
-    }
-    
-    // Message handler
-    self.addEventListener('message', async (e) => {
-      const message = e.data;
-      
-      switch (message.type) {
-        case 'initialize':
-          await initialize();
-          break;
-          
-        case 'compute-q-ent':
-          if (!isInitialized) {
-            await initialize();
-          }
-          computeQEnt(
-            message.data.delta_phase,
-            message.data.n,
-            message.data.phi
-          );
-          break;
-          
-        case 'compute-cascade':
-          computeCascade(
-            message.data.tdf_value,
-            message.data.n,
-            message.data.tau,
-            message.data.phi
-          );
-          break;
-          
-        default:
-          self.postMessage({
-            type: 'error',
-            error: 'Unknown message type: ' + message.type
-          });
-      }
-    });
-  `;
-  
-  const blob = new Blob([workerCode], { type: 'application/javascript' });
-  const workerUrl = URL.createObjectURL(blob);
-  return new Worker(workerUrl);
+export function createNeuralWorker(): Worker | null {
+  try {
+    return new Worker(
+      new URL('./neural.worker.ts', import.meta.url),
+      { type: 'classic' },
+    );
+  } catch {
+    return null;
+  }
 }
