@@ -1,7 +1,7 @@
 // mcp/lib/solarGovernanceIntegration.ts
 // Integrates real-time solar data into Dynamo governance decisions
 
-import { fetchCurrentSolarData } from './solarDataFetcher'
+import { fetchCurrentSolarData } from './solarDataFetcher.js'
 
 export interface SolarGovernanceContext {
   solarActivityLevel: string

@@ -5,7 +5,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { publish, subscribe } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
-import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance'
+import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
 
 // ===== Inlined: isotopicSignal.ts =====
 interface CorrelationResult {

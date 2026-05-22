@@ -17,10 +17,10 @@
 
 import express from 'express'
 import cors from 'cors'
-import { NeuralFusion } from './lib/neuralFusion'
-import { stellarLibrary } from './lib/stellarLibraryLoader'
-import { solarDataFetcher } from './lib/solarDataFetcher'
-import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance'
+import { NeuralFusion } from './lib/neuralFusion.js'
+import { stellarLibrary } from './lib/stellarLibraryLoader.js'
+import { solarDataFetcher } from './lib/solarDataFetcher.js'
+import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
 
 const app = express()
 app.use(cors())
