@@ -18,7 +18,7 @@ export const GovernanceSchema = z.object({
   historicalSignalIds: z.array(z.string()).optional(),
 })
 
-// Refined Blurrn-Native Decision Matrix (v4.8.4)
+// Refined Blurrn-Native Decision Matrix (v4.8.5)
 export function applyDecisionMatrix(
   resonance: number,
   isotopicRatio: number,
@@ -68,14 +68,12 @@ export function applyDecisionMatrix(
     voteWeight *= 1.07
   }
 
-  // Isotopic Ratio (phase coherence) — now purely advisory
+  // Isotopic Ratio (phase coherence) — legacy metric, advisory only
   if (isotopicRatio < 0.55) {
-    reasons.push('Low phase coherence')
-    confidence = Math.max(0.65, confidence - 0.07)
-    voteWeight *= 0.93
+    reasons.push('Low phase coherence (legacy)')
+    confidence = Math.max(0.65, confidence - 0.05)
   } else if (isotopicRatio > 0.88) {
-    reasons.push('High phase coherence')
-    voteWeight *= 1.03
+    reasons.push('High phase coherence (legacy)')
   }
 
   // Historical Coherence
