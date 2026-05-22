@@ -9,7 +9,7 @@
 // (backend-server.ts /process-current-sun, solarGovernanceIntegration.ts)
 // keep working without a rewrite.
 
-import type { SpectrumData } from '../types/sdss'
+import type { SpectrumData } from '../types/sdss.js'
 
 // ---------- Types ---------------------------------------------------------
 

@@ -1,7 +1,7 @@
 // mcp/lib/dynamoSolarGovernance.ts
 // Enhanced Dynamo Governance with real-time Solar Context
 
-import { solarGovernance } from './solarGovernanceIntegration'
+import { solarGovernance } from './solarGovernanceIntegration.js'
 
 export interface EnhancedGovernanceDecision {
   originalRecommendation: string
