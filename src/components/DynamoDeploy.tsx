@@ -36,6 +36,12 @@ const NO_PHRASES = [
   'Bad cosmic timing. Hold off.',
 ];
 
+const REJECT_PHRASES = [
+  'The proposal does not resonate. Refine and try again.',
+  'Not aligned with current conditions. Revise your approach.',
+  'The signal is clear: this needs more work.',
+];
+
 const GAIN_BY_LEVEL: Record<string, number> = {
   quiet: 0.5,
   moderate: 0.75,
@@ -186,7 +192,7 @@ async function checkGovernance(proposal: string): Promise<GovernanceResult | nul
     } else if (isRejected) {
       answer = 'no';
       detail = 'Proposal misaligned — refine and resubmit';
-      phrase = pick(NO_PHRASES);
+      phrase = pick(REJECT_PHRASES);
     } else if (isBadSignal && isNeedsRevision) {
       answer = 'maybe';
       detail = 'Conditions shifting and proposal needs work';
