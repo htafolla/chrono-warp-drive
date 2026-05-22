@@ -369,20 +369,17 @@ export default function DynamoDeploy() {
           <p className="text-xs text-white/30 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
         </div>
 
-        {/* Three service cards — horizontal compact */}
-        <div className="flex flex-col gap-1.5">
+        {/* Three service cards — grid row, icon left of text */}
+        <div className="grid grid-cols-3 gap-2">
           {[
-            { icon: '⚡', name: 'Dynamo MCP', desc: 'Resonance Engine', ok: services[0] },
-            { icon: '✦', name: 'Stellar MCP', desc: 'Supporting Context', ok: services[1] },
-            { icon: '🧬', name: `Neural ${neuralVersion}`, desc: 'Raw Neural Output', ok: services[2] },
+            { icon: '⚡', name: 'Dynamo MCP', ok: services[0] },
+            { icon: '✦', name: 'Stellar MCP', ok: services[1] },
+            { icon: '🧬', name: `Neural ${neuralVersion}`, ok: services[2] },
           ].map((s, i) => (
-            <div key={i} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${s.ok ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
-              <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
-                <span className="text-xs">{s.icon}</span>
-                <span className="text-xs font-semibold text-white truncate">{s.name}</span>
-                <span className="text-[10px] text-white/30 truncate">{s.desc}</span>
-              </div>
-              <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${s.ok ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
+            <div key={i} className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 ${s.ok ? 'bg-white/[0.03] border-white/10' : 'bg-white/[0.01] border-white/5'}`}>
+              <span className="text-sm shrink-0">{s.icon}</span>
+              <span className="text-[11px] font-semibold text-white truncate">{s.name}</span>
+              <div className={`ml-auto h-1.5 w-1.5 rounded-full shrink-0 ${s.ok ? 'bg-emerald-500' : beaconOnline === null ? 'bg-white/20 animate-pulse' : 'bg-red-500'}`} />
             </div>
           ))}
         </div>
