@@ -30,8 +30,9 @@ function computeProposalTdf(words: string[]): number {
   const effective = words.length >= MIN_FINGERPRINT_WORDS
     ? words
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
-  const avg = effective.reduce((sum, w) => sum + wordFingerprint(w), 0) / effective.length;
-  return 5.781e12 + Math.round(avg);
+  let h = 0;
+  for (const w of effective) h ^= wordFingerprint(w);
+  return 5.781e12 + (h % 1000000);
 }
 
 function getSolarReferenceTdf(solarData: any): number {
@@ -154,8 +155,9 @@ export class SolarGovernanceIntegration {
         sunCascade
       )
 
-      const correlation = proposalSignal.crossCorrelate(sunSignal)
-      const solarIsotopicResonance = Math.max(0.15, Math.min(0.98, correlation.strength))
+      const deltaDiff = Math.abs((proposalTdf % 1e6) - (solarRefTdf % 1e6))
+      const strength = Math.exp(-Math.pow(deltaDiff / 1e6, 2))
+      const solarIsotopicResonance = Math.max(0.15, Math.min(0.98, strength))
 
       let activityModifier = 0
       switch (solarData.activityLevel) {
@@ -173,15 +175,14 @@ export class SolarGovernanceIntegration {
         phaseCoherenceProposal: proposalSignal.phaseCoherence,
         phaseCoherenceSun: sunSignal.phaseCoherence,
         activityModifier,
-        crossCorrelationStrength: correlation.strength,
-        vortexVolume: correlation.metadata?.vortexVolume,
+        crossCorrelationStrength: strength,
+        vortexVolume: proposalTdf * solarRefTdf,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
       const fallbackTdf = 5.781e12 + 424242
       const proposalSignal = new TemporalBlurrnSignal({ content: proposal }, fallbackTdf, 42)
       const sunSignal = new TemporalBlurrnSignal({ source: 'sun' }, fallbackTdf + 1000, 43)
-      const correlation = proposalSignal.crossCorrelate(sunSignal)
 
       return {
         solarIsotopicResonance: 0.67,
@@ -191,8 +192,8 @@ export class SolarGovernanceIntegration {
         phaseCoherenceProposal: proposalSignal.phaseCoherence,
         phaseCoherenceSun: sunSignal.phaseCoherence,
         activityModifier: 0,
-        crossCorrelationStrength: correlation.strength,
-        vortexVolume: correlation.metadata?.vortexVolume,
+        crossCorrelationStrength: 0.67,
+        vortexVolume: fallbackTdf * (fallbackTdf + 1000),
       }
     }
   }
