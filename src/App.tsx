@@ -10,6 +10,10 @@ import IsotopicVortex from "./pages/IsotopicVortex";
 import DynamoDeploy from "./pages/DynamoDeploy";
 import NotFound from "./pages/NotFound";
 
+// Simple consumer site (dynamo-ui) should show the lightweight beacon dashboard as root
+const isSimpleConsumer = typeof window !== 'undefined' &&
+  window.location.hostname.includes('dynamo-ui');
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -25,7 +29,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={isSimpleConsumer ? <DynamoDeploy /> : <Index />} />
             <Route path="/about" element={<About />} />
             <Route path="/isotopic-vortex" element={<IsotopicVortex />} />
             <Route path="/deploy" element={<DynamoDeploy />} />
