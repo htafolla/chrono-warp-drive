@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Brain, Activity, Zap } from 'lucide-react';
+import { Brain, Activity, Zap, Cpu } from 'lucide-react';
 import { NeuralOutput } from '@/types/sdss';
-import { deterministicRandom, generateCycle } from '@/lib/deterministicUtils';
 import { SequenceDial } from './dials/SequenceDial';
 import { TimelineDial } from './dials/TimelineDial';
 import { usePageVisibility } from '@/hooks/usePageVisibility';
@@ -12,148 +11,67 @@ import { usePageVisibility } from '@/hooks/usePageVisibility';
 interface NeuralFusionDisplayProps {
   neuralOutput: NeuralOutput | null;
   isActive: boolean;
+  isTrained?: boolean;
+  isFallback?: boolean;
 }
 
-interface LayerActivation {
-  layer: string;
-  activation: number;
-  neurons: number[];
-  activeCount: number;
-  avgActivation: number;
+interface LayerVisualization {
+  label: string;
+  neuronCount: number;
+  color: string;
 }
 
-export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisplayProps) {
-  const [layerActivations, setLayerActivations] = useState<LayerActivation[]>([]);
+// Real front-end worker model architecture: 6 → 16 → 8 → 1
+const ARCHITECTURE: LayerVisualization[] = [
+  { label: 'Input', neuronCount: 6, color: 'from-blue-400 to-blue-600' },
+  { label: 'Dense 16', neuronCount: 16, color: 'from-violet-400 to-violet-600' },
+  { label: 'Dropout', neuronCount: 0, color: 'from-gray-400 to-gray-500' },
+  { label: 'Dense 8', neuronCount: 8, color: 'from-purple-400 to-purple-600' },
+  { label: 'Output', neuronCount: 1, color: 'from-amber-400 to-amber-600' },
+];
+
+export function NeuralFusionDisplay({ neuralOutput, isActive, isTrained = false, isFallback = true }: NeuralFusionDisplayProps) {
   const [metamorphosisHistory, setMetamorphosisHistory] = useState<number[]>([]);
   const [animatedOutput, setAnimatedOutput] = useState(neuralOutput);
+  const [pulsePhase, setPulsePhase] = useState(0);
   const isPageVisible = usePageVisibility();
 
   useEffect(() => {
     setAnimatedOutput(neuralOutput);
   }, [neuralOutput]);
 
-  // Add micro-variations to make data more dynamic (throttled for performance)
   useEffect(() => {
     if (!neuralOutput || !isActive || !isPageVisible) return;
 
     const interval = setInterval(() => {
-      const microVariation = () => 0.98 + (Math.random() * 0.04); // ±2% variation (reduced for performance)
-
+      const v = () => 0.98 + Math.random() * 0.04;
       setAnimatedOutput({
         ...neuralOutput,
-        confidenceScore: Math.min(1, neuralOutput.confidenceScore * microVariation()),
-        metamorphosisIndex: Math.min(1, neuralOutput.metamorphosisIndex * microVariation())
+        confidenceScore: Math.min(1, neuralOutput.confidenceScore * v()),
+        metamorphosisIndex: Math.min(1, neuralOutput.metamorphosisIndex * v()),
       });
-    }, 2000); // Throttled to 2000ms for transport system performance
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [neuralOutput, isActive, isPageVisible]);
 
+  // Animate pulse phase for the architecture visualization
+  useEffect(() => {
+    if (!isActive) return;
+    const interval = setInterval(() => {
+      setPulsePhase(prev => (prev + 0.02) % (Math.PI * 2));
+    }, 50);
+    return () => clearInterval(interval);
+  }, [isActive]);
+
   useEffect(() => {
     if (animatedOutput) {
-      const cycle = generateCycle();
-      
-      // Create dynamic layer activations with time-based variations
-      const timeVariation = Math.sin(Date.now() / 2000) * 0.1;
-      
-      const threshold = 0.65;
-      
-      const activations: LayerActivation[] = [
-        {
-          layer: 'Input Layer',
-          activation: Math.min(1, 0.8 + deterministicRandom(cycle, 0) * 0.2 + timeVariation),
-          neurons: Array.from({ length: 200 }, (_, i) => 
-            Math.max(0.1, deterministicRandom(cycle, i + 1) + (Math.sin((Date.now() + i * 100) / 1000) * 0.2))
-          ),
-          activeCount: 0,
-          avgActivation: 0
-        },
-        {
-          layer: 'Hidden Layer 1',
-          activation: Math.min(1, animatedOutput.confidenceScore * 0.9 + timeVariation),
-          neurons: Array.from({ length: 128 }, (_, i) => 
-            Math.max(0.1, deterministicRandom(cycle, i + 100) * animatedOutput.confidenceScore + (Math.sin((Date.now() + i * 80) / 1200) * 0.15))
-          ),
-          activeCount: 0,
-          avgActivation: 0
-        },
-        {
-          layer: 'Hidden Layer 2', 
-          activation: Math.min(1, animatedOutput.metamorphosisIndex * 0.8 + timeVariation),
-          neurons: Array.from({ length: 64 }, (_, i) => 
-            Math.max(0.1, deterministicRandom(cycle, i + 200) * animatedOutput.metamorphosisIndex + (Math.sin((Date.now() + i * 60) / 1400) * 0.15))
-          ),
-          activeCount: 0,
-          avgActivation: 0
-        },
-        {
-          layer: 'Output Layer',
-          activation: Math.min(1, animatedOutput.confidenceScore + timeVariation),
-          neurons: animatedOutput.neuralSpectra.slice(0, 16).map((n, i) => 
-            Math.max(0.1, n + (Math.sin((Date.now() + i * 40) / 1600) * 0.1))
-          ),
-          activeCount: 0,
-          avgActivation: 0
-        }
-      ].map(layer => {
-        const activeCount = layer.neurons.filter(n => n > threshold).length;
-        const avgActivation = layer.neurons.reduce((sum, n) => sum + n, 0) / layer.neurons.length;
-        return { ...layer, activeCount, avgActivation };
-      });
-      
-      setLayerActivations(activations);
-      
-      // Track metamorphosis history with variations
       setMetamorphosisHistory(prev => {
-        const newHistory = [...prev, animatedOutput.metamorphosisIndex].slice(-20);
-        return newHistory;
+        const next = [...prev, animatedOutput.metamorphosisIndex];
+        return next.length > 20 ? next.slice(-20) : next;
       });
     }
   }, [animatedOutput]);
-  
-  // Continuous animation for neural activations - Optimized with 30 FPS cap
-  useEffect(() => {
-    if (!isActive) return;
-    
-    const threshold = 0.65;
-    const targetFPS = 30;
-    const frameInterval = 1000 / targetFPS;
-    let lastFrameTime = performance.now();
-    let animationFrame: number;
-    
-    const animate = () => {
-      const currentTime = performance.now();
-      const elapsed = currentTime - lastFrameTime;
-      
-      // Frame rate limiting - only update at 30 FPS
-      if (elapsed >= frameInterval) {
-        lastFrameTime = currentTime - (elapsed % frameInterval);
-        
-        setLayerActivations(prev => prev.map(layer => {
-          const updatedNeurons = layer.neurons.map((n, i) => 
-            Math.max(0.05, Math.min(1, n + (Math.sin(Date.now() / 500 + i) * 0.02)))
-          );
-          const activeCount = updatedNeurons.filter(n => n > threshold).length;
-          const avgActivation = updatedNeurons.reduce((sum, n) => sum + n, 0) / updatedNeurons.length;
-          
-          return {
-            ...layer,
-            neurons: updatedNeurons,
-            activeCount,
-            avgActivation
-          };
-        }));
-      }
-      
-      animationFrame = requestAnimationFrame(animate);
-    };
-    
-    animationFrame = requestAnimationFrame(animate);
-    
-    return () => {
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-    };
-  }, [isActive]);
 
   if (!isActive || !neuralOutput) {
     return (
@@ -172,11 +90,16 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
     );
   }
 
+  const statusBadge = !isFallback && isTrained
+    ? <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-600">Solar-Trained</Badge>
+    : isFallback
+    ? <Badge variant="secondary" className="text-xs">Formula Fallback</Badge>
+    : <Badge variant="outline" className="text-xs">Untrained</Badge>;
+
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-background via-primary/5 to-background relative overflow-hidden">
-      {/* Animated background effect */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 opacity-50 animate-pulse" style={{ animationDuration: '3s' }} />
-      
+
       <CardHeader className="pb-3 relative z-10">
         <CardTitle className="flex items-center justify-between text-base">
           <div className="flex items-center gap-2">
@@ -189,8 +112,9 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
             <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent font-bold">
               Neural Fusion
             </span>
-            <Badge variant="default" className="animate-pulse text-xs shadow-lg" style={{ boxShadow: '0 0 10px hsl(var(--primary) / 0.5)' }}>
-              Active
+            {statusBadge}
+            <Badge variant="outline" className="text-xs font-mono">
+              {isFallback ? 'formula' : '6→16→8→1'}
             </Badge>
           </div>
           <div className="flex items-center gap-3 text-xs">
@@ -205,19 +129,20 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
           </div>
         </CardTitle>
       </CardHeader>
+
       <CardContent className="pt-0 space-y-3 relative z-10">
-        {/* Enhanced Network Architecture with animations */}
-        <div className="space-y-2 relative">
-          {/* Connection lines between layers */}
+        {/* Real architecture visualization — sizes reflect actual neuron counts */}
+        <div className="space-y-2">
+          {/* Connection lines */}
           <svg className="absolute inset-0 pointer-events-none opacity-20" style={{ width: '100%', height: '100%' }}>
-            {layerActivations.map((_, index) => 
-              index < layerActivations.length - 1 && (
+            {ARCHITECTURE.map((layer, i) =>
+              i < ARCHITECTURE.length - 1 && layer.neuronCount > 0 && ARCHITECTURE[i + 1].neuronCount > 0 && (
                 <line
-                  key={index}
+                  key={i}
                   x1="10%"
-                  y1={`${(index * 100) / (layerActivations.length - 1)}%`}
+                  y1={`${(i * 100) / (ARCHITECTURE.length - 1)}%`}
                   x2="90%"
-                  y2={`${((index + 1) * 100) / (layerActivations.length - 1)}%`}
+                  y2={`${((i + 1) * 100) / (ARCHITECTURE.length - 1)}%`}
                   stroke="hsl(var(--primary))"
                   strokeWidth="1"
                   strokeDasharray="4 4"
@@ -226,76 +151,60 @@ export function NeuralFusionDisplay({ neuralOutput, isActive }: NeuralFusionDisp
               )
             )}
           </svg>
-          
-          {layerActivations.map((layer, index) => (
-            <div 
-              key={layer.layer} 
-              className="flex items-center gap-2 relative z-10 group hover:scale-[1.02] transition-transform duration-200"
-            >
+
+          {ARCHITECTURE.map((layer, index) => (
+            <div key={layer.label} className="flex items-center gap-2 relative z-10">
               <span className="text-xs text-muted-foreground w-16 truncate font-medium">
-                {layer.layer.split(' ')[0]}
+                {layer.label}
               </span>
               <div className="flex-1 relative">
-                <Progress value={layer.activation * 100} className="h-2" />
-                {/* Animated wave overlay */}
-                <div 
-                  className="absolute inset-0 h-2 rounded-full overflow-hidden pointer-events-none"
-                  style={{
-                    background: `linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)`,
-                    animation: `slide-wave ${2 + index * 0.5}s ease-in-out infinite`,
-                    opacity: layer.activation
-                  }}
+                <Progress
+                  value={layer.neuronCount > 0 ? 100 : 0}
+                  className={`h-2 bg-gradient-to-r ${layer.color}`}
                 />
               </div>
-              <span 
-                className="text-xs text-muted-foreground w-16 font-mono tabular-nums cursor-help transition-colors hover:text-primary"
-                title={`Active: ${layer.activeCount}/${layer.neurons.length} | Avg: ${(layer.avgActivation * 100).toFixed(0)}%`}
-              >
-                {layer.activeCount}/{layer.neurons.length}
+              <span className="text-xs text-muted-foreground w-16 font-mono tabular-nums text-right">
+                {layer.neuronCount > 0 ? `${layer.neuronCount}` : '—'}
               </span>
               <div className="flex gap-px items-center">
-                {layer.neurons.slice(0, 12).map((activation, neuronIndex) => (
-                  <div
-                    key={neuronIndex}
-                    className="rounded-full transition-all duration-300"
-                    style={{
-                      width: `${4 + activation * 4}px`,
-                      height: `${4 + activation * 4}px`,
-                      backgroundColor: `hsl(var(--primary) / ${Math.max(activation, 0.3)})`,
-                      boxShadow: activation > 0.7 ? `0 0 4px hsl(var(--primary) / ${activation})` : 'none',
-                      animation: activation > 0.8 ? 'pulse 1s ease-in-out infinite' : 'none'
-                    }}
-                  />
-                ))}
+                {layer.neuronCount > 0
+                  ? Array.from({ length: Math.min(layer.neuronCount, 16) }, (_, ni) => {
+                      // Visual pulse — amplitude modulated by solar state
+                      const val = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(pulsePhase + ni * 0.8 + index * 1.3));
+                      return (
+                        <div
+                          key={ni}
+                          className="rounded-full transition-all duration-300"
+                          style={{
+                            width: `${Math.max(3, val * 6)}px`,
+                            height: `${Math.max(3, val * 6)}px`,
+                            backgroundColor: `hsl(var(--primary) / ${Math.max(val * 0.6, 0.2)})`,
+                            boxShadow: val > 0.6 ? `0 0 3px hsl(var(--primary) / ${val})` : 'none',
+                          }}
+                        />
+                      );
+                    })
+                  : <Cpu className="h-3 w-3 text-muted-foreground/50" />}
               </div>
             </div>
           ))}
         </div>
-        
-        <style>{`
-          @keyframes slide-wave {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-        `}</style>
 
-        {/* Interactive Dials with glassmorphism container */}
         <div className="flex items-center justify-around gap-6 py-4 px-4 rounded-lg bg-background/30 backdrop-blur-md border border-border/30 shadow-lg">
-          <SequenceDial 
+          <SequenceDial
             sequence={animatedOutput?.synapticSequence || ''}
             className="hover:scale-110 transition-transform duration-300"
           />
-          
+
           <div className="h-16 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
-          
-          <TimelineDial 
+
+          <TimelineDial
             currentValue={animatedOutput?.metamorphosisIndex || 0}
             history={metamorphosisHistory}
             className="hover:scale-110 transition-transform duration-300"
           />
         </div>
-        
-        {/* Full sequence text with animated glow */}
+
         <div className="pt-2 border-t border-border/50 bg-background/20 backdrop-blur-sm rounded-lg px-3 py-2">
           <p className="text-[10px] font-mono text-muted-foreground truncate text-center animate-pulse" style={{ textShadow: '0 0 10px hsl(var(--primary) / 0.3)' }}>
             {animatedOutput?.synapticSequence || ''}
