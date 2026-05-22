@@ -347,7 +347,7 @@ export default function DynamoDeploy() {
         <div className="text-center">
           <div className="text-5xl mb-2">⚡</div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Dynamo</h1>
-          <p className="text-sm text-white/40 mt-1">Solar + Alignment + Neural · Should you? The sun knows.</p>
+          <p className="text-sm text-white/40 mt-1">Resonance · Solar · Neural · Should you? The sun knows.</p>
         </div>
 
         {/* Beacon dots */}
@@ -375,11 +375,11 @@ export default function DynamoDeploy() {
 
         {/* Info */}
         <div className="text-center space-y-1">
-          <p className="text-xs text-white/25">Solar context + proposal alignment + neural metrics = your verdict</p>
+          <p className="text-xs text-white/25">Resonance + solar context + neural metrics = your verdict</p>
           <div className="flex items-center justify-center gap-2 text-[10px] text-white/15">
-            <Zap className="h-3 w-3" /><span>Solar</span>
+            <Shield className="h-3 w-3" /><span>Resonance</span>
             <span>+</span>
-            <Shield className="h-3 w-3" /><span>Alignment</span>
+            <Zap className="h-3 w-3" /><span>Solar</span>
             <span>+</span>
             <Brain className="h-3 w-3" /><span>Neural</span>
           </div>
@@ -497,13 +497,17 @@ export default function DynamoDeploy() {
                   )}
                 </div>
                 {result.confidenceScore != null && (
-                  <div className="bg-white/[0.03] rounded-lg p-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Brain className="h-2.5 w-2.5 text-emerald-400/60" />
-                      <p className="text-[10px] text-white/30 uppercase">Neural</p>
+                  <details className="group">
+                    <summary className="bg-white/[0.03] rounded-lg p-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
+                      <Brain className="h-2.5 w-2.5 text-white/20" />
+                      <span className="text-[10px] text-white/20 uppercase">Raw neural output: {(result.confidenceScore * 100).toFixed(1)}%</span>
+                      <span className="text-[10px] text-white/20 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <div className="bg-white/[0.03] rounded-lg p-2 text-center mt-1">
+                      <p className="text-[10px] text-white/30 uppercase">Neural Confidence</p>
+                      <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
                     </div>
-                    <p className="text-sm font-semibold text-white">{(result.confidenceScore * 100).toFixed(1)}%</p>
-                  </div>
+                  </details>
                 )}
               </div>
             )}
@@ -513,7 +517,7 @@ export default function DynamoDeploy() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Activity className="h-3 w-3 text-white/30" />
-                  <span className="text-[10px] text-white/30">Coupling</span>
+                  <span className="text-[10px] text-white/30">Solar Coupling</span>
                 </div>
                 <span className="text-[10px] text-white/40">{result.gain}x · {gainLabel(result.gain)}</span>
               </div>
@@ -533,7 +537,7 @@ export default function DynamoDeploy() {
 
             {/* Source */}
             <div className="flex items-center justify-center gap-2 text-[10px] text-white/20">
-              <Zap className="h-3 w-3" /><Shield className="h-3 w-3" /><Brain className="h-3 w-3" />
+              <Shield className="h-3 w-3" /><Zap className="h-3 w-3" /><Brain className="h-3 w-3" />
               <span>{result.source}</span>
             </div>
           </div>
@@ -568,7 +572,7 @@ export default function DynamoDeploy() {
           </div>
         )}
 
-        <p className="text-center text-[10px] text-white/10">Powered by NOAA · Solar + Alignment + Neural</p>
+        <p className="text-center text-[10px] text-white/10">Powered by NOAA · Resonance + Solar + Neural</p>
       </div>
     </div>
   );
