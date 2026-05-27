@@ -39,13 +39,6 @@ function computeProposalTdf(words: string[]): number {
   return 5.781e12 + (h % 1000000);
 }
 
-function deriveCascadeFromContent(content: string): number {
-  const norm = normalizeProposalText(content);
-  let h = 0;
-  for (let i = 0; i < norm.length; i++) h = (h * 31 + norm.charCodeAt(i)) | 0;
-  return Math.abs(h) % 100;
-}
-
 function getSolarReferenceTdf(solarData: SolarData): number {
   const ts = Date.parse(solarData.timestamp || new Date().toISOString())
   const kp = (solarData.kpIndex || 3) * 100000
@@ -54,8 +47,12 @@ function getSolarReferenceTdf(solarData: SolarData): number {
   return 5.781e12 + seed
 }
 
-function deriveCascadeFromSolar(solarData: SolarData): number {
-  return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100;
+// Both proposal and sun cascades derive from TDF fine structure using the same function.
+// This ensures cascade indices naturally correlate when TDF values are close (same domain,
+// same resolution). Prior approach used content hash for proposal vs Kp×hardness for sun —
+// two independent random variables producing ~33 average lag even with perfect TDF match.
+function deriveCascadeFromTdf(tdfValue: number): number {
+  return Math.floor(((tdfValue % 1000000) / 1000)) % 100;
 }
 
 export interface SolarGovernanceContext {
@@ -167,7 +164,9 @@ export class SolarGovernanceIntegration {
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
       const proposalTdf = computeProposalTdf(words)
-      const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
+
+      // Both cascades from TDF fine structure — same domain, same function
+      const propCascade = deriveCascadeFromTdf(proposalTdf)
 
       const proposalSignal = new TemporalBlurrnSignal(
         { content: proposal },
@@ -176,7 +175,7 @@ export class SolarGovernanceIntegration {
       )
 
       const solarRefTdf = getSolarReferenceTdf(solarData)
-      const sunCascade = deriveCascadeFromSolar(solarData)
+      const sunCascade = deriveCascadeFromTdf(solarRefTdf)
       const sunSignal = new TemporalBlurrnSignal(
         { source: 'sun', ...solarData },
         solarRefTdf,
