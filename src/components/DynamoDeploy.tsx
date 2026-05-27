@@ -11,9 +11,9 @@ const STELLAR_URL = 'https://stellar-mcp-production.up.railway.app';
 const NEURAL_URL = 'https://neural-fusion-backend-production.up.railway.app';
 
 const EXAMPLE_PROPOSALS = [
-  'Should I go hiking tomorrow?',
-  'Can I fly my drone this weekend?',
-  'Is it safe to deploy tonight?',
+  'Deploy the new agent to production',
+  'Approve multi-agent coordination protocol',
+  'Execute autonomous trading strategy',
 ];
 
 const GO_PHRASES = [
@@ -403,7 +403,7 @@ export default function DynamoDeploy() {
             <textarea
               value={proposal}
               onChange={e => setProposal(e.target.value)}
-              placeholder="Should I go hiking tomorrow?"
+              placeholder="Deploy the new agent to production"
               rows={3}
               className="w-full bg-white/[0.05] border border-white/20 rounded-xl px-4 pt-4 pb-8 text-white text-base placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none transition-all"
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}

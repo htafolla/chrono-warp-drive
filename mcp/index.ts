@@ -475,43 +475,44 @@ Full governance pipeline (emit → cross-correlate → triangulate → fuse → 
 
 Enhanced governance decision with real-time solar context from NOAA GOES (7 channels: X-ray, protons, electrons, magnetometer, solar wind, Kp).
 
-This tool runs the full governance pipeline while applying **activity-level-aware solar modulation** to the outputs.
+This tool runs the **Solar Isotopic Hammer** — a per-proposal resonance calculation that compares a bag-of-words XOR fingerprint against the sun's current TDF phase, producing a Gaussian similarity score (0–1).
 
-**Solar Coupling (v1):**
-- Uses \`SolarFeatures\` (hardness ratio, xrayUVLift, magPerturbation, etc.)
-- Applies bounded modulation to \`metamorphosisIndex\` and \`confidenceScore\`
-- Modulation strength increases with solar activity (quiet = 0.5×, storm = 1.3×)
-- Returns detailed \`solarModulation\` object for observability
+**Solar Isotopic Hammer (v2):**
+- Normalizes proposal text, computes per-word FNV-1a fingerprints (mod 999983)
+- XORs word fingerprints into a single delta (bag-of-words combiner)
+- Compares proposal delta against sun's real-time reference delta (NOAA GOES data)
+- Applies Gaussian similarity: \`exp(-(deltaDiff / 1e6)^2)\`
+- Short proposals padded to 3 words with anchor words (\`general\`, \`proposal\`, \`matter\`)
+- Storm veto downgrades PASS to NEEDS_REVISION; active sun reduces confidence
 
 **Key Response Fields:**
-- \`metamorphosisIndex\` — modulated by solar conditions
-- \`confidenceScore\` — modulated by solar conditions
-- \`solarApplied\` — whether solar data was used
-- \`solarAdjustment\` — total adjustment applied
-- \`solarModulation\` — detailed breakdown (activity_level, gainMultiplier, metaDelta, confDelta)
-- \`solarFeatures\` — full derived solar feature vector
+- \`resonanceScore\` — primary output (0–1), the Gaussian similarity between proposal and current solar phase
+- \`recommendation\` — PASS (≥0.78), NEEDS_REVISION (0.62–0.78), REJECT (<0.62) with storm overrides
+- \`confidence\` — hammer confidence (0.72–0.93)
+- \`solarContext\` — activity level, modification, NOAA timestamp
+- \`hammerReason\` — human-readable explanation
+- \`adjustedVoteWeight\` — solar-adjusted vote weight (0.5–1.5)
+
+**Decision Thresholds:**
+| Resonance Score | Recommendation | Confidence |
+|----------------|---------------|------------|
+| ≥ 0.88         | PASS          | 0.93       |
+| 0.78–0.88      | PASS          | 0.85       |
+| 0.62–0.78      | NEEDS_REVISION | 0.74      |
+| < 0.62         | REJECT        | 0.81       |
+
+Storm override: if \`solarActivityLevel = storm\`, PASS → NEEDS_REVISION and confidence drops 0.12.
+
+**Input:** \`proposal\` (string), \`baseVoteWeight\` (0.5–1.5, default 1.0), \`sharePublicly\` (boolean, default false — if true, adds proposal to public feed)
 
 **When to use:**
 - Most strategic or high-impact proposals (**recommended default**)
 - When real-world solar conditions should influence the decision
-- During elevated solar activity (storm/active periods apply stronger modulation)
+- For agentic AI governance, multi-agent policy approval, and autonomous decision gates
 
 **When to use \`evaluate_governance\` instead:**
 - Purely technical or low-level protocol decisions
 - When you want to exclude external modifiers
-
-**Inputs:** \`proposal\` (string, min 10 characters), \`baseVoteWeight\` (0.5–1.5, default 1.0)
-
-**Outputs:** \`originalRecommendation\`, \`solarContext\`, \`adjustedVoteWeight\`, \`finalRecommendation\`, \`confidenceAdjustment\`, \`solarFeatures\`, \`solarModulation\`
-
-**Solar Behavior:**
-- **Quiet** (0.5× coupling): Slight stability boost
-- **Moderate** (0.75× coupling): Neutral adjustment
-- **Active** (1.0× coupling): Mild reduction in vote weight
-- **Storm** (1.3× coupling): Significant reduction + \`[SOLAR STORM WARNING]\`
-
-**Decision Logic Note:**
-When implementing logic on top of \`govern_with_solar\`, prefer using the numeric \`confidenceAdjustment\` for decision-making rather than switching on the \`solarActivityLevel\` string. The numeric adjustment is the direct output from the governance pipeline and is more robust if finer-grained solar levels are added in the future. Continue to use \`solarActivityLevel\` and the human-readable \`recommendation\` for logging, explanations, and transparency.
 
 ### 17. call_connected_tool
 Universal proxy tool. Dynamically calls **any** other Dynamo MCP tool by name.
@@ -533,6 +534,14 @@ Looks up a term from the Dynamo glossary.
 Converts a governance output (from either \`evaluate_governance\` or \`govern_with_solar\`) into human-readable plain text.
 - **Inputs**: \`governanceOutput\`
 - **Outputs**: \`explanation\`
+
+## HTTP Endpoints (non-tool)
+
+### /public_feed (GET)
+Returns the most recent proposals shared publicly via \`govern_with_solar\` (up to 50 entries).
+- **Method**: GET
+- **Outputs**: \`{ success: true, entries: [{ proposal, resonanceScore, recommendation, activityLevel, timestamp }] }\`
+- **Use case**: Display recent governance activity on dashboards.
 
 ## Data Flow
 1. Emit signals → store in memory
@@ -560,49 +569,36 @@ Converts a governance output (from either \`evaluate_governance\` or \`govern_wi
 - Use \`evaluate_governance\` for low-level technical decisions.
 - For high-stakes decisions, consider running both and comparing.
 
-## Solar → Neural Coupling (v1)
+## Solar Isotopic Hammer (v2)
 
-> **Note (May 2026):** Dynamo now uses v1 activity-level-aware solar coupling across both frontend and MCP backend. Solar data modulates governance outputs in real time using live NOAA GOES data.
+> **Note (May 2026):** Dynamo uses the Solar Isotopic Hammer for per-proposal resonance scoring. The old v1 neural modulation (activity-level-aware gain on metamorphosis/confidence) has been replaced with a direct Gaussian similarity score against live NOAA solar data.
 
-The Neural Fusion engine accepts an optional \`solarFeatures\` vector
-(\`xrayUVLift\`, \`magPerturbation\`, \`hardnessRatio\`, \`windBroadeningA\`,
-\`kpIndex\`, \`activityLevel\`) derived from a multi-channel NOAA SWPC pull.
-When supplied, outputs are modulated with **activity-level-aware gain**:
+The Solar Isotopic Hammer computes a per-proposal resonance score by:
+1. Normalizing proposal text (lowercase, strip punctuation/stop words)
+2. Computing per-word FNV-1a fingerprints (mod 999983)
+3. XOR-combining word fingerprints into a single proposal delta
+4. Comparing against the sun's real-time reference delta (from NOAA GOES data)
+5. Applying Gaussian similarity: \`score = exp(-(deltaDiff / 1e6)^2)\`
+6. Clamping to [0.15, 0.98] with a fallback of 0.80 on error
 
-\`\`\`
-gainMultiplier = { quiet: 0.5, moderate: 0.75, active: 1.0, storm: 1.3 }
-metaShift = (0.25 * uv + 0.15 * mag) * gainMultiplier
-confShift = (0.06 * uv - 0.08 * mag) * gainMultiplier
-metamorphosisIndex' = clamp(metamorphosisIndex * (1 + metaShift), 0.1, 0.95)
-confidenceScore'    = clamp(confidenceScore    * (1 + confShift), 0.5, 0.98)
-\`\`\`
+Short proposals (< 3 words) are padded with anchor words (\`general\`, \`proposal\`, \`matter\`) for stability.
 
-### Best Practices
+### Why XOR + Gaussian?
 
-- Use \`/govern_with_solar\` for most decisions (especially strategic ones).
-- Solar context is most valuable for high-impact or time-sensitive proposals.
-- Technical fixes can use \`/governance\` alone, but solar context is still available for awareness.
-- Always pass live \`solarFeatures\` for \`/process-current-sun\` (already wired).
-- For deterministic offline runs, omit \`solarFeatures\` — the engine becomes a
-  pure no-op on the solar axis (\`solar_applied: false\`).
+Previous versions used FNV whole-string avalanche hash (which destroyed semantic similarity) and \`calculateIsotopicRatio\` (which floored any delta > ~360k to 0.15). The bag-of-words XOR combiner preserves semantic similarity — related proposals produce related deltas. The Gaussian similarity function gives smooth 0–1 scores across the full delta range.
+
+### Public Feed
+
+When \`sharePublicly: true\` is passed to \`govern_with_solar\`, the proposal and its resonance score are stored in an in-memory ring buffer (max 50 entries). Access via \`GET /public_feed\`.
 
 ### Observability
 
-All responses include:
-- \`solar_applied\` (boolean) — whether solar data was used
-- \`solarAdjustment\` (numeric delta) — total adjustment applied
-- \`solarModulation\` (detailed breakdown) — \`activity_level\`, \`gainMultiplier\`, \`metaShift\`, \`confShift\`, \`metaDelta\`, \`confDelta\`
-- \`solarFeatures\` (full feature vector) — \`hardnessRatio\`, \`xrayUVLift\`, \`magPerturbation\`, \`windBroadeningA\`, \`kpIndex\`, \`activityLevel\`
-
-This allows consumers to understand exactly how solar conditions influenced each decision.
-
-### Current Behavior
-
-- During **quiet** periods: Minimal adjustment (0.5× gain)
-- During **storms**: Strongest modulation (1.3× gain, can shift outputs by up to ~25%)
-- Solar coupling is **transparent** — every response includes the full modulation breakdown
-
-See \`mcp/lib/solarCoupling.ts\` for coefficients and \`mcp/docs/solar-coupling.md\` for the full rationale.
+All govern_with_solar responses include:
+- \`resonanceScore\` — primary Gaussian similarity (0–1)
+- \`recommendation\` — PASS / NEEDS_REVISION / REJECT
+- \`confidence\` — hammer confidence level
+- \`hammerReason\` — human-readable explanation
+- \`solarContext\` — full NOAA activity level, reference TDF, proposal TDF
 `
 
 
@@ -1116,8 +1112,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'govern_with_solar',
-    description: 'Enhanced governance with real-time solar context from NOAA GOES. Runs the full governance pipeline while injecting live solar activity. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' } }, required: ['proposal'] },
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' } }, required: ['proposal'] },
   },
   {
     name: 'call_connected_tool',
@@ -1408,12 +1404,13 @@ app.route('/', createGovernanceRouter(TOOL_HANDLERS))
 app.get('/govern_with_solar', (c: Context) => {
   return c.json({
     name: 'govern_with_solar',
-    description: 'Enhanced governance with real-time solar context from NOAA GOES. Runs the full governance pipeline while injecting live solar activity. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING]. Recommended default for most proposals.',
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
     method: 'POST',
     url: 'https://mcp-production-80e2.up.railway.app/govern_with_solar',
     parameters: {
       proposal: { type: 'string', required: true, minLength: 10, description: 'Governance proposal text' },
       baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight (0.5-1.5)' },
+      sharePublicly: { type: 'boolean', required: false, default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },
     },
     when_to_use: [
       'Most strategic or high-impact proposals (recommended default)',
