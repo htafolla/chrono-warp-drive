@@ -122,7 +122,7 @@ export class SolarGovernanceIntegration {
    * SOLAR ISOTOPIC HAMMER v2 — Structural Resonance (src/lib mirror)
    * Computes multi-dimensional resonance inside the isotopic temporal vortex.
    */
-  async getProposalSolarIsotopicResonance(proposal: string): Promise<{
+  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number): Promise<{
     structuralResonance: number
     proximity: number
     phaseAlignment: number
@@ -139,6 +139,8 @@ export class SolarGovernanceIntegration {
     phaseCoherenceSun: number
     vortexVolume: number
     activityModifier: number
+    spectralQuality?: number
+    neuralContextUsed: boolean
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -176,9 +178,14 @@ export class SolarGovernanceIntegration {
       const LAG_SCALE = 5
       const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
 
-      const structuralResonance = Math.max(0.15, Math.min(0.98,
-        proximity * 0.30 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.20
-      ))
+      const neuralContextUsed = spectralQuality !== undefined
+      const structuralResonance = neuralContextUsed
+        ? Math.max(0.15, Math.min(0.98,
+            proximity * 0.22 + phaseAlignment * 0.18 + vortexAlignment * 0.32 + synchronization * 0.18 + spectralQuality! * 0.10
+          ))
+        : Math.max(0.15, Math.min(0.98,
+            proximity * 0.25 + phaseAlignment * 0.20 + vortexAlignment * 0.35 + synchronization * 0.20
+          ))
 
       const solarIsotopicResonance = structuralResonance
 
@@ -210,6 +217,8 @@ export class SolarGovernanceIntegration {
         phaseCoherenceSun: sunSignal.phaseCoherence,
         vortexVolume: correlation.metadata?.vortexVolume ?? proposalTdf * solarRefTdf,
         activityModifier,
+        spectralQuality: neuralContextUsed ? spectralQuality : undefined,
+        neuralContextUsed,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -234,6 +243,8 @@ export class SolarGovernanceIntegration {
         phaseCoherenceSun: sunSignal.phaseCoherence,
         vortexVolume: fallbackTdf * (fallbackTdf + 1000),
         activityModifier: 0,
+        spectralQuality: undefined,
+        neuralContextUsed: false,
       }
     }
   }

@@ -150,18 +150,29 @@ interface GovernanceResult {
   signature: string;
   alignmentRec: string | null;
   alignmentReason: string | null;
-  tension: string | null;
   source: string;
+  neuralContextUsed: boolean;
 }
 
 async function checkGovernance(proposal: string, sharePublicly: boolean): Promise<GovernanceResult | null> {
   try {
     const proposalLabel = proposal.length < 30 ? proposal + ' — via Dynamo governance' : proposal;
-    const [solarRes, alignRes, neuralRes] = await Promise.allSettled([
+
+    // Call neural first to get spectralQuality for the governance request
+    const neuralRes = await fetch(`${NEURAL_URL}/process-current-sun`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
+    }).then(async r => r.ok ? r.json() : null).catch(() => null);
+
+    const spectralQuality = neuralRes?.neuralOutput?.spectralQuality ?? neuralRes?.spectralQuality ?? null;
+
+    // Then call governance with spectralQuality, plus alignment in parallel
+    const [solarRes, alignRes] = await Promise.allSettled([
       fetch(`${MCP_URL}/govern_with_solar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly }),
+        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly, spectralQuality }),
         signal: AbortSignal.timeout(15000),
       }).then(async r => r.ok ? r.json() : null),
       fetch(`${MCP_URL}/governance`, {
@@ -170,16 +181,11 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
         body: JSON.stringify({ proposalId: `ui-${Date.now()}`, proposalText: proposalLabel, agentReviews: ['UI submission'] }),
         signal: AbortSignal.timeout(15000),
       }).then(async r => r.ok ? r.json() : null),
-      fetch(`${NEURAL_URL}/process-current-sun`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(15000),
-      }).then(async r => r.ok ? r.json() : null),
     ]);
 
     const solar = solarRes.status === 'fulfilled' ? solarRes.value : null;
     const alignment = alignRes.status === 'fulfilled' ? alignRes.value : null;
-    const neural = neuralRes.status === 'fulfilled' ? neuralRes.value : null;
+    const neural = neuralRes;
 
     if (!solar && !alignment && !neural) return null;
 
@@ -213,7 +219,8 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const adaptiveThresholds = solar?.adaptiveThresholds ?? null;
   const smoothedResonance = solar?.smoothedResonance != null ? Number(solar.smoothedResonance) : null;
   const trend = solar?.trend || null;
-  const resonanceHistory = solar?.resonanceHistory || null;
+    const resonanceHistory = solar?.resonanceHistory || null;
+    const neuralContextUsed = solar?.neuralContextUsed === true;
     const diag = alignment?.diagnostics;
     const isotopicRatio = diag?.isotopicRatio != null ? Number(diag.isotopicRatio) : null;
     const historicalCoherence = diag?.historicalCoherence != null ? Number(diag.historicalCoherence) : null;
@@ -256,13 +263,6 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       phrase = pick(GO_PHRASES);
     }
 
-    const clearSolar = !isStorm && !isBadSignal;
-    const clearAlign = !isRejected && !isNeedsRevision;
-    let tension: string | null = null;
-    if (clearSolar && !clearAlign) tension = 'Solar clear but alignment weak';
-    else if (!clearSolar && clearAlign) tension = 'Proposal aligned but conditions unfavorable';
-    else if (isBadSignal && isNeedsRevision) tension = 'Both oscillators flag caution';
-
     const sources = [solar ? 'Solar' : '', alignment ? 'Resonance' : '', neural ? 'Neural' : ''].filter(Boolean);
     const source = sources.length >= 2 ? sources.join(' + ') : sources[0] || 'unknown';
 
@@ -274,7 +274,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       weight: adjustedWeight, gain, metamorphosisIndex, confidenceScore, spectralQuality, reconstructionError, governanceConfidence,
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
-      signature, alignmentRec, alignmentReason, tension, source,
+      signature, alignmentRec, alignmentReason, source, neuralContextUsed,
       resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, synchronization, momentum, peakForecast, adaptiveThresholds,
     };
   } catch {
@@ -378,7 +378,7 @@ export default function DynamoDeploy() {
     if (result.signature) lines.push(`ID: ${result.signature}`);
     if (result.metamorphosisIndex != null) lines.push(`MI ${(result.metamorphosisIndex * 100).toFixed(1)}%`);
     if (result.governanceConfidence != null) lines.push(`Gov ${(result.governanceConfidence * 100).toFixed(1)}%`);
-    if (result.spectralQuality != null) lines.push(`Spectral Quality ${(result.spectralQuality * 100).toFixed(1)}%`);
+    if (result.spectralQuality != null) lines.push(`Spectral Quality ${(result.spectralQuality * 100).toFixed(1)}%${result.neuralContextUsed ? ' (5D)' : ' (4D)'}`);
     if (result.confidenceScore != null) lines.push(`Neural ${(result.confidenceScore * 100).toFixed(1)}%`);
     if (result.reconstructionError != null) lines.push(`Recon Err ${result.reconstructionError.toFixed(3)}`);
     lines.push('dynamo-ui-psi.vercel.app');
@@ -511,7 +511,7 @@ export default function DynamoDeploy() {
                 </div>
                 {result.proximity != null && (
                   <>
-                  <div className="grid grid-cols-4 gap-2 mt-3">
+                  <div className="grid grid-cols-3 gap-2 mt-3">
                     <div>
                       <p className="text-[10px] text-white/40 uppercase">Proximity</p>
                       <p className="text-sm font-semibold text-white">{(result.proximity * 100).toFixed(0)}%</p>
@@ -524,53 +524,11 @@ export default function DynamoDeploy() {
                       <p className="text-[10px] text-white/40 uppercase">Volume</p>
                       <p className="text-sm font-semibold text-white">{(result.vortexAlignment! * 100).toFixed(0)}%</p>
                     </div>
-                    <div>
-                      <p className="text-[10px] text-white/40 uppercase">Sync</p>
-                      <p className="text-sm font-semibold text-white">{result.synchronization != null ? `${(result.synchronization * 100).toFixed(0)}%` : '—'}</p>
-                    </div>
                   </div>
                   {result.signalTiming && (
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-white/40 uppercase">Signal</span>
-                      <span className={`text-xs font-semibold ${result.signalTiming === 'leading' ? 'text-emerald-400' : result.signalTiming === 'trailing' ? 'text-amber-400' : 'text-white/50'}`}>
+                      <span className={`text-[10px] font-medium ${result.signalTiming === 'leading' ? 'text-emerald-400' : result.signalTiming === 'trailing' ? 'text-amber-400' : 'text-white/40'}`}>
                         {result.signalTiming === 'leading' ? '↑ Leading' : result.signalTiming === 'trailing' ? '↓ Trailing' : '→ Synced'}
-                      </span>
-                    </div>
-                  )}
-                  {result.momentum != null && (
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[10px] text-white/40 uppercase">Momentum</span>
-                      <span className={`text-xs font-semibold ${result.momentum > 0.01 ? 'text-emerald-400' : result.momentum < -0.01 ? 'text-red-400' : 'text-white/50'}`}>
-                        {result.momentum > 0.01 ? '▲' : result.momentum < -0.01 ? '▼' : '●'} {(result.momentum * 100).toFixed(1)}/min
-                      </span>
-                    </div>
-                  )}
-                  {result.peakForecast && (
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[10px] text-white/40 uppercase">Peak Forecast</span>
-                      <span className={`text-xs font-semibold ${result.peakForecast.windowQuality === 'optimal' ? 'text-emerald-400' : result.peakForecast.windowQuality === 'good' ? 'text-cyan-400' : 'text-amber-400'}`}>
-                        {(result.peakForecast.estimatedPeakResonance * 100).toFixed(0)}% {result.peakForecast.minutesToPeak > 0 ? `in ${result.peakForecast.minutesToPeak}m` : 'now'}
-                      </span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        result.peakForecast.windowQuality === 'optimal' ? 'bg-emerald-500/20 text-emerald-400' :
-                        result.peakForecast.windowQuality === 'good' ? 'bg-cyan-500/20 text-cyan-400' :
-                        'bg-amber-500/20 text-amber-400'
-                      }`}>
-                        {result.peakForecast.windowQuality}
-                      </span>
-                    </div>
-                  )}
-                  {result.adaptiveThresholds && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-white/40 uppercase">Thresholds</span>
-                      <span className="text-[10px] text-white/30">
-                        {`≥${(result.adaptiveThresholds.strong * 100).toFixed(0)}% PASS`}
-                      </span>
-                      <span className="text-[10px] text-white/30">
-                        {`≥${(result.adaptiveThresholds.good * 100).toFixed(0)}% PASS`}
-                      </span>
-                      <span className="text-[10px] text-white/30">
-                        {`≥${(result.adaptiveThresholds.weak * 100).toFixed(0)}% REV`}
                       </span>
                     </div>
                   )}
@@ -619,21 +577,18 @@ export default function DynamoDeploy() {
               </details>
             )}
 
-            {/* Additional Context */}
+            {result.level && (
             <details className="group mt-2">
               <summary className="bg-white/[0.03] rounded-lg px-3 py-2 text-center cursor-pointer hover:bg-white/[0.06] transition-colors list-none flex items-center justify-center gap-1">
                 <Activity className="h-3 w-3 text-white/40" />
-                <span className="text-xs text-white/40">Additional Context</span>
+                <span className="text-xs text-white/40">Solar Context</span>
                 <span className="text-xs text-white/40 group-open:rotate-180 transition-transform">▾</span>
               </summary>
-              <div className="bg-white/[0.03] rounded-lg p-2 mt-1 space-y-1 text-center">
+              <div className="bg-white/[0.03] rounded-lg p-2 mt-1 text-center">
                 <p className="text-[10px] text-white/50">Solar: {result.level} ({result.signal})</p>
-                <p className="text-[10px] text-white/50">Solar Influence: {result.level === 'Storm' ? 'High' : result.level === 'Active' ? 'Moderate' : result.level === 'Fair' ? 'Low' : 'Minimal'}</p>
-                {result.metamorphosisIndex != null && (
-                  <p className="text-[10px] text-white/50">Signal Evolution: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
-                )}
               </div>
             </details>
+            )}
 
             {/* Signature */}
             {result.signature && (

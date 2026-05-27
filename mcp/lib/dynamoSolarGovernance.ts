@@ -46,6 +46,8 @@ export interface EnhancedGovernanceDecision {
   isSolarHammer?: boolean
   hammerReason?: string
   resonanceHistory?: Array<{ score: number; timestamp: string }>
+  spectralQuality?: number
+  neuralContextUsed: boolean
 }
 
 export interface PublicFeedEntry {
@@ -78,10 +80,11 @@ export class DynamoSolarGovernance {
     originalRecommendation: string,
     baseVoteWeight: number = 1.0,
     sharePublicly: boolean = false,
+    spectralQuality?: number,
   ): Promise<EnhancedGovernanceDecision> {
     const solarContext = await solarGovernance.getSolarContextForGovernance()
 
-    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation)
+    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation, spectralQuality)
 
     const adjustedVoteWeight = Math.max(0.5, Math.min(1.5, baseVoteWeight + solarContext.solarActivityModifier + hammer.activityModifier * 0.5))
 
@@ -215,27 +218,6 @@ export class DynamoSolarGovernance {
       peakForecast = { estimatedPeakResonance, minutesToPeak, windowQuality }
     }
 
-    // === Phase 4: Momentum & Peak Window Confidence Adjustment ===
-    if (momentum !== undefined) {
-      if (momentum > 0.01) {
-        hammerConf += 0.03
-        hammerReason += ' ▲ Rising momentum'
-      } else if (momentum < -0.01) {
-        hammerConf -= 0.03
-        hammerReason += ' ▼ Falling momentum'
-      }
-    }
-    if (peakForecast) {
-      if (peakForecast.windowQuality === 'optimal') {
-        hammerConf += 0.02
-        hammerReason += ' ⚡ Optimal window'
-      } else if (peakForecast.windowQuality === 'declining') {
-        hammerConf -= 0.04
-        hammerReason += ' ⚠ Declining window'
-      }
-    }
-    hammerConf = Math.max(0.50, Math.min(0.99, hammerConf))
-
     const finalRec = hammerRec === 'PASS' ? 'PASS' : hammerRec === 'REJECT' ? 'REJECT' : 'NEEDS_REVISION'
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r*100).toFixed(0)}%]`
 
@@ -281,6 +263,8 @@ export class DynamoSolarGovernance {
       isSolarHammer: true,
       hammerReason,
       resonanceHistory: history.length > 1 ? history : undefined,
+      spectralQuality: hammer.spectralQuality,
+      neuralContextUsed: hammer.neuralContextUsed,
     }
   }
 }

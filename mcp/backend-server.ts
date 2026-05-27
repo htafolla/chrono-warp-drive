@@ -60,15 +60,18 @@ app.get('/health', (req, res) => {
 
 app.post('/govern-with-solar', async (req, res) => {
   try {
-    const { proposal, baseVoteWeight = 1.0 } = req.body
+    const { proposal, baseVoteWeight = 1.0, spectralQuality } = req.body
 
     if (!proposal) {
       return res.status(400).json({ error: 'proposal is required' })
     }
 
+    const sq = spectralQuality !== undefined ? Number(spectralQuality) : undefined
     const enhancedDecision = await dynamoSolarGovernance.enhanceGovernanceDecision(
       proposal,
       baseVoteWeight,
+      false,
+      sq,
     )
 
     res.json({

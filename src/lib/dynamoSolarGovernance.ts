@@ -42,17 +42,20 @@ export interface EnhancedGovernanceDecision {
   isSolarHammer?: boolean;
   hammerReason?: string;
   resonanceHistory?: Array<{ score: number; timestamp: string }>;
+  spectralQuality?: number;
+  neuralContextUsed: boolean;
 }
 
 export class DynamoSolarGovernance {
   
   async enhanceGovernanceDecision(
     originalRecommendation: string,
-    baseVoteWeight: number = 1.0
+    baseVoteWeight: number = 1.0,
+    spectralQuality?: number,
   ): Promise<EnhancedGovernanceDecision> {
     const solarContext = await solarGovernance.getSolarContextForGovernance();
 
-    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation);
+    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation, spectralQuality);
 
     const adjustedVoteWeight = Math.max(0.5, Math.min(1.5, baseVoteWeight + solarContext.solarActivityModifier + hammer.activityModifier * 0.5));
 
@@ -141,6 +144,8 @@ export class DynamoSolarGovernance {
       confidence: hammerConf,
       isSolarHammer: true,
       hammerReason,
+      spectralQuality: hammer.spectralQuality,
+      neuralContextUsed: hammer.neuralContextUsed,
     };
   }
 }

@@ -96,6 +96,8 @@ export interface StructuralResonanceResult {
   phaseCoherenceSun: number
   vortexVolume: number
   activityModifier: number
+  spectralQuality?: number
+  neuralContextUsed: boolean
 }
 
 export class SolarGovernanceIntegration {
@@ -153,8 +155,12 @@ export class SolarGovernanceIntegration {
    * Computes multi-dimensional resonance inside the isotopic temporal vortex.
    * Uses the Blurrn crossCorrelate to get phase alignment, cross-correlation lag,
    * and vortex volume — then combines them with proximity into a composite score.
+   *
+   * Optionally accepts spectralQuality from NeuralFusion as a 5th dimension (weight 0.10).
+   * When provided, the 4D weights rebalance to 0.22/0.18/0.32/0.18 to make room.
+   * When absent, the original 4D formula (0.25/0.20/0.35/0.20) is used.
    */
-  async getProposalSolarIsotopicResonance(proposal: string): Promise<StructuralResonanceResult> {
+  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number): Promise<StructuralResonanceResult> {
     try {
       const solarData = await fetchCurrentSolarData()
 
@@ -206,12 +212,18 @@ export class SolarGovernanceIntegration {
       const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
 
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
-      // Proximity × 0.30 + Phase × 0.20 + Volume × 0.30 + Sync × 0.20
-      // Volume weight raised to 0.30 to protect small heroes — proposals with
-      // low TDF but strong internal structure can still resonate.
-      const structuralResonance = Math.max(0.15, Math.min(0.98,
-        proximity * 0.30 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.20
-      ))
+      // 4D formula (no neural context): proximity×0.25 + phase×0.20 + volume×0.35 + sync×0.20
+      // 5D formula (with spectralQuality): proximity×0.22 + phase×0.18 + volume×0.32 + sync×0.18 + spectralQuality×0.10
+      // Volume weight at 0.35 (4D) or 0.32 (5D) — maximum small-hero protection.
+      // Log-space vortex alignment means even low-TDF proposals survive.
+      const neuralContextUsed = spectralQuality !== undefined
+      const structuralResonance = neuralContextUsed
+        ? Math.max(0.15, Math.min(0.98,
+            proximity * 0.22 + phaseAlignment * 0.18 + vortexAlignment * 0.32 + synchronization * 0.18 + spectralQuality! * 0.10
+          ))
+        : Math.max(0.15, Math.min(0.98,
+            proximity * 0.25 + phaseAlignment * 0.20 + vortexAlignment * 0.35 + synchronization * 0.20
+          ))
 
       // Backward-compatible: solarIsotopicResonance is now the composite
       const solarIsotopicResonance = structuralResonance
@@ -247,6 +259,8 @@ export class SolarGovernanceIntegration {
         phaseCoherenceSun: sunSignal.phaseCoherence,
         vortexVolume: correlation.metadata?.vortexVolume ?? proposalTdf * solarRefTdf,
         activityModifier,
+        spectralQuality: neuralContextUsed ? spectralQuality : undefined,
+        neuralContextUsed,
       }
     } catch (error) {
       console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
@@ -271,6 +285,8 @@ export class SolarGovernanceIntegration {
         phaseCoherenceSun: sunSignal.phaseCoherence,
         vortexVolume: fallbackTdf * (fallbackTdf + 1000),
         activityModifier: 0,
+        spectralQuality: undefined,
+        neuralContextUsed: false,
       }
     }
   }

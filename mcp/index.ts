@@ -477,50 +477,50 @@ Enhanced governance decision with real-time solar context from NOAA GOES (7 chan
 
 This tool runs the **Solar Isotopic Hammer (v2)** — a multi-dimensional resonance calculation inside the isotopic temporal vortex.
 
-**Structural Resonance Formula (Phase 2):**
-The hammer computes a composite score from **four dimensions** of the isosceles triangle (tetrahedron):
+**Structural Resonance Formula:**
+The hammer computes a composite score from **four dimensions**:
 
-| Dimension | Weight | Description |
-|-----------|--------|-------------|
-| Proximity | 0.40 | Gaussian similarity between proposal and sun TDF deltas |
-| Phase Alignment | 0.25 | Structural coherence match (1 - |proposalCoherence - sunCoherence|) |
-| Vortex Alignment (Volume) | 0.15 | Energy fit ratio (min/max TDF) |
-| Synchronization | 0.20 | Temporal cascade alignment (1 / (1 + |lag| / 5)) |
+| Dimension | Weight (4D) | Weight (5D with neural) | Description |
+|-----------|-------------|------------------------|-------------|
+| Proximity | 0.25 | 0.22 | Gaussian similarity between proposal and sun TDF deltas |
+| Phase Alignment | 0.20 | 0.18 | Structural coherence match (1 - |proposalCoherence - sunCoherence|) |
+| Vortex Alignment (Volume) | 0.35 | 0.32 | Energy volume fit, log-space ratio (protects small heroes) |
+| Synchronization | 0.20 | 0.18 | Temporal cascade alignment (1 / (1 + |lag| / 5)) |
+| Spectral Quality | — | 0.10 | NeuralFusion reconstruction quality — how well the model understands this solar state |
 
 **Signal Timing:**
 - **Leading** (↑): Proposal cascade is ahead of the sun — anticipatory signal
 - **Trailing** (↓): Proposal cascade is behind the sun — reactive signal
 - **Synced** (→): Proposal and sun cascades are within 2 steps — aligned
-**resonanceScore = proximity × 0.30 + phaseAlignment × 0.20 + vortexAlignment × 0.30 + synchronization × 0.20**
+**4D formula: resonanceScore = proximity × 0.25 + phaseAlignment × 0.20 + vortexAlignment × 0.35 + synchronization × 0.20**
+**5D formula (when spectralQuality provided): resonanceScore = proximity × 0.22 + phaseAlignment × 0.18 + vortexAlignment × 0.32 + synchronization × 0.18 + spectralQuality × 0.10**
 
-Clamped to [0.15, 0.98]. Volume weight raised to 0.30 to protect small heroes — even low-TDF proposals can resonate if their internal structure aligns well. Vortex alignment uses log-space ratio (not raw TDF ratio) so small proposals aren't penalized for their magnitude.
+Clamped to [0.15, 0.98]. Volume weight at 0.35 (4D) / 0.32 (5D) maximizes small-hero protection. Vortex alignment uses log-space ratio so low-TDF proposals aren't penalized by magnitude.
 
 **Key Response Fields:**
-- \`structuralResonance\` — composite score (0–1), the 4-dimensional resonance inside the isotopic vortex
+- \`structuralResonance\` — composite score (0–1), 4D or 5D resonance
 - \`proximity\` — Gaussian similarity of proposal vs sun TDF deltas (0–1)
 - \`phaseAlignment\` — coherence match between proposal and sun phase structures (0–1)
-- \`vortexAlignment\` — energy volume fit ratio (0–1)
+- \`vortexAlignment\` — energy volume fit, log-space ratio (0–1, protects small heroes)
 - \`synchronization\` — temporal cascade alignment, exponential decay from lag=0 (0–1)
+- \`spectralQuality\` — present when NeuralFusion context was provided (0–1)
+- \`neuralContextUsed\` — boolean, true if spectralQuality was used in the calculation
 - \`crossCorrelationLag\` — absolute cascade index offset between proposal and sun
 - \`signalTiming\` — "leading", "trailing", or "synced"
-- \`recommendation\` — PASS (≥0.78), NEEDS_REVISION (0.62–0.78), REJECT (<0.62) with storm overrides
+- \`recommendation\` — PASS, NEEDS_REVISION, or REJECT (thresholds depend on solar activity — see adaptive thresholds below)
 - \`confidence\` — hammer confidence (0.72–0.93)
 - \`solarContext\` — activity level, modification, NOAA timestamp
 - \`hammerReason\` — human-readable explanation
 - \`adjustedVoteWeight\` — solar-adjusted vote weight (0.5–1.5)
 - \`smoothedResonance\` — 3-minute rolling average (if 3+ samples)
 - \`trend\` — "rising", "falling", or "stable"
-- \`momentum\` — rate of change per minute (dResonance/dt), positive = rising, negative = falling
-- \`peakForecast\` — predicted peak resonance window:
-  - \`estimatedPeakResonance\` — predicted peak structural resonance (0–1)
-  - \`minutesToPeak\` — estimated minutes until peak resonance (0 = now)
-  - \`windowQuality\` — "optimal", "good", or "declining"
+- \`momentum\` — display-only: rate of change per minute (dR/dt)
 - \`adaptiveThresholds\` — the decision thresholds applied for this solar activity level:
   - \`strong\` — minimum resonance for strong PASS
   - \`good\` — minimum resonance for good PASS
   - \`weak\` — minimum resonance for NEEDS_REVISION
 
-**Adaptive Decision Thresholds (Phase 4):**
+**Adaptive Decision Thresholds:**
 Thresholds shift dynamically based on solar activity level:
 
 | Solar Activity | Strong PASS | Good PASS | NEEDS_REVISION | Effect |
@@ -532,13 +532,13 @@ Thresholds shift dynamically based on solar activity level:
 
 Storm override: PASS → NEEDS_REVISION regardless of score, confidence drops 0.12.
 
-**Momentum & Peak Window Confidence Adjustments:**
-- Rising momentum (>+0.01/min): confidence +0.03, reason appended ▲ Rising momentum
-- Falling momentum (<-0.01/min): confidence -0.03, reason appended ▼ Falling momentum
-- Optimal window quality: confidence +0.02, reason appended ⚡ Optimal window
-- Declining window quality: confidence -0.04, reason appended ⚠ Declining window
+**Important notes:**
+- Volume weight (0.35 in 4D / 0.32 in 5D) is intentionally highest to protect small but meaningful proposals ("small heroes")
+- Log-space vortex alignment means proposals with very different TDF magnitudes aren't unfairly penalized by raw ratio
+- \`momentum\` and \`peakForecast\` are display-only — computed for transparency but do not modify confidence or recommendations
+- \`spectralQuality\` is an optional 5th dimension from NeuralFusion. When provided, weights automatically rebalance to 0.22/0.18/0.32/0.18/0.10. When absent, the original 4D formula applies. Check \`neuralContextUsed\` in the response to know which was used.
 
-**Input:** \`proposal\` (string), \`baseVoteWeight\` (0.5–1.5, default 1.0), \`sharePublicly\` (boolean, default false — if true, adds proposal to public feed)
+**Input:** \`proposal\` (string), \`baseVoteWeight\` (0.5–1.5, default 1.0), \`sharePublicly\` (boolean, default false — if true, adds proposal to public feed), \`spectralQuality\` (number 0–1, optional — NeuralFusion spectral quality as 5th resonance dimension)
 
 **When to use:**
 - Most strategic or high-impact proposals (**recommended default**)
@@ -1147,8 +1147,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'govern_with_solar',
-    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' } }, required: ['proposal'] },
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' }, spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.22/0.18/0.32/0.18/0.10. When absent, original 4D formula 0.25/0.20/0.35/0.20 applies.' } }, required: ['proposal'] },
   },
   {
     name: 'call_connected_tool',
@@ -1277,7 +1277,8 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const proposal = args?.proposal || 'No proposal provided'
     const baseVoteWeight = args?.baseVoteWeight ?? 1.0
     const sharePublicly = args?.sharePublicly === true
-    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight, sharePublicly)
+    const spectralQuality = args?.spectralQuality !== undefined ? Number(args.spectralQuality) : undefined
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight, sharePublicly, spectralQuality)
   },
   call_connected_tool: async (args: any) => {
     const toolName = args?.tool_name
@@ -1439,13 +1440,14 @@ app.route('/', createGovernanceRouter(TOOL_HANDLERS))
 app.get('/govern_with_solar', (c: Context) => {
   return c.json({
     name: 'govern_with_solar',
-    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
     method: 'POST',
     url: 'https://mcp-production-80e2.up.railway.app/govern_with_solar',
     parameters: {
       proposal: { type: 'string', required: true, minLength: 10, description: 'Governance proposal text' },
       baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight (0.5-1.5)' },
       sharePublicly: { type: 'boolean', required: false, default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },
+      spectralQuality: { type: 'number', required: false, description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.22/0.18/0.32/0.18/0.10. When absent, original 4D formula 0.25/0.20/0.35/0.20 applies.' },
     },
     when_to_use: [
       'Most strategic or high-impact proposals (recommended default)',
@@ -1463,9 +1465,9 @@ app.get('/govern_with_solar', (c: Context) => {
       storm: 'Significant reduction in vote weight + [SOLAR STORM WARNING]',
     },
     decision_logic_note: 'Prefer using the numeric confidenceAdjustment for decision-making rather than switching on solarActivityLevel string. The numeric adjustment is the direct governance pipeline output and is more robust if finer-grained solar levels are added later. Use solarActivityLevel and recommendation for logging and transparency.',
-    outputs: ['originalRecommendation', 'solarContext', 'adjustedVoteWeight', 'finalRecommendation', 'confidenceAdjustment'],
+    outputs: ['originalRecommendation', 'solarContext', 'adjustedVoteWeight', 'finalRecommendation', 'confidenceAdjustment', 'spectralQuality', 'neuralContextUsed'],
     example: {
-      request: '{"proposal":"Deploy new solar observatory","baseVoteWeight":1.0}',
+      request: '{"proposal":"Deploy new solar observatory","baseVoteWeight":1.0,"spectralQuality":0.82}',
       response: {
         success: true,
         originalRecommendation: 'Deploy new solar observatory',
@@ -1477,6 +1479,8 @@ app.get('/govern_with_solar', (c: Context) => {
         adjustedVoteWeight: 0.85,
         finalRecommendation: 'Deploy new solar observatory [SOLAR STORM WARNING]',
         confidenceAdjustment: -0.15,
+        spectralQuality: 0.82,
+        neuralContextUsed: true,
       },
     },
   })
@@ -1484,7 +1488,8 @@ app.get('/govern_with_solar', (c: Context) => {
 
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
-  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0, body.sharePublicly === true)
+  const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality)
   return c.json({ success: true, ...result })
 })
 
