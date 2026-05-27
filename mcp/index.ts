@@ -482,20 +482,20 @@ The hammer computes a composite score from **four dimensions**:
 
 | Dimension | Weight (4D) | Weight (5D with neural) | Description |
 |-----------|-------------|------------------------|-------------|
-| Proximity | 0.25 | 0.22 | Gaussian similarity between proposal and sun TDF deltas |
+| Proximity | 0.20 | 0.18 | Gaussian similarity between proposal and sun TDF deltas |
 | Phase Alignment | 0.20 | 0.18 | Structural coherence match (1 - |proposalCoherence - sunCoherence|) |
-| Vortex Alignment (Volume) | 0.35 | 0.32 | Energy volume fit, log-space ratio (protects small heroes) |
-| Synchronization | 0.20 | 0.18 | Temporal cascade alignment (1 / (1 + |lag| / 5)) |
+| Vortex Alignment (Volume) | 0.30 | 0.27 | Energy volume fit, log-space ratio (protects small heroes) |
+| Synchronization | 0.30 | 0.27 | Temporal cascade alignment — equal weight with volume |
 | Spectral Quality | — | 0.10 | NeuralFusion reconstruction quality — how well the model understands this solar state |
 
 **Signal Timing:**
 - **Leading** (↑): Proposal cascade is ahead of the sun — anticipatory signal
 - **Trailing** (↓): Proposal cascade is behind the sun — reactive signal
 - **Synced** (→): Proposal and sun cascades are within 2 steps — aligned
-**4D formula: resonanceScore = proximity × 0.25 + phaseAlignment × 0.20 + vortexAlignment × 0.35 + synchronization × 0.20**
-**5D formula (when spectralQuality provided): resonanceScore = proximity × 0.22 + phaseAlignment × 0.18 + vortexAlignment × 0.32 + synchronization × 0.18 + spectralQuality × 0.10**
+**4D formula: resonanceScore = proximity × 0.20 + phaseAlignment × 0.20 + vortexAlignment × 0.30 + synchronization × 0.30**
+**5D formula (when spectralQuality provided): resonanceScore = proximity × 0.18 + phaseAlignment × 0.18 + vortexAlignment × 0.27 + synchronization × 0.27 + spectralQuality × 0.10**
 
-Clamped to [0.15, 0.98]. Volume weight at 0.35 (4D) / 0.32 (5D) maximizes small-hero protection. Vortex alignment uses log-space ratio so low-TDF proposals aren't penalized by magnitude.
+Clamped to [0.15, 0.98]. Sync weight at 0.30 — temporal alignment now equals volume in importance, preventing poor timing from being carried by high proximity alone.
 
 **Key Response Fields:**
 - \`structuralResonance\` — composite score (0–1), 4D or 5D resonance
@@ -533,10 +533,10 @@ Thresholds shift dynamically based on solar activity level:
 Storm override: PASS → NEEDS_REVISION regardless of score, confidence drops 0.12.
 
 **Important notes:**
-- Volume weight (0.35 in 4D / 0.32 in 5D) is intentionally highest to protect small but meaningful proposals ("small heroes")
+- Sync weight (0.30) is now equal to volume — prevents proposals with poor timing from being carried by proximity alone
 - Log-space vortex alignment means proposals with very different TDF magnitudes aren't unfairly penalized by raw ratio
 - \`momentum\` and \`peakForecast\` are display-only — computed for transparency but do not modify confidence or recommendations
-- \`spectralQuality\` is an optional 5th dimension from NeuralFusion. When provided, weights automatically rebalance to 0.22/0.18/0.32/0.18/0.10. When absent, the original 4D formula applies. Check \`neuralContextUsed\` in the response to know which was used.
+- \`spectralQuality\` is an optional 5th dimension from NeuralFusion. When provided, weights automatically rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, the original 4D formula applies. Check \`neuralContextUsed\` in the response to know which was used.
 
 **Input:** \`proposal\` (string), \`baseVoteWeight\` (0.5–1.5, default 1.0), \`sharePublicly\` (boolean, default false — if true, adds proposal to public feed), \`spectralQuality\` (number 0–1, optional — NeuralFusion spectral quality as 5th resonance dimension)
 
@@ -1148,7 +1148,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'govern_with_solar',
     description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' }, spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.22/0.18/0.32/0.18/0.10. When absent, original 4D formula 0.25/0.20/0.35/0.20 applies.' } }, required: ['proposal'] },
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' } }, required: ['proposal'] },
   },
   {
     name: 'call_connected_tool',
@@ -1447,7 +1447,7 @@ app.get('/govern_with_solar', (c: Context) => {
       proposal: { type: 'string', required: true, minLength: 10, description: 'Governance proposal text' },
       baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight (0.5-1.5)' },
       sharePublicly: { type: 'boolean', required: false, default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },
-      spectralQuality: { type: 'number', required: false, description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.22/0.18/0.32/0.18/0.10. When absent, original 4D formula 0.25/0.20/0.35/0.20 applies.' },
+      spectralQuality: { type: 'number', required: false, description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' },
     },
     when_to_use: [
       'Most strategic or high-impact proposals (recommended default)',

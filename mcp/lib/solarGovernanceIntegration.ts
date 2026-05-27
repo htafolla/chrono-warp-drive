@@ -157,8 +157,8 @@ export class SolarGovernanceIntegration {
    * and vortex volume — then combines them with proximity into a composite score.
    *
    * Optionally accepts spectralQuality from NeuralFusion as a 5th dimension (weight 0.10).
-   * When provided, the 4D weights rebalance to 0.22/0.18/0.32/0.18 to make room.
-   * When absent, the original 4D formula (0.25/0.20/0.35/0.20) is used.
+   * When provided, the 4D weights rebalance to 0.18/0.18/0.27/0.27 to make room.
+   * When absent, the original 4D formula (0.20/0.20/0.30/0.30) is used.
    */
   async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number): Promise<StructuralResonanceResult> {
     try {
@@ -212,17 +212,16 @@ export class SolarGovernanceIntegration {
       const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
 
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
-      // 4D formula (no neural context): proximity×0.25 + phase×0.20 + volume×0.35 + sync×0.20
-      // 5D formula (with spectralQuality): proximity×0.22 + phase×0.18 + volume×0.32 + sync×0.18 + spectralQuality×0.10
-      // Volume weight at 0.35 (4D) or 0.32 (5D) — maximum small-hero protection.
-      // Log-space vortex alignment means even low-TDF proposals survive.
+      // 4D formula (no neural context): proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30
+      // 5D formula (with spectralQuality): proximity×0.18 + phase×0.18 + volume×0.27 + sync×0.27 + spectralQuality×0.10
+      // Sync weight at 0.30 — temporal alignment now equals volume in importance.
       const neuralContextUsed = spectralQuality !== undefined
       const structuralResonance = neuralContextUsed
         ? Math.max(0.15, Math.min(0.98,
-            proximity * 0.22 + phaseAlignment * 0.18 + vortexAlignment * 0.32 + synchronization * 0.18 + spectralQuality! * 0.10
+            proximity * 0.18 + phaseAlignment * 0.18 + vortexAlignment * 0.27 + synchronization * 0.27 + spectralQuality! * 0.10
           ))
         : Math.max(0.15, Math.min(0.98,
-            proximity * 0.25 + phaseAlignment * 0.20 + vortexAlignment * 0.35 + synchronization * 0.20
+            proximity * 0.20 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.30
           ))
 
       // Backward-compatible: solarIsotopicResonance is now the composite

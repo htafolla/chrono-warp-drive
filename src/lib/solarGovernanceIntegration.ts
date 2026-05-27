@@ -181,10 +181,10 @@ export class SolarGovernanceIntegration {
       const neuralContextUsed = spectralQuality !== undefined
       const structuralResonance = neuralContextUsed
         ? Math.max(0.15, Math.min(0.98,
-            proximity * 0.22 + phaseAlignment * 0.18 + vortexAlignment * 0.32 + synchronization * 0.18 + spectralQuality! * 0.10
+            proximity * 0.18 + phaseAlignment * 0.18 + vortexAlignment * 0.27 + synchronization * 0.27 + spectralQuality! * 0.10
           ))
         : Math.max(0.15, Math.min(0.98,
-            proximity * 0.25 + phaseAlignment * 0.20 + vortexAlignment * 0.35 + synchronization * 0.20
+            proximity * 0.20 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.30
           ))
 
       const solarIsotopicResonance = structuralResonance
