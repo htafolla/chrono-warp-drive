@@ -474,7 +474,7 @@ export default function DynamoDeploy() {
                       </span>
                     )}
                     {result.smoothedResonance != null && (
-                      <span className="text-sm text-white/40">avg {(result.smoothedResonance * 100).toFixed(0)}%</span>
+                      <span className="text-sm text-white/40">3-min avg {(result.smoothedResonance * 100).toFixed(0)}%</span>
                     )}
                   </div>
                   {result.resonanceHistory && result.resonanceHistory.length > 1 && (
@@ -552,13 +552,6 @@ export default function DynamoDeploy() {
             {result.signature && (
               <div className="bg-white/[0.02] rounded-lg px-3 py-1.5 text-center mt-3">
                 <p className="text-[10px] text-white/15 font-mono tracking-widest">{result.signature}</p>
-              </div>
-            )}
-
-            {/* Tension */}
-            {result.tension && (
-              <div className="bg-amber-500/[0.08] border border-amber-500/20 rounded-lg px-3 py-2 text-center mt-3">
-                <p className="text-[11px] text-amber-300/80">⚠ {result.tension}</p>
               </div>
             )}
 
