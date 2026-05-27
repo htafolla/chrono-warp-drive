@@ -199,7 +199,6 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
 
     const metamorphosisIndex = neural?.neuralOutput?.metamorphosisIndex ?? neural?.metamorphosisIndex ?? null;
     const confidenceScore = neural?.neuralOutput?.confidenceScore ?? neural?.confidenceScore ?? null;
-    const spectralQuality = neural?.neuralOutput?.spectralQuality ?? neural?.spectralQuality ?? null;
     const reconstructionError = neural?.neuralOutput?.reconstructionError ?? neural?.reconstructionError ?? null;
     const governanceConfidence = alignment?.confidence ?? null;
     const solarApplied = neural?.neuralOutput?.solarApplied ?? neural?.solarModulation?.solar_applied ?? (solar?.solarContext != null) ?? false;
