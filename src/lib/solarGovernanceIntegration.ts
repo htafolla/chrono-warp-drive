@@ -119,19 +119,24 @@ export class SolarGovernanceIntegration {
   }
 
   /**
-   * THE SOLAR ISOTOPIC HAMMER (src/lib mirror)
-   * Direct sun-grounded resonance for the proposal text vs live NOAA solar phase.
+   * SOLAR ISOTOPIC HAMMER v2 — Structural Resonance (src/lib mirror)
+   * Computes multi-dimensional resonance inside the isotopic temporal vortex.
    */
   async getProposalSolarIsotopicResonance(proposal: string): Promise<{
+    structuralResonance: number
+    proximity: number
+    phaseAlignment: number
+    vortexAlignment: number
+    crossCorrelationStrength: number
+    crossCorrelationLag: number
     solarIsotopicResonance: number
     solarActivityLevel: string
     solarReferenceTdf: number
     proposalTdf: number
     phaseCoherenceProposal: number
     phaseCoherenceSun: number
+    vortexVolume: number
     activityModifier: number
-    crossCorrelationStrength?: number
-    vortexVolume?: number
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -155,9 +160,22 @@ export class SolarGovernanceIntegration {
         sunCascade
       )
 
+      const correlation = proposalSignal.crossCorrelate(sunSignal)
+
       const deltaDiff = Math.abs((proposalTdf % 1e6) - (solarRefTdf % 1e6))
-      const strength = Math.exp(-Math.pow(deltaDiff / 1e6, 2))
-      const solarIsotopicResonance = Math.max(0.15, Math.min(0.98, strength))
+      const proximity = Math.exp(-Math.pow(deltaDiff / 1e6, 2))
+
+      const phaseAlignment = 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence)
+
+      const minTdf = Math.min(proposalTdf, solarRefTdf)
+      const maxTdf = Math.max(proposalTdf, solarRefTdf)
+      const vortexAlignment = minTdf / maxTdf
+
+      const structuralResonance = Math.max(0.15, Math.min(0.98,
+        proximity * 0.5 + phaseAlignment * 0.3 + vortexAlignment * 0.2
+      ))
+
+      const solarIsotopicResonance = structuralResonance
 
       let activityModifier = 0
       switch (solarData.activityLevel) {
@@ -168,15 +186,20 @@ export class SolarGovernanceIntegration {
       }
 
       return {
+        structuralResonance,
+        proximity,
+        phaseAlignment,
+        vortexAlignment,
+        crossCorrelationStrength: correlation.strength,
+        crossCorrelationLag: correlation.lag,
         solarIsotopicResonance,
         solarActivityLevel: solarData.activityLevel || 'moderate',
         solarReferenceTdf: solarRefTdf,
-        proposalTdf: proposalTdf,
+        proposalTdf,
         phaseCoherenceProposal: proposalSignal.phaseCoherence,
         phaseCoherenceSun: sunSignal.phaseCoherence,
+        vortexVolume: correlation.metadata?.vortexVolume ?? proposalTdf * solarRefTdf,
         activityModifier,
-        crossCorrelationStrength: strength,
-        vortexVolume: proposalTdf * solarRefTdf,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -185,20 +208,22 @@ export class SolarGovernanceIntegration {
       const sunSignal = new TemporalBlurrnSignal({ source: 'sun' }, fallbackTdf + 1000, 43)
 
       return {
+        structuralResonance: 0.80,
+        proximity: 0.80,
+        phaseAlignment: 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence),
+        vortexAlignment: fallbackTdf / (fallbackTdf + 1000),
+        crossCorrelationStrength: 0.80,
+        crossCorrelationLag: 1,
         solarIsotopicResonance: 0.80,
         solarActivityLevel: 'moderate',
         solarReferenceTdf: fallbackTdf,
         proposalTdf: fallbackTdf,
         phaseCoherenceProposal: proposalSignal.phaseCoherence,
         phaseCoherenceSun: sunSignal.phaseCoherence,
-        activityModifier: 0,
-        crossCorrelationStrength: 0.80,
         vortexVolume: fallbackTdf * (fallbackTdf + 1000),
+        activityModifier: 0,
       }
     }
   }
 
 }
-
-// Singleton
-export const solarGovernance = new SolarGovernanceIntegration();

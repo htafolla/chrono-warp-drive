@@ -21,6 +21,10 @@ export interface EnhancedGovernanceDecision {
   finalRecommendation: string
   confidenceAdjustment: number
   resonanceScore?: number
+  structuralResonance?: number
+  proximity?: number
+  phaseAlignment?: number
+  vortexAlignment?: number
   smoothedResonance?: number
   trend?: 'rising' | 'falling' | 'stable'
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
@@ -76,7 +80,8 @@ export class DynamoSolarGovernance {
       confidenceAdjustment = 0.05
     }
 
-    const r = hammer.solarIsotopicResonance
+    // Decision now uses structuralResonance (composite: proximity × 0.5 + phase × 0.3 + vortex × 0.2)
+    const r = hammer.structuralResonance
     let hammerRec: 'PASS' | 'NEEDS_REVISION' | 'REJECT' = 'NEEDS_REVISION'
     let hammerConf = 0.72
     let hammerReason = 'Solar alignment neutral'
@@ -156,7 +161,11 @@ export class DynamoSolarGovernance {
       adjustedVoteWeight,
       finalRecommendation: tagged,
       confidenceAdjustment,
-      resonanceScore: hammer.solarIsotopicResonance,
+      resonanceScore: hammer.structuralResonance,
+      structuralResonance: hammer.structuralResonance,
+      proximity: hammer.proximity,
+      phaseAlignment: hammer.phaseAlignment,
+      vortexAlignment: hammer.vortexAlignment,
       smoothedResonance,
       trend,
       recommendation: finalRec,

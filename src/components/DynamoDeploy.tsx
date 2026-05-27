@@ -133,6 +133,10 @@ interface GovernanceResult {
   governanceConfidence: number | null;
   solarApplied: boolean;
   resonanceScore: number | null;
+  structuralResonance: number | null;
+  proximity: number | null;
+  phaseAlignment: number | null;
+  vortexAlignment: number | null;
   smoothedResonance: number | null;
   trend: string | null;
   resonanceHistory?: Array<{ score: number; timestamp: string }> | null;
@@ -191,6 +195,10 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
     // Prefer the SOLAR ISOTOPIC HAMMER resonance/recommendation (direct sun-grounded override)
     // Fall back to alignment (review cross) only if solar hammer unavailable
     const resonanceScore = solar?.resonanceScore != null ? Number(solar.resonanceScore) : (alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null);
+  const structuralResonance = solar?.structuralResonance != null ? Number(solar.structuralResonance) : null;
+  const proximity = solar?.proximity != null ? Number(solar.proximity) : null;
+  const phaseAlignment = solar?.phaseAlignment != null ? Number(solar.phaseAlignment) : null;
+  const vortexAlignment = solar?.vortexAlignment != null ? Number(solar.vortexAlignment) : null;
   const smoothedResonance = solar?.smoothedResonance != null ? Number(solar.smoothedResonance) : null;
   const trend = solar?.trend || null;
   const resonanceHistory = solar?.resonanceHistory || null;
@@ -255,7 +263,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, tension, source,
-      resonanceHistory, smoothedResonance, trend,
+      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment,
     };
   } catch {
     return null;
@@ -489,6 +497,22 @@ export default function DynamoDeploy() {
                     </div>
                   )}
                 </div>
+                {result.proximity != null && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase">Proximity</p>
+                      <p className="text-sm font-semibold text-white">{(result.proximity * 100).toFixed(0)}%</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase">Phase</p>
+                      <p className="text-sm font-semibold text-white">{(result.phaseAlignment! * 100).toFixed(0)}%</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase">Volume</p>
+                      <p className="text-sm font-semibold text-white">{(result.vortexAlignment! * 100).toFixed(0)}%</p>
+                    </div>
+                  </div>
+                )}
                 {result.governanceConfidence != null && (
                   <div>
                     <p className="text-xs text-white/50 uppercase">Governance Confidence</p>
