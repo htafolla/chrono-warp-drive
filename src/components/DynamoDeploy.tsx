@@ -512,11 +512,11 @@ export default function DynamoDeploy() {
                 <div className="bg-white/[0.03] rounded-lg p-2 mt-1 space-y-1 text-center">
                   {result.spectralQuality != null && (
                     <div>
-                      <p className="text-[10px] text-white/50 uppercase">Spectral Quality (reconstruction)</p>
+                      <p className="text-[10px] text-white/50 uppercase">Spectral Quality</p>
                       <p className="text-sm font-semibold text-white">{(result.spectralQuality * 100).toFixed(1)}%</p>
                     </div>
                   )}
-                  {result.reconstructionError != null && (
+                  {result.reconstructionError != null && result.reconstructionError > 0.05 && (
                     <p className="text-[10px] text-white/50">Recon Error: {result.reconstructionError.toFixed(3)}</p>
                   )}
                   {result.confidenceScore != null && (
@@ -526,7 +526,7 @@ export default function DynamoDeploy() {
                     </div>
                   )}
                   {result.metamorphosisIndex != null && (
-                    <p className="text-[10px] text-white/50">Metamorphosis: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                    <p className="text-[10px] text-white/50">Signal Evolution: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
                   )}
                 </div>
               </details>
@@ -541,9 +541,9 @@ export default function DynamoDeploy() {
               </summary>
               <div className="bg-white/[0.03] rounded-lg p-2 mt-1 space-y-1 text-center">
                 <p className="text-[10px] text-white/50">Solar: {result.level} ({result.signal})</p>
-                <p className="text-[10px] text-white/50">Solar Coupling: {result.gain}x · {gainLabel(result.gain)}</p>
+                <p className="text-[10px] text-white/50">Solar Influence: {result.level === 'Storm' ? 'High' : result.level === 'Active' ? 'Moderate' : result.level === 'Fair' ? 'Low' : 'Minimal'}</p>
                 {result.metamorphosisIndex != null && (
-                  <p className="text-[10px] text-white/50">Metamorphosis Index: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
+                  <p className="text-[10px] text-white/50">Signal Evolution: {(result.metamorphosisIndex * 100).toFixed(1)}%</p>
                 )}
               </div>
             </details>
