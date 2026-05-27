@@ -57,7 +57,7 @@ export class DynamoSolarGovernance {
     if (r >= 0.88) {
       hammerRec = 'PASS';
       hammerConf = 0.93;
-      hammerReason = 'Strong isotopic resonance with current solar conditions (hammer PASS)';
+      hammerReason = 'Strong resonance with current solar conditions';
     } else if (r >= 0.78) {
       hammerRec = 'PASS';
       hammerConf = 0.85;
@@ -65,18 +65,18 @@ export class DynamoSolarGovernance {
     } else if (r >= 0.62) {
       hammerRec = 'NEEDS_REVISION';
       hammerConf = 0.74;
-      hammerReason = 'Moderate solar resonance — needs refinement';
+      hammerReason = 'Moderate resonance — needs refinement';
     } else {
       hammerRec = 'REJECT';
       hammerConf = 0.81;
-      hammerReason = 'Low isotopic resonance with the sun — misaligned (hammer REJECT)';
+      hammerReason = 'Low resonance with the sun — misaligned';
     }
 
     // Storm veto / caution on top of hammer
     if (solarContext.solarActivityLevel === 'storm') {
       if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION';
       hammerConf = Math.max(0.60, hammerConf - 0.12);
-      hammerReason += ' [SOLAR STORM — caution applied]';
+      hammerReason = 'Solar storm in progress — caution applied';
     } else if (solarContext.solarActivityLevel === 'active' && hammerRec === 'PASS') {
       hammerConf = Math.max(0.70, hammerConf - 0.06);
     }
