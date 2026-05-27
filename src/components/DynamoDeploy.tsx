@@ -133,6 +133,8 @@ interface GovernanceResult {
   governanceConfidence: number | null;
   solarApplied: boolean;
   resonanceScore: number | null;
+  smoothedResonance: number | null;
+  trend: string | null;
   resonanceHistory?: Array<{ score: number; timestamp: string }> | null;
   diagnostics: Diagnostics;
   signature: string;
@@ -189,6 +191,8 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
     // Prefer the SOLAR ISOTOPIC HAMMER resonance/recommendation (direct sun-grounded override)
     // Fall back to alignment (review cross) only if solar hammer unavailable
     const resonanceScore = solar?.resonanceScore != null ? Number(solar.resonanceScore) : (alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null);
+  const smoothedResonance = solar?.smoothedResonance != null ? Number(solar.smoothedResonance) : null;
+  const trend = solar?.trend || null;
   const resonanceHistory = solar?.resonanceHistory || null;
     const diag = alignment?.diagnostics;
     const isotopicRatio = diag?.isotopicRatio != null ? Number(diag.isotopicRatio) : null;
@@ -251,7 +255,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, tension, source,
-      resonanceHistory,
+      resonanceHistory, smoothedResonance, trend,
     };
   } catch {
     return null;
@@ -462,7 +466,17 @@ export default function DynamoDeploy() {
               <div className="space-y-3 mt-4">
                 <div>
                   <p className="text-xs text-white/50 uppercase">Resonance</p>
-                  <p className="text-2xl font-bold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-2xl font-bold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
+                    {result.trend && (
+                      <span className={`text-sm font-semibold ${result.trend === 'rising' ? 'text-emerald-400' : result.trend === 'falling' ? 'text-red-400' : 'text-white/40'}`}>
+                        {result.trend === 'rising' ? '↑' : result.trend === 'falling' ? '↓' : '→'}
+                      </span>
+                    )}
+                    {result.smoothedResonance != null && (
+                      <span className="text-sm text-white/40">avg {(result.smoothedResonance * 100).toFixed(0)}%</span>
+                    )}
+                  </div>
                   {result.resonanceHistory && result.resonanceHistory.length > 1 && (
                     <div className="flex items-end gap-[3px] mt-2 h-8">
                       {[...result.resonanceHistory].reverse().map((h, i) => (

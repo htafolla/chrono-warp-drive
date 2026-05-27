@@ -21,6 +21,8 @@ export interface EnhancedGovernanceDecision {
   finalRecommendation: string
   confidenceAdjustment: number
   resonanceScore?: number
+  smoothedResonance?: number
+  trend?: 'rising' | 'falling' | 'stable'
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   confidence?: number
   isSolarHammer?: boolean
@@ -40,6 +42,8 @@ const MAX_FEED_ENTRIES = 50
 const publicFeed: PublicFeedEntry[] = []
 
 const MAX_HISTORY_PER_PROPOSAL = 10
+const HISTORY_WINDOW_MS = 3 * 60 * 1000
+const MIN_SAMPLES_FOR_TREND = 3
 const resonanceHistory: Map<string, Array<{ score: number; timestamp: string }>> = new Map()
 
 export function getPublicFeed(): PublicFeedEntry[] {
@@ -104,12 +108,26 @@ export class DynamoSolarGovernance {
     }
 
     // Store resonance history keyed by normalized proposal text
-    const now = new Date().toISOString()
+    const now = new Date()
     const key = normalizeKey(originalRecommendation)
     const history = resonanceHistory.get(key) || []
-    history.unshift({ score: r, timestamp: now })
+    history.unshift({ score: r, timestamp: now.toISOString() })
     if (history.length > MAX_HISTORY_PER_PROPOSAL) history.pop()
     resonanceHistory.set(key, history)
+
+    // Compute smoothed resonance and trend from 3-minute window
+    const windowStart = now.getTime() - HISTORY_WINDOW_MS
+    const recentScores = history.filter(h => new Date(h.timestamp).getTime() >= windowStart)
+    const smoothedResonance = recentScores.length >= MIN_SAMPLES_FOR_TREND
+      ? recentScores.reduce((sum, h) => sum + h.score, 0) / recentScores.length
+      : undefined
+    let trend: 'rising' | 'falling' | 'stable' | undefined
+    if (recentScores.length >= MIN_SAMPLES_FOR_TREND) {
+      const first = recentScores[recentScores.length - 1].score
+      const last = recentScores[0].score
+      const diff = last - first
+      trend = diff > 0.05 ? 'rising' : diff < -0.05 ? 'falling' : 'stable'
+    }
 
     const finalRec = hammerRec === 'PASS' ? 'PASS' : hammerRec === 'REJECT' ? 'REJECT' : 'NEEDS_REVISION'
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r*100).toFixed(0)}%]`
@@ -120,7 +138,7 @@ export class DynamoSolarGovernance {
         resonanceScore: r,
         recommendation: finalRec,
         activityLevel: solarContext.solarActivityLevel,
-        timestamp: now,
+        timestamp: now.toISOString(),
       })
       if (publicFeed.length > MAX_FEED_ENTRIES) publicFeed.pop()
     }
@@ -139,6 +157,8 @@ export class DynamoSolarGovernance {
       finalRecommendation: tagged,
       confidenceAdjustment,
       resonanceScore: hammer.solarIsotopicResonance,
+      smoothedResonance,
+      trend,
       recommendation: finalRec,
       confidence: hammerConf,
       isSolarHammer: true,

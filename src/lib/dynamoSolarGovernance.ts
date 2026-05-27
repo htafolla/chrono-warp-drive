@@ -17,6 +17,8 @@ export interface EnhancedGovernanceDecision {
   finalRecommendation: string;
   confidenceAdjustment: number;
   resonanceScore?: number;
+  smoothedResonance?: number;
+  trend?: 'rising' | 'falling' | 'stable';
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT';
   confidence?: number;
   isSolarHammer?: boolean;
