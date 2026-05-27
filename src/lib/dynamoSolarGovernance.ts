@@ -9,7 +9,6 @@ export interface EnhancedGovernanceDecision {
     solarActivityLevel: string;
     solarActivityModifier: number;
     recommendation: string;
-    // Hammer fields (the calculated solar isotopic resonance, not the old static one)
     solarIsotopicResonance?: number;
     proposalTdf?: number;
     solarReferenceTdf?: number;
@@ -17,12 +16,12 @@ export interface EnhancedGovernanceDecision {
   adjustedVoteWeight: number;
   finalRecommendation: string;
   confidenceAdjustment: number;
-  // THE SOLAR ISOTOPIC HAMMER — direct resonance score (0-1) that can override
   resonanceScore?: number;
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT';
   confidence?: number;
   isSolarHammer?: boolean;
   hammerReason?: string;
+  resonanceHistory?: Array<{ score: number; timestamp: string }>;
 }
 
 export class DynamoSolarGovernance {
@@ -31,10 +30,8 @@ export class DynamoSolarGovernance {
     originalRecommendation: string,
     baseVoteWeight: number = 1.0
   ): Promise<EnhancedGovernanceDecision> {
-    // Always fetch the generic context (for backward compat + UI labels)
     const solarContext = await solarGovernance.getSolarContextForGovernance();
 
-    // THE FIX: compute the real per-proposal solar isotopic resonance hammer
     const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation);
 
     const adjustedVoteWeight = Math.max(0.5, Math.min(1.5, baseVoteWeight + solarContext.solarActivityModifier + hammer.activityModifier * 0.5));
@@ -48,7 +45,6 @@ export class DynamoSolarGovernance {
       confidenceAdjustment = 0.05;
     }
 
-    // === SOLAR ISOTOPIC HAMMER DECISION (can override) ===
     const r = hammer.solarIsotopicResonance;
     let hammerRec: 'PASS' | 'NEEDS_REVISION' | 'REJECT' = 'NEEDS_REVISION';
     let hammerConf = 0.72;
@@ -72,7 +68,6 @@ export class DynamoSolarGovernance {
       hammerReason = 'Low resonance with the sun — misaligned';
     }
 
-    // Storm veto / caution on top of hammer
     if (solarContext.solarActivityLevel === 'storm') {
       if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION';
       hammerConf = Math.max(0.60, hammerConf - 0.12);
@@ -97,7 +92,6 @@ export class DynamoSolarGovernance {
       adjustedVoteWeight,
       finalRecommendation: tagged,
       confidenceAdjustment,
-      // Direct hammer outputs for UI / callers to use as overriding signal
       resonanceScore: hammer.solarIsotopicResonance,
       recommendation: finalRec,
       confidence: hammerConf,
@@ -107,5 +101,4 @@ export class DynamoSolarGovernance {
   }
 }
 
-// Singleton
 export const dynamoSolarGovernance = new DynamoSolarGovernance();

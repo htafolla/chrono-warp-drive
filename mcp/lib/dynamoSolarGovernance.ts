@@ -3,13 +3,16 @@
 
 import { solarGovernance } from './solarGovernanceIntegration.js'
 
+function normalizeKey(text: string): string {
+  return text.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80)
+}
+
 export interface EnhancedGovernanceDecision {
   originalRecommendation: string
   solarContext: {
     solarActivityLevel: string
     solarActivityModifier: number
     recommendation: string
-    // Hammer fields now surfaced
     solarIsotopicResonance?: number
     proposalTdf?: number
     solarReferenceTdf?: number
@@ -17,12 +20,12 @@ export interface EnhancedGovernanceDecision {
   adjustedVoteWeight: number
   finalRecommendation: string
   confidenceAdjustment: number
-  // THE SOLAR ISOTOPIC HAMMER — direct resonance score (0-1) that can override
   resonanceScore?: number
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   confidence?: number
   isSolarHammer?: boolean
   hammerReason?: string
+  resonanceHistory?: Array<{ score: number; timestamp: string }>
 }
 
 export interface PublicFeedEntry {
@@ -36,8 +39,15 @@ export interface PublicFeedEntry {
 const MAX_FEED_ENTRIES = 50
 const publicFeed: PublicFeedEntry[] = []
 
+const MAX_HISTORY_PER_PROPOSAL = 10
+const resonanceHistory: Map<string, Array<{ score: number; timestamp: string }>> = new Map()
+
 export function getPublicFeed(): PublicFeedEntry[] {
   return publicFeed
+}
+
+export function getResonanceHistory(key: string): Array<{ score: number; timestamp: string }> {
+  return resonanceHistory.get(key) || []
 }
 
 export class DynamoSolarGovernance {
@@ -47,10 +57,8 @@ export class DynamoSolarGovernance {
     baseVoteWeight: number = 1.0,
     sharePublicly: boolean = false,
   ): Promise<EnhancedGovernanceDecision> {
-    // Always fetch the generic context (for backward compat + UI labels)
     const solarContext = await solarGovernance.getSolarContextForGovernance()
 
-    // THE FIX: compute the real per-proposal solar isotopic resonance hammer
     const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation)
 
     const adjustedVoteWeight = Math.max(0.5, Math.min(1.5, baseVoteWeight + solarContext.solarActivityModifier + hammer.activityModifier * 0.5))
@@ -64,14 +72,12 @@ export class DynamoSolarGovernance {
       confidenceAdjustment = 0.05
     }
 
-    // === SOLAR ISOTOPIC HAMMER DECISION (can override) ===
-    // resonanceScore is the direct sun-aligned score. High = PASS hammer, low = REJECT hammer
     const r = hammer.solarIsotopicResonance
     let hammerRec: 'PASS' | 'NEEDS_REVISION' | 'REJECT' = 'NEEDS_REVISION'
     let hammerConf = 0.72
     let hammerReason = 'Solar alignment neutral'
 
-if (r >= 0.88) {
+    if (r >= 0.88) {
       hammerRec = 'PASS'
       hammerConf = 0.93
       hammerReason = 'Strong resonance with current solar conditions'
@@ -89,7 +95,6 @@ if (r >= 0.88) {
       hammerReason = 'Low resonance with the sun — misaligned'
     }
 
-    // Storm veto / caution on top of hammer
     if (solarContext.solarActivityLevel === 'storm') {
       if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION'
       hammerConf = Math.max(0.60, hammerConf - 0.12)
@@ -98,14 +103,13 @@ if (r >= 0.88) {
       hammerConf = Math.max(0.70, hammerConf - 0.06)
     }
 
-    // Storm veto / caution on top of hammer
-    if (solarContext.solarActivityLevel === 'storm') {
-      if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION'
-      hammerConf = Math.max(0.60, hammerConf - 0.12)
-      hammerReason += ' [SOLAR STORM — caution applied]'
-    } else if (solarContext.solarActivityLevel === 'active' && hammerRec === 'PASS') {
-      hammerConf = Math.max(0.70, hammerConf - 0.06)
-    }
+    // Store resonance history keyed by normalized proposal text
+    const now = new Date().toISOString()
+    const key = normalizeKey(originalRecommendation)
+    const history = resonanceHistory.get(key) || []
+    history.unshift({ score: r, timestamp: now })
+    if (history.length > MAX_HISTORY_PER_PROPOSAL) history.pop()
+    resonanceHistory.set(key, history)
 
     const finalRec = hammerRec === 'PASS' ? 'PASS' : hammerRec === 'REJECT' ? 'REJECT' : 'NEEDS_REVISION'
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r*100).toFixed(0)}%]`
@@ -116,7 +120,7 @@ if (r >= 0.88) {
         resonanceScore: r,
         recommendation: finalRec,
         activityLevel: solarContext.solarActivityLevel,
-        timestamp: new Date().toISOString(),
+        timestamp: now,
       })
       if (publicFeed.length > MAX_FEED_ENTRIES) publicFeed.pop()
     }
@@ -134,12 +138,12 @@ if (r >= 0.88) {
       adjustedVoteWeight,
       finalRecommendation: tagged,
       confidenceAdjustment,
-      // Direct hammer outputs for UI / callers to use as overriding signal
       resonanceScore: hammer.solarIsotopicResonance,
       recommendation: finalRec,
       confidence: hammerConf,
       isSolarHammer: true,
       hammerReason,
+      resonanceHistory: history.length > 1 ? history : undefined,
     }
   }
 }

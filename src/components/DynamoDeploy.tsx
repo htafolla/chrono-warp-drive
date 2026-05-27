@@ -133,6 +133,7 @@ interface GovernanceResult {
   governanceConfidence: number | null;
   solarApplied: boolean;
   resonanceScore: number | null;
+  resonanceHistory?: Array<{ score: number; timestamp: string }> | null;
   diagnostics: Diagnostics;
   signature: string;
   alignmentRec: string | null;
@@ -188,6 +189,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
     // Prefer the SOLAR ISOTOPIC HAMMER resonance/recommendation (direct sun-grounded override)
     // Fall back to alignment (review cross) only if solar hammer unavailable
     const resonanceScore = solar?.resonanceScore != null ? Number(solar.resonanceScore) : (alignment?.resonanceScore != null ? Number(alignment.resonanceScore) : null);
+  const resonanceHistory = solar?.resonanceHistory || null;
     const diag = alignment?.diagnostics;
     const isotopicRatio = diag?.isotopicRatio != null ? Number(diag.isotopicRatio) : null;
     const historicalCoherence = diag?.historicalCoherence != null ? Number(diag.historicalCoherence) : null;
@@ -249,6 +251,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, tension, source,
+      resonanceHistory,
     };
   } catch {
     return null;
@@ -460,6 +463,17 @@ export default function DynamoDeploy() {
                 <div>
                   <p className="text-xs text-white/50 uppercase">Resonance</p>
                   <p className="text-2xl font-bold text-white">{(result.resonanceScore * 100).toFixed(0)}%</p>
+                  {result.resonanceHistory && result.resonanceHistory.length > 1 && (
+                    <div className="flex items-end gap-[3px] mt-2 h-8">
+                      {[...result.resonanceHistory].reverse().map((h, i) => (
+                        <div key={i} className="flex-1 min-w-[4px] rounded-sm transition-all" style={{
+                          height: `${Math.max(8, h.score * 100)}%`,
+                          backgroundColor: h.score >= 0.78 ? '#34d399' : h.score >= 0.62 ? '#fbbf24' : '#f87171',
+                          opacity: 0.4 + (i / result.resonanceHistory!.length) * 0.6,
+                        }} />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {result.governanceConfidence != null && (
                   <div>
