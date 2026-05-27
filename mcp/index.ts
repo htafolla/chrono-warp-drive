@@ -475,23 +475,41 @@ Full governance pipeline (emit → cross-correlate → triangulate → fuse → 
 
 Enhanced governance decision with real-time solar context from NOAA GOES (7 channels: X-ray, protons, electrons, magnetometer, solar wind, Kp).
 
-This tool runs the **Solar Isotopic Hammer** — a per-proposal resonance calculation that compares a bag-of-words XOR fingerprint against the sun's current TDF phase, producing a Gaussian similarity score (0–1).
+This tool runs the **Solar Isotopic Hammer (v2)** — a multi-dimensional resonance calculation inside the isotopic temporal vortex.
 
-**Solar Isotopic Hammer (v2):**
-- Normalizes proposal text, computes per-word FNV-1a fingerprints (mod 999983)
-- XORs word fingerprints into a single delta (bag-of-words combiner)
-- Compares proposal delta against sun's real-time reference delta (NOAA GOES data)
-- Applies Gaussian similarity: \`exp(-(deltaDiff / 1e6)^2)\`
-- Short proposals padded to 3 words with anchor words (\`general\`, \`proposal\`, \`matter\`)
-- Storm veto downgrades PASS to NEEDS_REVISION; active sun reduces confidence
+**Structural Resonance Formula (Phase 2):**
+The hammer computes a composite score from **four dimensions** of the isosceles triangle (tetrahedron):
+
+| Dimension | Weight | Description |
+|-----------|--------|-------------|
+| Proximity | 0.40 | Gaussian similarity between proposal and sun TDF deltas |
+| Phase Alignment | 0.25 | Structural coherence match (1 - |proposalCoherence - sunCoherence|) |
+| Vortex Alignment (Volume) | 0.15 | Energy fit ratio (min/max TDF) |
+| Synchronization | 0.20 | Temporal cascade alignment (1 / (1 + |lag| / 5)) |
+
+**Signal Timing:**
+- **Leading** (↑): Proposal cascade is ahead of the sun — anticipatory signal
+- **Trailing** (↓): Proposal cascade is behind the sun — reactive signal
+- **Synced** (→): Proposal and sun cascades are within 2 steps — aligned
+
+**resonanceScore = proximity × 0.40 + phaseAlignment × 0.25 + vortexAlignment × 0.15 + synchronization × 0.20**
+Clamped to [0.15, 0.98]. Below 0.15 = zeros-aligned junk, above 0.98 = perfect resonance cap.
 
 **Key Response Fields:**
-- \`resonanceScore\` — primary output (0–1), the Gaussian similarity between proposal and current solar phase
+- \`structuralResonance\` — composite score (0–1), the 4-dimensional resonance inside the isotopic vortex
+- \`proximity\` — Gaussian similarity of proposal vs sun TDF deltas (0–1)
+- \`phaseAlignment\` — coherence match between proposal and sun phase structures (0–1)
+- \`vortexAlignment\` — energy volume fit ratio (0–1)
+- \`synchronization\` — temporal cascade alignment, exponential decay from lag=0 (0–1)
+- \`crossCorrelationLag\` — absolute cascade index offset between proposal and sun
+- \`signalTiming\` — "leading", "trailing", or "synced"
 - \`recommendation\` — PASS (≥0.78), NEEDS_REVISION (0.62–0.78), REJECT (<0.62) with storm overrides
 - \`confidence\` — hammer confidence (0.72–0.93)
 - \`solarContext\` — activity level, modification, NOAA timestamp
 - \`hammerReason\` — human-readable explanation
 - \`adjustedVoteWeight\` — solar-adjusted vote weight (0.5–1.5)
+- \`smoothedResonance\` — 3-minute rolling average (if 3+ samples)
+- \`trend\` — "rising", "falling", or "stable"
 
 **Decision Thresholds:**
 | Resonance Score | Recommendation | Confidence |

@@ -84,8 +84,10 @@ export interface StructuralResonanceResult {
   proximity: number
   phaseAlignment: number
   vortexAlignment: number
+  synchronization: number
   crossCorrelationStrength: number
   crossCorrelationLag: number
+  signalTiming: 'leading' | 'trailing' | 'synced'
   solarIsotopicResonance: number
   solarActivityLevel: string
   solarReferenceTdf: number
@@ -194,10 +196,17 @@ export class SolarGovernanceIntegration {
       const maxTdf = Math.max(proposalTdf, solarRefTdf)
       const vortexAlignment = minTdf / maxTdf
 
+      // === TETRAHEDRON FACE 4: Synchronization (temporal alignment) ===
+      // How temporally aligned is the proposal's cascade with the sun's?
+      // sync = 1 / (1 + |lag| / LAG_SCALE) — exponential decay from lag=0
+      // lag=0 means perfect synchrony, higher lag means temporal mismatch
+      const LAG_SCALE = 5
+      const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
+
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
-      // Proximity × 0.5 + Phase Alignment × 0.3 + Vortex Alignment × 0.2
+      // Proximity × 0.40 + Phase × 0.25 + Volume × 0.15 + Sync × 0.20
       const structuralResonance = Math.max(0.15, Math.min(0.98,
-        proximity * 0.5 + phaseAlignment * 0.3 + vortexAlignment * 0.2
+        proximity * 0.40 + phaseAlignment * 0.25 + vortexAlignment * 0.15 + synchronization * 0.20
       ))
 
       // Backward-compatible: solarIsotopicResonance is now the composite
@@ -211,13 +220,21 @@ export class SolarGovernanceIntegration {
         default: activityModifier = 0
       }
 
+      // === Signal Timing: leading vs trailing vs synced ===
+      // If proposal cascade > sun cascade, the proposal is "ahead" (leading)
+      // If proposal cascade < sun cascade, the proposal is "behind" (trailing)
+      const cascadeDelta = propCascade - sunCascade
+      const signalTiming: 'leading' | 'trailing' | 'synced' = Math.abs(cascadeDelta) < 2 ? 'synced' : cascadeDelta > 0 ? 'leading' : 'trailing'
+
       return {
         structuralResonance,
         proximity,
         phaseAlignment,
         vortexAlignment,
+        synchronization,
         crossCorrelationStrength: correlation.strength,
         crossCorrelationLag: correlation.lag,
+        signalTiming,
         solarIsotopicResonance,
         solarActivityLevel: solarData.activityLevel || 'moderate',
         solarReferenceTdf: solarRefTdf,
@@ -238,8 +255,10 @@ export class SolarGovernanceIntegration {
         proximity: 0.80,
         phaseAlignment: 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence),
         vortexAlignment: fallbackTdf / (fallbackTdf + 1000),
+        synchronization: 0.80,
         crossCorrelationStrength: 0.80,
         crossCorrelationLag: 1,
+        signalTiming: 'synced' as const,
         solarIsotopicResonance: 0.80,
         solarActivityLevel: 'moderate',
         solarReferenceTdf: fallbackTdf,

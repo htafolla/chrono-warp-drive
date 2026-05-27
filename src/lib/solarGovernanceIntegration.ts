@@ -127,8 +127,10 @@ export class SolarGovernanceIntegration {
     proximity: number
     phaseAlignment: number
     vortexAlignment: number
+    synchronization: number
     crossCorrelationStrength: number
     crossCorrelationLag: number
+    signalTiming: 'leading' | 'trailing' | 'synced'
     solarIsotopicResonance: number
     solarActivityLevel: string
     solarReferenceTdf: number
@@ -171,11 +173,17 @@ export class SolarGovernanceIntegration {
       const maxTdf = Math.max(proposalTdf, solarRefTdf)
       const vortexAlignment = minTdf / maxTdf
 
+      const LAG_SCALE = 5
+      const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
+
       const structuralResonance = Math.max(0.15, Math.min(0.98,
-        proximity * 0.5 + phaseAlignment * 0.3 + vortexAlignment * 0.2
+        proximity * 0.40 + phaseAlignment * 0.25 + vortexAlignment * 0.15 + synchronization * 0.20
       ))
 
       const solarIsotopicResonance = structuralResonance
+
+      const cascadeDelta = propCascade - sunCascade
+      const signalTiming: 'leading' | 'trailing' | 'synced' = Math.abs(cascadeDelta) < 2 ? 'synced' : cascadeDelta > 0 ? 'leading' : 'trailing'
 
       let activityModifier = 0
       switch (solarData.activityLevel) {
@@ -190,8 +198,10 @@ export class SolarGovernanceIntegration {
         proximity,
         phaseAlignment,
         vortexAlignment,
+        synchronization,
         crossCorrelationStrength: correlation.strength,
         crossCorrelationLag: correlation.lag,
+        signalTiming,
         solarIsotopicResonance,
         solarActivityLevel: solarData.activityLevel || 'moderate',
         solarReferenceTdf: solarRefTdf,
@@ -212,8 +222,10 @@ export class SolarGovernanceIntegration {
         proximity: 0.80,
         phaseAlignment: 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence),
         vortexAlignment: fallbackTdf / (fallbackTdf + 1000),
+        synchronization: 0.80,
         crossCorrelationStrength: 0.80,
         crossCorrelationLag: 1,
+        signalTiming: 'synced' as const,
         solarIsotopicResonance: 0.80,
         solarActivityLevel: 'moderate',
         solarReferenceTdf: fallbackTdf,

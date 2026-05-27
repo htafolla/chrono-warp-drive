@@ -137,6 +137,9 @@ interface GovernanceResult {
   proximity: number | null;
   phaseAlignment: number | null;
   vortexAlignment: number | null;
+  crossCorrelationLag: number | null;
+  signalTiming: string | null;
+  synchronization: number | null;
   smoothedResonance: number | null;
   trend: string | null;
   resonanceHistory?: Array<{ score: number; timestamp: string }> | null;
@@ -199,6 +202,9 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const proximity = solar?.proximity != null ? Number(solar.proximity) : null;
   const phaseAlignment = solar?.phaseAlignment != null ? Number(solar.phaseAlignment) : null;
   const vortexAlignment = solar?.vortexAlignment != null ? Number(solar.vortexAlignment) : null;
+  const crossCorrelationLag = solar?.crossCorrelationLag != null ? Number(solar.crossCorrelationLag) : null;
+  const signalTiming = solar?.signalTiming || null;
+  const synchronization = solar?.synchronization != null ? Number(solar.synchronization) : null;
   const smoothedResonance = solar?.smoothedResonance != null ? Number(solar.smoothedResonance) : null;
   const trend = solar?.trend || null;
   const resonanceHistory = solar?.resonanceHistory || null;
@@ -263,7 +269,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, tension, source,
-      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment,
+      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, synchronization,
     };
   } catch {
     return null;
@@ -498,7 +504,8 @@ export default function DynamoDeploy() {
                   )}
                 </div>
                 {result.proximity != null && (
-                  <div className="grid grid-cols-3 gap-2 mt-3">
+                  <>
+                  <div className="grid grid-cols-4 gap-2 mt-3">
                     <div>
                       <p className="text-[10px] text-white/40 uppercase">Proximity</p>
                       <p className="text-sm font-semibold text-white">{(result.proximity * 100).toFixed(0)}%</p>
@@ -511,7 +518,20 @@ export default function DynamoDeploy() {
                       <p className="text-[10px] text-white/40 uppercase">Volume</p>
                       <p className="text-sm font-semibold text-white">{(result.vortexAlignment! * 100).toFixed(0)}%</p>
                     </div>
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase">Sync</p>
+                      <p className="text-sm font-semibold text-white">{result.synchronization != null ? `${(result.synchronization * 100).toFixed(0)}%` : '—'}</p>
+                    </div>
                   </div>
+                  {result.signalTiming && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-white/40 uppercase">Signal</span>
+                      <span className={`text-xs font-semibold ${result.signalTiming === 'leading' ? 'text-emerald-400' : result.signalTiming === 'trailing' ? 'text-amber-400' : 'text-white/50'}`}>
+                        {result.signalTiming === 'leading' ? '↑ Leading' : result.signalTiming === 'trailing' ? '↓ Trailing' : '→ Synced'}
+                      </span>
+                    </div>
+                  )}
+                  </>
                 )}
                 {result.governanceConfidence != null && (
                   <div>

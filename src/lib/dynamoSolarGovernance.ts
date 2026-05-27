@@ -21,6 +21,9 @@ export interface EnhancedGovernanceDecision {
   proximity?: number;
   phaseAlignment?: number;
   vortexAlignment?: number;
+  crossCorrelationLag?: number;
+  signalTiming?: 'leading' | 'trailing' | 'synced';
+  synchronization?: number;
   smoothedResonance?: number;
   trend?: 'rising' | 'falling' | 'stable';
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT';
@@ -103,6 +106,9 @@ export class DynamoSolarGovernance {
       proximity: hammer.proximity,
       phaseAlignment: hammer.phaseAlignment,
       vortexAlignment: hammer.vortexAlignment,
+      crossCorrelationLag: hammer.crossCorrelationLag,
+      signalTiming: hammer.signalTiming,
+      synchronization: hammer.synchronization,
       recommendation: finalRec,
       confidence: hammerConf,
       isSolarHammer: true,
