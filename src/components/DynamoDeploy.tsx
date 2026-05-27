@@ -142,6 +142,9 @@ interface GovernanceResult {
   synchronization: number | null;
   smoothedResonance: number | null;
   trend: string | null;
+  momentum: number | null;
+  peakForecast: { estimatedPeakResonance: number; minutesToPeak: number; windowQuality: string } | null;
+  adaptiveThresholds: { strong: number; good: number; weak: number } | null;
   resonanceHistory?: Array<{ score: number; timestamp: string }> | null;
   diagnostics: Diagnostics;
   signature: string;
@@ -205,6 +208,9 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const crossCorrelationLag = solar?.crossCorrelationLag != null ? Number(solar.crossCorrelationLag) : null;
   const signalTiming = solar?.signalTiming || null;
   const synchronization = solar?.synchronization != null ? Number(solar.synchronization) : null;
+  const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
+  const peakForecast = solar?.peakForecast ?? null;
+  const adaptiveThresholds = solar?.adaptiveThresholds ?? null;
   const smoothedResonance = solar?.smoothedResonance != null ? Number(solar.smoothedResonance) : null;
   const trend = solar?.trend || null;
   const resonanceHistory = solar?.resonanceHistory || null;
@@ -269,7 +275,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, tension, source,
-      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, synchronization,
+      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, synchronization, momentum, peakForecast, adaptiveThresholds,
     };
   } catch {
     return null;
@@ -528,6 +534,43 @@ export default function DynamoDeploy() {
                       <span className="text-[10px] text-white/40 uppercase">Signal</span>
                       <span className={`text-xs font-semibold ${result.signalTiming === 'leading' ? 'text-emerald-400' : result.signalTiming === 'trailing' ? 'text-amber-400' : 'text-white/50'}`}>
                         {result.signalTiming === 'leading' ? '↑ Leading' : result.signalTiming === 'trailing' ? '↓ Trailing' : '→ Synced'}
+                      </span>
+                    </div>
+                  )}
+                  {result.momentum != null && (
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-[10px] text-white/40 uppercase">Momentum</span>
+                      <span className={`text-xs font-semibold ${result.momentum > 0.01 ? 'text-emerald-400' : result.momentum < -0.01 ? 'text-red-400' : 'text-white/50'}`}>
+                        {result.momentum > 0.01 ? '▲' : result.momentum < -0.01 ? '▼' : '●'} {(result.momentum * 100).toFixed(1)}/min
+                      </span>
+                    </div>
+                  )}
+                  {result.peakForecast && (
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-[10px] text-white/40 uppercase">Peak Forecast</span>
+                      <span className={`text-xs font-semibold ${result.peakForecast.windowQuality === 'optimal' ? 'text-emerald-400' : result.peakForecast.windowQuality === 'good' ? 'text-cyan-400' : 'text-amber-400'}`}>
+                        {(result.peakForecast.estimatedPeakResonance * 100).toFixed(0)}% {result.peakForecast.minutesToPeak > 0 ? `in ${result.peakForecast.minutesToPeak}m` : 'now'}
+                      </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        result.peakForecast.windowQuality === 'optimal' ? 'bg-emerald-500/20 text-emerald-400' :
+                        result.peakForecast.windowQuality === 'good' ? 'bg-cyan-500/20 text-cyan-400' :
+                        'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {result.peakForecast.windowQuality}
+                      </span>
+                    </div>
+                  )}
+                  {result.adaptiveThresholds && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-white/40 uppercase">Thresholds</span>
+                      <span className="text-[10px] text-white/30">
+                        {`≥${(result.adaptiveThresholds.strong * 100).toFixed(0)}% PASS`}
+                      </span>
+                      <span className="text-[10px] text-white/30">
+                        {`≥${(result.adaptiveThresholds.good * 100).toFixed(0)}% PASS`}
+                      </span>
+                      <span className="text-[10px] text-white/30">
+                        {`≥${(result.adaptiveThresholds.weak * 100).toFixed(0)}% REV`}
                       </span>
                     </div>
                   )}

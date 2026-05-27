@@ -491,9 +491,9 @@ The hammer computes a composite score from **four dimensions** of the isosceles 
 - **Leading** (↑): Proposal cascade is ahead of the sun — anticipatory signal
 - **Trailing** (↓): Proposal cascade is behind the sun — reactive signal
 - **Synced** (→): Proposal and sun cascades are within 2 steps — aligned
+**resonanceScore = proximity × 0.30 + phaseAlignment × 0.20 + vortexAlignment × 0.30 + synchronization × 0.20**
 
-**resonanceScore = proximity × 0.40 + phaseAlignment × 0.25 + vortexAlignment × 0.15 + synchronization × 0.20**
-Clamped to [0.15, 0.98]. Below 0.15 = zeros-aligned junk, above 0.98 = perfect resonance cap.
+Clamped to [0.15, 0.98]. Volume weight raised to 0.30 to protect small heroes — even low-TDF proposals can resonate if their internal structure aligns well. Vortex alignment uses log-space ratio (not raw TDF ratio) so small proposals aren't penalized for their magnitude.
 
 **Key Response Fields:**
 - \`structuralResonance\` — composite score (0–1), the 4-dimensional resonance inside the isotopic vortex
@@ -510,16 +510,33 @@ Clamped to [0.15, 0.98]. Below 0.15 = zeros-aligned junk, above 0.98 = perfect r
 - \`adjustedVoteWeight\` — solar-adjusted vote weight (0.5–1.5)
 - \`smoothedResonance\` — 3-minute rolling average (if 3+ samples)
 - \`trend\` — "rising", "falling", or "stable"
+- \`momentum\` — rate of change per minute (dResonance/dt), positive = rising, negative = falling
+- \`peakForecast\` — predicted peak resonance window:
+  - \`estimatedPeakResonance\` — predicted peak structural resonance (0–1)
+  - \`minutesToPeak\` — estimated minutes until peak resonance (0 = now)
+  - \`windowQuality\` — "optimal", "good", or "declining"
+- \`adaptiveThresholds\` — the decision thresholds applied for this solar activity level:
+  - \`strong\` — minimum resonance for strong PASS
+  - \`good\` — minimum resonance for good PASS
+  - \`weak\` — minimum resonance for NEEDS_REVISION
 
-**Decision Thresholds:**
-| Resonance Score | Recommendation | Confidence |
-|----------------|---------------|------------|
-| ≥ 0.88         | PASS          | 0.93       |
-| 0.78–0.88      | PASS          | 0.85       |
-| 0.62–0.78      | NEEDS_REVISION | 0.74      |
-| < 0.62         | REJECT        | 0.81       |
+**Adaptive Decision Thresholds (Phase 4):**
+Thresholds shift dynamically based on solar activity level:
 
-Storm override: if \`solarActivityLevel = storm\`, PASS → NEEDS_REVISION and confidence drops 0.12.
+| Solar Activity | Strong PASS | Good PASS | NEEDS_REVISION | Effect |
+|----------------|-------------|-----------|----------------|--------|
+| Quiet          | ≥ 0.82      | ≥ 0.72    | ≥ 0.58         | Easier to PASS — stable conditions |
+| Moderate       | ≥ 0.88      | ≥ 0.78    | ≥ 0.62         | Standard thresholds |
+| Active         | ≥ 0.88      | ≥ 0.78    | ≥ 0.62         | Standard + confidence penalty |
+| Storm          | ≥ 0.92      | ≥ 0.84    | ≥ 0.70         | Harder to PASS — unstable conditions |
+
+Storm override: PASS → NEEDS_REVISION regardless of score, confidence drops 0.12.
+
+**Momentum & Peak Window Confidence Adjustments:**
+- Rising momentum (>+0.01/min): confidence +0.03, reason appended ▲ Rising momentum
+- Falling momentum (<-0.01/min): confidence -0.03, reason appended ▼ Falling momentum
+- Optimal window quality: confidence +0.02, reason appended ⚡ Optimal window
+- Declining window quality: confidence -0.04, reason appended ⚠ Declining window
 
 **Input:** \`proposal\` (string), \`baseVoteWeight\` (0.5–1.5, default 1.0), \`sharePublicly\` (boolean, default false — if true, adds proposal to public feed)
 

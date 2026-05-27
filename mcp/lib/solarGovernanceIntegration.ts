@@ -191,10 +191,12 @@ export class SolarGovernanceIntegration {
 
       // === TRIANGLE LEG 3: Vortex Alignment (energy volume fit) ===
       // Does the proposal's energy fit inside the sun's container?
-      // Normalized by comparing TDF magnitudes: ratio of the smaller to the larger
-      const minTdf = Math.min(proposalTdf, solarRefTdf)
-      const maxTdf = Math.max(proposalTdf, solarRefTdf)
-      const vortexAlignment = minTdf / maxTdf
+      // Log-space ratio protects small heroes: a proposal with TDF 1,000
+      // vs sun TDF 500,000 gets ~0.53 (not 0.002 with raw ratio).
+      // Orders of magnitude matter, not raw magnitude.
+      const logRatio = Math.abs(Math.log(Math.max(proposalTdf, 1)) - Math.log(Math.max(solarRefTdf, 1)))
+      const logMax = Math.log(Math.max(proposalTdf, solarRefTdf, 1))
+      const vortexAlignment = Math.max(0.15, 1 - logRatio / logMax)
 
       // === TETRAHEDRON FACE 4: Synchronization (temporal alignment) ===
       // How temporally aligned is the proposal's cascade with the sun's?
@@ -204,9 +206,11 @@ export class SolarGovernanceIntegration {
       const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
 
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
-      // Proximity × 0.40 + Phase × 0.25 + Volume × 0.15 + Sync × 0.20
+      // Proximity × 0.30 + Phase × 0.20 + Volume × 0.30 + Sync × 0.20
+      // Volume weight raised to 0.30 to protect small heroes — proposals with
+      // low TDF but strong internal structure can still resonate.
       const structuralResonance = Math.max(0.15, Math.min(0.98,
-        proximity * 0.40 + phaseAlignment * 0.25 + vortexAlignment * 0.15 + synchronization * 0.20
+        proximity * 0.30 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.20
       ))
 
       // Backward-compatible: solarIsotopicResonance is now the composite
@@ -254,7 +258,7 @@ export class SolarGovernanceIntegration {
         structuralResonance: 0.80,
         proximity: 0.80,
         phaseAlignment: 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence),
-        vortexAlignment: fallbackTdf / (fallbackTdf + 1000),
+        vortexAlignment: Math.max(0.15, 1 - Math.abs(Math.log(Math.max(fallbackTdf, 1)) - Math.log(Math.max(fallbackTdf + 1000, 1))) / Math.log(Math.max(fallbackTdf, fallbackTdf + 1000, 1))),
         synchronization: 0.80,
         crossCorrelationStrength: 0.80,
         crossCorrelationLag: 1,

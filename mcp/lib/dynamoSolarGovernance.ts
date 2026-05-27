@@ -30,6 +30,17 @@ export interface EnhancedGovernanceDecision {
   synchronization?: number
   smoothedResonance?: number
   trend?: 'rising' | 'falling' | 'stable'
+  momentum?: number
+  peakForecast?: {
+    estimatedPeakResonance: number
+    minutesToPeak: number
+    windowQuality: 'optimal' | 'good' | 'declining'
+  }
+  adaptiveThresholds?: {
+    strong: number
+    good: number
+    weak: number
+  }
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   confidence?: number
   isSolarHammer?: boolean
@@ -83,21 +94,34 @@ export class DynamoSolarGovernance {
       confidenceAdjustment = 0.05
     }
 
-    // Decision now uses structuralResonance (composite: proximity × 0.5 + phase × 0.3 + vortex × 0.2)
+    // === Phase 4: Adaptive Solar Governance ===
+    // Decision thresholds shift based on solar activity level
+    // Quiet sun: easier to PASS (lower thresholds)
+    // Storm sun: harder to PASS (higher thresholds)
+    // Moderate/active: standard thresholds
+    const adaptiveThresholds = {
+      quiet:    { strong: 0.82, good: 0.72, weak: 0.58 },
+      moderate: { strong: 0.88, good: 0.78, weak: 0.62 },
+      active:   { strong: 0.88, good: 0.78, weak: 0.62 },
+      storm:    { strong: 0.92, good: 0.84, weak: 0.70 },
+    }
+    const activityKey = solarContext.solarActivityLevel as keyof typeof adaptiveThresholds
+    const thresholds = adaptiveThresholds[activityKey] || adaptiveThresholds.moderate
+
     const r = hammer.structuralResonance
     let hammerRec: 'PASS' | 'NEEDS_REVISION' | 'REJECT' = 'NEEDS_REVISION'
     let hammerConf = 0.72
     let hammerReason = 'Solar alignment neutral'
 
-    if (r >= 0.88) {
+    if (r >= thresholds.strong) {
       hammerRec = 'PASS'
       hammerConf = 0.93
       hammerReason = 'Strong resonance with current solar conditions'
-    } else if (r >= 0.78) {
+    } else if (r >= thresholds.good) {
       hammerRec = 'PASS'
       hammerConf = 0.85
       hammerReason = 'Good alignment with solar field'
-    } else if (r >= 0.62) {
+    } else if (r >= thresholds.weak) {
       hammerRec = 'NEEDS_REVISION'
       hammerConf = 0.74
       hammerReason = 'Moderate resonance — needs refinement'
@@ -107,6 +131,7 @@ export class DynamoSolarGovernance {
       hammerReason = 'Low resonance with the sun — misaligned'
     }
 
+    // Storm override already built into thresholds, but still downgrade PASS
     if (solarContext.solarActivityLevel === 'storm') {
       if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION'
       hammerConf = Math.max(0.60, hammerConf - 0.12)
@@ -136,6 +161,80 @@ export class DynamoSolarGovernance {
       const diff = last - first
       trend = diff > 0.05 ? 'rising' : diff < -0.05 ? 'falling' : 'stable'
     }
+
+    // === Phase 3: Resonance Momentum (dR/dt) ===
+    // Rate of change per minute, computed from the 3-minute window
+    let momentum: number | undefined
+    if (recentScores.length >= 2) {
+      const newest = recentScores[0]
+      const oldest = recentScores[recentScores.length - 1]
+      const dtMinutes = (new Date(newest.timestamp).getTime() - new Date(oldest.timestamp).getTime()) / 60000
+      if (dtMinutes > 0) {
+        momentum = (newest.score - oldest.score) / dtMinutes
+      }
+    }
+
+    // === Phase 3: Peak Forecast ===
+    // Predicts when resonance will peak based on current momentum and solar activity
+    let peakForecast: EnhancedGovernanceDecision['peakForecast']
+    if (momentum !== undefined && recentScores.length >= MIN_SAMPLES_FOR_TREND) {
+      const currentR = r
+      const momentumPerMin = Math.abs(momentum)
+      // Estimate peak: if rising, extrapolate to cap (0.98); if falling, peak is now or past
+      let estimatedPeakResonance: number
+      let minutesToPeak: number
+      let windowQuality: 'optimal' | 'good' | 'declining'
+
+      if (momentum > 0.001) {
+        // Rising: estimate time to reach near-cap
+        const ceiling = 0.95
+        const delta = ceiling - currentR
+        minutesToPeak = delta > 0 && momentumPerMin > 0 ? Math.round(delta / momentumPerMin) : 0
+        estimatedPeakResonance = Math.min(0.98, currentR + momentumPerMin * minutesToPeak)
+        windowQuality = currentR >= 0.78 ? 'optimal' : 'good'
+      } else if (momentum < -0.001) {
+        // Falling: resonance is declining — best window is now or already passed
+        minutesToPeak = 0
+        estimatedPeakResonance = currentR
+        windowQuality = currentR >= 0.78 ? 'good' : 'declining'
+      } else {
+        // Stable: this is the plateau
+        minutesToPeak = 0
+        estimatedPeakResonance = currentR
+        windowQuality = currentR >= 0.78 ? 'optimal' : 'good'
+      }
+
+      // Solar activity modifier: storms collapse windows
+      if (solarContext.solarActivityLevel === 'storm') {
+        windowQuality = 'declining'
+        minutesToPeak = 0
+      } else if (solarContext.solarActivityLevel === 'active' && windowQuality === 'optimal') {
+        windowQuality = 'good'
+      }
+
+      peakForecast = { estimatedPeakResonance, minutesToPeak, windowQuality }
+    }
+
+    // === Phase 4: Momentum & Peak Window Confidence Adjustment ===
+    if (momentum !== undefined) {
+      if (momentum > 0.01) {
+        hammerConf += 0.03
+        hammerReason += ' ▲ Rising momentum'
+      } else if (momentum < -0.01) {
+        hammerConf -= 0.03
+        hammerReason += ' ▼ Falling momentum'
+      }
+    }
+    if (peakForecast) {
+      if (peakForecast.windowQuality === 'optimal') {
+        hammerConf += 0.02
+        hammerReason += ' ⚡ Optimal window'
+      } else if (peakForecast.windowQuality === 'declining') {
+        hammerConf -= 0.04
+        hammerReason += ' ⚠ Declining window'
+      }
+    }
+    hammerConf = Math.max(0.50, Math.min(0.99, hammerConf))
 
     const finalRec = hammerRec === 'PASS' ? 'PASS' : hammerRec === 'REJECT' ? 'REJECT' : 'NEEDS_REVISION'
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r*100).toFixed(0)}%]`
@@ -174,6 +273,9 @@ export class DynamoSolarGovernance {
       synchronization: hammer.synchronization,
       smoothedResonance,
       trend,
+      momentum,
+      peakForecast,
+      adaptiveThresholds: thresholds,
       recommendation: finalRec,
       confidence: hammerConf,
       isSolarHammer: true,

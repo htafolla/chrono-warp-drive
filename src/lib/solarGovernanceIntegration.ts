@@ -169,15 +169,15 @@ export class SolarGovernanceIntegration {
 
       const phaseAlignment = 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence)
 
-      const minTdf = Math.min(proposalTdf, solarRefTdf)
-      const maxTdf = Math.max(proposalTdf, solarRefTdf)
-      const vortexAlignment = minTdf / maxTdf
+      const logRatio = Math.abs(Math.log(Math.max(proposalTdf, 1)) - Math.log(Math.max(solarRefTdf, 1)))
+      const logMax = Math.log(Math.max(proposalTdf, solarRefTdf, 1))
+      const vortexAlignment = Math.max(0.15, 1 - logRatio / logMax)
 
       const LAG_SCALE = 5
       const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
 
       const structuralResonance = Math.max(0.15, Math.min(0.98,
-        proximity * 0.40 + phaseAlignment * 0.25 + vortexAlignment * 0.15 + synchronization * 0.20
+        proximity * 0.30 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.20
       ))
 
       const solarIsotopicResonance = structuralResonance
@@ -221,7 +221,7 @@ export class SolarGovernanceIntegration {
         structuralResonance: 0.80,
         proximity: 0.80,
         phaseAlignment: 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence),
-        vortexAlignment: fallbackTdf / (fallbackTdf + 1000),
+        vortexAlignment: Math.max(0.15, 1 - Math.abs(Math.log(Math.max(fallbackTdf, 1)) - Math.log(Math.max(fallbackTdf + 1000, 1))) / Math.log(Math.max(fallbackTdf, fallbackTdf + 1000, 1))),
         synchronization: 0.80,
         crossCorrelationStrength: 0.80,
         crossCorrelationLag: 1,

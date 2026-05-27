@@ -26,6 +26,17 @@ export interface EnhancedGovernanceDecision {
   synchronization?: number;
   smoothedResonance?: number;
   trend?: 'rising' | 'falling' | 'stable';
+  momentum?: number;
+  peakForecast?: {
+    estimatedPeakResonance: number;
+    minutesToPeak: number;
+    windowQuality: 'optimal' | 'good' | 'declining';
+  };
+  adaptiveThresholds?: {
+    strong: number;
+    good: number;
+    weak: number;
+  };
   recommendation?: 'PASS' | 'NEEDS_REVISION' | 'REJECT';
   confidence?: number;
   isSolarHammer?: boolean;
@@ -54,20 +65,30 @@ export class DynamoSolarGovernance {
       confidenceAdjustment = 0.05;
     }
 
+    const adaptiveThresholds = {
+      quiet:    { strong: 0.82, good: 0.72, weak: 0.58 },
+      moderate: { strong: 0.88, good: 0.78, weak: 0.62 },
+      active:   { strong: 0.88, good: 0.78, weak: 0.62 },
+      storm:    { strong: 0.92, good: 0.84, weak: 0.70 },
+    };
+    type ActivityKey = keyof typeof adaptiveThresholds;
+    const activityKey = solarContext.solarActivityLevel as ActivityKey;
+    const thresholds = adaptiveThresholds[activityKey] || adaptiveThresholds.moderate;
+
     const r = hammer.structuralResonance;
     let hammerRec: 'PASS' | 'NEEDS_REVISION' | 'REJECT' = 'NEEDS_REVISION';
     let hammerConf = 0.72;
     let hammerReason = 'Solar alignment neutral';
 
-    if (r >= 0.88) {
+    if (r >= thresholds.strong) {
       hammerRec = 'PASS';
       hammerConf = 0.93;
       hammerReason = 'Strong resonance with current solar conditions';
-    } else if (r >= 0.78) {
+    } else if (r >= thresholds.good) {
       hammerRec = 'PASS';
       hammerConf = 0.85;
       hammerReason = 'Good alignment with solar field';
-    } else if (r >= 0.62) {
+    } else if (r >= thresholds.weak) {
       hammerRec = 'NEEDS_REVISION';
       hammerConf = 0.74;
       hammerReason = 'Moderate resonance — needs refinement';
@@ -109,6 +130,13 @@ export class DynamoSolarGovernance {
       crossCorrelationLag: hammer.crossCorrelationLag,
       signalTiming: hammer.signalTiming,
       synchronization: hammer.synchronization,
+      momentum: 0,
+      peakForecast: {
+        estimatedPeakResonance: r,
+        minutesToPeak: 0,
+        windowQuality: 'good' as const,
+      },
+      adaptiveThresholds: thresholds,
       recommendation: finalRec,
       confidence: hammerConf,
       isSolarHammer: true,
