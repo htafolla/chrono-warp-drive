@@ -44,8 +44,16 @@ function getSolarReferenceTdf(solarData: any): number {
 }
 
 // Vortex-style cascade derivation (kept in sync with mcp/lib)
-function deriveCascadeFromTdf(tdfValue: number): number {
-  return Math.floor(((tdfValue % 1000000) / 1000)) % 100;
+// Cascade indices used for signalTiming only (leading/trailing/synced).
+// Alignment quality (sync score) uses deltaDiff directly — not cascade lag.
+function deriveCascadeFromContent(content: string): number {
+  let h = 0
+  for (let i = 0; i < content.length; i++) h = (h * 31 + content.charCodeAt(i)) | 0
+  return Math.abs(h) % 100
+}
+
+function deriveCascadeFromSolar(solarData: any): number {
+  return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100
 }
 
 export interface SolarGovernanceContext {
@@ -142,7 +150,7 @@ export class SolarGovernanceIntegration {
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
       const proposalTdf = computeProposalTdf(words)
-      const propCascade = deriveCascadeFromTdf(proposalTdf)
+      const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
 
       const proposalSignal = new TemporalBlurrnSignal(
         { content: proposal },
@@ -151,7 +159,7 @@ export class SolarGovernanceIntegration {
       )
 
       const solarRefTdf = getSolarReferenceTdf(solarData)
-      const sunCascade = deriveCascadeFromTdf(solarRefTdf)
+      const sunCascade = deriveCascadeFromSolar(solarData)
       const sunSignal = new TemporalBlurrnSignal(
         { source: 'sun', ...solarData },
         solarRefTdf,
@@ -169,8 +177,8 @@ export class SolarGovernanceIntegration {
       const logMax = Math.log(Math.max(proposalTdf, solarRefTdf, 1))
       const vortexAlignment = Math.max(0.15, 1 - logRatio / logMax)
 
-      const LAG_SCALE = 5
-      const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
+      const syncRaw = Math.max(0, 1 - deltaDiff / 1e6)
+      const synchronization = Math.max(0.15, syncRaw)
 
       const neuralContextUsed = spectralQuality !== undefined
       const structuralResonance = neuralContextUsed

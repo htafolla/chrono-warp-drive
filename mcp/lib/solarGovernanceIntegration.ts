@@ -39,6 +39,20 @@ function computeProposalTdf(words: string[]): number {
   return 5.781e12 + (h % 1000000);
 }
 
+// These derive cascade indices from content and solar data for signalTiming only.
+// Timing (leading/trailing/synced) is orientation, not alignment quality.
+// Alignment quality (sync score) now uses deltaDiff directly (see below).
+function deriveCascadeFromContent(content: string): number {
+  const norm = normalizeProposalText(content);
+  let h = 0;
+  for (let i = 0; i < norm.length; i++) h = (h * 31 + norm.charCodeAt(i)) | 0;
+  return Math.abs(h) % 100;
+}
+
+function deriveCascadeFromSolar(solarData: SolarData): number {
+  return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100;
+}
+
 function getSolarReferenceTdf(solarData: SolarData): number {
   const ts = Date.parse(solarData.timestamp || new Date().toISOString())
   const kp = (solarData.kpIndex || 3) * 100000
@@ -47,13 +61,7 @@ function getSolarReferenceTdf(solarData: SolarData): number {
   return 5.781e12 + seed
 }
 
-// Both proposal and sun cascades derive from TDF fine structure using the same function.
-// This ensures cascade indices naturally correlate when TDF values are close (same domain,
-// same resolution). Prior approach used content hash for proposal vs Kp×hardness for sun —
-// two independent random variables producing ~33 average lag even with perfect TDF match.
-function deriveCascadeFromTdf(tdfValue: number): number {
-  return Math.floor(((tdfValue % 1000000) / 1000)) % 100;
-}
+
 
 export interface SolarGovernanceContext {
   solarActivityLevel: string
@@ -165,8 +173,9 @@ export class SolarGovernanceIntegration {
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
       const proposalTdf = computeProposalTdf(words)
 
-      // Both cascades from TDF fine structure — same domain, same function
-      const propCascade = deriveCascadeFromTdf(proposalTdf)
+      // Cascade index from content hash preserves signal timing (leading/trailing/synced)
+      // independent of TDF magnitude — used only for signalTiming, not for sync score.
+      const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
 
       const proposalSignal = new TemporalBlurrnSignal(
         { content: proposal },
@@ -175,7 +184,9 @@ export class SolarGovernanceIntegration {
       )
 
       const solarRefTdf = getSolarReferenceTdf(solarData)
-      const sunCascade = deriveCascadeFromTdf(solarRefTdf)
+
+      // Sun cascade from solar physics for signal timing
+      const sunCascade = deriveCascadeFromSolar(solarData)
       const sunSignal = new TemporalBlurrnSignal(
         { source: 'sun', ...solarData },
         solarRefTdf,
@@ -204,11 +215,14 @@ export class SolarGovernanceIntegration {
       const vortexAlignment = Math.max(0.15, 1 - logRatio / logMax)
 
       // === TETRAHEDRON FACE 4: Synchronization (temporal alignment) ===
-      // How temporally aligned is the proposal's cascade with the sun's?
-      // sync = 1 / (1 + |lag| / LAG_SCALE) — exponential decay from lag=0
-      // lag=0 means perfect synchrony, higher lag means temporal mismatch
-      const LAG_SCALE = 5
-      const synchronization = 1 / (1 + Math.abs(correlation.lag) / LAG_SCALE)
+      // Uses the same deltaDiff as proximity, but with a linear decay instead of Gaussian.
+      // This makes sync broader: high sync even when proximity is moderate,
+      // but penalizes when TDFs are very far apart.
+      // Proximity = tight Gaussian — discriminates among close TDFs
+      // Sync = linear — captures "are we in the right ballpark?"
+      // Together they're complementary (not redundant) response curves on the same input.
+      const syncRaw = Math.max(0, 1 - deltaDiff / 1e6)
+      const synchronization = Math.max(0.15, syncRaw)
 
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
       // 4D formula (no neural context): proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30
