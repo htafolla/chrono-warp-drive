@@ -2,6 +2,12 @@
 // Enhanced Dynamo Governance with real-time Solar Context
 
 import { solarGovernance } from './solarGovernanceIntegration.js'
+import { getRedisClient } from '../pubsub.js'
+
+const REDIS_HISTORY_KEY = 'dynamo:history'
+const REDIS_FEED_KEY = 'dynamo:feed'
+const MAX_REDIS_ENTRIES = 10000
+const MAX_FEED_REDIS_ENTRIES = 500
 
 function normalizeKey(text: string): string {
   return text.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80)
@@ -58,6 +64,12 @@ export interface PublicFeedEntry {
   timestamp: string
 }
 
+export interface HistoryEntry {
+  proposal: string
+  timestamp: string
+  response: EnhancedGovernanceDecision
+}
+
 const MAX_FEED_ENTRIES = 50
 const publicFeed: PublicFeedEntry[] = []
 
@@ -66,12 +78,103 @@ const HISTORY_WINDOW_MS = 3 * 60 * 1000
 const MIN_SAMPLES_FOR_TREND = 3
 const resonanceHistory: Map<string, Array<{ score: number; timestamp: string }>> = new Map()
 
+// ── Redis-backed history (durable across deploys) ──
+
+/** Push a full query+response entry to Redis history. */
+async function storeInRedis(entry: HistoryEntry): Promise<void> {
+  try {
+    const client = await getRedisClient()
+    if (!client) return
+    const raw = JSON.stringify(entry)
+    await client.multi()
+      .lpush(REDIS_HISTORY_KEY, raw)
+      .ltrim(REDIS_HISTORY_KEY, 0, MAX_REDIS_ENTRIES - 1)
+      .exec()
+  } catch {
+    // Redis unavailable — silently degrade
+  }
+}
+
+/** Push a feed entry to Redis. */
+async function storeFeedInRedis(entry: PublicFeedEntry): Promise<void> {
+  try {
+    const client = await getRedisClient()
+    if (!client) return
+    const raw = JSON.stringify(entry)
+    await client.multi()
+      .lpush(REDIS_FEED_KEY, raw)
+      .ltrim(REDIS_FEED_KEY, 0, MAX_FEED_REDIS_ENTRIES - 1)
+      .exec()
+  } catch {
+    // Redis unavailable — silently degrade
+  }
+}
+
+/** Load feed entries from Redis into the in-memory cache. */
+async function loadFeedFromRedis(): Promise<void> {
+  try {
+    const client = await getRedisClient()
+    if (!client) return
+    const entries = await client.lrange(REDIS_FEED_KEY, 0, MAX_FEED_ENTRIES - 1)
+    for (const raw of entries) {
+      try {
+        const entry = JSON.parse(raw) as PublicFeedEntry
+        publicFeed.push(entry)
+      } catch { /* skip corrupt entries */ }
+    }
+  } catch {
+    // Redis unavailable — start empty
+  }
+}
+
+/** Load history entries from Redis. */
+async function loadHistoryFromRedis(): Promise<HistoryEntry[]> {
+  try {
+    const client = await getRedisClient()
+    if (!client) return []
+    const entries = await client.lrange(REDIS_HISTORY_KEY, 0, 99)
+    return entries.map((raw: string) => {
+      try { return JSON.parse(raw) as HistoryEntry } catch { return null }
+    }).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+// Bootstrap: load existing feed from Redis on module init
+loadFeedFromRedis()
+
 export function getPublicFeed(): PublicFeedEntry[] {
   return publicFeed
 }
 
 export function getResonanceHistory(key: string): Array<{ score: number; timestamp: string }> {
   return resonanceHistory.get(key) || []
+}
+
+/**
+ * Return the N most recent full history entries from Redis.
+ * Falls back to in-memory publicFeed if Redis unavailable.
+ */
+export async function getHistory(n: number = 100): Promise<HistoryEntry[]> {
+  const redis = await loadHistoryFromRedis()
+  if (redis.length > 0) return redis.slice(0, n)
+  // Fallback: convert in-memory feed to history entries
+  return publicFeed.slice(0, n).map(e => ({
+    proposal: e.proposal,
+    timestamp: e.timestamp,
+    response: {
+      originalRecommendation: e.proposal,
+      solarContext: { solarActivityLevel: e.activityLevel, solarActivityModifier: 0, recommendation: '' },
+      adjustedVoteWeight: 1,
+      finalRecommendation: '',
+      confidenceAdjustment: 0,
+      resonanceScore: e.resonanceScore,
+      structuralResonance: e.resonanceScore,
+      recommendation: e.recommendation as 'PASS' | 'NEEDS_REVISION' | 'REJECT',
+      neuralContextUsed: false,
+    } as EnhancedGovernanceDecision,
+  }))
 }
 
 export class DynamoSolarGovernance {
@@ -222,17 +325,19 @@ export class DynamoSolarGovernance {
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r*100).toFixed(0)}%]`
 
     if (sharePublicly && originalRecommendation.length >= 3) {
-      publicFeed.unshift({
+      const feedEntry: PublicFeedEntry = {
         proposal: originalRecommendation,
         resonanceScore: r,
         recommendation: finalRec,
         activityLevel: solarContext.solarActivityLevel,
         timestamp: now.toISOString(),
-      })
+      }
+      publicFeed.unshift(feedEntry)
       if (publicFeed.length > MAX_FEED_ENTRIES) publicFeed.pop()
+      storeFeedInRedis(feedEntry)
     }
 
-    return {
+    const result: EnhancedGovernanceDecision = {
       originalRecommendation,
       solarContext: {
         solarActivityLevel: solarContext.solarActivityLevel,
@@ -266,6 +371,15 @@ export class DynamoSolarGovernance {
       spectralQuality: hammer.spectralQuality,
       neuralContextUsed: hammer.neuralContextUsed,
     }
+
+    // Persist every query+response to Redis for durable history
+    storeInRedis({
+      proposal: originalRecommendation,
+      timestamp: now.toISOString(),
+      response: result,
+    })
+
+    return result
   }
 }
 

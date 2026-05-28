@@ -55,3 +55,12 @@ export async function subscribe(channel: string, callback: (message: string) => 
 export function getMode() {
   return pubsubMode
 }
+
+/** Get the shared Redis client for data storage (not just pub/sub). */
+export async function getRedisClient(): Promise<any> {
+  if (pubsubMode === 'redis') {
+    const { client } = await getRedis()
+    return client
+  }
+  return null
+}

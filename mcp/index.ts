@@ -5,7 +5,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { publish, subscribe } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
-import { dynamoSolarGovernance, getPublicFeed } from './lib/dynamoSolarGovernance.js'
+import { dynamoSolarGovernance, getPublicFeed, getHistory } from './lib/dynamoSolarGovernance.js'
 
 // ===== Inlined: isotopicSignal.ts =====
 interface CorrelationResult {
@@ -1495,6 +1495,12 @@ app.post('/govern_with_solar', async (c: Context) => {
 
 app.get('/public_feed', (c: Context) => {
   return c.json({ success: true, entries: getPublicFeed() })
+})
+
+app.get('/history', async (c: Context) => {
+  const n = Math.min(parseInt(c.req.query('n') || '100', 10) || 100, 1000)
+  const entries = await getHistory(n)
+  return c.json({ success: true, entries, count: entries.length })
 })
 
 app.get('/call_connected_tool', (c: Context) => {
