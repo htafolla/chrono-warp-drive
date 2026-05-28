@@ -48,9 +48,12 @@ export interface EnhancedGovernanceDecision {
 
 export class DynamoSolarGovernance {
   
+  private historyBuffer: Map<string, Array<{ score: number; timestamp: string }>> = new Map();
+
   async enhanceGovernanceDecision(
     originalRecommendation: string,
     baseVoteWeight: number = 1.0,
+    sharePublicly: boolean = false,
     spectralQuality?: number,
   ): Promise<EnhancedGovernanceDecision> {
     const solarContext = await solarGovernance.getSolarContextForGovernance();
@@ -112,6 +115,47 @@ export class DynamoSolarGovernance {
     const finalRec = hammerRec === 'PASS' ? 'PASS' : hammerRec === 'REJECT' ? 'REJECT' : 'NEEDS_REVISION';
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r * 100).toFixed(0)}%]`;
 
+    const now = new Date();
+    const timestamp = now.toISOString();
+
+    if (!this.historyBuffer.has(originalRecommendation)) {
+      this.historyBuffer.set(originalRecommendation, []);
+    }
+    const proposalHistory = this.historyBuffer.get(originalRecommendation)!;
+    proposalHistory.push({ score: r, timestamp });
+
+    const threeMinAgo = now.getTime() - 3 * 60 * 1000;
+    while (proposalHistory.length > 0 && new Date(proposalHistory[0].timestamp).getTime() < threeMinAgo) {
+      proposalHistory.shift();
+    }
+    if (proposalHistory.length > 10) {
+      proposalHistory.splice(0, proposalHistory.length - 10);
+    }
+
+    const recentScores = proposalHistory.map(h => h.score);
+    const smoothedResonance = recentScores.length > 0
+      ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length
+      : r;
+
+    let trend: 'rising' | 'falling' | 'stable' = 'stable';
+    if (recentScores.length >= 3) {
+      const half = Math.floor(recentScores.length / 2);
+      const firstHalf = recentScores.slice(0, half).reduce((a, b) => a + b, 0) / half;
+      const secondHalf = recentScores.slice(half).reduce((a, b) => a + b, 0) / (recentScores.length - half);
+      if (secondHalf - firstHalf > 0.02) trend = 'rising';
+      else if (firstHalf - secondHalf > 0.02) trend = 'falling';
+    }
+
+    const momentum = recentScores.length >= 2
+      ? recentScores[recentScores.length - 1] - recentScores[recentScores.length - 2]
+      : 0;
+
+    const peakForecast = {
+      estimatedPeakResonance: Math.min(1, r + Math.abs(momentum) * 3),
+      minutesToPeak: trend === 'rising' ? Math.max(1, Math.round((1 - r) / (Math.abs(momentum) + 0.01))) : 0,
+      windowQuality: (trend === 'rising' && momentum > 0) ? 'optimal' as const : (trend === 'falling' ? 'declining' as const : 'good' as const),
+    };
+
     return {
       originalRecommendation,
       solarContext: {
@@ -133,17 +177,16 @@ export class DynamoSolarGovernance {
       crossCorrelationLag: hammer.crossCorrelationLag,
       signalTiming: hammer.signalTiming,
       synchronization: hammer.synchronization,
-      momentum: 0,
-      peakForecast: {
-        estimatedPeakResonance: r,
-        minutesToPeak: 0,
-        windowQuality: 'good' as const,
-      },
+      smoothedResonance,
+      trend,
+      momentum,
+      peakForecast,
       adaptiveThresholds: thresholds,
       recommendation: finalRec,
       confidence: hammerConf,
       isSolarHammer: true,
       hammerReason,
+      resonanceHistory: [...proposalHistory],
       spectralQuality: hammer.spectralQuality,
       neuralContextUsed: hammer.neuralContextUsed,
     };

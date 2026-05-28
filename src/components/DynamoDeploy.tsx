@@ -391,6 +391,12 @@ export default function DynamoDeploy() {
         <div className="text-center">
           <h1 className="text-3xl font-bold text-white tracking-tight"><span className="text-2xl">⚡</span> Dynamo</h1>
           <p className="text-xs text-white/60 mt-1">Resonance-Driven · Solar Context · Neural Metrics</p>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <a href="https://dynamo-docs.vercel.app" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">Docs</a>
+            <a href="https://dynamo-docs.vercel.app/about" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">About</a>
+            <a href="https://github.com/htafolla/chrono-warp-drive" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">GitHub</a>
+            <a href="https://x.com/blaze0x1" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">X / @blaze0x1</a>
+          </div>
         </div>
 
         {/* Three service cards — grid row, icon left of text */}

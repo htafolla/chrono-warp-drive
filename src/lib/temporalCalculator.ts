@@ -136,7 +136,7 @@ export function blackHoleSequence(voids: number, n: number): number {
 export function generateRippel(time: number, tPTT_value: number, E_t: number): string {
   const words = ["surge", "pivot", "chrono"];
   const word = words[Math.floor(time) % 3];
-  return `a ${word}. ${word} bends time. tPTT: ${tPTT_value.toFixed(2)}, E_t: ${E_t.toFixed(3)} ~ zap 🌠`;
+  return `a ${word}. ${word} bends time. tPTT: ${tPTT_value.toFixed(2)}, E_t: ${E_t.toFixed(3)}`;
 }
 
 // TLM Validation

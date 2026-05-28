@@ -66,11 +66,12 @@ app.post('/govern-with-solar', async (req, res) => {
       return res.status(400).json({ error: 'proposal is required' })
     }
 
+    const sharePublicly = req.body.sharePublicly === true
     const sq = spectralQuality !== undefined ? Number(spectralQuality) : undefined
     const enhancedDecision = await dynamoSolarGovernance.enhanceGovernanceDecision(
       proposal,
       baseVoteWeight,
-      false,
+      sharePublicly,
       sq,
     )
 

@@ -18,14 +18,9 @@ The **Blurrn Unified Resonance & Relativity Navigator** models, simulates, and o
 
 ## Documentation
 
-Detailed specifications for each subsystem:
+**Current system:** [DYNAMO-CURRENT-STATE.md](docs/DYNAMO-CURRENT-STATE.md) — what Dynamo actually is today.
 
-| Document | Covers |
-|----------|--------|
-| [v4.5 Full Spectrum Codex](docs/Blurrn-Quantum-Codex-v4.5-Full-Spectrum.md) | Core constants, 15 formulas, Trinitarium philosophy |
-| [v4.6 Overview](docs/Blurrn-Quantum-Codex-v4.6-Overview.md) | Time Machine Ascension, neural fusion |
-| [v4.5→v4.8 Complete Spec](docs/Blurrn-Quantum-Codex-v4.5-to-v4.8-Complete-Research-Spec.md) | Full evolution — all formulas defined book-level |
-| [v4.8 Isotopic Temporal Vortex](docs/V4.8-Isotopic-Temporal-Vortex-Spec.md) | Isotopic signals, cross-correlation, vortex volume |
+**Legacy (exploratory foundation):** The [Blurrn Quantum Codex](docs/legacy/) — theoretical temporal physics framework from which Dynamo derived the TDF concept.
 
 ## Quick Start
 

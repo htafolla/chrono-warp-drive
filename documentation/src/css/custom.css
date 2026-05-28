@@ -1,0 +1,232 @@
+:root {
+  --ifm-color-primary: #00b8e6;
+  --ifm-color-primary-dark: #00a6cf;
+  --ifm-color-primary-darker: #0099bf;
+  --ifm-color-primary-darkest: #007e9e;
+  --ifm-color-primary-light: #00c4ff;
+  --ifm-color-primary-lighter: #1acaff;
+  --ifm-color-primary-lightest: #4dd4ff;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-background-color: #0a0a0f;
+  --ifm-background-surface-color: rgba(255, 255, 255, 0.03);
+  --ifm-navbar-background-color: #0a0a0f;
+  --ifm-footer-background-color: #0a0a0f;
+  --ifm-hero-background-color: #0a0a0f;
+  --ifm-card-background-color: rgba(255, 255, 255, 0.03);
+  --ifm-font-color-base: #e0e0e0;
+  --ifm-font-color-secondary: rgba(255, 255, 255, 0.6);
+  --ifm-heading-color: #ffffff;
+  --ifm-link-color: #00c4ff;
+  --ifm-link-hover-color: #4dd4ff;
+  --ifm-code-background: rgba(255, 255, 255, 0.05);
+  --ifm-pre-background: rgba(255, 255, 255, 0.03);
+  --ifm-toc-border-color: rgba(255, 255, 255, 0.1);
+  --ifm-hr-border-color: rgba(255, 255, 255, 0.1);
+  --ifm-table-border-color: rgba(255, 255, 255, 0.1);
+  --ifm-table-stripe-background: rgba(255, 255, 255, 0.02);
+  --ifm-alert-background-color: rgba(0, 196, 255, 0.07);
+  --ifm-alert-border-color: rgba(0, 196, 255, 0.3);
+  --ifm-menu-color: rgba(255, 255, 255, 0.6);
+  --ifm-menu-color-active: #00c4ff;
+  --ifm-menu-color-background-active: rgba(0, 196, 255, 0.08);
+  --ifm-menu-color-background-hover: rgba(255, 255, 255, 0.04);
+  --ifm-breadcrumb-color-active: #00c4ff;
+  --ifm-dropdown-background-color: #14141e;
+  --ifm-scrollbar-track-background-color: transparent;
+  --ifm-scrollbar-thumb-background-color: rgba(255, 255, 255, 0.1);
+  --ifm-color-info: #00c4ff;
+  --ifm-color-info-dark: #00a6cf;
+  --ifm-color-info-darker: #0099bf;
+  --ifm-color-info-darkest: #007e9e;
+  --ifm-color-info-light: #1acaff;
+  --ifm-color-info-lighter: #4dd4ff;
+  --ifm-color-info-lightest: #80dfff;
+  --ifm-color-success: #00e673;
+  --ifm-color-warning: #f59e0b;
+  --ifm-color-danger: #ef4444;
+  --ifm-badge-background-color: rgba(255, 255, 255, 0.05);
+  --ifm-badge-border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #00b8e6;
+  --ifm-color-primary-dark: #00a6cf;
+  --ifm-color-primary-darker: #0099bf;
+  --ifm-color-primary-darkest: #007e9e;
+  --ifm-color-primary-light: #00c4ff;
+  --ifm-color-primary-lighter: #1acaff;
+  --ifm-color-primary-lightest: #4dd4ff;
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.06);
+  --ifm-background-color: #0a0a0f;
+  --ifm-background-surface-color: rgba(255, 255, 255, 0.03);
+  --ifm-navbar-background-color: #0a0a0f;
+  --ifm-footer-background-color: #0a0a0f;
+  --ifm-hero-background-color: #0a0a0f;
+  --ifm-card-background-color: rgba(255, 255, 255, 0.03);
+  --ifm-font-color-base: #e0e0e0;
+  --ifm-font-color-secondary: rgba(255, 255, 255, 0.6);
+  --ifm-heading-color: #ffffff;
+  --ifm-link-color: #00c4ff;
+  --ifm-link-hover-color: #4dd4ff;
+  --ifm-code-background: rgba(255, 255, 255, 0.05);
+  --ifm-pre-background: rgba(255, 255, 255, 0.03);
+  --ifm-toc-border-color: rgba(255, 255, 255, 0.1);
+  --ifm-hr-border-color: rgba(255, 255, 255, 0.1);
+  --ifm-table-border-color: rgba(255, 255, 255, 0.1);
+  --ifm-table-stripe-background: rgba(255, 255, 255, 0.02);
+  --ifm-alert-background-color: rgba(0, 196, 255, 0.07);
+  --ifm-alert-border-color: rgba(0, 196, 255, 0.3);
+  --ifm-menu-color: rgba(255, 255, 255, 0.6);
+  --ifm-menu-color-active: #00c4ff;
+  --ifm-menu-color-background-active: rgba(0, 196, 255, 0.08);
+  --ifm-menu-color-background-hover: rgba(255, 255, 255, 0.04);
+  --ifm-breadcrumb-color-active: #00c4ff;
+  --ifm-dropdown-background-color: #14141e;
+  --ifm-scrollbar-track-background-color: transparent;
+  --ifm-scrollbar-thumb-background-color: rgba(255, 255, 255, 0.1);
+  --ifm-color-info: #00c4ff;
+  --ifm-color-info-dark: #00a6cf;
+  --ifm-color-info-darker: #0099bf;
+  --ifm-color-info-darkest: #007e9e;
+  --ifm-color-info-light: #1acaff;
+  --ifm-color-info-lighter: #4dd4ff;
+  --ifm-color-info-lightest: #80dfff;
+  --ifm-color-success: #00e673;
+  --ifm-color-warning: #f59e0b;
+  --ifm-color-danger: #ef4444;
+  --ifm-badge-background-color: rgba(255, 255, 255, 0.05);
+  --ifm-badge-border-color: rgba(255, 255, 255, 0.1);
+}
+
+.hero--primary {
+  --ifm-hero-text-color: #ffffff;
+}
+
+[data-theme='dark'] .hero--primary {
+  --ifm-hero-text-color: #ffffff;
+}
+
+.navbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.navbar__link:hover,
+.navbar__link--active {
+  color: #00c4ff;
+}
+
+.footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.footer__link-item:hover {
+  color: #00c4ff;
+}
+
+.markdown a {
+  color: #00c4ff;
+}
+
+.markdown a:hover {
+  color: #4dd4ff;
+}
+
+.markdown pre code {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.markdown table tr:nth-child(2n) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(0, 196, 255, 0.3);
+}
+
+.button.button--secondary {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.button.button--secondary:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.pagination-nav__link {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pagination-nav__link:hover {
+  border-color: rgba(0, 196, 255, 0.3);
+}
+
+.theme-doc-sidebar-container {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.theme-doc-version-badge {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+code {
+  color: #e0e0e0;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+pre {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+table {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+blockquote {
+  border-left-color: #00c4ff;
+  background-color: rgba(0, 196, 255, 0.04);
+}
+
+details {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.admonition {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
