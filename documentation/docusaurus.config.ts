@@ -42,12 +42,12 @@ const config: Config = {
       defaultMode: 'dark',
       disableSwitch: true,
     },
-    image: 'img/dynamo-social.png',
+    image: 'img/dynamo-logo.png',
     navbar: {
       title: 'Dynamo',
       logo: {
         alt: 'Dynamo',
-        src: 'img/logo.svg',
+        src: 'img/dynamo-logo.png',
       },
       items: [
         {type: 'doc', docId: 'overview', position: 'left', label: 'Docs'},
