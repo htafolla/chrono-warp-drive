@@ -296,7 +296,7 @@ module.exports = async (context, tool) => {
 
 ## Codex
 
-StringRay enforces Universal Development Codex (60 terms) for systematic error prevention. See [.opencode/strray/codex.json](https://github.com/htafolla/stringray/blob/master/.opencode/strray/codex.json) for full reference.
+StringRay enforces Universal Development Codex (60 terms) for systematic error prevention. See [.opencode/strray/codex.json](.opencode/strray/codex.json) for full reference.
 
 ## Configuration Files Reference
 
@@ -658,8 +658,7 @@ npx strray-ai --version
 ## Documentation
 
 - [Full Documentation](https://github.com/htafolla/stringray)
-- [Configuration Guide](https://github.com/htafolla/stringray/blob/master/docs/CONFIGURATION.md)
-- [Troubleshooting](https://github.com/htafolla/stringray/blob/master/docs/TROUBLESHOOTING.md)
+- [Guides](https://github.com/htafolla/stringray/tree/master/docs/guides)
 
 ---
 **Version**: 1.22.60 | [GitHub](https://github.com/htafolla/stringray)

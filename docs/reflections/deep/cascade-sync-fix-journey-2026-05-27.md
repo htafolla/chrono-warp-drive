@@ -162,4 +162,4 @@ Fixing it required stepping back from the formula and asking what question sync 
 
 - The quiet-sun adaptive thresholds (currently 0.82/0.72/0.58) may need recalibration now that sync is no longer artificially deflating scores for every proposal. The old thresholds were tuned when sync was at ~15% noise floor; they may be unnecessarily permissive with sync now working correctly.
 - `signalTiming` (`leading`/`trailing`/`synced`) uses the cascade indices, which are still hashes. The label is an orientation hint, not a precise measurement — and the docs should say so explicitly. Consider replacing cascade-based timing with phase-coherence-based timing in a future pass.
-- [codex.json](../../.opencode/strray/codex.json) — term 5 (Guard Against Semantic Drift), term 7 (Test the Null Hypothesis), term 32 (Ground Every Metric)
+- [codex.json](../../../.opencode/strray/codex.json) — term 5 (Guard Against Semantic Drift), term 7 (Test the Null Hypothesis), term 32 (Ground Every Metric)

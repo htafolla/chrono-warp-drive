@@ -53,7 +53,7 @@ export default function About(): ReactNode {
             <strong>@blaze0x1</strong> —{' '}
             <Link to="https://x.com/blaze0x1">X / Twitter</Link>
             {' | '}
-            <Link to="https://github.com/blaze0x1">GitHub</Link>
+            <Link to="https://github.com/htafolla">GitHub</Link>
           </p>
           <p>
             If you have questions, ideas, or just want to talk about solar governance
