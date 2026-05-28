@@ -27,7 +27,12 @@ export function computeFullTDF(params: VortexTdfParams): { tptt: number; bhs: nu
   const tptt = tPTT(params.T_c, params.P_s, params.E_t, params.delta_t);
   const bhs = blackHoleSequence(params.voids, params.bhs_n);
   const rawTdf = tptt * TAU * (1 / bhs);
-  const fingerprint = Math.round(rawTdf / 1e9) % 100000000;
+  // Normalize to 5.78e12 base preserving fine structure.
+  // Use fractional part of (rawTdf / 1e9) so fingerprint captures variation
+  // for both terrestrial-scale (10^7-10^9) and cosmic-scale inputs.
+  const scaled = rawTdf / 1e9;
+  const frac = scaled - Math.floor(scaled);
+  const fingerprint = Math.round(frac * 100000000) % 100000000;
   const tdf = 5.781e12 + fingerprint;
   return { tptt, bhs, tdf };
 }

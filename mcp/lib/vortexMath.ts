@@ -28,10 +28,13 @@ export function computeFullTDF(params: VortexTdfParams): { tptt: number; bhs: nu
   const tptt = tPTT(params.T_c, params.P_s, params.E_t, params.delta_t);
   const bhs = blackHoleSequence(params.voids, params.bhs_n);
   const rawTdf = tptt * TAU * (1 / bhs);
-  // Raw TDF is ~10^16-10^17 (from C/delta_t = 3e14), which exceeds JS float64
-  // safe integer range (2^53 ≈ 9e15), breaking % math in phaseCoherence and
-  // calculateIsotopicRatio. Normalize to 5.78e12 base preserving vortex variation.
-  const fingerprint = Math.round(rawTdf / 1e9) % 100000000;
+  // Normalize to 5.78e12 base preserving fine structure.
+  // Use the fractional part of (rawTdf / 1e9) so that the fingerprint captures
+  // variation regardless of TDF magnitude — works for both terrestrial-scale
+  // inputs (10^7-10^9) and cosmic-scale inputs (10^16-10^17+).
+  const scaled = rawTdf / 1e9;
+  const frac = scaled - Math.floor(scaled);
+  const fingerprint = Math.round(frac * 100000000) % 100000000;
   const tdf = 5.781e12 + fingerprint;
   return { tptt, bhs, tdf };
 }

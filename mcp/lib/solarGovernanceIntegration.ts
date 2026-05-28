@@ -41,17 +41,18 @@ function deriveProposalCodexParams(words: string[], solarData: SolarData): Vorte
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
   const wordCount = Math.max(effective.length, 1)
   const combined = effective.join(' ')
-  const uniqueCount = new Set(effective).size
-
-  // T_c: Time constant scales with proposal length (0.5 for empty → ~2.5 for 100 words)
-  const T_c = 0.5 + (wordCount / 50)
-
-  // P_s: Power spectral from FNV hash of full text
+  const totalChars = combined.length
+  const uniqueChars = new Set(combined).size
   const hashVal = fnvHash(combined)
-  const P_s = 0.1 + (hashVal % 10000) / 10000
 
-  // E_t: Entropy from word variety (0.1 all-same → 1.1 all-unique)
-  const E_t = 0.1 + (uniqueCount / wordCount)
+  // T_c: Word count + character diversity. Dense text = larger time constant.
+  const T_c = 0.5 + (wordCount / 50) + (uniqueChars / Math.max(totalChars, 1)) * 0.5
+
+  // P_s: Power spectral from FNV hash (wider range for fine-grained variation)
+  const P_s = 0.1 + (hashVal % 100000) / 100000
+
+  // E_t: Entropy from character-level uniqueness (not just word-level)
+  const E_t = 0.1 + (uniqueChars / Math.max(totalChars, 1))
 
   // delta_t: Solar-modulated time step (activity increases resolution)
   const activityOrdinal = ACTIVITY_ORDINAL[solarData.activityLevel] ?? 1
@@ -60,8 +61,8 @@ function deriveProposalCodexParams(words: string[], solarData: SolarData): Vorte
   // voids: Fixed at 7 for proposals (independent of solar context)
   const voids = 7
 
-  // bhs_n: Proposal complexity from word count (2–5 range)
-  const bhs_n = 2 + (wordCount % 4)
+  // bhs_n: Content-dependent from hash (2–5 range), not just wordCount modulo
+  const bhs_n = 2 + (hashVal % 4)
 
   return { T_c, P_s, E_t, delta_t, voids, bhs_n }
 }

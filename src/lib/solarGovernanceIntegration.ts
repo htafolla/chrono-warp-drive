@@ -35,16 +35,17 @@ function deriveProposalCodexParams(words: string[], solarData: SolarData): Vorte
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
   const wordCount = Math.max(effective.length, 1)
   const combined = effective.join(' ')
-  const uniqueCount = new Set(effective).size
-
-  const T_c = 0.5 + (wordCount / 50)
+  const totalChars = combined.length
+  const uniqueChars = new Set(combined).size
   const hashVal = fnvHash(combined)
-  const P_s = 0.1 + (hashVal % 10000) / 10000
-  const E_t = 0.1 + (uniqueCount / wordCount)
+
+  const T_c = 0.5 + (wordCount / 50) + (uniqueChars / Math.max(totalChars, 1)) * 0.5
+  const P_s = 0.1 + (hashVal % 100000) / 100000
+  const E_t = 0.1 + (uniqueChars / Math.max(totalChars, 1))
   const activityOrdinal = ACTIVITY_ORDINAL[solarData.activityLevel] ?? 1
   const delta_t = 1 + activityOrdinal * 2
   const voids = 7
-  const bhs_n = 2 + (wordCount % 4)
+  const bhs_n = 2 + (hashVal % 4)
 
   return { T_c, P_s, E_t, delta_t, voids, bhs_n }
 }
