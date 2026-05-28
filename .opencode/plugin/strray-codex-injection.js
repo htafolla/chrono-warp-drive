@@ -103,7 +103,7 @@ async function importSystemPromptGenerator() {
     const logger = await loadFrameworkLogger();
     logger.log("strray-codex-plugin", "system-prompt-generator-load-failed", "warning", { warning: "Failed to load lean system prompt generator, using fallback" });
 }
-async function loadStringRayComponents() {
+async function load0xRayComponents() {
     if (_ProcessorManager && _StrRayStateManager && _featuresConfigLoader)
         return;
     const logger = await getOrCreateLogger(process.cwd());
@@ -561,7 +561,7 @@ export default async function strrayCodexPlugin(input) {
             const logger = await getOrCreateLogger(directory);
             logger.log(`🚀 TOOL EXECUTE BEFORE HOOK FIRED: ${input.tool}`);
             logger.log(`📥 Full input: ${JSON.stringify(input)}`);
-            await loadStringRayComponents();
+            await load0xRayComponents();
             if (_featuresConfigLoader && _detectTaskType) {
                 try {
                     const config = _featuresConfigLoader.loadConfig();
@@ -660,7 +660,7 @@ export default async function strrayCodexPlugin(input) {
         },
         "tool.execute.after": async (input, _output) => {
             const logger = await getOrCreateLogger(directory);
-            await loadStringRayComponents();
+            await load0xRayComponents();
             const { tool, args, result } = input;
             try {
                 const { routingOutcomeTracker } = await import("../delegation/analytics/outcome-tracker.js");

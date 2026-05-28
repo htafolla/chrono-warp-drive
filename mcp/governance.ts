@@ -1,5 +1,5 @@
 // mcp/governance.ts - Dynamo Governance Layer v4.8.3 (Refined)
-// For 0xRay / StringRay - Isotopic Temporal Vortex Governance
+// For 0xRay - Isotopic Temporal Vortex Governance
 // Integrated into Dynamo MCP with real tool handlers
 
 import { Hono, Context } from 'hono'

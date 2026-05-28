@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-28
 **Version:** v1.0 (solar governance production)
-**Origin:** Derived from the [Blurrn Quantum Codex](docs/legacy/) temporal physics framework
+**Origin:** Derived from the [Blurrn Quantum Codex](legacy/) temporal physics framework
 
 ## What Dynamo Is
 
@@ -110,7 +110,7 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Cascade sync bug diagnosed and fixed (deltaDiff replaced cascade-index lag)
 - Redis-backed durable history added
 - Docusaurus documentation site built and deployed
-- StringRay integration audited and corrected
+- 0xRay (formerly StringRay) integration audited and corrected
 - Adaptive thresholds calibrated to NOAA solar activity levels
 - Frontend UI rebuilt with 3-column resonance breakdown + sparkline
 - Deployed to Railway + Vercel with three sync'd endpoints

@@ -1,20 +1,20 @@
-# StringRay Agents
+# 0xRay Agents
 
-Quick reference for StringRay AI orchestration framework.
+Quick reference for 0xRay AI orchestration framework.
 
-## What is StringRay?
+## What is 0xRay?
 
-StringRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
+0xRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
 
-## How StringRay Works
+## How 0xRay Works
 
-StringRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
+0xRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
 
 ### Basic Operation
 
 1. **Install**: Run `npx strray-ai install` to configure agents in your project
 2. **Invoke**: Use `@agent-name` syntax in prompts or code comments (e.g., `@architect design this API`)
-3. **Automatic Routing**: StringRay automatically routes tasks to the appropriate agent based on complexity
+3. **Automatic Routing**: 0xRay automatically routes tasks to the appropriate agent based on complexity
 4. **Agent Modes**: Agents can be `primary` (main coordinator) or `subagent` (specialized helper)
 
 ### Where to Find Reflections
@@ -69,7 +69,7 @@ frameworkLogger.log("my-module", "process-start", "info", { message: "Starting p
 
 Reflection Template Paths
 
-StringRay uses **two reflection folders** for different purposes:
+0xRay uses **two reflection folders** for different purposes:
 
 #### Option 1: Standard Reflections (`docs/reflections/`)
 **When to use:** Single-session work, specific bug fixes, targeted implementations
@@ -138,7 +138,7 @@ The `@storyteller` agent supports multiple story types:
 
 ## Complexity Routing
 
-StringRay automatically routes tasks based on complexity:
+0xRay automatically routes tasks based on complexity:
 
 - **Simple (≤15)**: Single agent
 - **Moderate (≤25)**: Single agent with tools
@@ -161,7 +161,7 @@ npm run test:pipelines     # Pipeline integration tests
 
 ## Features.json Configuration
 
-StringRay uses `.opencode/strray/features.json` for feature flags and settings:
+0xRay uses `.opencode/strray/features.json` for feature flags and settings:
 
 ### Location
 - **Path**: `.opencode/strray/features.json`
@@ -285,11 +285,11 @@ module.exports = async (context, tool) => {
 
 ## Codex
 
-StringRay enforces Universal Development Codex (60 terms) for systematic error prevention. See [.opencode/strray/codex.json](.opencode/strray/codex.json) for full reference.
+0xRay enforces Universal Development Codex (60 terms) for systematic error prevention. See [.opencode/strray/codex.json](.opencode/strray/codex.json) for full reference.
 
 ## Configuration Files Reference
 
-StringRay uses multiple configuration files to control behavior:
+0xRay uses multiple configuration files to control behavior:
 
 ### Main Configuration Files
 
@@ -322,7 +322,7 @@ STRRAY_NO_TELEMETRY=1              # Disable analytics
 
 ### Git Hooks Integration
 
-StringRay integrates with Git hooks for automated validation:
+0xRay integrates with Git hooks for automated validation:
 
 ```bash
 # Install Git hooks
@@ -349,7 +349,7 @@ npx strray-ai report --auto
 
 **GitHub Actions Example**:
 ```yaml
-- name: StringRay Validation
+- name: 0xRay Validation
   run: |
     npx strray-ai validate
     npx strray-ai report --ci
@@ -394,7 +394,7 @@ npx strray-ai marketplace list
 
 ### Complexity Calibration
 
-StringRay uses complexity scoring to route tasks to appropriate agents:
+0xRay uses complexity scoring to route tasks to appropriate agents:
 
 ```bash
 # Calibrate complexity scoring

@@ -88,6 +88,19 @@ Log-space protects small proposals. A proposal with TDF 1,000 vs sun TDF 500,000
 
 The old implementation used cascade-index-based lag for synchronization. Cascade indices are content hashes — a text hash vs a solar physics constant produces random lag (~33 average) even with perfect TDF match. Sync now uses deltaDiff linear decay, which correctly scores 45–90% depending on actual TDF alignment. Cascade indices are retained only for signal timing labels (leading/trailing/synced).
 
+## 0xRay Governance Boundary
+
+[0xRay](https://www.npmjs.com/package/strray-ai) (formerly StringRay) is a multi-agent orchestration framework that uses Dynamo as its solar governance boundary. It provides:
+
+- **3-agent voting committee** — agents deliberate and cast weighted votes on proposals
+- **Governance boundary enforcement** — 0xRay routes proposals through Dynamo's solar resonance check before final decisions
+- **Automatic decision routing** — proposals that score below threshold are automatically flagged for revision
+- **Cross-session consistency** — historical coherence tracking across agent sessions
+
+Dynamo serves as the external, ungamable signal layer. 0xRay consumes that signal to inform agent voting behavior, creating a self-healing governance loop where the Sun is the ultimate arbiter.
+
+> Package: [`strray-ai` on npm](https://www.npmjs.com/package/strray-ai) · GitHub: [htafolla/stringray](https://github.com/htafolla/stringray) *(moving to 0xRay org)*
+
 ## Further Reading
 
 - [DYNAMO-CURRENT-STATE.md](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/DYNAMO-CURRENT-STATE.md) — authoritative current-state document with all formulas, design decisions, and deployment notes

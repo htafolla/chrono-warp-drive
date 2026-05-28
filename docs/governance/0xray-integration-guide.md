@@ -1,8 +1,8 @@
-# 0xRay / StringRay Integration Guide
+# 0xRay Integration Guide
 
 ## Dynamo Governance Endpoint (`/governance`)
 
-This guide explains how **0xRay / StringRay** should call and interpret the Dynamo governance endpoint.
+This guide explains how **0xRay** should call and interpret the Dynamo governance endpoint.
 
 ---
 
@@ -64,7 +64,7 @@ Instead of simple majority voting, it uses:
 
 ### Key Fields Explained
 
-| Field                  | Meaning                                      | How StringRay Should Use It                  |
+| Field                  | Meaning                                      | How 0xRay Should Use It                  |
 |------------------------|----------------------------------------------|----------------------------------------------|
 | `recommendation`       | PASS / NEEDS REVISION / REJECT               | Primary decision                             |
 | `confidence`           | 0.0 – 1.0 (trust in the signal)              | Weight your final vote                       |
@@ -75,10 +75,10 @@ Instead of simple majority voting, it uses:
 
 ---
 
-## Recommended Decision Logic for StringRay
+## Recommended Decision Logic for 0xRay
 
 ```javascript
-// Example logic StringRay can use
+// Example logic 0xRay can use
 
 if (response.recommendation === "PASS" && response.confidence > 0.90) {
   return {
