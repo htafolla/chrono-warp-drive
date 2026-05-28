@@ -1,13 +1,19 @@
 // mcp/lib/solarGovernanceIntegration.ts
 // Integrates real-time solar data into Dynamo governance decisions
+// Uses the canonical Codex TDF formula (tPTT × TAU × 1/BHS) instead of FNV-1a.
+// The mapping layer derives Codex parameters (T_c, P_s, E_t, delta_t, voids, bhs_n)
+// from proposal text and NOAA solar data.
 
-import { fetchCurrentSolarData, SolarData } from './solarDataFetcher.js'
+import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataFetcher.js'
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
+import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
 // compute rich TDF with canonical formulas, create proper TemporalBlurrnSignal objects,
 // and derive resonance from the exact vortex crossCorrelate implementation.
+
+const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
 
 function normalizeProposalText(text: string): string {
   let t = text.toLowerCase();
@@ -17,26 +23,81 @@ function normalizeProposalText(text: string): string {
   return t.split(' ').filter(w => w && !stop.includes(w)).join(' ');
 }
 
-function wordFingerprint(word: string): number {
+function fnvHash(text: string): number {
   let h = 2166136261;
-  for (let i = 0; i < word.length; i++) {
-    h ^= word.charCodeAt(i);
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return Math.abs(h) % 999983;
+  return Math.abs(h);
 }
 
 const MIN_FINGERPRINT_WORDS = 3;
 const ANCHOR_WORDS = ['general', 'proposal', 'matter'];
 
-function computeProposalTdf(words: string[]): number {
-  if (words.length === 0) return 5.781e12 + 500000;
+function deriveProposalCodexParams(words: string[], solarData: SolarData): VortexTdfParams {
   const effective = words.length >= MIN_FINGERPRINT_WORDS
     ? words
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
-  let h = 0;
-  for (const w of effective) h ^= wordFingerprint(w);
-  return 5.781e12 + (h % 1000000);
+  const wordCount = Math.max(effective.length, 1)
+  const combined = effective.join(' ')
+  const uniqueCount = new Set(effective).size
+
+  // T_c: Time constant scales with proposal length (0.5 for empty → ~2.5 for 100 words)
+  const T_c = 0.5 + (wordCount / 50)
+
+  // P_s: Power spectral from FNV hash of full text
+  const hashVal = fnvHash(combined)
+  const P_s = 0.1 + (hashVal % 10000) / 10000
+
+  // E_t: Entropy from word variety (0.1 all-same → 1.1 all-unique)
+  const E_t = 0.1 + (uniqueCount / wordCount)
+
+  // delta_t: Solar-modulated time step (activity increases resolution)
+  const activityOrdinal = ACTIVITY_ORDINAL[solarData.activityLevel] ?? 1
+  const delta_t = 1 + activityOrdinal * 2
+
+  // voids: Fixed at 7 for proposals (independent of solar context)
+  const voids = 7
+
+  // bhs_n: Proposal complexity from word count (2–5 range)
+  const bhs_n = 2 + (wordCount % 4)
+
+  return { T_c, P_s, E_t, delta_t, voids, bhs_n }
+}
+
+function deriveSolarCodexParams(solarData: SolarData): VortexTdfParams {
+  const activityOrdinal = ACTIVITY_ORDINAL[solarData.activityLevel] ?? 1
+
+  // T_c: Solar activity scales the perceived time constant
+  const T_c = 0.5 + (activityOrdinal / 6)
+
+  // P_s: X-ray flux as power spectral (clamped to 0.1–100 range)
+  const P_s = Math.max(Math.min(solarData.xray.long * 1e7, 100), 0.1)
+
+  // E_t: Proton spectral index as entropy (higher index = more energetic = higher entropy)
+  const E_t = 0.1 + ((solarData.particles.spectralIndex || 0) / 10)
+
+  // delta_t: Activity-modulated time step
+  const delta_t = 1 + activityOrdinal * 2
+
+  // voids: Activity-dependent black hole voids (quiet=3, moderate=4, active=5, storm=6)
+  const voids = 3 + activityOrdinal
+
+  // bhs_n: Sequence index from KP index for solar variability
+  const bhs_n = 3 + (activityOrdinal % 3)
+
+  return { T_c, P_s, E_t, delta_t, voids, bhs_n }
+}
+
+function computeProposalTdf(words: string[], solarData: SolarData): number {
+  const params = deriveProposalCodexParams(words, solarData)
+  return computeFullTDF(params).tdf
+}
+
+function getSolarReferenceTdf(solarData: SolarData): number {
+  const params = deriveSolarCodexParams(solarData)
+  return computeFullTDF(params).tdf
 }
 
 // These derive cascade indices from content and solar data for signalTiming only.
@@ -52,16 +113,6 @@ function deriveCascadeFromContent(content: string): number {
 function deriveCascadeFromSolar(solarData: SolarData): number {
   return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100;
 }
-
-function getSolarReferenceTdf(solarData: SolarData): number {
-  const ts = Date.parse(solarData.timestamp || new Date().toISOString())
-  const kp = (solarData.kpIndex || 3) * 100000
-  const xray = Math.floor((solarData.xray?.long || 1e-6) * 1e15) % 10000000
-  const seed = ((ts % 10000000) + kp + xray) % 100000000
-  return 5.781e12 + seed
-}
-
-
 
 export interface SolarGovernanceContext {
   solarActivityLevel: string
@@ -167,11 +218,11 @@ export class SolarGovernanceIntegration {
    */
   async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number): Promise<StructuralResonanceResult> {
     try {
-      const solarData = await fetchCurrentSolarData()
+      const solarData = await solarDataFetcher.fetchCurrentSolarData()
 
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
-      const proposalTdf = computeProposalTdf(words)
+      const proposalTdf = computeProposalTdf(words, solarData)
 
       // Cascade index from content hash preserves signal timing (leading/trailing/synced)
       // independent of TDF magnitude — used only for signalTiming, not for sync score.

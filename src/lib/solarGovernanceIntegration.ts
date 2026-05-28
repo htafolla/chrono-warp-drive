@@ -1,10 +1,14 @@
 // src/lib/solarGovernanceIntegration.ts
 // Integrates real-time solar data into Dynamo governance decisions
+// Uses the canonical Codex TDF formula (tPTT × TAU × 1/BHS) instead of FNV-1a.
 
 import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
+import { computeFullTDF, VortexTdfParams } from './vortexMath';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
+const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
+
 function normalizeProposalText(text: string): string {
   let t = text.toLowerCase();
   t = t.replace(/[^\w\s?]/g, ' ');
@@ -13,34 +17,59 @@ function normalizeProposalText(text: string): string {
   return t.split(' ').filter(w => w && !stop.includes(w)).join(' ');
 }
 
-function wordFingerprint(word: string): number {
+function fnvHash(text: string): number {
   let h = 2166136261;
-  for (let i = 0; i < word.length; i++) {
-    h ^= word.charCodeAt(i);
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return Math.abs(h) % 999983;
+  return Math.abs(h);
 }
 
 const MIN_FINGERPRINT_WORDS = 3;
 const ANCHOR_WORDS = ['general', 'proposal', 'matter'];
 
-function computeProposalTdf(words: string[]): number {
-  if (words.length === 0) return 5.781e12 + 500000;
+function deriveProposalCodexParams(words: string[], solarData: SolarData): VortexTdfParams {
   const effective = words.length >= MIN_FINGERPRINT_WORDS
     ? words
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
-  let h = 0;
-  for (const w of effective) h ^= wordFingerprint(w);
-  return 5.781e12 + (h % 1000000);
+  const wordCount = Math.max(effective.length, 1)
+  const combined = effective.join(' ')
+  const uniqueCount = new Set(effective).size
+
+  const T_c = 0.5 + (wordCount / 50)
+  const hashVal = fnvHash(combined)
+  const P_s = 0.1 + (hashVal % 10000) / 10000
+  const E_t = 0.1 + (uniqueCount / wordCount)
+  const activityOrdinal = ACTIVITY_ORDINAL[solarData.activityLevel] ?? 1
+  const delta_t = 1 + activityOrdinal * 2
+  const voids = 7
+  const bhs_n = 2 + (wordCount % 4)
+
+  return { T_c, P_s, E_t, delta_t, voids, bhs_n }
 }
 
-function getSolarReferenceTdf(solarData: any): number {
-  const ts = Date.parse(solarData.timestamp || new Date().toISOString())
-  const kp = (solarData.kpIndex || 3) * 100000
-  const xray = Math.floor((solarData.xray?.long || 1e-6) * 1e15) % 10000000
-  const seed = ((ts % 10000000) + kp + xray) % 100000000
-  return 5.781e12 + seed
+function deriveSolarCodexParams(solarData: SolarData): VortexTdfParams {
+  const activityOrdinal = ACTIVITY_ORDINAL[solarData.activityLevel] ?? 1
+
+  const T_c = 0.5 + (activityOrdinal / 6)
+  const P_s = Math.max(Math.min(solarData.xray.long * 1e7, 100), 0.1)
+  const E_t = 0.1 + ((solarData.particles.spectralIndex || 0) / 10)
+  const delta_t = 1 + activityOrdinal * 2
+  const voids = 3 + activityOrdinal
+  const bhs_n = 3 + (activityOrdinal % 3)
+
+  return { T_c, P_s, E_t, delta_t, voids, bhs_n }
+}
+
+function computeProposalTdf(words: string[], solarData: SolarData): number {
+  const params = deriveProposalCodexParams(words, solarData)
+  return computeFullTDF(params).tdf
+}
+
+function getSolarReferenceTdf(solarData: SolarData): number {
+  const params = deriveSolarCodexParams(solarData)
+  return computeFullTDF(params).tdf
 }
 
 // Vortex-style cascade derivation (kept in sync with mcp/lib)
@@ -149,7 +178,7 @@ export class SolarGovernanceIntegration {
 
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
-      const proposalTdf = computeProposalTdf(words)
+      const proposalTdf = computeProposalTdf(words, solarData)
       const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
 
       const proposalSignal = new TemporalBlurrnSignal(

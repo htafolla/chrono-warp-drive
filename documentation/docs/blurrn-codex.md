@@ -22,13 +22,13 @@ The Blurrn Quantum Codex defines the cosmological and mathematical principles �
 
 **Time, Light, and Harmony (TLM):** The Codex uses a trinitarian model of light (Wave + Particle + Field) with TLM parameters L=3, φ=1.666.
 
-**Temporal Displacement Factor (TDF):** The concept Dynamo adopted. In the Codex, TDF is computed via tPTT × τ × (1/BlackHole_Seq). In Dynamo, it's an FNV-1a hash modulo 2^53.
+**Temporal Displacement Factor (TDF):** The concept Dynamo adopted. In the Codex, TDF is computed via tPTT × τ × (1/BlackHole_Seq). Dynamo now implements this **exact formula** — a mapping layer derives the 6 inputs (`T_c`, `P_s`, `E_t`, `delta_t`, `voids`, `bhs_n`) from proposal text and live NOAA solar data. The previous FNV-1a hash has been replaced with the true Codex TDF computation.
 
 **Photonic Transpondent Transporter (PTT):** Models data transport across time using light at c=3×10⁸ m/s. Not implemented in Dynamo.
 
 ## Relationship to Dynamo
 
-Dynamo extracts one concept — the TDF — and applies it deterministically against real NOAA solar data. The Codex's cascade cross-correlation becomes Dynamo's signal timing. The Codex's spectral quality becomes NeuralFusion's UI decoration. The formulas themselves (S_L, tPTT, BlackHole_Seq, E_t_growth) are **not implemented** in Dynamo — they are the theoretical inspiration, not the production code.
+Dynamo implements the **core Codex TDF formula** — `tPTT × τ × (1/BlackHole_Seq)` — with a mapping layer that derives Codex parameters from real NOAA solar data and proposal text. The Codex's cascade cross-correlation becomes Dynamo's signal timing. The Codex's spectral quality becomes NeuralFusion's spectral quality input. The legacy formulas (S_L, E_t_growth) remain theoretical inspiration; Dynamo operationalizes the TDF formula against real solar data.
 
 ## Full Specifications
 

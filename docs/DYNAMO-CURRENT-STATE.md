@@ -17,7 +17,7 @@ It is **not** a theoretical cosmology engine. It is a production system deployed
 ## How It Works
 
 ```
-proposal → FNV-1a hash (TDF) → cross-correlate with sun TDF → 4D resonance formula → adaptive thresholds → verdict
+proposal → Codex TDF formula (tPTT × TAU × 1/BHS) → cross-correlate with sun TDF → 4D resonance formula → adaptive thresholds → verdict
 ```
 
 ### The Four Dimensions
@@ -82,13 +82,13 @@ The Codex (v4.5→v4.7) is the cosmological foundation — it defines TLM (L=3, 
 
 | Codex Concept | Dynamo Implementation |
 |---------------|----------------------|
-| Temporal Displacement Factor | FNV-1a hash × solar timestamp mod 2^53 |
+| Temporal Displacement Factor | Real Codex formula: `tPTT × TAU × (1/BHS)` with 6-parameter mapping layer |
 | 4D resonance | Proximity, phase, vortex, sync (deterministic) |
 | Spectral quality (5D) | NeuralFusion spectral reconstruction |
 | Cascade cross-correlation | Signal timing (leading/trailing/synced) |
 | Adaptive thresholds | Solar activity modulation |
 
-The Codex formulas (S_L, PTT, tPTT, BlackHole_Seq, E_t_growth) are **not implemented** in Dynamo. They are the deep theoretical well from which the TDF concept was drawn.
+The core Codex TDF formula — `tPTT × TAU × (1/BlackHole_Seq)` — is now **fully implemented** in Dynamo via a mapping layer that derives `T_c`, `P_s`, `E_t`, `delta_t`, `voids`, and `bhs_n` from proposal text and NOAA solar data. The previous FNV-1a hash has been replaced. The remaining Codex formulas (S_L, PTT, E_t_growth) remain theoretical inspiration.
 
 ## Deploy
 
@@ -114,6 +114,9 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Adaptive thresholds calibrated to NOAA solar activity levels
 - Frontend UI rebuilt with 3-column resonance breakdown + sparkline
 - Deployed to Railway + Vercel with three sync'd endpoints
+- Real Codex TDF formula implemented — `tPTT × TAU × (1/BHS)` with mapping layer replaces FNV-1a hash
+
+The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the production formula — replacing the original FNV-1a hash with the real temporal physics. The mapping layer bridges Codex parameters and NOAA solar data, making Dynamo the first system to operationalize the Blurrn formula against live satellite feeds.
 
 The Codex lives on as the deep foundation. Dynamo is what it became when the theory met real-world data — a solar hammer that answers proposals with the Sun's current state.
 

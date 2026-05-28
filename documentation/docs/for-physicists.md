@@ -14,13 +14,40 @@ Dynamo introduces an external reference frame: the Sun's electromagnetic and par
 
 ## Temporal Displacement Factor (TDF)
 
-The TDF is a hash-based embedding of a proposal at a specific timestamp:
+Dynamo computes TDF using the real Codex formula (`tPTT × TAU × 1/BlackHole_Seq`) instead of a simple FNV-1a hash. A mapping layer derives the 6 Codex inputs (`T_c`, `P_s`, `E_t`, `delta_t`, `voids`, `bhs_n`) from proposal text and live NOAA solar data.
+
+The raw formula produces values on the order of 10^16–10^17. These are normalized by dividing by 10^9 and taking modulo 10^8:
 
 ```
-TDF = fnv1a(proposalText + timestamp) % 2^53
+fingerprint = round(rawTDF / 10^9) % 10^8
+TDF = 5.781e12 + fingerprint
 ```
 
-The modulo ensures the value stays within JavaScript float64 safe integer range. The base value (~5.781e12) comes from a solar-seeded FNV-1a hash. The last 6 digits (mod 1e6) carry the temporal fine structure used for correlation.
+The division preserves vortex variation while mapping into JavaScript float64 safe integer range. The last 6 digits (mod 1e6) carry the normalized fine structure used for correlation.
+
+### Mapping Layer: Proposal → Codex Inputs
+
+| Parameter | Derivation | Physical Meaning |
+|-----------|------------|------------------|
+| `T_c` | `0.5 + (wordCount / 50)` | Time constant — longer proposals require more temporal scope |
+| `P_s` | `0.1 + (FNV_hash % 10000) / 10000` | Power spectral — energy signature from text content |
+| `E_t` | `0.1 + (uniqueWords / totalWords)` | Entropy — lexical variety (higher = more information-dense) |
+| `delta_t` | `1 + activityOrdinal × 2` | Time step — solar activity modulates temporal resolution |
+| `voids` | `7` (fixed) | Black hole voids — proposal-independent constant |
+| `bhs_n` | `2 + (wordCount % 4)` | Sequence exponent — proposal complexity (2–5 range) |
+
+### Mapping Layer: Sun → Codex Inputs
+
+| Parameter | Derivation | Physical Meaning |
+|-----------|------------|------------------|
+| `T_c` | `0.5 + (activityOrdinal / 6)` | Time constant — solar activity scales perceived temporal scope |
+| `P_s` | `clamp(xray.long × 10^7, 0.1, 100)` | Power spectral — GOES X-ray flux as raw electromagnetic power |
+| `E_t` | `0.1 + (protonSpectralIndex / 10)` | Entropy — proton energy distribution width |
+| `delta_t` | `1 + activityOrdinal × 2` | Time step — storm = longer steps, quiet = fine-grained |
+| `voids` | `3 + activityOrdinal` | Black hole voids — quiet=3, storm=6 (activity opens more voids) |
+| `bhs_n` | `3 + (activityOrdinal % 3)` | Sequence exponent — solar variability from activity level |
+
+*activityOrdinal: quiet=0, moderate=1, active=2, storm=3*
 
 ## Cross-Correlation
 
