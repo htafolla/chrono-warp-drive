@@ -52,14 +52,16 @@ This ensures that even small relative differences between proposals produce dist
 
 ## Cross-Correlation
 
-Proposal and sun reference TDFs are cross-correlated using a sliding window:
+Proposal and sun reference TDFs are cross-correlated using `TemporalBlurrnSignal.crossCorrelate()`:
 
 ```
-strength = |proposalTDF - solarRefTDF| / maxRange
-lag = argmax over shifts of correlation(proposalTDF_shifted, solarRefTDF)
+strength = calculateIsotopicRatio(other) × phaseAlign
+lag = |cascade₁ - cascade₂|
 ```
 
-The lag determines signal timing orientation: positive lag means the proposal leads the sun, negative means it trails, near-zero means synced.
+Where `cascade` is derived from TDF fine structure (`⌊(TDF % 1e6) / 10000⌋ % 100`). The `strength` is a UI display value; `lag` measures coarse structural offset.
+
+Note: signalTiming (leading/trailing/synced) is no longer derived from cross-correlation lag. It comes from the Kuramoto oscillator phase ordering, which captures true temporal dynamics rather than content-hash orientation.
 
 ## Four Dimensions of Resonance
 
@@ -72,13 +74,15 @@ proximity = exp(-deltaDiff² / 1e12)
 
 A Gaussian (normal) kernel applied to the TDF fine-structure difference. The 1e12 denominator gives a half-width at half-maximum of ~833,000 — meaning a deltaDiff of ~583,000 yields proximity ~0.71. This is tight enough to discriminate among close TDFs while providing a smooth gradient.
 
-### 2. Phase Alignment (Linear)
+### 2. Phase Alignment (Kuramoto Oscillator Coupling)
 
 ```
-phaseAlignment = 1 - |proposalCoherence - sunCoherence|
+(orderParameter from N=3 Kuramoto model, clamped to [0.15, 0.99])
 ```
 
-Structural coherence is the ratio of the proposal's TDF to a solar reference seed. The linear difference penalizes deviation proportionally. A perfect match yields 1.0; a deltaCoherence of 0.08 yields 0.92.
+Replaces the static `|proposalCoherence - sunCoherence|` difference with a coupled-oscillator model. Three oscillators (proposal φ_p, sun φ_s, system φ_sys = (φ_p + φ_s)/2) evolve for 20 timesteps at K=0.5 coupling. The order parameter R = |⟨e^(iθ)⟩| measures how synchronized the oscillators are after evolution.
+
+A value of 0.99 means all three oscillators are phase-locked. A value of 0.15 means near-random phases (no coupling). The Kuramoto model actually captures temporal dynamics — drift rates, entrainment, detuning — that a static absolute difference cannot express.
 
 ### 3. Vortex Alignment (Log-Space)
 
@@ -127,6 +131,71 @@ structuralResonance_5D = 0.18·proximity + 0.18·phase + 0.27·vortex + 0.27·sy
 
 Each 4D weight is reduced by exactly 10% to accommodate the fifth dimension. This preserves the relative proportions of the original four dimensions.
 
+## Kuramoto Oscillator Coupling
+
+Kuramoto replaces three broken calculations with one coupled-oscillator model:
+
+| Replaced Value | Old Formula | Problem | Kuramoto Replacement |
+|---------------|-------------|---------|---------------------|
+| `phaseAlignment` | `1 - \|pc₁ - pc₂\|` | Noise floor at 13–24% (static, no temporal info) | Order parameter R from oscillator evolution |
+| `signalTiming` | `\|cascade₁ - cascade₂\| < 2` | Content-hash noise, arbitrary threshold | Phase ordering: φ_sun - φ_proposal |
+| `phaseCoherence*` | `sin²(2π·TAU·(TDF%√PHI))` | Purely TDF-dependent, no temporal dynamics | cos(φ) from evolved oscillator phase |
+
+### The Model
+
+Three coupled oscillators (N=3) with coupling strength K=0.5:
+
+```
+dθ_i/dt = ω_i + (K/N) Σ_j sin(θ_j - θ_i + φ_dark + S)
+```
+
+Where:
+- θ_0 = proposal phase (seeded from `(TDF % 1e6) / 1e6 × 2π`)
+- θ_1 = sun phase (seeded similarly from solar reference TDF)
+- θ_2 = system phase (seeded at `(θ_0 + θ_1) / 2`)
+- ω_i = natural frequencies (derived from TDF fine structure)
+- φ_dark = π/6 (dark energy offset from Codex)
+- S = 0.1 (fractal scaling)
+- N = 3 oscillators
+- K = 0.5 coupling strength
+- Timesteps: 20 iterations at Δt = 0.05
+
+### Order Parameter
+
+After evolution, the order parameter R measures synchronization:
+
+```
+R = orderParameter = sqrt( (Σcos(θ_j)/N)² + (Σsin(θ_j)/N)² )
+```
+
+R ranges from 0 (uniform random phases) to 1 (perfect phase lock). The result is clamped to [0.15, 0.99].
+
+### Signal Timing from Phase Ordering
+
+The phase difference Δ = θ_sun - θ_proposal determines signal timing:
+
+- |Δ| < 0.2 rad or |Δ| > 2π - 0.2 rad → **synced**
+- 0 < Δ < π → proposal is **leading** the sun
+- -π < Δ < 0 → proposal is **trailing** the sun
+
+### Why Kuramoto
+
+The prior approach had three independent heuristics for related temporal phenomena:
+
+1. **PhaseAlignment** used a static `1 - |PC₁ - PC₂|` difference. This is a snapshot — it tells you nothing about whether the two signals are drifting together, toward each other, or apart. PhaseCoherence itself is a deterministic function of TDF (`sin²(2π·TAU·(TDF%√PHI))`), so alignment was just a remapping of the same TDF values with extra squashing.
+
+2. **SignalTiming** compared cascade indices (content hashes) with an arbitrary threshold of `< 2`. Content hashes encode proposal semantics and solar physics separately — they aren't a temporal signal. The threshold was pulled from nowhere.
+
+3. **PhaseCoherence** values were purely TDF-dependent. They displayed the same information as the TDF itself, just through a sinusoidal lens.
+
+The Kuramoto model replaces all three with one well-studied dynamical system. The oscillators' phases evolve under mutual coupling (K=0.5) and natural frequency differences. This captures:
+- **Entrainment**: Do the proposal and sun tend to synchronize under the coupling?
+- **Detuning**: How different are their natural frequencies?
+- **Phase ordering**: Which oscillator leads, which trails?
+- **Transient behavior**: After 20 timesteps, have they settled into a steady state?
+
+This moves Dynamo from static TDF comparison to genuine temporal dynamics.
+
 ## Adaptive Thresholds
 
 The decision thresholds shift as a function of solar activity:
@@ -160,18 +229,22 @@ Window quality classifies the opportunity:
 - **Good**: rising but below 0.78, or stable at plateau, or falling but still ≥ 0.78
 - **Declining**: falling below 0.78, or any condition during storm activity
 
-## Why Cascade Indices Failed for Sync
+## Why Cascade Indices Failed
 
-The original implementation used cascade-index-based lag for synchronization:
+The original implementation used cascade-index-based lag for both synchronization and signal timing:
 
 ```
 lag = |cascadeA_index - cascadeB_index|
 sync = 1 / (1 + |lag| / 5)
 ```
 
-Cascade indices are FNV-1a hashes derived from domain-specific seeds (text content vs solar physics constants). They encode unrelated semantic information. Two proposals with identical TDFs can produce cascade indices differing by ~33 on average — a noise floor of ~13% sync even with perfect temporal alignment.
+Cascade indices were FNV-1a hashes derived from domain-specific seeds (text content vs solar physics constants). They encoded unrelated semantic information. Two proposals with identical TDFs could produce cascade indices differing by ~33.
 
-The fix replaced cascade lag with deltaDiff linear decay, which correctly scores 45–90% depending on actual TDF alignment. Cascade indices are retained only for signalTiming labels (leading/trailing/synced), where orientation — not alignment quality — is the relevant information.
+**Sync fix (Round 1):** Replaced cascade lag with deltaDiff linear decay. Verified working at 43–91% range.
+
+**Signal timing fix (Round 2 — Kuramoto):** Replaced cascade-index comparison for signalTiming (leading/trailing/synced) with oscillator phase lead/lag detection. Also replaced `1 - |phaseCoherence₁ - phaseCoherence₂|` with the Kuramoto order parameter. Cascade indices are now derived from TDF fine structure (not content hashes), used exclusively for cross-correlation lag display.
+
+All three prior representations — static phaseAlignment, content-hash cascade indices, arbitrary threshold signalTiming — were replaced by the single Kuramoto oscillator model.
 
 ## What This Is
 

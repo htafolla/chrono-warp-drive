@@ -5,6 +5,7 @@
 import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
+import { runKuramotoCoupling } from './kuramotoOscillators';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -73,17 +74,10 @@ function getSolarReferenceTdf(solarData: SolarData): number {
   return computeFullTDF(params).tdf
 }
 
-// Vortex-style cascade derivation (kept in sync with mcp/lib)
-// Cascade indices used for signalTiming only (leading/trailing/synced).
-// Alignment quality (sync score) uses deltaDiff directly — not cascade lag.
-function deriveCascadeFromContent(content: string): number {
-  let h = 0
-  for (let i = 0; i < content.length; i++) h = (h * 31 + content.charCodeAt(i)) | 0
-  return Math.abs(h) % 100
-}
-
-function deriveCascadeFromSolar(solarData: any): number {
-  return Math.floor((solarData.kpIndex || 3) * 7 + (solarData.xray?.hardnessRatio || 0) * 10) % 100
+// Cascade index for cross-correlation lag — derived from TDF fine structure,
+// not content hash (content hashes are now replaced by Kuramoto oscillators).
+function tdfCascade(tdf: number): number {
+  return Math.floor((tdf % 1e6) / 10000) % 100;
 }
 
 export interface SolarGovernanceContext {
@@ -180,7 +174,7 @@ export class SolarGovernanceIntegration {
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
       const proposalTdf = computeProposalTdf(words, solarData)
-      const propCascade = deriveCascadeFromContent(proposal || 'empty-proposal')
+      const propCascade = tdfCascade(proposalTdf)
 
       const proposalSignal = new TemporalBlurrnSignal(
         { content: proposal },
@@ -189,19 +183,21 @@ export class SolarGovernanceIntegration {
       )
 
       const solarRefTdf = getSolarReferenceTdf(solarData)
-      const sunCascade = deriveCascadeFromSolar(solarData)
+      const sunCascade = tdfCascade(solarRefTdf)
       const sunSignal = new TemporalBlurrnSignal(
         { source: 'sun', ...solarData },
         solarRefTdf,
         sunCascade
       )
 
+      const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf)
+
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
       const deltaDiff = Math.abs((proposalTdf % 1e6) - (solarRefTdf % 1e6))
       const proximity = Math.exp(-Math.pow(deltaDiff / 1e6, 2))
 
-      const phaseAlignment = 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence)
+      const phaseAlignment = kuramoto.phaseAlignment
 
       const logRatio = Math.abs(Math.log(Math.max(proposalTdf, 1)) - Math.log(Math.max(solarRefTdf, 1)))
       const logMax = Math.log(Math.max(proposalTdf, solarRefTdf, 1))
@@ -221,8 +217,7 @@ export class SolarGovernanceIntegration {
 
       const solarIsotopicResonance = structuralResonance
 
-      const cascadeDelta = propCascade - sunCascade
-      const signalTiming: 'leading' | 'trailing' | 'synced' = Math.abs(cascadeDelta) < 2 ? 'synced' : cascadeDelta > 0 ? 'leading' : 'trailing'
+      const signalTiming = kuramoto.signalTiming
 
       let activityModifier = 0
       switch (solarData.activityLevel) {
@@ -245,8 +240,8 @@ export class SolarGovernanceIntegration {
         solarActivityLevel: solarData.activityLevel || 'moderate',
         solarReferenceTdf: solarRefTdf,
         proposalTdf,
-        phaseCoherenceProposal: proposalSignal.phaseCoherence,
-        phaseCoherenceSun: sunSignal.phaseCoherence,
+        phaseCoherenceProposal: kuramoto.phaseCoherenceProposal,
+        phaseCoherenceSun: kuramoto.phaseCoherenceSun,
         vortexVolume: correlation.metadata?.vortexVolume ?? proposalTdf * solarRefTdf,
         activityModifier,
         spectralQuality: neuralContextUsed ? spectralQuality : undefined,
@@ -255,13 +250,11 @@ export class SolarGovernanceIntegration {
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
       const fallbackTdf = 5.781e12 + 424242
-      const proposalSignal = new TemporalBlurrnSignal({ content: proposal }, fallbackTdf, 42)
-      const sunSignal = new TemporalBlurrnSignal({ source: 'sun' }, fallbackTdf + 1000, 43)
 
       return {
         structuralResonance: 0.80,
         proximity: 0.80,
-        phaseAlignment: 1 - Math.abs(proposalSignal.phaseCoherence - sunSignal.phaseCoherence),
+        phaseAlignment: 0.80,
         vortexAlignment: Math.max(0.15, 1 - Math.abs(Math.log(Math.max(fallbackTdf, 1)) - Math.log(Math.max(fallbackTdf + 1000, 1))) / Math.log(Math.max(fallbackTdf, fallbackTdf + 1000, 1))),
         synchronization: 0.80,
         crossCorrelationStrength: 0.80,
@@ -271,8 +264,8 @@ export class SolarGovernanceIntegration {
         solarActivityLevel: 'moderate',
         solarReferenceTdf: fallbackTdf,
         proposalTdf: fallbackTdf,
-        phaseCoherenceProposal: proposalSignal.phaseCoherence,
-        phaseCoherenceSun: sunSignal.phaseCoherence,
+        phaseCoherenceProposal: 0.75,
+        phaseCoherenceSun: 0.75,
         vortexVolume: fallbackTdf * (fallbackTdf + 1000),
         activityModifier: 0,
         spectralQuality: undefined,
