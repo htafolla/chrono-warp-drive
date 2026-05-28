@@ -716,3 +716,67 @@ vercel --prod
 | Build fails: `npm: command not found` | Deployed from root without Node.js runtime | Deploy from `mcp/` where `package.json` is detected |
 | Railway health returns 404/error | Wrong `ENTRY_POINT` for the service | Check `railway variables` for the service |
 | Vercel shows wrong app | Wrong branch/project linked | `vercel link` then `vercel --prod` |
+
+---
+
+## Dynamo Project State
+
+Live services:
+- **MCP backend**: `https://mcp-production-80e2.up.railway.app` (Railway, deploys from `mcp/`)
+- **Frontend (dynamo-ui)**: `https://dynamo.rippel.ai` (Vercel, deploys from repo root)
+- **Docusaurus docs**: `https://dynamo-docs.vercel.app` (Vercel, deploys from `documentation/`)
+
+### Core Architecture
+
+| Component | File(s) | Purpose |
+|-----------|---------|---------|
+| Solar governance | `mcp/lib/solarGovernanceIntegration.ts`, `src/lib/` | 4D/5D resonance scoring, deltaDiff sync, Kuramoto phase coupling, adaptive thresholds |
+| Codex TDF formula | `mcp/lib/vortexMath.ts`, `src/lib/` | `tPTT × TAU × 1/BHS` with mapping layer (T_c, P_s, E_t, delta_t, voids, bhs_n) |
+| Kuramoto oscillators | `mcp/lib/kuramotoOscillators.ts`, `src/lib/` | N=3 model (K=0.5, φ_dark=π/6) replacing phaseAlignment, signalTiming, phaseCoherence |
+| Solar data fetcher | `mcp/lib/solarDataFetcher.ts` | NOAA GOES ingestion (xray, kp, particles, magnetometer, solarWind) |
+| Governance decisions | `mcp/lib/dynamoSolarGovernance.ts`, `src/lib/` | EnhancedGovernanceDecision, momentum/peak forecast, ring buffers, Redis-backed history |
+| MCP entry | `mcp/index.ts` | 20 tools, POST /govern_with_solar, GET /public_feed, GET /history |
+| NeuralFusion | (mcp TF.js) | `spectralQuality` feeds into governance as 5th dimension (10% weight) |
+
+### Key Design Decisions
+
+- **Formula**: 4D = proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30. 5D adds spectralQuality×0.10 with rebalance to 0.18/0.18/0.27/0.27.
+- **Sync**: deltaDiff linear decay (not cascade-index lag). Verified 43-91% range.
+- **Phase Alignment**: Kuramoto order parameter R from N=3 oscillator evolution. Verified 70-99% (was 13-24% noise floor).
+- **Signal Timing**: Kuramoto phase ordering (not content-hash cascade comparison).
+- **TDF normalization**: Fractional part of `rawTdf/1e9` (not integer `round()`). Reason: terrestrial inputs ~4e7-6e7 → integer round gives 0.
+- **Mapping layer**: Character-level entropy, 100k FNV granularity for P_s, content-dependent bhs_n.
+- **Vortex alignment**: Log-space ratio (protects small TDF proposals from 0.002 scores).
+- **Spectral Lift (S_L)**: Skipped — all TDFs > 1e6, threshold crossing always true.
+- **E_t_growth**: Skipped — introduces order-dependent bias.
+- **Cascade indices**: Replaced with `tdfCascade()` derived from TDF fine structure (cross-correlation lag only).
+- **Thresholds**: Adaptive by solar activity (quiet/moderate/active/storm). Storms require higher scores to PASS.
+- **Momentum/peak forecast**: Display-only.
+- **Redis**: Backed history (10,000 cap), graceful fallback to in-memory.
+- **0xRay (was StringRay)**: User-facing name changed; CLI, npm, dir paths preserved.
+
+### Relevant Files
+
+- `mcp/lib/solarGovernanceIntegration.ts` — Solar hammer, 4D/5D formulas, Kuramoto wiring
+- `src/lib/solarGovernanceIntegration.ts` — Frontend mirror
+- `mcp/lib/kuramotoOscillators.ts` — Kuramoto N=3 coupling model (canonical)
+- `src/lib/kuramotoOscillators.ts` — Frontend mirror
+- `mcp/lib/vortexMath.ts` — Codex TDF formula, fractional-part normalization
+- `src/lib/vortexMath.ts` — Frontend mirror
+- `mcp/lib/dynamoSolarGovernance.ts` — EnhancedGovernanceDecision, adaptive thresholds, Redis
+- `src/lib/dynamoSolarGovernance.ts` — Frontend mirror (no Redis)
+- `mcp/lib/temporalBlurrnSignal.ts` — TDF cross-correlation
+- `mcp/lib/solarDataFetcher.ts` — NOAA GOES ingestion
+- `mcp/index.ts` — Tool definitions, HTTP routes
+- `mcp/backend-server.ts` — Express entry point
+- `src/components/DynamoDeploy.tsx` — UI, sequential neural→governance
+- `src/__tests__/mcp.test.ts` — 97 tests, all pass
+- `docs/DYNAMO-CURRENT-STATE.md` — Authoritative current-state document
+- `docs/governance/0xray-integration-guide.md` — 0xRay integration
+- `documentation/docs/for-physicists.md` — Deep-dive docs (mapping tables, Kuramoto section)
+
+### Known Gaps / Next Possible Work
+
+- **Threshold recalibration**: Sync now correctly scores 62-95% (was ~9% noise), current quiet thresholds (0.82/0.72/0.58) may be too permissive.
+- **Codex v4.9/v5.0**: Write Codex update capturing deltaDiff sync, adaptive thresholds, 5D formula, Redis, Railway deploy, Kuramoto coupling.
+- **0xRay domain transition**: Update references when GitHub org moves to 0xRay.
