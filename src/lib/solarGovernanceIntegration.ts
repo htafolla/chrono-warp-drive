@@ -190,7 +190,7 @@ export class SolarGovernanceIntegration {
         sunCascade
       )
 
-      const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf)
+      const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 

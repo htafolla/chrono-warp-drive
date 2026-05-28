@@ -237,7 +237,7 @@ export class SolarGovernanceIntegration {
 
       // Kuramoto coupled-oscillator model replaces cascade-based signalTiming,
       // static phaseCoherence difference, and content-hash cascade indices.
-      const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf)
+      const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
       // Cross-correlate for full structural comparison (strength + lag + vortexVolume)
       const correlation = proposalSignal.crossCorrelate(sunSignal)
