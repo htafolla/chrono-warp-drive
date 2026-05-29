@@ -315,55 +315,57 @@ The current `vortexAlignment` formula (`1 − logRatio/logMax`) compresses all p
 
 The wave fields are returned as add-only A/B fields in the API response (`waveProximity`, `waveVortexAlignment`, `waveSynchronization`). The current TDF-based resonance formulas remain unchanged — wave scores are informative overlays only.
 
-### Hybrid Model (Production)
+### Hybrid Model (A/B Reference)
 
-As of May 2026, a **hybrid model** replaces the dead `vortexAlignment` dimension (always ~1.0, 0% spread) with a calibrated wave-based version. This is the first production use of wave physics in governance verdicts.
+The hybrid model replaces the dead `vortexAlignment` dimension (always ~1.0, 0% spread) with a calibrated wave-based version:
 
-**Hybrid formula:**
 ```
 hybrid4DComposite = proximity×0.20 + phaseAlignment×0.20 + hybridVortexAlignment×0.30 + synchronization×0.30
 ```
 
-Where `hybridVortexAlignment` is calibrated from the raw wave cross-correlation:
+Where `hybridVortexAlignment = pow(max(0.05, waveVortexAlignment), 0.25)`.
+
+### Full Box 6D Model (Production)
+
+As of v4.9, the **Full Box composite** is a 6D model that incorporates the two neural dimensions as first-class scoring elements alongside four physical wave dimensions:
+
 ```
-hybridVortexAlignment = pow(max(0.05, waveVortexAlignment), 0.25)
+fullBox6DComposite = waveProximity×0.15
+                   + phaseAlignment×0.20
+                   + calibratedVortex×0.15
+                   + calibratedSync×0.15
+                   + neuralProximity×0.175
+                   + neuralVortex×0.175
 ```
 
-Calibration mapping:
-| Raw waveVortexAlignment | Calibrated hybridVortexAlignment |
-|------------------------|----------------------------------|
-| 0.01 (floor) | 0.47 |
-| 0.10 | 0.56 |
-| 0.30 | 0.74 |
-| 0.50 | 0.84 |
-| 0.90 | 0.97 |
+**Weight rationale:** The neural dimensions (spread 0.25–0.31 across diverse proposals) are the best discriminators in the system. The three compressed physical dimensions (proximity ≡ 0.99, vortex ≈ 0.96, sync ≈ 0.93) produce a ~0.40 predetermined floor regardless of proposal, so they receive reduced weight. Phase alignment (Kuramoto, spread 0.30) is the strongest physical discriminator and receives 20%.
 
-**Governance verdict mapping** (hybrid model):
+**Graceful degradation:** When neural embeddings are unavailable (`neuralProximity = 0` and `neuralVortex = 0`), the 35% neural weight redistributes equally to the four physical dimensions (+8.75% each), yielding approximately the original 4D weight distribution.
+
+**Effective discrimination:** Previous 4D model had ~0.03 effective spread (76.5% predetermined floor). The 6D model has ~0.17 effective spread (40% floor, 55% driven by independently varying neural and phase signals) — a 5.7× improvement.
+
+**Governance verdict mapping** (6D Full Box):
 | Activity | PASS | NEEDS_REVISION | REJECT |
 |----------|------|----------------|--------|
-| Quiet | ≥0.82 | ≥0.50 | \&lt;0.50 |
-| Moderate | ≥0.88 | ≥0.54 | \&lt;0.54 |
-| Active | ≥0.88 | ≥0.54 | \&lt;0.54 |
-| Storm | ≥0.92 | ≥0.62 | \&lt;0.62 |
+| Quiet | ≥0.82 | ≥0.72 | ≥0.50 |
+| Moderate | ≥0.85 | ≥0.75 | ≥0.52 |
+| Active | ≥0.85 | ≥0.75 | ≥0.52 |
+| Storm | ≥0.88 | ≥0.80 | ≥0.58 |
 
-Note: the REJECT threshold is shifted −0.08 relative to the current model to account for the shifted score distribution caused by replacing a constant ~1.0 signal with a real 0.47–0.97 range.
-
-**A/B comparison fields:**
-- `fullWave4DComposite` — uses raw wave values for all 3 dimensions (no calibration)
-- `calibratedWave4DComposite` — uses calibrated vortex + calibrated sync
+Thresholds were lowered from the 4D model (moderate strong was 0.88) because the 6D model distributes scores lower when neural metrics are included — proposals that scored 0.93 under 4D now score 0.78 under 6D.
 
 ## Adaptive Thresholds
 
-The current TDF model uses these thresholds:
+The current TDF model uses these thresholds (hammer, 4D/5D):
 
 | Activity | PASS | NEEDS_REVISION | REJECT |
 |----------|------|----------------|--------|
-| Quiet | ≥0.82 | ≥0.72 | ≥0.58 | &lt;0.58 |
-| Moderate | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
-| Active | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
-| Storm | ≥0.92 | ≥0.84 | ≥0.70 | &lt;0.70 |
+| Quiet | ≥0.82 | ≥0.72 | ≥0.58 | <0.58 |
+| Moderate | ≥0.88 | ≥0.78 | ≥0.62 | <0.62 |
+| Active | ≥0.88 | ≥0.78 | ≥0.62 | <0.62 |
+| Storm | ≥0.92 | ≥0.84 | ≥0.70 | <0.70 |
 
-The hybrid model uses a separate threshold set with REJECT threshold shifted −0.08 (see [Hybrid Model section](#hybrid-model-production)).
+The hybrid model uses a separate threshold set. The 6D Full Box model uses the thresholds shown above.
 
 The underlying principle: when the reference signal is noisy (storm), require higher resonance to pass. When it's stable (quiet), lower thresholds suffice.
 

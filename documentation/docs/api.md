@@ -124,7 +124,9 @@ Submit a proposal for solar-resonance evaluation.
 | `fullBoxProximity` | number | Full Box model wave proximity (0–1) |
 | `fullBoxVortexAlignment` | number | Full Box calibrated wave vortex (0–1) |
 | `fullBoxSynchronization` | number | Full Box calibrated wave sync (0–1) |
-| `fullBox4DComposite` | number | Full Box 4D composite: waveProx×0.20 + phase×0.20 + calVortex×0.30 + calSync×0.30 |
+| `fullBoxNeuralProximity` | number | Full Box neural proximity (per-dim MSE, 0–1). 0 when neural embeddings unavailable |
+| `fullBoxNeuralVortex` | number | Full Box neural vortex (cosine similarity, 0–1). 0 when neural embeddings unavailable |
+| `fullBox4DComposite` | number | Full Box 6D composite: proximity×0.15 + phase×0.20 + calVortex×0.15 + calSync×0.15 + neuralProx×0.175 + neuralVortex×0.175 |
 | `fullBoxVerdict` | string | PASS \| NEEDS_REVISION \| REJECT |
 | `neuralSunEmbedding` | number[] | 16-dim sun neural embedding (from `/process-current-sun`) |
 | `neuralProposalEmbedding` | number[] | 16-dim proposal embedding (from `textToEmbedding16`) |
