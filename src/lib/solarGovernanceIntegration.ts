@@ -6,7 +6,7 @@ import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
-import { computeWaveResonance } from './wavePropagation';
+import { computeWaveResonance, computeHybridResonance } from './wavePropagation';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -173,6 +173,11 @@ export class SolarGovernanceIntegration {
     waveProximity: number
     waveVortexAlignment: number
     waveSynchronization: number
+    hybridVortexAlignment: number
+    hybrid4DComposite: number
+    hybridVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+    fullWave4DComposite: number
+    calibratedWave4DComposite: number
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -199,6 +204,15 @@ export class SolarGovernanceIntegration {
       const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
       const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf)
+
+      const hybrid = computeHybridResonance(
+        proximity,
+        phaseAlignment,
+        synchronization,
+        waveResonance.waveVortexAlignment,
+        waveResonance.waveSynchronization,
+        solarData.activityLevel,
+      )
 
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
@@ -259,6 +273,11 @@ export class SolarGovernanceIntegration {
         waveProximity: waveResonance.waveProximity,
         waveVortexAlignment: waveResonance.waveVortexAlignment,
         waveSynchronization: waveResonance.waveSynchronization,
+        hybridVortexAlignment: hybrid.hybridVortexAlignment,
+        hybrid4DComposite: hybrid.hybrid4DComposite,
+        hybridVerdict: hybrid.hybridVerdict,
+        fullWave4DComposite: hybrid.fullWave4DComposite,
+        calibratedWave4DComposite: hybrid.calibratedWave4DComposite,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -288,6 +307,11 @@ export class SolarGovernanceIntegration {
         waveProximity: 0.80,
         waveVortexAlignment: 0.80,
         waveSynchronization: 0.80,
+        hybridVortexAlignment: 0.80,
+        hybrid4DComposite: 0.80,
+        hybridVerdict: 'PASS' as const,
+        fullWave4DComposite: 0.80,
+        calibratedWave4DComposite: 0.80,
       }
     }
   }

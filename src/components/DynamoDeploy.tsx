@@ -143,6 +143,11 @@ interface GovernanceResult {
   waveProximity: number | null;
   waveVortexAlignment: number | null;
   waveSynchronization: number | null;
+  hybrid4DComposite: number | null;
+  hybridVerdict: string | null;
+  hybridVortexAlignment: number | null;
+  fullWave4DComposite: number | null;
+  calibratedWave4DComposite: number | null;
   smoothedResonance: number | null;
   trend: string | null;
   momentum: number | null;
@@ -221,6 +226,11 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const waveProximity = solar?.waveProximity != null ? Number(solar.waveProximity) : null;
   const waveVortexAlignment = solar?.waveVortexAlignment != null ? Number(solar.waveVortexAlignment) : null;
   const waveSynchronization = solar?.waveSynchronization != null ? Number(solar.waveSynchronization) : null;
+  const hybrid4DComposite = solar?.hybrid4DComposite != null ? Number(solar.hybrid4DComposite) : null;
+  const hybridVerdict = solar?.hybridVerdict || null;
+  const hybridVortexAlignment = solar?.hybridVortexAlignment != null ? Number(solar.hybridVortexAlignment) : null;
+  const fullWave4DComposite = solar?.fullWave4DComposite != null ? Number(solar.fullWave4DComposite) : null;
+  const calibratedWave4DComposite = solar?.calibratedWave4DComposite != null ? Number(solar.calibratedWave4DComposite) : null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
   const peakForecast = solar?.peakForecast ?? null;
   const adaptiveThresholds = solar?.adaptiveThresholds ?? null;
@@ -282,7 +292,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
-      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, momentum, peakForecast, adaptiveThresholds,
+      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, hybrid4DComposite, hybridVerdict, hybridVortexAlignment, fullWave4DComposite, calibratedWave4DComposite, momentum, peakForecast, adaptiveThresholds,
     };
   } catch {
     return null;
@@ -573,8 +583,39 @@ export default function DynamoDeploy() {
                     </details>
                   )}
                   </>
-                )}
-                {result.governanceConfidence != null && (
+                  )}
+                  {result.hybrid4DComposite != null && (
+                    <details className="mt-2">
+                      <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Hybrid (Phase 2)</summary>
+                      <div className="space-y-2 mt-1">
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-purple-500/60">Hybrid 4D</p>
+                          <p className="text-sm font-semibold text-white">{(result.hybrid4DComposite * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-purple-500/60">Hybrid Verdict</p>
+                          <p className={`text-sm font-semibold ${
+                            result.hybridVerdict === 'PASS' ? 'text-emerald-400' :
+                            result.hybridVerdict === 'REJECT' ? 'text-red-400' :
+                            'text-amber-400'
+                          }`}>{result.hybridVerdict}</p>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-purple-500/60">Wave Vortex (replaces dead current)</p>
+                          <p className="text-sm font-semibold text-purple-300">{(result.hybridVortexAlignment! * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-purple-500/60">Full Wave 4D</p>
+                          <p className="text-sm font-semibold text-purple-300">{(result.fullWave4DComposite! * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-purple-500/60">Calibrated Wave 4D</p>
+                          <p className="text-sm font-semibold text-purple-300">{(result.calibratedWave4DComposite! * 100).toFixed(0)}%</p>
+                        </div>
+                      </div>
+                    </details>
+                  )}
+                  {result.governanceConfidence != null && (
                   <div>
                     <p className="text-xs text-white/50 uppercase">Governance Confidence</p>
                     <p className="text-2xl font-bold text-white">{(result.governanceConfidence * 100).toFixed(1)}%</p>

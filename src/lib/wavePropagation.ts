@@ -79,6 +79,61 @@ export interface WaveResonanceResult {
   waveSynchronization: number
 }
 
+export interface HybridResonanceResult {
+  hybridVortexAlignment: number
+  hybrid4DComposite: number
+  hybridVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  fullWave4DComposite: number
+  calibratedWave4DComposite: number
+}
+
+export function computeCalibratedWaveSync(rawSync: number): number {
+  return Math.pow(Math.max(0.01, rawSync), 0.35)
+}
+
+export function computeHybridResonance(
+  currentProximity: number,
+  phaseAlignment: number,
+  currentSync: number,
+  waveVortexAlignment: number,
+  waveSynchronization: number,
+  activityLevel: string,
+): HybridResonanceResult {
+  const calibratedSync = computeCalibratedWaveSync(waveSynchronization)
+
+  const hybrid4DComposite = Math.max(0.15, Math.min(0.98,
+    currentProximity * 0.20 + phaseAlignment * 0.20 + waveVortexAlignment * 0.30 + currentSync * 0.30
+  ))
+
+  const fullWave4DComposite = Math.max(0.15, Math.min(0.98,
+    currentProximity * 0.20 + phaseAlignment * 0.20 + waveVortexAlignment * 0.30 + waveSynchronization * 0.30
+  ))
+
+  const calibratedWave4DComposite = Math.max(0.15, Math.min(0.98,
+    currentProximity * 0.20 + phaseAlignment * 0.20 + waveVortexAlignment * 0.30 + calibratedSync * 0.30
+  ))
+
+  const thresholds: Record<string, { strong: number; good: number; weak: number }> = {
+    quiet:    { strong: 0.82, good: 0.72, weak: 0.58 },
+    moderate: { strong: 0.88, good: 0.78, weak: 0.62 },
+    active:   { strong: 0.88, good: 0.78, weak: 0.62 },
+    storm:    { strong: 0.92, good: 0.84, weak: 0.70 },
+  }
+  const t = thresholds[activityLevel] || thresholds.moderate
+  const verdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT' =
+    hybrid4DComposite >= t.strong ? 'PASS' :
+    hybrid4DComposite >= t.weak ? 'NEEDS_REVISION' :
+    'REJECT'
+
+  return {
+    hybridVortexAlignment: waveVortexAlignment,
+    hybrid4DComposite,
+    hybridVerdict: verdict,
+    fullWave4DComposite,
+    calibratedWave4DComposite,
+  }
+}
+
 export function computeWaveResonance(
   kuramoto: KuramotoResult,
   proposalTdf: number,

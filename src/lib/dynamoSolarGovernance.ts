@@ -49,6 +49,11 @@ export interface EnhancedGovernanceDecision {
   waveProximity: number;
   waveVortexAlignment: number;
   waveSynchronization: number;
+  hybridVortexAlignment: number;
+  hybrid4DComposite: number;
+  hybridVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT';
+  fullWave4DComposite: number;
+  calibratedWave4DComposite: number;
 }
 
 export class DynamoSolarGovernance {
@@ -199,6 +204,11 @@ export class DynamoSolarGovernance {
       waveProximity: hammer.waveProximity,
       waveVortexAlignment: hammer.waveVortexAlignment,
       waveSynchronization: hammer.waveSynchronization,
+      hybridVortexAlignment: hammer.hybridVortexAlignment,
+      hybrid4DComposite: hammer.hybrid4DComposite,
+      hybridVerdict: hammer.hybridVerdict,
+      fullWave4DComposite: hammer.fullWave4DComposite,
+      calibratedWave4DComposite: hammer.calibratedWave4DComposite,
     };
   }
 }
