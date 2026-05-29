@@ -350,9 +350,20 @@ export function computeWaveResonance(
   const neuralWaveProximity = neuralSunEmbedding
     ? Math.max(0.01, Math.min(0.99, Math.exp(-neuralMse * 5)))
     : 0.5
-  const neuralWaveVortexAlignment = neuralSunEmbedding
-    ? Math.max(0.01, Math.min(0.99, crossCorrelate(neuralPropSeries, neuralSunSeries)))
-    : 0.5
+  // Neural vortex: cosine similarity of raw embedding vectors.
+  // Measures whether the embedding dimensions align between sun and proposal,
+  // independent of time-series averaging that collapses discrimination.
+  let neuralWaveVortexAlignment = 0.5
+  if (neuralSunEmbedding && neuralProposalEmbedding) {
+    let dotProd = 0, normA = 0, normB = 0
+    for (let d = 0; d < NEURAL_DIMS; d++) {
+      dotProd += neuralSunEmbedding[d] * neuralProposalEmbedding[d]
+      normA += neuralSunEmbedding[d] ** 2
+      normB += neuralProposalEmbedding[d] ** 2
+    }
+    const denom = Math.sqrt(normA) * Math.sqrt(normB)
+    neuralWaveVortexAlignment = denom > 0 ? Math.max(0.01, Math.min(0.99, dotProd / denom)) : 0.5
+  }
 
   return {
     waveProximity,
