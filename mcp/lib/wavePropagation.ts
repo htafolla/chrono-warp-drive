@@ -98,12 +98,56 @@ export interface HybridResonanceResult {
   calibratedWave4DComposite: number
 }
 
+export interface FullBoxResonanceResult {
+  fullBoxProximity: number
+  fullBoxVortexAlignment: number
+  fullBoxSynchronization: number
+  fullBox4DComposite: number
+  fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+}
+
 export function computeCalibratedWaveSync(rawSync: number): number {
-  return Math.pow(Math.max(0.01, rawSync), 0.35)
+  const clamped = Math.max(0.01, rawSync)
+  return Math.max(0.15, 0.15 + 0.85 * Math.pow(clamped, 0.35))
 }
 
 export function computeCalibratedWaveVortex(rawVortex: number): number {
   return Math.pow(Math.max(0.05, rawVortex), 0.25)
+}
+
+export function computeFullBoxResonance(
+  waveProximity: number,
+  phaseAlignment: number,
+  waveVortexAlignment: number,
+  waveSynchronization: number,
+  activityLevel: string,
+): FullBoxResonanceResult {
+  const calVortex = computeCalibratedWaveVortex(waveVortexAlignment)
+  const calSync = computeCalibratedWaveSync(waveSynchronization)
+
+  const fullBox4DComposite = Math.max(0.15, Math.min(0.98,
+    waveProximity * 0.20 + phaseAlignment * 0.20 + calVortex * 0.30 + calSync * 0.30
+  ))
+
+  const thresholds: Record<string, { strong: number; good: number; weak: number }> = {
+    quiet:    { strong: 0.82, good: 0.72, weak: 0.50 },
+    moderate: { strong: 0.88, good: 0.78, weak: 0.54 },
+    active:   { strong: 0.88, good: 0.78, weak: 0.54 },
+    storm:    { strong: 0.92, good: 0.84, weak: 0.62 },
+  }
+  const t = thresholds[activityLevel] || thresholds.moderate
+  const verdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT' =
+    fullBox4DComposite >= t.strong ? 'PASS' :
+    fullBox4DComposite >= t.weak ? 'NEEDS_REVISION' :
+    'REJECT'
+
+  return {
+    fullBoxProximity: waveProximity,
+    fullBoxVortexAlignment: calVortex,
+    fullBoxSynchronization: calSync,
+    fullBox4DComposite,
+    fullBoxVerdict: verdict,
+  }
 }
 
 export function computeHybridResonance(

@@ -8,7 +8,7 @@ import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataF
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
 import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
-import { computeWaveResonance, computeHybridResonance } from './wavePropagation.js'
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance } from './wavePropagation.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -159,6 +159,11 @@ export interface StructuralResonanceResult {
   hybridVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   fullWave4DComposite: number
   calibratedWave4DComposite: number
+  fullBoxProximity: number
+  fullBoxVortexAlignment: number
+  fullBoxSynchronization: number
+  fullBox4DComposite: number
+  fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
 }
 
 export class SolarGovernanceIntegration {
@@ -294,6 +299,15 @@ export class SolarGovernanceIntegration {
         solarData.activityLevel,
       )
 
+      // Full Box resonance: all 4 dimensions from inside the temporal box
+      const fullBox = computeFullBoxResonance(
+        waveResonance.waveProximity,
+        phaseAlignment,
+        waveResonance.waveVortexAlignment,
+        waveResonance.waveSynchronization,
+        solarData.activityLevel,
+      )
+
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
       // 4D formula (no neural context): proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30
       // 5D formula (with spectralQuality): proximity×0.18 + phase×0.18 + volume×0.27 + sync×0.27 + spectralQuality×0.10
@@ -352,6 +366,11 @@ export class SolarGovernanceIntegration {
         hybridVerdict: hybrid.hybridVerdict,
         fullWave4DComposite: hybrid.fullWave4DComposite,
         calibratedWave4DComposite: hybrid.calibratedWave4DComposite,
+        fullBoxProximity: fullBox.fullBoxProximity,
+        fullBoxVortexAlignment: fullBox.fullBoxVortexAlignment,
+        fullBoxSynchronization: fullBox.fullBoxSynchronization,
+        fullBox4DComposite: fullBox.fullBox4DComposite,
+        fullBoxVerdict: fullBox.fullBoxVerdict,
       }
     } catch (error) {
       console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
@@ -386,6 +405,11 @@ export class SolarGovernanceIntegration {
         hybridVerdict: 'PASS' as const,
         fullWave4DComposite: 0.80,
         calibratedWave4DComposite: 0.80,
+        fullBoxProximity: 0.80,
+        fullBoxVortexAlignment: 0.80,
+        fullBoxSynchronization: 0.80,
+        fullBox4DComposite: 0.80,
+        fullBoxVerdict: 'PASS' as const,
       }
     }
   }

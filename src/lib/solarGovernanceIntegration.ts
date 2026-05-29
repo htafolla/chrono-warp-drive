@@ -6,7 +6,7 @@ import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
-import { computeWaveResonance, computeHybridResonance } from './wavePropagation';
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance } from './wavePropagation';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -178,6 +178,11 @@ export class SolarGovernanceIntegration {
     hybridVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
     fullWave4DComposite: number
     calibratedWave4DComposite: number
+    fullBoxProximity: number
+    fullBoxVortexAlignment: number
+    fullBoxSynchronization: number
+    fullBox4DComposite: number
+    fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -223,6 +228,14 @@ export class SolarGovernanceIntegration {
         proximity,
         phaseAlignment,
         synchronization,
+        waveResonance.waveVortexAlignment,
+        waveResonance.waveSynchronization,
+        solarData.activityLevel,
+      )
+
+      const fullBox = computeFullBoxResonance(
+        waveResonance.waveProximity,
+        phaseAlignment,
         waveResonance.waveVortexAlignment,
         waveResonance.waveSynchronization,
         solarData.activityLevel,
@@ -278,6 +291,11 @@ export class SolarGovernanceIntegration {
         hybridVerdict: hybrid.hybridVerdict,
         fullWave4DComposite: hybrid.fullWave4DComposite,
         calibratedWave4DComposite: hybrid.calibratedWave4DComposite,
+        fullBoxProximity: fullBox.fullBoxProximity,
+        fullBoxVortexAlignment: fullBox.fullBoxVortexAlignment,
+        fullBoxSynchronization: fullBox.fullBoxSynchronization,
+        fullBox4DComposite: fullBox.fullBox4DComposite,
+        fullBoxVerdict: fullBox.fullBoxVerdict,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -312,6 +330,11 @@ export class SolarGovernanceIntegration {
         hybridVerdict: 'PASS' as const,
         fullWave4DComposite: 0.80,
         calibratedWave4DComposite: 0.80,
+        fullBoxProximity: 0.80,
+        fullBoxVortexAlignment: 0.80,
+        fullBoxSynchronization: 0.80,
+        fullBox4DComposite: 0.80,
+        fullBoxVerdict: 'PASS' as const,
       }
     }
   }

@@ -62,6 +62,11 @@ export interface EnhancedGovernanceDecision {
   hybridVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   fullWave4DComposite: number
   calibratedWave4DComposite: number
+  fullBoxProximity: number
+  fullBoxVortexAlignment: number
+  fullBoxSynchronization: number
+  fullBox4DComposite: number
+  fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
 }
 
 export interface PublicFeedEntry {
@@ -388,6 +393,11 @@ export class DynamoSolarGovernance {
       hybridVerdict: hammer.hybridVerdict,
       fullWave4DComposite: hammer.fullWave4DComposite,
       calibratedWave4DComposite: hammer.calibratedWave4DComposite,
+      fullBoxProximity: hammer.fullBoxProximity,
+      fullBoxVortexAlignment: hammer.fullBoxVortexAlignment,
+      fullBoxSynchronization: hammer.fullBoxSynchronization,
+      fullBox4DComposite: hammer.fullBox4DComposite,
+      fullBoxVerdict: hammer.fullBoxVerdict,
     }
 
     // Persist every query+response to Redis for durable history

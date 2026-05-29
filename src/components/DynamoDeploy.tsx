@@ -148,6 +148,11 @@ interface GovernanceResult {
   hybridVortexAlignment: number | null;
   fullWave4DComposite: number | null;
   calibratedWave4DComposite: number | null;
+  fullBoxProximity: number | null;
+  fullBoxVortexAlignment: number | null;
+  fullBoxSynchronization: number | null;
+  fullBox4DComposite: number | null;
+  fullBoxVerdict: string | null;
   smoothedResonance: number | null;
   trend: string | null;
   momentum: number | null;
@@ -231,6 +236,11 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const hybridVortexAlignment = solar?.hybridVortexAlignment != null ? Number(solar.hybridVortexAlignment) : null;
   const fullWave4DComposite = solar?.fullWave4DComposite != null ? Number(solar.fullWave4DComposite) : null;
   const calibratedWave4DComposite = solar?.calibratedWave4DComposite != null ? Number(solar.calibratedWave4DComposite) : null;
+  const fullBoxProximity = solar?.fullBoxProximity != null ? Number(solar.fullBoxProximity) : null;
+  const fullBoxVortexAlignment = solar?.fullBoxVortexAlignment != null ? Number(solar.fullBoxVortexAlignment) : null;
+  const fullBoxSynchronization = solar?.fullBoxSynchronization != null ? Number(solar.fullBoxSynchronization) : null;
+  const fullBox4DComposite = solar?.fullBox4DComposite != null ? Number(solar.fullBox4DComposite) : null;
+  const fullBoxVerdict = solar?.fullBoxVerdict || null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
   const peakForecast = solar?.peakForecast ?? null;
   const adaptiveThresholds = solar?.adaptiveThresholds ?? null;
@@ -293,6 +303,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
       resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, hybrid4DComposite, hybridVerdict, hybridVortexAlignment, fullWave4DComposite, calibratedWave4DComposite, momentum, peakForecast, adaptiveThresholds,
+      fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBox4DComposite, fullBoxVerdict,
     };
   } catch {
     return null;
@@ -611,6 +622,37 @@ export default function DynamoDeploy() {
                         <div className="flex items-center justify-between">
                           <p className="text-[10px] text-purple-500/60">Calibrated Wave 4D</p>
                           <p className="text-sm font-semibold text-purple-300">{(result.calibratedWave4DComposite! * 100).toFixed(0)}%</p>
+                        </div>
+                      </div>
+                    </details>
+                  )}
+                  {result.fullBox4DComposite != null && (
+                    <details className="mt-1">
+                      <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Full Box (all 4 from box)</summary>
+                      <div className="space-y-2 mt-1">
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-cyan-500/60">Full Box 4D</p>
+                          <p className="text-sm font-semibold text-white">{(result.fullBox4DComposite * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-cyan-500/60">Full Box Verdict</p>
+                          <p className={`text-sm font-semibold ${
+                            result.fullBoxVerdict === 'PASS' ? 'text-emerald-400' :
+                            result.fullBoxVerdict === 'REJECT' ? 'text-red-400' :
+                            'text-amber-400'
+                          }`}>{result.fullBoxVerdict}</p>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-cyan-500/60">Wave Proximity</p>
+                          <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxProximity! * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-cyan-500/60">Wave Vortex (calibrated)</p>
+                          <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxVortexAlignment! * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-cyan-500/60">Wave Sync (calibrated)</p>
+                          <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxSynchronization! * 100).toFixed(0)}%</p>
                         </div>
                       </div>
                     </details>
