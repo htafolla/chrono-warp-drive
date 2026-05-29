@@ -19,7 +19,8 @@ Submit a proposal for solar-resonance evaluation.
   "proposal": "Deploy the new agent to production",
   "baseVoteWeight": 1.0,
   "sharePublicly": false,
-  "spectralQuality": 0.82
+  "spectralQuality": 0.82,
+  "sunNeuralEmbedding": [0.127, 0.666, 0.591, 0.640, 0.931, 0.541, 0.066, 0.648, 0.563, 0.192, 0.195, 0.246, 0.592, 0.655, 0.026, 0.017]
 }
 ```
 
@@ -29,6 +30,7 @@ Submit a proposal for solar-resonance evaluation.
 | `baseVoteWeight` | number | no | Vote weight, 0.5–1.5 (default 1.0) |
 | `sharePublicly` | boolean | no | Add to public feed (default false) |
 | `spectralQuality` | number | no | NeuralFusion quality 0–1. Activates 5D mode |
+| `sunNeuralEmbedding` | number[] | no | 16-dim sun embedding from `/process-current-sun`. Required for Neural Quantum Realms |
 
 ### Full Response
 
@@ -119,6 +121,15 @@ Submit a proposal for solar-resonance evaluation.
 | `hammerReason` | string | Human-readable verdict explanation |
 | `spectralQuality` | number | NeuralFusion quality (present in 5D mode) |
 | `neuralContextUsed` | boolean | Whether 5D mode was active |
+| `fullBoxProximity` | number | Full Box model wave proximity (0–1) |
+| `fullBoxVortexAlignment` | number | Full Box calibrated wave vortex (0–1) |
+| `fullBoxSynchronization` | number | Full Box calibrated wave sync (0–1) |
+| `fullBox4DComposite` | number | Full Box 4D composite: waveProx×0.20 + phase×0.20 + calVortex×0.30 + calSync×0.30 |
+| `fullBoxVerdict` | string | PASS \| NEEDS_REVISION \| REJECT |
+| `neuralSunEmbedding` | number[] | 16-dim sun neural embedding (from `/process-current-sun`) |
+| `neuralProposalEmbedding` | number[] | 16-dim proposal embedding (from `textToEmbedding16`) |
+| `neuralWaveProximity` | number | Neural-only wave proximity (0–1). Default 0.779 if no sun embedding |
+| `neuralWaveVortexAlignment` | number | Neural-only wave vortex alignment (0–1). Default 0.50 if no sun embedding |
 
 ## GET /public_feed
 

@@ -66,8 +66,8 @@ Thresholds shift by solar activity level (quiet/moderate/active/storm) — storm
 | `mcp/pubsub.ts` | Redis client (getRedisClient) |
 | `mcp/index.ts` | Tool definitions, POST /govern_with_solar, GET /history |
 | `src/components/DynamoDeploy.tsx` | UI — resonance breakdown, sparkline, trend |
-| `mcp/lib/wavePropagation.ts` | Phase 2 wave propagation layer (A/B alongside TDF formulas) |
-| `src/lib/wavePropagation.ts` | Frontend mirror |
+| `mcp/lib/wavePropagation.ts` | Phase 2 wave propagation, hybrid & full box models, `textToEmbedding16()`, NQR |
+| `src/lib/wavePropagation.ts` | Frontend mirror of wave propagation & NQR |
 | `mcp/scripts/test-wave-propagation.ts` | Phase 2 A/B test harness |
 
 ## Key Design Decisions
@@ -103,9 +103,13 @@ The current `vortexAlignment` formula produces **1.0 for ALL proposals** — zer
 
 12 bands from UV-C (250nm) to IR-B (2500nm): UV-C, UV-B, UV-A, Violet, Blue, Cyan, Green, Yellow, Orange, Red, IR-A, IR-B. Wave proximity uses 3 active bands (Blue, Green, Red). Vortex alignment uses all 12.
 
+### Neural Quantum Realms
+
+16 virtual spectrum bands from NeuralFusion's 16-dim bottleneck embedding. Sun embedding from `/process-current-sun` (real TF.js autoencoder). Proposal embedding via `textToEmbedding16(proposal)` — character-position FNV hashing producing 12–16 active dims. All 28 total bands (12 physical + 16 neural) participate in wave computations.
+
 ### Files
 
-- `mcp/lib/wavePropagation.ts` — Canonical implementation
+- `mcp/lib/wavePropagation.ts` — Canonical: `computeWaveResonance()`, `computeHybridResonance()`, `computeFullBoxResonance()`, `textToEmbedding16()`, `tdfToEmbedding16()`
 - `src/lib/wavePropagation.ts` — Frontend mirror
 - `mcp/scripts/test-wave-propagation.ts` — A/B test harness
 
@@ -156,6 +160,7 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Real Codex TDF formula implemented — `tPTT × TAU × (1/BHS)` with mapping layer replaces FNV-1a hash
 - Phase 2 wave propagation prototype built — `wave()` function ported from temporalCalculator.ts, A/B wired into governance responses
 - Hybrid resonance model deployed — replaces dead `vortexAlignment` (0% spread, always ~1.0) with calibrated wave vortex (28.7% spread). 71% win rate on 35 real proposals vs current model
+- Neural Quantum Realms integrated — 16-dim TF.js embedding as virtual spectrum bands inside the temporal box. Proposal embedding upgraded from TDF-derived base-1000 (3/16 varying dims) to text-based FNV hashing (12–16/16 varying dims). 28 total bands (12 physical + 16 neural)
 
 The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the production formula — replacing the original FNV-1a hash with the real temporal physics. The mapping layer bridges Codex parameters and NOAA solar data, making Dynamo the first system to operationalize the Blurrn formula against live satellite feeds.
 

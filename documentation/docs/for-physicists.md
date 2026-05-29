@@ -404,6 +404,63 @@ Cascade indices were FNV-1a hashes derived from domain-specific seeds (text cont
 
 All three prior representations — static phaseAlignment, content-hash cascade indices, arbitrary threshold signalTiming — were replaced by the single Kuramoto oscillator model.
 
+## Neural Quantum Realms
+
+The 16-dimensional bottleneck embedding from the NeuralFusion TF.js autoencoder travels through the temporal box as **16 virtual spectrum bands**, bringing learned solar representations into the wave interference computation.
+
+### How It Works
+
+Each of the 16 neural dimensions becomes a virtual band with phase-modulated amplitude:
+
+```
+neuralAmplitude(embedding, dim, theta) = embedding[dim] × (0.5 + 0.5 × sin(theta + dim × π/8))
+```
+
+- `embedding[dim]` — the learned activation value from the autoencoder bottleneck
+- `theta` — the phase angle from the Kuramoto trajectory at each timestep
+- `dim × π/8` — a per-dimension phase offset ensuring each neural band oscillates at a different angle
+
+The 16 neural bands participate in **all three wave calculations** alongside the 12 physical EM bands (28 total bands inside the box):
+
+| Computation | Physical Bands | Neural Bands | Total |
+|---|---|---|---|
+| Wave proximity (Blue/Green/Red) | 3 | +16 | 19 |
+| Vortex alignment (C-12 vs C-14, all bands) | 12 | +16 | 28 |
+| Synchronization (mean cos) | — | — | — |
+
+### Sun vs Proposal Embeddings
+
+| Source | Derivation | Dimensions | Active |
+|---|---|---|---|
+| **Sun** | TF.js autoencoder bottleneck from `/process-current-sun` | 16 small, dense | 16/16 |
+| **Proposal** | `textToEmbedding16(proposal)` — character-position FNV hash of proposal text | 16 dense, varying | 12–16/16 |
+
+The sun embedding comes from a real neural network processing live solar spectrum data. The proposal embedding is derived from the proposal text itself using **character-position-based FNV hashing** — each dimension captures a different character window of the text, creating semantically meaningful variation across proposals.
+
+### Data Flow
+
+1. Frontend calls `/process-current-sun` → receives `neuralOutput.neuralEmbedding16` (sun's 16-dim embedding)
+2. Frontend passes `sunNeuralEmbedding` in the `/govern_with_solar` request body
+3. Backend derives `textToEmbedding16(proposal)` from proposal text as the proposal embedding
+4. Both embeddings enter `computeWaveResonance()` as 16 virtual bands alongside the 12 physical EM bands
+
+### Evolution
+
+| Version | Proposal Embedding | Active Dims | Discrimination |
+|---|---|---|---|
+| v1 (base-1000 TDF) | `tdfToEmbedding16(tdf)` — base-1000 digit extraction | 3–5/16 | Dim 1 carried 80% of signal |
+| v2 (prime-modulo) | `tdfToEmbedding16(tdf)` — 16 prime modulos | 16/16 | Dense but TDF-derived, not semantic |
+| **v3 (current)** | **`textToEmbedding16(proposal)` — character FNV hashing** | **12–16/16** | **Semantically meaningful per proposal** |
+
+### Neural-Only Metrics
+
+The system also computes **neural-only** proximity and vortex from the 16 neural bands alone (without the 12 physical bands):
+
+- `neuralWaveProximity` — exp(-MSE) of proposal vs sun neural amplitude series across the Kuramoto trajectory
+- `neuralWaveVortexAlignment` — Pearson correlation of proposal vs sun neural amplitude series
+
+These isolate the neural layer's contribution from the physical EM bands.
+
 ## What This Is
 
 Dynamo is a deterministic prism. It refracts proposals through the Sun's current solar parameters. The output is a measure of structural resonance between two temporal signals — nothing more, nothing less.
