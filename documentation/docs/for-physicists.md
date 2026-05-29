@@ -360,10 +360,10 @@ The current TDF model uses these thresholds (hammer, 4D/5D):
 
 | Activity | PASS | NEEDS_REVISION | REJECT |
 |----------|------|----------------|--------|
-| Quiet | ≥0.82 | ≥0.72 | ≥0.58 | <0.58 |
-| Moderate | ≥0.88 | ≥0.78 | ≥0.62 | <0.62 |
-| Active | ≥0.88 | ≥0.78 | ≥0.62 | <0.62 |
-| Storm | ≥0.92 | ≥0.84 | ≥0.70 | <0.70 |
+| Quiet | ≥0.82 | ≥0.72 | ≥0.58 | &lt;0.58 |
+| Moderate | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
+| Active | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
+| Storm | ≥0.92 | ≥0.84 | ≥0.70 | &lt;0.70 |
 
 The hybrid model uses a separate threshold set. The 6D Full Box model uses the thresholds shown above.
 
