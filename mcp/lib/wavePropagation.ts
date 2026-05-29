@@ -145,6 +145,8 @@ export interface FullBoxResonanceResult {
   fullBoxProximity: number
   fullBoxVortexAlignment: number
   fullBoxSynchronization: number
+  fullBoxNeuralProximity: number
+  fullBoxNeuralVortex: number
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
 }
@@ -164,19 +166,33 @@ export function computeFullBoxResonance(
   waveVortexAlignment: number,
   waveSynchronization: number,
   activityLevel: string,
+  neuralProximity: number = 0,
+  neuralVortex: number = 0,
 ): FullBoxResonanceResult {
   const calVortex = computeCalibratedWaveVortex(waveVortexAlignment)
   const calSync = computeCalibratedWaveSync(waveSynchronization)
 
+  // 6D model: 4 physical dims + 2 neural dims
+  // Neural metrics (0.23-0.25 spread) are the best discriminators, get 35%
+  // Phase (Kuramoto) is next best physical dim, gets 20%
+  // Physical vortex + sync compressed but still valuable, 15% each
+  // Proximity always ~0.99, minimal discrimination, 15%
+  const neuralWeight = (neuralProximity > 0 && neuralVortex > 0) ? 0.175 : 0
+  const physRedistribute = neuralWeight === 0 ? 0.088 : 0
   const fullBox4DComposite = Math.max(0.15, Math.min(0.98,
-    waveProximity * 0.20 + phaseAlignment * 0.20 + calVortex * 0.30 + calSync * 0.30
+    waveProximity * (0.15 + physRedistribute) +
+    phaseAlignment * (0.20 + physRedistribute) +
+    calVortex * (0.15 + physRedistribute) +
+    calSync * (0.15 + physRedistribute) +
+    neuralProximity * neuralWeight +
+    neuralVortex * neuralWeight
   ))
 
   const thresholds: Record<string, { strong: number; good: number; weak: number }> = {
     quiet:    { strong: 0.82, good: 0.72, weak: 0.50 },
-    moderate: { strong: 0.88, good: 0.78, weak: 0.54 },
-    active:   { strong: 0.88, good: 0.78, weak: 0.54 },
-    storm:    { strong: 0.92, good: 0.84, weak: 0.62 },
+    moderate: { strong: 0.85, good: 0.75, weak: 0.52 },
+    active:   { strong: 0.85, good: 0.75, weak: 0.52 },
+    storm:    { strong: 0.88, good: 0.80, weak: 0.58 },
   }
   const t = thresholds[activityLevel] || thresholds.moderate
   const verdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT' =
@@ -188,6 +204,8 @@ export function computeFullBoxResonance(
     fullBoxProximity: waveProximity,
     fullBoxVortexAlignment: calVortex,
     fullBoxSynchronization: calSync,
+    fullBoxNeuralProximity: neuralProximity,
+    fullBoxNeuralVortex: neuralVortex,
     fullBox4DComposite,
     fullBoxVerdict: verdict,
   }

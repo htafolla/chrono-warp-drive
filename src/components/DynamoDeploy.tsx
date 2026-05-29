@@ -192,6 +192,8 @@ interface GovernanceResult {
   fullBoxProximity: number | null;
   fullBoxVortexAlignment: number | null;
   fullBoxSynchronization: number | null;
+  fullBoxNeuralProximity: number | null;
+  fullBoxNeuralVortex: number | null;
   fullBox4DComposite: number | null;
   fullBoxVerdict: string | null;
   neuralWaveProximity: number | null;
@@ -284,6 +286,8 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const fullBoxProximity = solar?.fullBoxProximity != null ? Number(solar.fullBoxProximity) : null;
   const fullBoxVortexAlignment = solar?.fullBoxVortexAlignment != null ? Number(solar.fullBoxVortexAlignment) : null;
   const fullBoxSynchronization = solar?.fullBoxSynchronization != null ? Number(solar.fullBoxSynchronization) : null;
+  const fullBoxNeuralProximity = solar?.fullBoxNeuralProximity != null ? Number(solar.fullBoxNeuralProximity) : null;
+  const fullBoxNeuralVortex = solar?.fullBoxNeuralVortex != null ? Number(solar.fullBoxNeuralVortex) : null;
   const fullBox4DComposite = solar?.fullBox4DComposite != null ? Number(solar.fullBox4DComposite) : null;
   const fullBoxVerdict = solar?.fullBoxVerdict || null;
   const neuralWaveProximity = solar?.neuralWaveProximity != null ? Number(solar.neuralWaveProximity) : null;
@@ -350,7 +354,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
       resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, hybrid4DComposite, hybridVerdict, hybridVortexAlignment, fullWave4DComposite, calibratedWave4DComposite, momentum, peakForecast, adaptiveThresholds,
-      fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBox4DComposite, fullBoxVerdict,
+      fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBoxNeuralProximity, fullBoxNeuralVortex, fullBox4DComposite, fullBoxVerdict,
       neuralWaveProximity, neuralWaveVortexAlignment,
     };
   } catch {
@@ -695,33 +699,41 @@ export default function DynamoDeploy() {
                   )}
                   {result.fullBox4DComposite != null && (
                     <details className="mt-1">
-                      <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Full Box (all 4 from box)</summary>
-                      <div className="space-y-2 mt-1">
-                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
-                          <p className="text-[10px] text-cyan-500/60">Full Box 4D</p>
-                          <p className="text-sm font-semibold text-white">{(result.fullBox4DComposite * 100).toFixed(0)}%</p>
-                        </div>
-                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
-                          <p className="text-[10px] text-cyan-500/60">Full Box Verdict</p>
-                          <p className={`text-sm font-semibold ${
-                            result.fullBoxVerdict === 'PASS' ? 'text-emerald-400' :
-                            result.fullBoxVerdict === 'REJECT' ? 'text-red-400' :
-                            'text-amber-400'
-                          }`}>{result.fullBoxVerdict}</p>
-                        </div>
-                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
-                          <p className="text-[10px] text-cyan-500/60">Wave Proximity</p>
-                          <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxProximity! * 100).toFixed(0)}%</p>
-                        </div>
-                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
-                          <p className="text-[10px] text-cyan-500/60">Wave Vortex (calibrated)</p>
-                          <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxVortexAlignment! * 100).toFixed(0)}%</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] text-cyan-500/60">Wave Sync (calibrated)</p>
-                          <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxSynchronization! * 100).toFixed(0)}%</p>
-                        </div>
-                      </div>
+<summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Full Box 6D (4 physical + 2 neural)</summary>
+                       <div className="space-y-2 mt-1">
+                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                           <p className="text-[10px] text-cyan-500/60">Full Box 6D</p>
+                           <p className="text-sm font-semibold text-white">{(result.fullBox4DComposite * 100).toFixed(0)}%</p>
+                         </div>
+                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                           <p className="text-[10px] text-cyan-500/60">Full Box Verdict</p>
+                           <p className={`text-sm font-semibold ${
+                             result.fullBoxVerdict === 'PASS' ? 'text-emerald-400' :
+                             result.fullBoxVerdict === 'REJECT' ? 'text-red-400' :
+                             'text-amber-400'
+                           }`}>{result.fullBoxVerdict}</p>
+                         </div>
+                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                           <p className="text-[10px] text-cyan-500/60">Wave Proximity</p>
+                           <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxProximity! * 100).toFixed(0)}%</p>
+                         </div>
+                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                           <p className="text-[10px] text-cyan-500/60">Wave Vortex (calibrated)</p>
+                           <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxVortexAlignment! * 100).toFixed(0)}%</p>
+                         </div>
+                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                           <p className="text-[10px] text-cyan-500/60">Wave Sync (calibrated)</p>
+                           <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxSynchronization! * 100).toFixed(0)}%</p>
+                         </div>
+                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                           <p className="text-[10px] text-amber-500/60">Neural Prox (6D)</p>
+                           <p className="text-sm font-semibold text-amber-300">{result.fullBoxNeuralProximity != null ? `${(result.fullBoxNeuralProximity * 100).toFixed(0)}%` : '—'}</p>
+                         </div>
+                         <div className="flex items-center justify-between">
+                           <p className="text-[10px] text-amber-500/60">Neural Vortex (6D)</p>
+                           <p className="text-sm font-semibold text-amber-300">{result.fullBoxNeuralVortex != null ? `${(result.fullBoxNeuralVortex * 100).toFixed(0)}%` : '—'}</p>
+                         </div>
+                       </div>
                     </details>
                   )}
                   {result.neuralWaveProximity != null && (
@@ -917,11 +929,13 @@ export default function DynamoDeploy() {
                       <div>
                         <p className="text-[10px] text-cyan-500/60 uppercase tracking-wider mb-1.5 font-semibold">Full Box</p>
                         <div className="space-y-1.5">
-                          <Row label="Full Box 4D" v={r.fullBox4DComposite} color={verdictColor(r.fullBoxVerdict)} bold />
+                          <Row label="Full Box 6D" v={r.fullBox4DComposite} color={verdictColor(r.fullBoxVerdict)} bold />
                           <Row label="Verdict" v={r.fullBoxVerdict} plain color={verdictColor(r.fullBoxVerdict)} />
                           <Row label="Wave Proximity" v={r.fullBoxProximity} />
                           <Row label="Wave Vortex (cal)" v={r.fullBoxVortexAlignment} />
                           <Row label="Wave Sync (cal)" v={r.fullBoxSynchronization} />
+                          <Row label="Neural Prox (6D)" v={r.fullBoxNeuralProximity} />
+                          <Row label="Neural Vortex (6D)" v={r.fullBoxNeuralVortex} />
                         </div>
                       </div>
                     )}

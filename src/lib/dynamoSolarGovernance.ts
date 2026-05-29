@@ -57,6 +57,8 @@ export interface EnhancedGovernanceDecision {
   fullBoxProximity: number;
   fullBoxVortexAlignment: number;
   fullBoxSynchronization: number;
+  fullBoxNeuralProximity: number;
+  fullBoxNeuralVortex: number;
   fullBox4DComposite: number;
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT';
   neuralSunEmbedding?: number[];
@@ -222,6 +224,8 @@ export class DynamoSolarGovernance {
       fullBoxProximity: hammer.fullBoxProximity,
       fullBoxVortexAlignment: hammer.fullBoxVortexAlignment,
       fullBoxSynchronization: hammer.fullBoxSynchronization,
+      fullBoxNeuralProximity: hammer.fullBoxNeuralProximity,
+      fullBoxNeuralVortex: hammer.fullBoxNeuralVortex,
       fullBox4DComposite: hammer.fullBox4DComposite,
       fullBoxVerdict: hammer.fullBoxVerdict,
       neuralSunEmbedding: hammer.neuralSunEmbedding,

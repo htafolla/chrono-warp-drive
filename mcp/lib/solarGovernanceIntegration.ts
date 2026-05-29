@@ -162,6 +162,8 @@ export interface StructuralResonanceResult {
   fullBoxProximity: number
   fullBoxVortexAlignment: number
   fullBoxSynchronization: number
+  fullBoxNeuralProximity: number
+  fullBoxNeuralVortex: number
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   neuralSunEmbedding?: number[]
@@ -307,13 +309,15 @@ export class SolarGovernanceIntegration {
         solarData.activityLevel,
       )
 
-      // Full Box resonance: all 4 dimensions from inside the temporal box
+      // Full Box: 6D model — 4 physical dims + 2 neural dims
       const fullBox = computeFullBoxResonance(
         waveResonance.waveProximity,
         phaseAlignment,
         waveResonance.waveVortexAlignment,
         waveResonance.waveSynchronization,
         solarData.activityLevel,
+        waveResonance.neuralWaveProximity,
+        waveResonance.neuralWaveVortexAlignment,
       )
 
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
@@ -377,6 +381,8 @@ export class SolarGovernanceIntegration {
         fullBoxProximity: fullBox.fullBoxProximity,
         fullBoxVortexAlignment: fullBox.fullBoxVortexAlignment,
         fullBoxSynchronization: fullBox.fullBoxSynchronization,
+        fullBoxNeuralProximity: fullBox.fullBoxNeuralProximity,
+        fullBoxNeuralVortex: fullBox.fullBoxNeuralVortex,
         fullBox4DComposite: fullBox.fullBox4DComposite,
         fullBoxVerdict: fullBox.fullBoxVerdict,
         neuralSunEmbedding: sunNeuralEmbedding,
@@ -420,6 +426,8 @@ export class SolarGovernanceIntegration {
         fullBoxProximity: 0.80,
         fullBoxVortexAlignment: 0.80,
         fullBoxSynchronization: 0.80,
+        fullBoxNeuralProximity: 0.80,
+        fullBoxNeuralVortex: 0.80,
         fullBox4DComposite: 0.80,
         fullBoxVerdict: 'PASS' as const,
         neuralSunEmbedding: undefined,
