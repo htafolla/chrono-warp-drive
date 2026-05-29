@@ -69,6 +69,7 @@ export interface EnhancedGovernanceDecision {
   fullBoxNeuralVortex: number
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  fullBoxThresholds: { strong: number; good: number; weak: number }
   neuralSunEmbedding?: number[]
   neuralProposalEmbedding?: number[]
   neuralWaveProximity: number
@@ -407,6 +408,7 @@ export class DynamoSolarGovernance {
       fullBoxNeuralVortex: hammer.fullBoxNeuralVortex,
       fullBox4DComposite: hammer.fullBox4DComposite,
       fullBoxVerdict: hammer.fullBoxVerdict,
+      fullBoxThresholds: hammer.fullBoxThresholds,
       neuralSunEmbedding: hammer.neuralSunEmbedding,
       neuralProposalEmbedding: hammer.neuralProposalEmbedding,
       neuralWaveProximity: hammer.neuralWaveProximity,

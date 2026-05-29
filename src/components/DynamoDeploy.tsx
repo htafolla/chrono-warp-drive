@@ -196,6 +196,7 @@ interface GovernanceResult {
   fullBoxNeuralVortex: number | null;
   fullBox4DComposite: number | null;
   fullBoxVerdict: string | null;
+  fullBoxThresholds: { strong: number; good: number; weak: number } | null;
   neuralWaveProximity: number | null;
   neuralWaveVortexAlignment: number | null;
   smoothedResonance: number | null;
@@ -290,6 +291,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const fullBoxNeuralVortex = solar?.fullBoxNeuralVortex != null ? Number(solar.fullBoxNeuralVortex) : null;
   const fullBox4DComposite = solar?.fullBox4DComposite != null ? Number(solar.fullBox4DComposite) : null;
   const fullBoxVerdict = solar?.fullBoxVerdict || null;
+  const fullBoxThresholds = solar?.fullBoxThresholds ?? null;
   const neuralWaveProximity = solar?.neuralWaveProximity != null ? Number(solar.neuralWaveProximity) : null;
   const neuralWaveVortexAlignment = solar?.neuralWaveVortexAlignment != null ? Number(solar.neuralWaveVortexAlignment) : null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
@@ -354,7 +356,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
       resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, hybrid4DComposite, hybridVerdict, hybridVortexAlignment, fullWave4DComposite, calibratedWave4DComposite, momentum, peakForecast, adaptiveThresholds,
-      fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBoxNeuralProximity, fullBoxNeuralVortex, fullBox4DComposite, fullBoxVerdict,
+      fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBoxNeuralProximity, fullBoxNeuralVortex, fullBox4DComposite, fullBoxVerdict, fullBoxThresholds,
       neuralWaveProximity, neuralWaveVortexAlignment,
     };
   } catch {
@@ -701,18 +703,26 @@ export default function DynamoDeploy() {
                     <details className="mt-1">
 <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Full Box 6D (4 physical + 2 neural)</summary>
                        <div className="space-y-2 mt-1">
-                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
-                           <p className="text-[10px] text-cyan-500/60">Full Box 6D</p>
-                           <p className="text-sm font-semibold text-white">{(result.fullBox4DComposite * 100).toFixed(0)}%</p>
-                         </div>
-                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
-                           <p className="text-[10px] text-cyan-500/60">Full Box Verdict</p>
-                           <p className={`text-sm font-semibold ${
-                             result.fullBoxVerdict === 'PASS' ? 'text-emerald-400' :
-                             result.fullBoxVerdict === 'REJECT' ? 'text-red-400' :
-                             'text-amber-400'
-                           }`}>{result.fullBoxVerdict}</p>
-                         </div>
+<div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                            <p className="text-[10px] text-cyan-500/60">Full Box 6D</p>
+                            <p className="text-sm font-semibold text-white">{(result.fullBox4DComposite * 100).toFixed(0)}%</p>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                            <p className="text-[10px] text-cyan-500/60">Full Box Verdict</p>
+                            <p className={`text-sm font-semibold ${
+                              result.fullBoxVerdict === 'PASS' ? 'text-emerald-400' :
+                              result.fullBoxVerdict === 'REJECT' ? 'text-red-400' :
+                              'text-amber-400'
+                            }`}>{result.fullBoxVerdict}</p>
+                          </div>
+                          {result.fullBoxThresholds && (
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                            <p className="text-[10px] text-cyan-500/60">Thresholds</p>
+                            <p className="text-[10px] text-white/40">
+                              {(result.fullBoxThresholds.strong * 100).toFixed(0)}/{(result.fullBoxThresholds.good * 100).toFixed(0)}/{(result.fullBoxThresholds.weak * 100).toFixed(0)}
+                            </p>
+                          </div>
+                          )}
                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
                            <p className="text-[10px] text-cyan-500/60">Wave Proximity</p>
                            <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxProximity! * 100).toFixed(0)}%</p>
@@ -931,6 +941,7 @@ export default function DynamoDeploy() {
                         <div className="space-y-1.5">
                           <Row label="Full Box 6D" v={r.fullBox4DComposite} color={verdictColor(r.fullBoxVerdict)} bold />
                           <Row label="Verdict" v={r.fullBoxVerdict} plain color={verdictColor(r.fullBoxVerdict)} />
+                          {r.fullBoxThresholds && <Row label="Thresholds (S/G/W)" plain v={`${(r.fullBoxThresholds.strong*100).toFixed(0)}/${(r.fullBoxThresholds.good*100).toFixed(0)}/${(r.fullBoxThresholds.weak*100).toFixed(0)}`} color="text-white/40" />}
                           <Row label="Wave Proximity" v={r.fullBoxProximity} />
                           <Row label="Wave Vortex (cal)" v={r.fullBoxVortexAlignment} />
                           <Row label="Wave Sync (cal)" v={r.fullBoxSynchronization} />

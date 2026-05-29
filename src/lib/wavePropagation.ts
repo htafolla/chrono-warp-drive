@@ -152,6 +152,7 @@ export interface FullBoxResonanceResult {
   fullBoxNeuralVortex: number
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  fullBoxThresholds: { strong: number; good: number; weak: number }
 }
 
 export function computeCalibratedWaveSync(rawSync: number): number {
@@ -211,6 +212,7 @@ export function computeFullBoxResonance(
     fullBoxNeuralVortex: neuralVortex,
     fullBox4DComposite,
     fullBoxVerdict: verdict,
+    fullBoxThresholds: t,
   }
 }
 

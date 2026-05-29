@@ -166,6 +166,7 @@ export interface StructuralResonanceResult {
   fullBoxNeuralVortex: number
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  fullBoxThresholds: { strong: number; good: number; weak: number }
   neuralSunEmbedding?: number[]
   neuralProposalEmbedding?: number[]
   neuralWaveProximity: number
@@ -385,6 +386,7 @@ export class SolarGovernanceIntegration {
         fullBoxNeuralVortex: fullBox.fullBoxNeuralVortex,
         fullBox4DComposite: fullBox.fullBox4DComposite,
         fullBoxVerdict: fullBox.fullBoxVerdict,
+        fullBoxThresholds: fullBox.fullBoxThresholds,
         neuralSunEmbedding: sunNeuralEmbedding,
         neuralProposalEmbedding: proposalEmbedding,
         neuralWaveProximity: waveResonance.neuralWaveProximity,
@@ -430,6 +432,7 @@ export class SolarGovernanceIntegration {
         fullBoxNeuralVortex: 0.80,
         fullBox4DComposite: 0.80,
         fullBoxVerdict: 'PASS' as const,
+        fullBoxThresholds: { strong: 0.85, good: 0.75, weak: 0.52 },
         neuralSunEmbedding: undefined,
         neuralProposalEmbedding: undefined,
         neuralWaveProximity: 0.80,
