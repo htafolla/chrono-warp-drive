@@ -322,30 +322,38 @@ export function computeWaveResonance(
   }
   const waveSynchronization = Math.max(0.01, Math.min(0.99, syncSum / trajectory.length))
 
-  // Neural-only proximity and vortex from the neural bands alone
+  // Neural-only proximity and vortex from the neural bands alone.
+  // Per-dimension comparison: compute amplitude difference for each of 16 dims
+  // at each timestep, then aggregate. This preserves inter-dimension variation
+  // instead of averaging it away.
   let neuralSumSqDiff = 0
   const neuralPropSeries: number[] = []
   const neuralSunSeries: number[] = []
   if (neuralSunEmbedding && neuralProposalEmbedding) {
     for (let step = 0; step < trajectory.length; step++) {
       const pt = trajectory[step]
-      let propSum = 0
-      let sunSum = 0
+      let propTotal = 0
+      let sunTotal = 0
       for (let d = 0; d < NEURAL_DIMS; d++) {
-        propSum += neuralAmplitude(neuralProposalEmbedding, d, pt.theta[0])
-        sunSum += neuralAmplitude(neuralSunEmbedding, d, pt.theta[1])
+        const propAmp = neuralAmplitude(neuralProposalEmbedding, d, pt.theta[0])
+        const sunAmp = neuralAmplitude(neuralSunEmbedding, d, pt.theta[1])
+        neuralSumSqDiff += (propAmp - sunAmp) ** 2
+        propTotal += propAmp
+        sunTotal += sunAmp
       }
-      const propAvg = propSum / NEURAL_DIMS
-      const sunAvg = sunSum / NEURAL_DIMS
-      neuralSumSqDiff += (propAvg - sunAvg) ** 2
-      neuralPropSeries.push(propAvg)
-      neuralSunSeries.push(sunAvg)
+      // Per-dimension MSE (divide by NEURAL_DIMS, not by 1 for the averaged point)
+      neuralPropSeries.push(propTotal / NEURAL_DIMS)
+      neuralSunSeries.push(sunTotal / NEURAL_DIMS)
     }
   }
-  const neuralMse = neuralSunEmbedding ? neuralSumSqDiff / trajectory.length : 0.5
-  const neuralWaveProximity = Math.max(0.01, Math.min(0.99, Math.exp(-neuralMse * 0.5)))
+  // Total MSE: sum of per-dim squared differences / (trajectory steps * dims)
+  const neuralMse = neuralSunEmbedding ? neuralSumSqDiff / (trajectory.length * NEURAL_DIMS) : 0.15
+  // Steeper decay (5x) to amplify embedding differences
+  const neuralWaveProximity = neuralSunEmbedding
+    ? Math.max(0.01, Math.min(0.99, Math.exp(-neuralMse * 5)))
+    : 0.5
   const neuralWaveVortexAlignment = neuralSunEmbedding
-    ? Math.max(0.01, Math.min(0.99, crossCorrelate(neuralPropSeries, neuralSunSeries)))
+    ? Math.max(0.01, Math.min(0.99, crossCorrelate(neuralPropSeries, neuralSunSeries, true)))
     : 0.5
 
   return {

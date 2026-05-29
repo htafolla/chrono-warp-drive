@@ -7,6 +7,23 @@ import { publish, subscribe } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
 import { dynamoSolarGovernance, getPublicFeed, getHistory } from './lib/dynamoSolarGovernance.js'
 
+const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
+
+async function fetchSunNeuralEmbedding(): Promise<number[] | undefined> {
+  try {
+    const res = await fetch(`${NEURAL_FUSION_URL}/process-current-sun`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) return undefined
+    const data = await res.json() as any
+    return data?.neuralOutput?.neuralEmbedding16 ?? data?.neuralEmbedding16 ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
 // ===== Inlined: isotopicSignal.ts =====
 interface CorrelationResult {
   strength: number;
@@ -1279,7 +1296,7 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const baseVoteWeight = Math.max(0.5, Math.min(1.5, Number(args?.baseVoteWeight ?? 1)))
     const sharePublicly = args?.sharePublicly === true
     const spectralQuality = args?.spectralQuality !== undefined ? Number(args.spectralQuality) : undefined
-    const sunNeuralEmbedding = args?.sunNeuralEmbedding !== undefined ? args.sunNeuralEmbedding : undefined
+    const sunNeuralEmbedding = args?.sunNeuralEmbedding !== undefined ? args.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
 
     return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding)
   },
@@ -1492,7 +1509,7 @@ app.get('/govern_with_solar', (c: Context) => {
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
-  const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : undefined
+  const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
   const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding)
   return c.json({ success: true, ...result })
 })
