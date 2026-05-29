@@ -181,7 +181,7 @@ export function computeFullBoxResonance(
   // Physical vortex + sync compressed but still valuable, 15% each
   // Proximity always ~0.99, minimal discrimination, 15%
   const neuralWeight = (neuralProximity > 0 && neuralVortex > 0) ? 0.175 : 0
-  const physRedistribute = neuralWeight === 0 ? 0.088 : 0
+  const physRedistribute = neuralWeight === 0 ? 0.0875 : 0
   const fullBox4DComposite = Math.max(0.15, Math.min(0.98,
     waveProximity * (0.15 + physRedistribute) +
     phaseAlignment * (0.20 + physRedistribute) +
