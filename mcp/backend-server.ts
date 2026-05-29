@@ -203,6 +203,8 @@ app.post('/process-current-sun', async (req, res) => {
         // New reconstruction-based signals
         reconstructionError: result.reconstructionError,
         spectralQuality: result.spectralQuality,
+        // Raw 16-dim bottleneck embedding for Neural Quantum Realms (virtual spectrum bands)
+        neuralEmbedding16: result.neuralEmbedding16,
       },
       solarModulation: result.solarModulation,
       engine: 'real-tensorflow + multi-channel-noaa + activity-level-coupled',
