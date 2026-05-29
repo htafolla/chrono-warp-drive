@@ -8,6 +8,7 @@ import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataF
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
 import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
+import { computeWaveResonance } from './wavePropagation.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -150,6 +151,9 @@ export interface StructuralResonanceResult {
   neuralContextUsed: boolean
   phaseType: 'push' | 'pull'
   isotope: string
+  waveProximity: number
+  waveVortexAlignment: number
+  waveSynchronization: number
 }
 
 export class SolarGovernanceIntegration {
@@ -241,6 +245,9 @@ export class SolarGovernanceIntegration {
       // static phaseCoherence difference, and content-hash cascade indices.
       const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
+      // Phase 2 wave propagation (A/B alongside current TDF formulas)
+      const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf)
+
       // Cross-correlate for full structural comparison (strength + lag + vortexVolume)
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
@@ -322,6 +329,9 @@ export class SolarGovernanceIntegration {
         neuralContextUsed,
         phaseType: kuramoto.phaseType,
         isotope: kuramoto.isotope,
+        waveProximity: waveResonance.waveProximity,
+        waveVortexAlignment: waveResonance.waveVortexAlignment,
+        waveSynchronization: waveResonance.waveSynchronization,
       }
     } catch (error) {
       console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
@@ -348,6 +358,9 @@ export class SolarGovernanceIntegration {
         neuralContextUsed: false,
         phaseType: 'pull',
         isotope: 'C-12',
+        waveProximity: 0.80,
+        waveVortexAlignment: 0.80,
+        waveSynchronization: 0.80,
       }
     }
   }

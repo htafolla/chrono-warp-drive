@@ -6,6 +6,7 @@ import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
+import { computeWaveResonance } from './wavePropagation';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -169,6 +170,9 @@ export class SolarGovernanceIntegration {
     neuralContextUsed: boolean
     phaseType: 'push' | 'pull'
     isotope: string
+    waveProximity: number
+    waveVortexAlignment: number
+    waveSynchronization: number
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -193,6 +197,8 @@ export class SolarGovernanceIntegration {
       )
 
       const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
+
+      const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf)
 
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
@@ -250,6 +256,9 @@ export class SolarGovernanceIntegration {
         neuralContextUsed,
         phaseType: kuramoto.phaseType,
         isotope: kuramoto.isotope,
+        waveProximity: waveResonance.waveProximity,
+        waveVortexAlignment: waveResonance.waveVortexAlignment,
+        waveSynchronization: waveResonance.waveSynchronization,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -276,6 +285,9 @@ export class SolarGovernanceIntegration {
         neuralContextUsed: false,
         phaseType: 'pull',
         isotope: 'C-12',
+        waveProximity: 0.80,
+        waveVortexAlignment: 0.80,
+        waveSynchronization: 0.80,
       }
     }
   }

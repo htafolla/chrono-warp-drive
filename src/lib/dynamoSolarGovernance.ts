@@ -46,6 +46,9 @@ export interface EnhancedGovernanceDecision {
   neuralContextUsed: boolean;
   phaseType?: 'push' | 'pull';
   isotope?: string;
+  waveProximity: number;
+  waveVortexAlignment: number;
+  waveSynchronization: number;
 }
 
 export class DynamoSolarGovernance {
@@ -193,6 +196,9 @@ export class DynamoSolarGovernance {
       neuralContextUsed: hammer.neuralContextUsed,
       phaseType: hammer.phaseType,
       isotope: hammer.isotope,
+      waveProximity: hammer.waveProximity,
+      waveVortexAlignment: hammer.waveVortexAlignment,
+      waveSynchronization: hammer.waveSynchronization,
     };
   }
 }

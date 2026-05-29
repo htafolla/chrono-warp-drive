@@ -54,6 +54,9 @@ export interface EnhancedGovernanceDecision {
   resonanceHistory?: Array<{ score: number; timestamp: string }>
   spectralQuality?: number
   neuralContextUsed: boolean
+  waveProximity: number
+  waveVortexAlignment: number
+  waveSynchronization: number
 }
 
 export interface PublicFeedEntry {
@@ -372,6 +375,9 @@ export class DynamoSolarGovernance {
       neuralContextUsed: hammer.neuralContextUsed,
       phaseType: hammer.phaseType,
       isotope: hammer.isotope,
+      waveProximity: hammer.waveProximity,
+      waveVortexAlignment: hammer.waveVortexAlignment,
+      waveSynchronization: hammer.waveSynchronization,
     }
 
     // Persist every query+response to Redis for durable history
