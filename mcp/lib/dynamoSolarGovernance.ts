@@ -67,6 +67,10 @@ export interface EnhancedGovernanceDecision {
   fullBoxSynchronization: number
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  neuralSunEmbedding?: number[]
+  neuralProposalEmbedding?: number[]
+  neuralWaveProximity: number
+  neuralWaveVortexAlignment: number
 }
 
 export interface PublicFeedEntry {
@@ -197,10 +201,11 @@ export class DynamoSolarGovernance {
     baseVoteWeight: number = 1.0,
     sharePublicly: boolean = false,
     spectralQuality?: number,
+    sunNeuralEmbedding?: number[],
   ): Promise<EnhancedGovernanceDecision> {
     const solarContext = await solarGovernance.getSolarContextForGovernance()
 
-    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation, spectralQuality)
+    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation, spectralQuality, sunNeuralEmbedding)
 
     const adjustedVoteWeight = Math.max(0.5, Math.min(1.5, baseVoteWeight + solarContext.solarActivityModifier + hammer.activityModifier * 0.5))
 
@@ -398,6 +403,10 @@ export class DynamoSolarGovernance {
       fullBoxSynchronization: hammer.fullBoxSynchronization,
       fullBox4DComposite: hammer.fullBox4DComposite,
       fullBoxVerdict: hammer.fullBoxVerdict,
+      neuralSunEmbedding: hammer.neuralSunEmbedding,
+      neuralProposalEmbedding: hammer.neuralProposalEmbedding,
+      neuralWaveProximity: hammer.neuralWaveProximity,
+      neuralWaveVortexAlignment: hammer.neuralWaveVortexAlignment,
     }
 
     // Persist every query+response to Redis for durable history

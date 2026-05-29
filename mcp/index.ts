@@ -1274,11 +1274,14 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return evaluateGovernance(TOOL_HANDLERS, args)
   },
   govern_with_solar: async (args: any) => {
-    const proposal = args?.proposal || 'No proposal provided'
-    const baseVoteWeight = args?.baseVoteWeight ?? 1.0
+    const proposal = String(args?.proposal ?? '')
+    if (!proposal || proposal.length < 10) return { error: 'Proposal must be at least 10 characters.' }
+    const baseVoteWeight = Math.max(0.5, Math.min(1.5, Number(args?.baseVoteWeight ?? 1)))
     const sharePublicly = args?.sharePublicly === true
     const spectralQuality = args?.spectralQuality !== undefined ? Number(args.spectralQuality) : undefined
-    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight, sharePublicly, spectralQuality)
+    const sunNeuralEmbedding = args?.sunNeuralEmbedding !== undefined ? args.sunNeuralEmbedding : undefined
+
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding)
   },
   call_connected_tool: async (args: any) => {
     const toolName = args?.tool_name
@@ -1489,7 +1492,8 @@ app.get('/govern_with_solar', (c: Context) => {
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
-  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality)
+  const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : undefined
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding)
   return c.json({ success: true, ...result })
 })
 

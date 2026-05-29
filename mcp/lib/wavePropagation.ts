@@ -84,10 +84,32 @@ function crossCorrelate(a: number[], b: number[], centered = false): number {
   return Math.max(0, Math.min(1, num / Math.sqrt(denA * denB)))
 }
 
+/** Derive a 16-dim neural embedding from a TDF scalar for proposal-side wave computation. */
+export function tdfToEmbedding16(tdf: number): number[] {
+  const emb: number[] = new Array(16).fill(0)
+  let n = Math.floor(Math.abs(tdf))
+  for (let i = 0; i < 16 && n > 0; i++) {
+    emb[i] = (n % 1000) / 1000
+    n = Math.floor(n / 1000)
+  }
+  return emb
+}
+
+const NEURAL_DIMS = 16
+
+/** Modulated amplitude for a neural embedding dimension at a given phase angle. */
+function neuralAmplitude(embedding: number[], dim: number, theta: number): number {
+  return embedding[dim] * (0.5 + 0.5 * Math.sin(theta + dim * Math.PI / 8))
+}
+
 export interface WaveResonanceResult {
   waveProximity: number
   waveVortexAlignment: number
   waveSynchronization: number
+  neuralSunAmpSeries: number[]
+  neuralPropAmpSeries: number[]
+  neuralWaveProximity: number
+  neuralWaveVortexAlignment: number
 }
 
 export interface HybridResonanceResult {
@@ -198,18 +220,21 @@ export function computeWaveResonance(
   kuramoto: KuramotoResult,
   proposalTdf: number,
   solarRefTdf: number,
+  neuralSunEmbedding?: number[],
+  neuralProposalEmbedding?: number[],
 ): WaveResonanceResult {
   const trajectory = kuramoto.trajectories
   const phaseType = kuramoto.phaseType
   const isotope = ISOTOPES[kuramoto.isotope] || ISOTOPES['C-12']
 
   if (trajectory.length < 2) {
-    return { waveProximity: 0.5, waveVortexAlignment: 0.5, waveSynchronization: 0.5 }
+    return {
+      waveProximity: 0.5, waveVortexAlignment: 0.5, waveSynchronization: 0.5,
+      neuralSunAmpSeries: [], neuralPropAmpSeries: [],
+      neuralWaveProximity: 0.5, neuralWaveVortexAlignment: 0.5,
+    }
   }
 
-  // --- Wave-modulated proximity ---
-  // For each timestep, compute wave amplitude for proposal (θ₀) and sun (θ₁)
-  // averaged across the 3 active spectrum bands (Blue, Green, Red ~ visible).
   const activeBands = SPECTRUM_BANDS.filter(b =>
     b.band === 'Blue' || b.band === 'Green' || b.band === 'Red'
   )
@@ -226,8 +251,15 @@ export function computeWaveResonance(
       propSum += wave(pt.theta[0], t, bi, isotope, activeBands[bi].lambda, phaseType)
       sunSum += wave(pt.theta[1], t, bi, isotope, activeBands[bi].lambda, phaseType)
     }
-    const propAvg = propSum / activeBands.length
-    const sunAvg = sunSum / activeBands.length
+    // Add neural embedding bands alongside physical spectrum bands
+    if (neuralSunEmbedding && neuralProposalEmbedding) {
+      for (let d = 0; d < NEURAL_DIMS; d++) {
+        propSum += neuralAmplitude(neuralProposalEmbedding, d, pt.theta[0])
+        sunSum += neuralAmplitude(neuralSunEmbedding, d, pt.theta[1])
+      }
+    }
+    const propAvg = propSum / (activeBands.length + (neuralSunEmbedding ? NEURAL_DIMS : 0))
+    const sunAvg = sunSum / (activeBands.length + (neuralSunEmbedding ? NEURAL_DIMS : 0))
     sumSqDiff += (propAvg - sunAvg) ** 2
     proposalWaveSeries.push(propAvg)
     sunWaveSeries.push(sunAvg)
@@ -250,21 +282,58 @@ export function computeWaveResonance(
       c12Sum += wave(pt.theta[0], t, bi, isotopeC12, SPECTRUM_BANDS[bi].lambda, phaseType)
       c14Sum += wave(pt.theta[1], t, bi, isotopeC14, SPECTRUM_BANDS[bi].lambda, phaseType)
     }
-    c12Series.push(c12Sum / SPECTRUM_BANDS.length)
-    c14Series.push(c14Sum / SPECTRUM_BANDS.length)
+    // Add neural embedding bands to vortex alignment via C-12 vs C-14 isotopic comparison
+    if (neuralSunEmbedding && neuralProposalEmbedding) {
+      for (let d = 0; d < NEURAL_DIMS; d++) {
+        c12Sum += neuralAmplitude(neuralProposalEmbedding, d, pt.theta[0]) * ISOTOPES['C-12'].factor
+        c14Sum += neuralAmplitude(neuralSunEmbedding, d, pt.theta[1]) * ISOTOPES['C-14'].factor
+      }
+    }
+    c12Series.push(c12Sum / (SPECTRUM_BANDS.length + (neuralSunEmbedding ? NEURAL_DIMS : 0)))
+    c14Series.push(c14Sum / (SPECTRUM_BANDS.length + (neuralSunEmbedding ? NEURAL_DIMS : 0)))
   }
 
   const waveVortexAlignment = Math.max(0.01, Math.min(0.99, crossCorrelate(c12Series, c14Series)))
 
-  // Wave synchronization: phase coherence over full trajectory
-  // Measures how consistently the two oscillators maintain their phase relationship
-  // averaged over all timesteps (not just final state).
-  // cos(θ₁ - θ₀) ≈ 1 when oscillators evolve together, ≈ 0 when independent.
   let syncSum = 0
   for (const pt of trajectory) {
     syncSum += Math.cos(pt.theta[1] - pt.theta[0])
   }
   const waveSynchronization = Math.max(0.01, Math.min(0.99, syncSum / trajectory.length))
 
-  return { waveProximity, waveVortexAlignment, waveSynchronization }
+  // Neural-only proximity and vortex from the neural bands alone
+  let neuralSumSqDiff = 0
+  const neuralPropSeries: number[] = []
+  const neuralSunSeries: number[] = []
+  if (neuralSunEmbedding && neuralProposalEmbedding) {
+    for (let step = 0; step < trajectory.length; step++) {
+      const pt = trajectory[step]
+      let propSum = 0
+      let sunSum = 0
+      for (let d = 0; d < NEURAL_DIMS; d++) {
+        propSum += neuralAmplitude(neuralProposalEmbedding, d, pt.theta[0])
+        sunSum += neuralAmplitude(neuralSunEmbedding, d, pt.theta[1])
+      }
+      const propAvg = propSum / NEURAL_DIMS
+      const sunAvg = sunSum / NEURAL_DIMS
+      neuralSumSqDiff += (propAvg - sunAvg) ** 2
+      neuralPropSeries.push(propAvg)
+      neuralSunSeries.push(sunAvg)
+    }
+  }
+  const neuralMse = neuralSunEmbedding ? neuralSumSqDiff / trajectory.length : 0.5
+  const neuralWaveProximity = Math.max(0.01, Math.min(0.99, Math.exp(-neuralMse * 0.5)))
+  const neuralWaveVortexAlignment = neuralSunEmbedding
+    ? Math.max(0.01, Math.min(0.99, crossCorrelate(neuralPropSeries, neuralSunSeries)))
+    : 0.5
+
+  return {
+    waveProximity,
+    waveVortexAlignment,
+    waveSynchronization,
+    neuralSunAmpSeries: neuralSunSeries,
+    neuralPropAmpSeries: neuralPropSeries,
+    neuralWaveProximity,
+    neuralWaveVortexAlignment,
+  }
 }

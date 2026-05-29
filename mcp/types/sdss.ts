@@ -73,6 +73,10 @@ export interface NeuralOutput {
   // New reconstruction-based signals (added for honest solar embedding quality)
   reconstructionError?: number;   // MSE between input spectrum and decoder reconstruction
   spectralQuality?: number;       // 0–1, higher = model understands this solar state well
+
+  // Raw 16-dim neural embedding from the spectral autoencoder bottleneck
+  // Used as 16 virtual spectrum bands in wave propagation (Neural Quantum Realms)
+  neuralEmbedding16?: number[];
 }
 
 export interface TPTTv4Result {

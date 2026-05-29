@@ -459,9 +459,9 @@ export class NeuralFusion {
         metamorphosisIndex: mi,
         confidenceScore: cs,
         solarModulation: modulation,
-        // New honest signals (lightweight reconstruction-based)
         reconstructionError,
-        spectralQuality: reconQuality, // 0–1, higher = model understands this solar state better
+        spectralQuality: reconQuality,
+        neuralEmbedding16: spectrumResult.neuralEmbedding16,
       };
     } catch (error) {
       console.warn('[NeuralFusion] processing failed, fallback:', error);
@@ -472,6 +472,7 @@ export class NeuralFusion {
   private async processSpectrum(sd: { intensities: number[]; granularity: number }): Promise<{
     embedding: number[];
     reconstructionError: number;
+    neuralEmbedding16: number[];
   }> {
     if (!this.spectralModel) throw new Error('No model');
 
@@ -515,6 +516,7 @@ export class NeuralFusion {
     return {
       embedding: expanded,
       reconstructionError: Math.min(Math.max(reconstructionError, 0), 2),
+      neuralEmbedding16: embeddingArray,
     };
   }
 
@@ -627,6 +629,7 @@ export class NeuralFusion {
       solarModulation: modulation,
       reconstructionError: 0.65,
       spectralQuality: 0.42,
+      neuralEmbedding16: Array.from({ length: 16 }, (_, i) => 0.5 + 0.1 * Math.sin(i)),
     };
   }
 

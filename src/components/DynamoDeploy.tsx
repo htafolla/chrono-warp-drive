@@ -194,6 +194,8 @@ interface GovernanceResult {
   fullBoxSynchronization: number | null;
   fullBox4DComposite: number | null;
   fullBoxVerdict: string | null;
+  neuralWaveProximity: number | null;
+  neuralWaveVortexAlignment: number | null;
   smoothedResonance: number | null;
   trend: string | null;
   momentum: number | null;
@@ -220,13 +222,14 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
     }).then(async r => r.ok ? r.json() : null).catch(() => null);
 
     const spectralQuality = neuralRes?.neuralOutput?.spectralQuality ?? neuralRes?.spectralQuality ?? null;
+    const neuralEmbedding16 = neuralRes?.neuralOutput?.neuralEmbedding16 ?? neuralRes?.neuralEmbedding16 ?? null;
 
     // Then call governance with spectralQuality, plus alignment in parallel
     const [solarRes, alignRes] = await Promise.allSettled([
       fetch(`${MCP_URL}/govern_with_solar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly, spectralQuality }),
+        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly, spectralQuality, sunNeuralEmbedding: neuralEmbedding16 }),
         signal: AbortSignal.timeout(15000),
       }).then(async r => r.ok ? r.json() : null),
       fetch(`${MCP_URL}/governance`, {
@@ -282,6 +285,8 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const fullBoxSynchronization = solar?.fullBoxSynchronization != null ? Number(solar.fullBoxSynchronization) : null;
   const fullBox4DComposite = solar?.fullBox4DComposite != null ? Number(solar.fullBox4DComposite) : null;
   const fullBoxVerdict = solar?.fullBoxVerdict || null;
+  const neuralWaveProximity = solar?.neuralWaveProximity != null ? Number(solar.neuralWaveProximity) : null;
+  const neuralWaveVortexAlignment = solar?.neuralWaveVortexAlignment != null ? Number(solar.neuralWaveVortexAlignment) : null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
   const peakForecast = solar?.peakForecast ?? null;
   const adaptiveThresholds = solar?.adaptiveThresholds ?? null;
@@ -345,6 +350,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
       resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, hybrid4DComposite, hybridVerdict, hybridVortexAlignment, fullWave4DComposite, calibratedWave4DComposite, momentum, peakForecast, adaptiveThresholds,
       fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBox4DComposite, fullBoxVerdict,
+      neuralWaveProximity, neuralWaveVortexAlignment,
     };
   } catch {
     return null;
@@ -717,6 +723,21 @@ export default function DynamoDeploy() {
                       </div>
                     </details>
                   )}
+                  {result.neuralWaveProximity != null && (
+                    <details className="mt-1">
+                      <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Neural Quantum Realms</summary>
+                      <div className="space-y-2 mt-1">
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                          <p className="text-[10px] text-rose-500/60">Neural Wave Proximity</p>
+                          <p className="text-sm font-semibold text-rose-300">{(result.neuralWaveProximity * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-rose-500/60">Neural Wave Vortex</p>
+                          <p className="text-sm font-semibold text-rose-300">{(result.neuralWaveVortexAlignment! * 100).toFixed(0)}%</p>
+                        </div>
+                      </div>
+                    </details>
+                  )}
                   {result.governanceConfidence != null && (
                   <div>
                     <p className="text-xs text-white/50 uppercase">Governance Confidence</p>
@@ -900,6 +921,17 @@ export default function DynamoDeploy() {
                           <Row label="Wave Proximity" v={r.fullBoxProximity} />
                           <Row label="Wave Vortex (cal)" v={r.fullBoxVortexAlignment} />
                           <Row label="Wave Sync (cal)" v={r.fullBoxSynchronization} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Neural Quantum Realms */}
+                    {r.neuralWaveProximity != null && (
+                      <div>
+                        <p className="text-[10px] text-rose-500/60 uppercase tracking-wider mb-1.5 font-semibold">Neural Quantum Realms</p>
+                        <div className="space-y-1.5">
+                          <Row label="Neural Wave Proximity" v={r.neuralWaveProximity} />
+                          <Row label="Neural Wave Vortex" v={r.neuralWaveVortexAlignment} />
                         </div>
                       </div>
                     )}

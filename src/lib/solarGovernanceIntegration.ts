@@ -6,7 +6,7 @@ import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
-import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance } from './wavePropagation';
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, tdfToEmbedding16 } from './wavePropagation';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -149,7 +149,7 @@ export class SolarGovernanceIntegration {
    * SOLAR ISOTOPIC HAMMER v2 — Structural Resonance (src/lib mirror)
    * Computes multi-dimensional resonance inside the isotopic temporal vortex.
    */
-  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number): Promise<{
+  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[]): Promise<{
     structuralResonance: number
     proximity: number
     phaseAlignment: number
@@ -183,6 +183,10 @@ export class SolarGovernanceIntegration {
     fullBoxSynchronization: number
     fullBox4DComposite: number
     fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+    neuralSunEmbedding?: number[]
+    neuralProposalEmbedding?: number[]
+    neuralWaveProximity: number
+    neuralWaveVortexAlignment: number
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -208,7 +212,9 @@ export class SolarGovernanceIntegration {
 
       const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
-      const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf)
+      const proposalEmbedding = tdfToEmbedding16(proposalTdf)
+
+      const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf, sunNeuralEmbedding, proposalEmbedding)
 
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
@@ -296,6 +302,10 @@ export class SolarGovernanceIntegration {
         fullBoxSynchronization: fullBox.fullBoxSynchronization,
         fullBox4DComposite: fullBox.fullBox4DComposite,
         fullBoxVerdict: fullBox.fullBoxVerdict,
+        neuralSunEmbedding: sunNeuralEmbedding,
+        neuralProposalEmbedding: proposalEmbedding,
+        neuralWaveProximity: waveResonance.neuralWaveProximity,
+        neuralWaveVortexAlignment: waveResonance.neuralWaveVortexAlignment,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -335,6 +345,10 @@ export class SolarGovernanceIntegration {
         fullBoxSynchronization: 0.80,
         fullBox4DComposite: 0.80,
         fullBoxVerdict: 'PASS' as const,
+        neuralSunEmbedding: undefined,
+        neuralProposalEmbedding: undefined,
+        neuralWaveProximity: 0.80,
+        neuralWaveVortexAlignment: 0.80,
       }
     }
   }
