@@ -186,6 +186,7 @@ export class DynamoSolarGovernance {
         solarActivityModifier: solarContext.solarActivityModifier,
         recommendation: solarContext.recommendation,
         solarIsotopicResonance: hammer.solarIsotopicResonance,
+        solarResonance: hammer.solarIsotopicResonance,
         proposalTdf: hammer.proposalTdf,
         solarReferenceTdf: hammer.solarReferenceTdf,
       },

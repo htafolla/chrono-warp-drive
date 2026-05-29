@@ -159,10 +159,14 @@ export async function evaluateGovernance(
   const decision = applyDecisionMatrix(resonance, isotopicRatio, vortexVolume, historicalCoherence)
 
   return {
+    success: true,
     proposalId,
     governanceIsotopeId,
     resonanceScore: resonance,
     solarHammerResonance: solarHammerRes,
+    isotopicRatio,
+    vortexVolume,
+    historicalCoherence,
     recommendation: decision.recommendation,
     confidence: decision.confidence,
     voteWeight: decision.voteWeight,
