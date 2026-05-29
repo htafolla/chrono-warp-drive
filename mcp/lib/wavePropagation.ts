@@ -353,7 +353,7 @@ export function computeWaveResonance(
     ? Math.max(0.01, Math.min(0.99, Math.exp(-neuralMse * 5)))
     : 0.5
   const neuralWaveVortexAlignment = neuralSunEmbedding
-    ? Math.max(0.01, Math.min(0.99, crossCorrelate(neuralPropSeries, neuralSunSeries, true)))
+    ? Math.max(0.01, Math.min(0.99, crossCorrelate(neuralPropSeries, neuralSunSeries)))
     : 0.5
 
   return {
