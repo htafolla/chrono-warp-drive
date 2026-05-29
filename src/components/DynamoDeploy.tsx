@@ -140,6 +140,9 @@ interface GovernanceResult {
   crossCorrelationLag: number | null;
   signalTiming: string | null;
   synchronization: number | null;
+  waveProximity: number | null;
+  waveVortexAlignment: number | null;
+  waveSynchronization: number | null;
   smoothedResonance: number | null;
   trend: string | null;
   momentum: number | null;
@@ -215,6 +218,9 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const phaseType = solar?.phaseType || null;
   const isotope = solar?.isotope || null;
   const synchronization = solar?.synchronization != null ? Number(solar.synchronization) : null;
+  const waveProximity = solar?.waveProximity != null ? Number(solar.waveProximity) : null;
+  const waveVortexAlignment = solar?.waveVortexAlignment != null ? Number(solar.waveVortexAlignment) : null;
+  const waveSynchronization = solar?.waveSynchronization != null ? Number(solar.waveSynchronization) : null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
   const peakForecast = solar?.peakForecast ?? null;
   const adaptiveThresholds = solar?.adaptiveThresholds ?? null;
@@ -276,7 +282,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
-      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, momentum, peakForecast, adaptiveThresholds,
+      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, momentum, peakForecast, adaptiveThresholds,
     };
   } catch {
     return null;
@@ -546,6 +552,25 @@ export default function DynamoDeploy() {
                         <span className="text-[10px] text-white/40">{result.isotope}</span>
                       )}
                     </div>
+                  )}
+                  {result.waveProximity != null && (
+                    <details className="mt-2">
+                      <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Wave (Phase 2)</summary>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>
+                          <p className="text-[9px] text-cyan-500/60">W-Prox</p>
+                          <p className="text-xs font-semibold text-cyan-300">{(result.waveProximity * 100).toFixed(0)}%</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-cyan-500/60">W-Vortex</p>
+                          <p className="text-xs font-semibold text-cyan-300">{(result.waveVortexAlignment! * 100).toFixed(0)}%</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-cyan-500/60">W-Sync</p>
+                          <p className="text-xs font-semibold text-cyan-300">{(result.waveSynchronization! * 100).toFixed(0)}%</p>
+                        </div>
+                      </div>
+                    </details>
                   )}
                   </>
                 )}

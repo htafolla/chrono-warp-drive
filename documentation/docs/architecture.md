@@ -101,6 +101,24 @@ Dynamo serves as the external, ungamable signal layer. 0xRay consumes that signa
 
 > Package: [`strray-ai` on npm](https://www.npmjs.com/package/strray-ai) · GitHub: [htafolla/stringray](https://github.com/htafolla/stringray) *(moving to 0xRay org)*
 
+## Wave Propagation Layer (Phase 2 Prototype)
+
+**File:** `mcp/lib/wavePropagation.ts`
+
+A Phase 2 prototype that computes three resonance dimensions from wave interference patterns in the Kuramoto oscillator trajectory (20-timestep), rather than from external TDF formulas. It ports the `wave()` function from `src/lib/temporalCalculator.ts`.
+
+**How it fits:** The wave layer runs in parallel with the existing SolarGovernanceIntegration. It does not replace any current formula — the three wave dimensions are additive A/B fields in the API response, providing an informative overlay for analysis and comparison.
+
+**Three wave dimensions:**
+
+| Dimension | Formula | Description |
+|-----------|---------|-------------|
+| `waveProximity` | `exp(−MSE × 0.5)` | Gaussian decay on wave-amplitude mismatch between θ₀ and θ₁ across Blue/Green/Red bands |
+| `waveVortexAlignment` | `crossCorrelate(C12(θ₀), C14(θ₁))` | Pearson cross-correlation of C-12 proposal wave vs C-14 sun wave across all 12 spectrum bands |
+| `waveSynchronization` | `mean(cos(θ₁ − θ₀))` | Trajectory-averaged phase coherence — measures dynamic phase coupling over time |
+
+A/B test results show wave spreads 2–2.5× wider than current TDF formulas for proximity and synchronization, and the current vortexAlignment produces 0% spread (1.0 for all proposals) while the wave version achieves 0.980 spread.
+
 ## Further Reading
 
 - [DYNAMO-CURRENT-STATE.md](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/DYNAMO-CURRENT-STATE.md) — authoritative current-state document with all formulas, design decisions, and deployment notes

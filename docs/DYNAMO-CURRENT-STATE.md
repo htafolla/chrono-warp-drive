@@ -66,6 +66,9 @@ Thresholds shift by solar activity level (quiet/moderate/active/storm) — storm
 | `mcp/pubsub.ts` | Redis client (getRedisClient) |
 | `mcp/index.ts` | Tool definitions, POST /govern_with_solar, GET /history |
 | `src/components/DynamoDeploy.tsx` | UI — resonance breakdown, sparkline, trend |
+| `mcp/lib/wavePropagation.ts` | Phase 2 wave propagation layer (A/B alongside TDF formulas) |
+| `src/lib/wavePropagation.ts` | Frontend mirror |
+| `mcp/scripts/test-wave-propagation.ts` | Phase 2 A/B test harness |
 
 ## Key Design Decisions
 
@@ -75,6 +78,42 @@ Thresholds shift by solar activity level (quiet/moderate/active/storm) — storm
 - **Three sync'd entry points**: MCP tool handler, POST /govern_with_solar, mcp/backend-server.ts Express route
 - **TDF values stay below 2^53** (JS float64 safe integer range)
 - **Kuramoto oscillators** (N=3, K=0.5) with push-pull dynamics (±π/4 offset) and fractal toggle for isotopic modulation
+
+## Phase 2 — Wave Propagation Prototype
+
+**Status:** Prototype complete. Wired as A/B alongside current TDF formulas. Not replacing anything yet.
+
+### What It Is
+
+The wave propagation layer ports the `wave()` function from `src/lib/temporalCalculator.ts` into a standalone module (`mcp/lib/wavePropagation.ts`). It uses the Kuramoto 20-timestep trajectory to compute resonance from wave interference patterns inside the temporal box — instead of from external TDF math.
+
+### Three Wave Dimensions
+
+| Dimension | Method | Spread vs Current |
+|-----------|--------|-------------------|
+| `waveProximity` | exp(-MSE(wave_θ₀ − wave_θ₁)) across 3 active bands | **2.0× wider** (0.249 vs 0.125) |
+| `waveVortexAlignment` | Pearson correlation of C-12(θ₀) vs C-14(θ₁) across all 12 bands | **∞** (current = 0.000 spread, always 1.0) |
+| `waveSynchronization` | Mean cos(θ₁−θ₀) over full trajectory | **2.5× wider** (0.928 vs 0.365) |
+
+### Key Finding
+
+The current `vortexAlignment` formula produces **1.0 for ALL proposals** — zero discrimination. The wave model produces real variance on all three dimensions. This is the strongest argument for eventually replacing the current TDF formulas with wave-based computation.
+
+### Spectrum Bands
+
+12 bands from UV-C (250nm) to IR-B (2500nm): UV-C, UV-B, UV-A, Violet, Blue, Cyan, Green, Yellow, Orange, Red, IR-A, IR-B. Wave proximity uses 3 active bands (Blue, Green, Red). Vortex alignment uses all 12.
+
+### Files
+
+- `mcp/lib/wavePropagation.ts` — Canonical implementation
+- `src/lib/wavePropagation.ts` — Frontend mirror
+- `mcp/scripts/test-wave-propagation.ts` — A/B test harness
+
+### Known Issues
+
+- waveSynchronization drops to ~0.01 for non-identical proposals — `cos(θ₁−θ₀)` metric may need recalibration
+- Wave scores can't use current thresholds (0.72/0.78/0.88) — need their own calibration pass
+- The 528 Hz temporal modulation in the wave function dominates over spatial phase differences, making raw amplitude correlation unstable
 
 ## Relationship to the Blurrn Quantum Codex
 
@@ -115,6 +154,7 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Frontend UI rebuilt with 3-column resonance breakdown + sparkline
 - Deployed to Railway + Vercel with three sync'd endpoints
 - Real Codex TDF formula implemented — `tPTT × TAU × (1/BHS)` with mapping layer replaces FNV-1a hash
+- Phase 2 wave propagation prototype built — `wave()` function ported from temporalCalculator.ts, A/B wired into governance responses
 
 The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the production formula — replacing the original FNV-1a hash with the real temporal physics. The mapping layer bridges Codex parameters and NOAA solar data, making Dynamo the first system to operationalize the Blurrn formula against live satellite feeds.
 

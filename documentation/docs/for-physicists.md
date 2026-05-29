@@ -227,6 +227,94 @@ The fractal term `S × isotope.factor` can be disabled (`fractalToggle = false`)
 
 The oscillator evolution now returns **full 3D trajectory** — the complete path of `(θ₀, θ₁, θ₂, ω₀, ω₁, ω₂)` at every timestep, not just the final order parameter. This enables future trajectory-derived dimensions (proximity as trajectory distance integral, synchronization as phase velocity correlation) without breaking the current external formulas.
 
+## Phase 2 — Wave Propagation
+
+The Phase 2 prototype (`mcp/lib/wavePropagation.ts`) ports the `wave()` function from `src/lib/temporalCalculator.ts` and computes three resonance dimensions directly from the Kuramoto oscillator trajectory rather than from external TDF formulas.
+
+### The Wave Function
+
+```
+wave(x, t, n, isotope, lambda, phaseType) = amplitude × sin(2πx/λ − 2π·FREQ·t·PHIⁿ + φ_dynamic) × isotope.factor
+```
+
+| Parameter | Source | Description |
+|-----------|--------|-------------|
+| `x` | Oscillator phase θ | Spatial position, using θ₀ (proposal) or θ₁ (sun) |
+| `t` | Timestep × Δt | Time, step index × 0.05 |
+| `n` | Spectrum band index | 0–11 mapping to 12 bands (UV-C through IR-B) |
+| `isotope` | C-12 or C-14 | Modulates amplitude via isotope factor (1.0 / 0.8) |
+| `lambda` | SpectrumBand.lambda | Wavelength in μm from the band definition |
+| `phaseType` | push (+π/4) or pull (−π/4) | Dynamic offset from solar activity |
+
+Constants: `PHI = 1.666`, `FREQ = 528`, `G = 1.0`. The spatial position `x` is the oscillator phase θ (radians), mapping the Kuramoto angular state directly into wave interference.
+
+### 12 Spectrum Bands
+
+| # | Band | λ (μm) |
+|---|------|--------|
+| 0 | UV-C | 0.250 |
+| 1 | UV-B | 0.280 |
+| 2 | UV-A | 0.350 |
+| 3 | Violet | 0.380 |
+| 4 | Blue | 0.450 |
+| 5 | Cyan | 0.490 |
+| 6 | Green | 0.530 |
+| 7 | Yellow | 0.580 |
+| 8 | Orange | 0.620 |
+| 9 | Red | 0.700 |
+| 10 | IR-A | 1.400 |
+| 11 | IR-B | 2.500 |
+
+### Three Computed Dimensions
+
+**1. waveProximity: `exp(−MSE × 0.5)`**
+
+Averages wave amplitude for θ₀ and θ₁ across the 3 active visible bands (Blue, Green, Red) at each timestep, then computes the mean squared error between the two series:
+
+```
+sumSqDiff = Σ_t [mean_bands(wave(θ₀(t))) − mean_bands(wave(θ₁(t)))]²
+MSE = sumSqDiff / trajectory_length
+waveProximity = exp(−MSE × 0.5)
+```
+
+Gaussian decay on wave-amplitude mismatch. Tightens when oscillators produce dissimilar spatial interference; loosens when wave patterns align.
+
+**2. waveVortexAlignment: Cross-correlation of C-12(θ₀) vs C-14(θ₁)**
+
+Computes the C-12 wave series (θ₀ through all 12 spectrum bands) and the C-14 wave series (θ₁ through all 12 bands), then Pearson cross-correlates them:
+
+```
+c12Series[t] = mean_bands(wave(θ₀, isotope=C-12))
+c14Series[t] = mean_bands(wave(θ₁, isotope=C-14))
+waveVortexAlignment = crossCorrelate(c12Series, c14Series)
+```
+
+Isotopic cross-band alignment. High when the proposal's C-12 wave envelope matches the sun's C-14 wave envelope across the full spectrum. Low when isotopic band profiles diverge.
+
+**3. waveSynchronization: `mean(cos(θ₁ − θ₀))`**
+
+Temporal phase coherence averaged over the full trajectory:
+
+```
+waveSynchronization = (1/N) Σ_t cos(θ₁(t) − θ₀(t))
+```
+
+cos(θ₁ − θ₀) ≈ 1 when oscillators maintain a consistent phase relationship (co-rotating), ≈ 0 when phases drift independently. Unlike the current synchronization (static deltaDiff linear decay), this captures dynamic phase coupling across time.
+
+### A/B Test Results vs Current TDF Formulas
+
+| Dimension | Current Spread | Wave Spread | Ratio | Notes |
+|-----------|---------------|-------------|-------|-------|
+| proximity | 0.125 | 0.249 | 2.0× wider | Wave discriminates better on close TDFs |
+| vortexAlignment | 0.000 | 0.980 | ∞ | Current formula gives 1.0 for ALL proposals (dead dimension) |
+| synchronization | 0.365 | 0.928 | 2.5× wider | Wave captures dynamic phase coupling vs static deltaDiff |
+
+The current `vortexAlignment` formula (`1 − logRatio/logMax`) compresses all proposals to ~1.0 because all test TDFs are of similar magnitude (~5.78e12). The log-ratio is ~10⁻⁴, swamped by logMax ~29. The wave version uses cross-correlation across isotopic band profiles, yielding genuine variation from 0.01 to 0.99.
+
+### Current State
+
+The wave fields are returned as add-only A/B fields in the API response (`waveProximity`, `waveVortexAlignment`, `waveSynchronization`). The current TDF-based resonance formulas remain unchanged — wave scores are informative overlays only. The Phase 2 prototype is wired but not yet replacing any existing governance dimension.
+
 ## Adaptive Thresholds
 
 The decision thresholds shift as a function of solar activity:

@@ -766,17 +766,23 @@ Live services:
 - `mcp/lib/dynamoSolarGovernance.ts` — EnhancedGovernanceDecision, adaptive thresholds, Redis
 - `src/lib/dynamoSolarGovernance.ts` — Frontend mirror (no Redis)
 - `mcp/lib/temporalBlurrnSignal.ts` — TDF cross-correlation
+- `mcp/lib/wavePropagation.ts` — Phase 2 wave propagation layer (A/B alongside TDF formulas)
+- `src/lib/wavePropagation.ts` — Frontend mirror
+- `mcp/scripts/test-wave-propagation.ts` — Phase 2 A/B test harness
 - `mcp/lib/solarDataFetcher.ts` — NOAA GOES ingestion
 - `mcp/index.ts` — Tool definitions, HTTP routes
 - `mcp/backend-server.ts` — Express entry point
-- `src/components/DynamoDeploy.tsx` — UI, sequential neural→governance
+- `src/components/DynamoDeploy.tsx` — UI, sequential neural→governance, wave score display
 - `src/__tests__/mcp.test.ts` — 97 tests, all pass
 - `docs/DYNAMO-CURRENT-STATE.md` — Authoritative current-state document
 - `docs/governance/0xray-integration-guide.md` — 0xRay integration
-- `documentation/docs/for-physicists.md` — Deep-dive docs (mapping tables, Kuramoto section)
+- `documentation/docs/for-physicists.md` — Deep-dive docs (mapping tables, Kuramoto section, Phase 2 wave propagation)
 
 ### Known Gaps / Next Possible Work
 
 - **Threshold recalibration**: Sync now correctly scores 62-95% (was ~9% noise), current quiet thresholds (0.82/0.72/0.58) may be too permissive.
-- **Codex v4.9/v5.0**: Write Codex update capturing deltaDiff sync, adaptive thresholds, 5D formula, Redis, Railway deploy, Kuramoto coupling.
+- **Wave propagation calibration**: waveSynchronization drops to ~0.01 for non-identical proposals. The cos(θ₁−θ₀) metric and proximity scaling need tuning before wave scores can replace current formulas.
+- **Current vortexAlignment is dead**: Produces 1.0 for ALL proposals (0% spread). Wave vortexAlignment has 98% spread — strong candidate for replacement.
+- **Phase 2 decision**: Evaluate A/B data from live endpoint. If wave consistently beats current formulas across real proposals, plan the migration.
+- **Codex v4.9/v5.0**: Write Codex update capturing deltaDiff sync, adaptive thresholds, 5D formula, Redis, Railway deploy, Kuramoto coupling, wave propagation.
 - **0xRay domain transition**: Update references when GitHub org moves to 0xRay.

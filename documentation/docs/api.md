@@ -55,6 +55,9 @@ Submit a proposal for solar-resonance evaluation.
   "crossCorrelationLag": 2,
   "signalTiming": "leading",
   "synchronization": 0.91,
+  "waveProximity": 0.89,
+  "waveVortexAlignment": 0.28,
+  "waveSynchronization": 0.06,
   "smoothedResonance": 0.74,
   "trend": "rising",
   "momentum": 0.02,
@@ -98,6 +101,9 @@ Submit a proposal for solar-resonance evaluation.
 | `crossCorrelationLag` | number | Cascade cross-correlation lag |
 | `signalTiming` | string | leading \| trailing \| synced |
 | `synchronization` | number | DeltaDiff linear decay (0.15–1) |
+| `waveProximity` | number | Phase 2 wave-modulated proximity with Gaussian decay on wave-amplitude mismatch (0–1) |
+| `waveVortexAlignment` | number | Phase 2 isotopic vortex alignment via C-12/C-14 cross-correlation across 12 spectrum bands (0–1) |
+| `waveSynchronization` | number | Phase 2 wave synchronization via mean trajectory phase coherence cos(θ₁−θ₀) (0–1) |
 | `smoothedResonance` | number | 3-min rolling average (optional) |
 | `trend` | string | rising \| falling \| stable (optional) |
 | `momentum` | number | dR/dt per minute (optional) |
