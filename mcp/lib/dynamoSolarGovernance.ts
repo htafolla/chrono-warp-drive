@@ -370,6 +370,8 @@ export class DynamoSolarGovernance {
       resonanceHistory: history.length > 1 ? history : undefined,
       spectralQuality: hammer.spectralQuality,
       neuralContextUsed: hammer.neuralContextUsed,
+      phaseType: hammer.phaseType,
+      isotope: hammer.isotope,
     }
 
     // Persist every query+response to Redis for durable history

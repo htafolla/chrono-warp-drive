@@ -148,6 +148,8 @@ export interface StructuralResonanceResult {
   activityModifier: number
   spectralQuality?: number
   neuralContextUsed: boolean
+  phaseType: 'push' | 'pull'
+  isotope: string
 }
 
 export class SolarGovernanceIntegration {
@@ -318,6 +320,8 @@ export class SolarGovernanceIntegration {
         activityModifier,
         spectralQuality: neuralContextUsed ? spectralQuality : undefined,
         neuralContextUsed,
+        phaseType: kuramoto.phaseType,
+        isotope: kuramoto.isotope,
       }
     } catch (error) {
       console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
@@ -342,6 +346,8 @@ export class SolarGovernanceIntegration {
         activityModifier: 0,
         spectralQuality: undefined,
         neuralContextUsed: false,
+        phaseType: 'pull',
+        isotope: 'C-12',
       }
     }
   }

@@ -212,6 +212,8 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const vortexAlignment = solar?.vortexAlignment != null ? Number(solar.vortexAlignment) : null;
   const crossCorrelationLag = solar?.crossCorrelationLag != null ? Number(solar.crossCorrelationLag) : null;
   const signalTiming = solar?.signalTiming || null;
+  const phaseType = solar?.phaseType || null;
+  const isotope = solar?.isotope || null;
   const synchronization = solar?.synchronization != null ? Number(solar.synchronization) : null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
   const peakForecast = solar?.peakForecast ?? null;
@@ -274,7 +276,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       solarApplied, resonanceScore,
       diagnostics: { isotopicRatio, vortexVolume: null, historicalCoherence },
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
-      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, synchronization, momentum, peakForecast, adaptiveThresholds,
+      resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, momentum, peakForecast, adaptiveThresholds,
     };
   } catch {
     return null;
@@ -535,6 +537,14 @@ export default function DynamoDeploy() {
                       <span className={`text-[10px] font-medium ${result.signalTiming === 'leading' ? 'text-emerald-400' : result.signalTiming === 'trailing' ? 'text-amber-400' : 'text-white/40'}`}>
                         {result.signalTiming === 'leading' ? '↑ Leading' : result.signalTiming === 'trailing' ? '↓ Trailing' : '→ Synced'}
                       </span>
+                      {result.phaseType && (
+                        <span className={`text-[10px] font-medium ${result.phaseType === 'push' ? 'text-rose-400' : 'text-cyan-400'}`}>
+                          {result.phaseType === 'push' ? '⇈ Push' : '⇊ Pull'}
+                        </span>
+                      )}
+                      {result.isotope && (
+                        <span className="text-[10px] text-white/40">{result.isotope}</span>
+                      )}
                     </div>
                   )}
                   </>

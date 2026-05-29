@@ -44,6 +44,8 @@ export interface EnhancedGovernanceDecision {
   resonanceHistory?: Array<{ score: number; timestamp: string }>;
   spectralQuality?: number;
   neuralContextUsed: boolean;
+  phaseType?: 'push' | 'pull';
+  isotope?: string;
 }
 
 export class DynamoSolarGovernance {
@@ -189,6 +191,8 @@ export class DynamoSolarGovernance {
       resonanceHistory: [...proposalHistory],
       spectralQuality: hammer.spectralQuality,
       neuralContextUsed: hammer.neuralContextUsed,
+      phaseType: hammer.phaseType,
+      isotope: hammer.isotope,
     };
   }
 }

@@ -167,6 +167,8 @@ export class SolarGovernanceIntegration {
     activityModifier: number
     spectralQuality?: number
     neuralContextUsed: boolean
+    phaseType: 'push' | 'pull'
+    isotope: string
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -246,6 +248,8 @@ export class SolarGovernanceIntegration {
         activityModifier,
         spectralQuality: neuralContextUsed ? spectralQuality : undefined,
         neuralContextUsed,
+        phaseType: kuramoto.phaseType,
+        isotope: kuramoto.isotope,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -270,6 +274,8 @@ export class SolarGovernanceIntegration {
         activityModifier: 0,
         spectralQuality: undefined,
         neuralContextUsed: false,
+        phaseType: 'pull',
+        isotope: 'C-12',
       }
     }
   }

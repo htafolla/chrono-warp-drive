@@ -146,7 +146,7 @@ Kuramoto replaces three broken calculations with one coupled-oscillator model:
 Three coupled oscillators (N=3) with coupling strength K=0.5:
 
 ```
-dθ_i/dt = ω_i + (K/N) Σ_j sin(θ_j - θ_i + φ_dark + S)
+dθ_i/dt = ω_i + (K/2) Σ_j sin(θ_j - θ_i + φ_dark + φ_pushpull + S × isotope_factor)
 ```
 
 Where:
@@ -155,9 +155,10 @@ Where:
 - θ_2 = system phase (seeded at `(θ_0 + θ_1) / 2`)
 - ω_i = natural frequencies (derived from TDF fine structure)
 - φ_dark = π/6 (dark energy offset from Codex)
-- S = 0.1 (fractal scaling)
-- N = 3 oscillators
-- K = 0.5 coupling strength
+- φ_pushpull = **+π/4 (push)** or **-π/4 (pull)** — toggled by solar activity
+- S = 0.1 (fractal scaling), modulated by isotope factor
+- isotope_factor = **1.0 (C-12)** or **0.8 (C-14)**
+- N = 3 oscillators, K = 0.5 coupling strength
 - Timesteps: 20 iterations at Δt = 0.05
 
 ### Order Parameter
@@ -195,6 +196,36 @@ The Kuramoto model replaces all three with one well-studied dynamical system. Th
 - **Transient behavior**: After 20 timesteps, have they settled into a steady state?
 
 This moves Dynamo from static TDF comparison to genuine temporal dynamics.
+
+### Phase 1: Push/Pull Dynamics
+
+The original simplified port used a fixed `φ_dark + S` offset. Phase 1 adds a push/pull toggle: when solar activity is quiet or moderate, the system runs in **pull** mode (-π/4, phase convergence, temporal contraction). When active or storm, it runs in **push** mode (+π/4, phase divergence, temporal expansion).
+
+| Solar Activity | Mode | φ_pushpull | Effect on Box |
+|---------------|------|-----------|---------------|
+| quiet | pull | -π/4 | Phase convergence, stable trajectories |
+| moderate | pull | -π/4 | Mild convergence |
+| active | push | +π/4 | Phase divergence, volatile trajectories |
+| storm | push | +π/4 | Maximum divergence |
+
+This connects the oscillator coupling directly to real solar conditions — a storm literally pushes oscillator phases apart, making synchronization harder and raising the barrier for governance PASS.
+
+### Isotope Factors
+
+Two isotopes modulate the fractal coupling term:
+
+- **C-12** (factor 1.0): Standard reference. Full fractal perturbation `S × 1.0 = 0.1`. Synchronizes readily.
+- **C-14** (factor 0.8): Radiocarbon. Lighter perturbation `S × 0.8 = 0.08`. More phase-resistant.
+
+The isotope factor enters the coupling sinusoid as `S × isotope.factor`, changing the effective entrainment strength. C-12 systems sync faster; C-14 resists sync, introducing temporal friction.
+
+### Fractal Toggle
+
+The fractal term `S × isotope.factor` can be disabled (`fractalToggle = false`), removing the perturbation from the coupling equation. This is a diagnostic mode — comparing fractal-on vs fractal-off reveals how much of the synchronization is driven by fractal dynamics vs pure Kuramoto coupling.
+
+### 3D Trajectory Output
+
+The oscillator evolution now returns **full 3D trajectory** — the complete path of `(θ₀, θ₁, θ₂, ω₀, ω₁, ω₂)` at every timestep, not just the final order parameter. This enables future trajectory-derived dimensions (proximity as trajectory distance integral, synchronization as phase velocity correlation) without breaking the current external formulas.
 
 ## Adaptive Thresholds
 
