@@ -1,7 +1,7 @@
 # Dynamo — Current State
 
 **Date:** 2026-05-29
-**Version:** v4.9 (6D temporal box with neural dimensions)
+**Version:** v4.9 (6D temporal box with neural dimensions) — v5.0 specification drafted
 **Origin:** Derived from the [Blurrn Quantum Codex](legacy/) temporal physics framework
 
 ## What Dynamo Is
@@ -179,10 +179,15 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Neural Quantum Realms integrated — 16-dim TF.js embedding as virtual spectrum bands inside the temporal box. Proposal embedding upgraded from TDF-derived base-1000 (3/16 varying dims) → prime-modulo (16/16 dense) → text-based FNV hashing (12–16/16 semantic). 28 total bands (12 physical + 16 neural). Neural proximity uses per-dim MSE with 5× decay. Neural vortex uses cosine similarity of raw embedding vectors. One-step `/govern_with_solar` auto-fetches sun embedding.
 - **6D Full Box model** — replaces 4D composite with 6 dimensions including neural proximity (17.5%) and neural vortex (17.5%). Neural metrics are the best discriminators: proximity spread 0.31, vortex spread 0.25 vs 0.00–0.30 for physical dims. Graceful degradation when neural unavailable. Thresholds recalibrated: moderate 0.85 (was 0.88).
 - Three compressed physical dimensions (proximity ≡ 0.99, calibrated vortex ≈ 0.96, calibrated sync ≈ 0.93) produce ~0.40 predetermined floor. Neural and phase dimensions drive the remaining 0.17 effective spread. Previous 4D model had only 0.03 effective spread.
+- Full Box 6D thresholds returned in API response (`fullBoxThresholds`) and displayed in frontend cards
+- Codex v4.9 spec written — captures 6D model, NQR, calibration, φ = 1.666 in physics vs weights in aggregation
+- Codex v5.0 spec drafted — temporal containers, semantic embeddings, adaptive calibration, cross-domain applications, φ-harmonic weights, surrogate model
 
 The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the production formula — replacing the original FNV-1a hash with the real temporal physics. The mapping layer bridges Codex parameters and NOAA solar data, making Dynamo the first system to operationalize the Blurrn formula against live satellite feeds.
 
-The Codex lives on as the deep foundation. Dynamo is what it became when the theory met real-world data — a solar hammer that answers proposals with the Sun's current state.
+The Codex lives on as the deep foundation. Dynamo is what it became when the theory met real-world data — a solar-aligned wave resonance engine that answers proposals with the Sun's current state.
+
+**Codex version lineage:** v4.5 (Trinitarium) → v4.6 (TDF breakthrough) → v4.7 (CTI) → v4.8 (Isotopic Temporal Vortex) → v4.9 (6D + NQR, production) → v5.0 (Temporal Displacement Field, draft spec)
 
 ---
 

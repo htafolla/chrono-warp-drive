@@ -14,6 +14,8 @@ The Blurrn Quantum Codex defines the cosmological and mathematical principles �
 
 | Version | Release | Key Innovation |
 |---------|---------|---------------|
+| v5.0 | 2026-05-29 (Draft) | Temporal Displacement Field — containers, semantic embeddings, adaptive calibration, cross-domain, φ-harmonic weights |
+| v4.9 | 2026-05-29 | 6D temporal box, Neural Quantum Realms, per-dim MSE, cosine vortex, text-based embeddings, auto-fetch |
 | v4.7 | 2025-09-30 | Chrono Transport Interview (CTI) — n=11 cascades, τ=0.865, uncapped S_L |
 | v4.6 | 2025-09-09 | 16 formulas, 31 variables, 5.781e12 TDF breakthrough |
 | v4.5 | 2025-09-06 | 15 formulas, Trinitarium 2.0, core constants |
@@ -34,7 +36,8 @@ Dynamo implements the **core Codex TDF formula** — `tPTT × τ × (1/BlackHole
 
 See the legacy documents in the repository:
 
-- [v4.7 Chrono Transport Cascade](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/Blurrn-Quantum-Codex-v4.7-Chrono-Transport-Cascade.md)
+- [v5.0 Temporal Displacement Field (Draft)](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/Blurrn-Quantum-Codex-v5.0-Temporal-Displacement-Field.md)
+- [v4.9 Neural Quantum Realms & 6D Temporal Box](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/Blurrn-Quantum-Codex-v4.9-6D-Temporal-Box.md)
 - [v4.6 Full Spec](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/Blurrn-Quantum-Codex-v4.6-Full-Spec.md)
 - [v4.6 Overview](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/Blurrn-Quantum-Codex-v4.6-Overview.md)
 - [v4.5 Full Spectrum](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/Blurrn-Quantum-Codex-v4.5-Full-Spectrum.md)
