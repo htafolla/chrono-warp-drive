@@ -341,10 +341,10 @@ Calibration mapping:
 **Governance verdict mapping** (hybrid model):
 | Activity | PASS | NEEDS_REVISION | REJECT |
 |----------|------|----------------|--------|
-| Quiet | ≥0.82 | ≥0.50 | <0.50 |
-| Moderate | ≥0.88 | ≥0.54 | <0.54 |
-| Active | ≥0.88 | ≥0.54 | <0.54 |
-| Storm | ≥0.92 | ≥0.62 | <0.62 |
+| Quiet | ≥0.82 | ≥0.50 | \&lt;0.50 |
+| Moderate | ≥0.88 | ≥0.54 | \&lt;0.54 |
+| Active | ≥0.88 | ≥0.54 | \&lt;0.54 |
+| Storm | ≥0.92 | ≥0.62 | \&lt;0.62 |
 
 Note: the REJECT threshold is shifted −0.08 relative to the current model to account for the shifted score distribution caused by replacing a constant ~1.0 signal with a real 0.47–0.97 range.
 
