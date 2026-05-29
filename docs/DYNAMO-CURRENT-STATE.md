@@ -160,7 +160,7 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Real Codex TDF formula implemented — `tPTT × TAU × (1/BHS)` with mapping layer replaces FNV-1a hash
 - Phase 2 wave propagation prototype built — `wave()` function ported from temporalCalculator.ts, A/B wired into governance responses
 - Hybrid resonance model deployed — replaces dead `vortexAlignment` (0% spread, always ~1.0) with calibrated wave vortex (28.7% spread). 71% win rate on 35 real proposals vs current model
-- Neural Quantum Realms integrated — 16-dim TF.js embedding as virtual spectrum bands inside the temporal box. Proposal embedding upgraded from TDF-derived base-1000 (3/16 varying dims) to text-based FNV hashing (12–16/16 varying dims). 28 total bands (12 physical + 16 neural)
+- Neural Quantum Realms integrated — 16-dim TF.js embedding as virtual spectrum bands inside the temporal box. Proposal embedding upgraded from TDF-derived base-1000 (3/16 varying dims) → prime-modulo (16/16 dense) → text-based FNV hashing (12–16/16 semantic). 28 total bands (12 physical + 16 neural). Neural proximity uses per-dim MSE with 5× decay. Neural vortex uses cosine similarity of raw embedding vectors. One-step `/govern_with_solar` auto-fetches sun embedding.
 
 The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the production formula — replacing the original FNV-1a hash with the real temporal physics. The mapping layer bridges Codex parameters and NOAA solar data, making Dynamo the first system to operationalize the Blurrn formula against live satellite feeds.
 

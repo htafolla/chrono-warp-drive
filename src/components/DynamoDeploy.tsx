@@ -214,7 +214,8 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   try {
     const proposalLabel = proposal.length < 30 ? proposal + ' — via Dynamo governance' : proposal;
 
-    // Call neural first to get spectralQuality for the governance request
+    // Call neural for spectralQuality (sunNeuralEmbedding is auto-fetched by the
+    // backend when not provided, but sending it avoids a redundant internal fetch)
     const neuralRes = await fetch(`${NEURAL_URL}/process-current-sun`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -726,15 +727,15 @@ export default function DynamoDeploy() {
                   {result.neuralWaveProximity != null && (
                     <details className="mt-1">
                       <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Neural Quantum Realms</summary>
-                      <div className="space-y-2 mt-1">
-                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
-                          <p className="text-[10px] text-rose-500/60">Neural Wave Proximity</p>
-                          <p className="text-sm font-semibold text-rose-300">{(result.neuralWaveProximity * 100).toFixed(0)}%</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] text-rose-500/60">Neural Wave Vortex</p>
-                          <p className="text-sm font-semibold text-rose-300">{(result.neuralWaveVortexAlignment! * 100).toFixed(0)}%</p>
-                        </div>
+<div className="space-y-2 mt-1">
+                         <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                           <p className="text-[10px] text-rose-500/60">Neural Proximity (per-dim)</p>
+                           <p className="text-sm font-semibold text-rose-300">{(result.neuralWaveProximity * 100).toFixed(0)}%</p>
+                         </div>
+                         <div className="flex items-center justify-between">
+                           <p className="text-[10px] text-rose-500/60">Neural Vortex (cosine)</p>
+                           <p className="text-sm font-semibold text-rose-300">{(result.neuralWaveVortexAlignment! * 100).toFixed(0)}%</p>
+                         </div>
                       </div>
                     </details>
                   )}
@@ -930,8 +931,8 @@ export default function DynamoDeploy() {
                       <div>
                         <p className="text-[10px] text-rose-500/60 uppercase tracking-wider mb-1.5 font-semibold">Neural Quantum Realms</p>
                         <div className="space-y-1.5">
-                          <Row label="Neural Wave Proximity" v={r.neuralWaveProximity} />
-                          <Row label="Neural Wave Vortex" v={r.neuralWaveVortexAlignment} />
+                          <Row label="Neural Proximity (per-dim MSE)" v={r.neuralWaveProximity} />
+                          <Row label="Neural Vortex (cosine sim)" v={r.neuralWaveVortexAlignment} />
                         </div>
                       </div>
                     )}

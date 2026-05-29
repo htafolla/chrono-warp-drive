@@ -30,7 +30,7 @@ Submit a proposal for solar-resonance evaluation.
 | `baseVoteWeight` | number | no | Vote weight, 0.5–1.5 (default 1.0) |
 | `sharePublicly` | boolean | no | Add to public feed (default false) |
 | `spectralQuality` | number | no | NeuralFusion quality 0–1. Activates 5D mode |
-| `sunNeuralEmbedding` | number[] | no | 16-dim sun embedding from `/process-current-sun`. Required for Neural Quantum Realms |
+| `sunNeuralEmbedding` | number[] | no | 16-dim sun embedding from `/process-current-sun`. Auto-fetched if not provided |
 
 ### Full Response
 
@@ -128,8 +128,8 @@ Submit a proposal for solar-resonance evaluation.
 | `fullBoxVerdict` | string | PASS \| NEEDS_REVISION \| REJECT |
 | `neuralSunEmbedding` | number[] | 16-dim sun neural embedding (from `/process-current-sun`) |
 | `neuralProposalEmbedding` | number[] | 16-dim proposal embedding (from `textToEmbedding16`) |
-| `neuralWaveProximity` | number | Neural-only wave proximity (0–1). Default 0.779 if no sun embedding |
-| `neuralWaveVortexAlignment` | number | Neural-only wave vortex alignment (0–1). Default 0.50 if no sun embedding |
+| `neuralWaveProximity` | number | Neural-only per-dim MSE proximity (0–1). Steeper decay amplifies embedding differences |
+| `neuralWaveVortexAlignment` | number | Neural-only cosine similarity of 16-dim embedding vectors (0–1) |
 
 ## GET /public_feed
 

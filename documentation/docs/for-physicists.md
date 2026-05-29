@@ -454,12 +454,15 @@ The sun embedding comes from a real neural network processing live solar spectru
 
 ### Neural-Only Metrics
 
-The system also computes **neural-only** proximity and vortex from the 16 neural bands alone (without the 12 physical bands):
+The system computes **neural-only** proximity and vortex from the 16 neural bands alone (without the 12 physical bands):
 
-- `neuralWaveProximity` — exp(-MSE) of proposal vs sun neural amplitude series across the Kuramoto trajectory
-- `neuralWaveVortexAlignment` — Pearson correlation of proposal vs sun neural amplitude series
+- **neuralWaveProximity** — Per-dimension MSE across all 16 dims and 20 Kuramoto timesteps. For each (timestep, dimension) pair, the squared difference between proposal and sun neural amplitudes is accumulated, then divided by `(steps × dims)`. A 5× steeper decay (`exp(-MSE × 5)`) amplifies embedding differences. Spread: 0.40–0.87 across diverse proposals.
 
-These isolate the neural layer's contribution from the physical EM bands.
+- **neuralWaveVortexAlignment** — Cosine similarity of the raw 16-dim embedding vectors. Measures whether sun and proposal embeddings point in the same direction in 16-dimensional space, independent of magnitude. Spread: 0.62–0.86 across diverse proposals.
+
+### Auto-Fetch
+
+The `/govern_with_solar` endpoint automatically fetches the sun neural embedding from the NeuralFusion backend when `sunNeuralEmbedding` is not provided in the request. Consumers can still pass it explicitly to avoid an internal fetch.
 
 ## What This Is
 
