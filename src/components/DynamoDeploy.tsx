@@ -10,6 +10,47 @@ const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
 const STELLAR_URL = 'https://stellar-mcp-production.up.railway.app';
 const NEURAL_URL = 'https://neural-fusion-backend-production.up.railway.app';
 
+function formatTime(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const diff = now.getTime() - d.getTime()
+  if (diff < 60000) return 'just now'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function formatFullTime(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+}
+
+function scoreColor(v: number | null | undefined, hi = 0.78, lo = 0.50): string {
+  if (v == null) return 'text-white/30'
+  if (v >= hi) return 'text-emerald-400'
+  if (v >= lo) return 'text-amber-400'
+  return 'text-red-400'
+}
+
+function verdictColor(v: string | null | undefined): string {
+  if (v === 'PASS') return 'text-emerald-400'
+  if (v === 'REJECT') return 'text-red-400'
+  return 'text-amber-400'
+}
+
+function Row({ label, v, color, plain, bold }: { label: string; v: any; color?: string; plain?: boolean; bold?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <p className="text-[10px] text-white/50">{label}</p>
+      <p className={`text-xs ${bold ? 'font-bold' : 'font-mono'} ${color ?? 'text-white/80'}`}>
+        {plain ? String(v ?? '—') : v != null ? `${(v * 100).toFixed(1)}%` : '—'}
+      </p>
+    </div>
+  )
+}
+
 const EXAMPLE_PROPOSALS = [
   'Deploy the new agent to production',
   'Approve multi-agent coordination protocol',
@@ -353,7 +394,11 @@ export default function DynamoDeploy() {
   const [loading, setLoading] = useState(false);
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
-  const [feed, setFeed] = useState<Array<{proposal: string; resonanceScore: number; recommendation: string; activityLevel: string; timestamp: string}>>([]);
+  const [feed, setFeed] = useState<Array<{
+    proposal: string; resonanceScore: number; recommendation: string;
+    activityLevel: string; timestamp: string; response?: any;
+  }>>([]);
+  const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
 
   useEffect(() => {
     checkBeacons().then(s => {
@@ -379,6 +424,7 @@ export default function DynamoDeploy() {
               recommendation: e.response.recommendation ?? 'NEEDS_REVISION',
               activityLevel: e.response.solarContext?.solarActivityLevel ?? 'moderate',
               timestamp: e.timestamp,
+              response: e.response,
             })));
           }
         }
@@ -388,6 +434,12 @@ export default function DynamoDeploy() {
     const interval = setInterval(fetchFeed, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedEntry(null) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   const run = useCallback(async (text?: string) => {
     const input = (text || proposal).trim();
@@ -753,20 +805,117 @@ export default function DynamoDeploy() {
             </div>
             <div className="divide-y divide-white/[0.03] max-h-64 overflow-y-auto">
               {feed.slice(0, 20).map((entry, i) => (
-                <div key={i} className="px-4 py-2 flex items-center justify-between gap-3">
-                  <p className="text-xs text-white/60 truncate flex-1">{entry.proposal}</p>
+                <div
+                  key={i}
+                  onClick={() => setSelectedEntry(entry)}
+                  className="px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.04] transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-white/60 truncate">{entry.proposal}</p>
+                    <p className="text-[10px] text-white/30 mt-0.5">{formatTime(entry.timestamp)}</p>
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs font-mono text-white/50">{entry.activityLevel}</span>
-                    <span className={`text-xs font-bold ${
-                      entry.recommendation === 'PASS' ? 'text-emerald-400' :
-                      entry.recommendation === 'REJECT' ? 'text-red-400' :
-                      'text-amber-400'
-                    }`}>
+                    <span className="text-xs text-white/50">{entry.activityLevel}</span>
+                    <span className={`text-xs font-bold ${verdictColor(entry.recommendation)}`}>
                       {(entry.resonanceScore * 100).toFixed(0)}%
                     </span>
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Feed Detail Modal */}
+        {selectedEntry && selectedEntry.response && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setSelectedEntry(null)}
+          >
+            <div
+              className="bg-[#0a0a0f] border border-white/10 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-5 space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-white/60 truncate">{selectedEntry.proposal}</p>
+                  <p className="text-[10px] text-white/30 mt-0.5">{formatFullTime(selectedEntry.timestamp)}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedEntry(null)}
+                  className="text-white/40 hover:text-white/80 shrink-0 text-lg leading-none"
+                >✕</button>
+              </div>
+
+              <div className="space-y-3">
+                <p className={`text-lg font-bold ${verdictColor(selectedEntry.recommendation)}`}>
+                  {selectedEntry.recommendation}
+                </p>
+
+                {(() => {
+                  const r = selectedEntry.response
+                  return <>
+                    {/* Current TDF */}
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 font-semibold">Current TDF formula</p>
+                      <div className="space-y-1.5">
+                        <Row label="Structural Resonance" v={r.structuralResonance} color={scoreColor(r.structuralResonance)} />
+                        <Row label="Proximity" v={r.proximity} />
+                        <Row label="Phase Alignment" v={r.phaseAlignment} />
+                        <Row label="Vortex Alignment" v={r.vortexAlignment} />
+                        <Row label="Synchronization" v={r.synchronization} />
+                        <Row label="Signal Timing" v={r.signalTiming} plain />
+                      </div>
+                    </div>
+
+                    {/* Wave */}
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 font-semibold">Wave (raw)</p>
+                      <div className="space-y-1.5">
+                        <Row label="Wave Proximity" v={r.waveProximity} />
+                        <Row label="Wave Vortex" v={r.waveVortexAlignment} />
+                        <Row label="Wave Sync" v={r.waveSynchronization} color={scoreColor(r.waveSynchronization, 0.5, 0.1)} />
+                      </div>
+                    </div>
+
+                    {/* Hybrid */}
+                    {r.hybrid4DComposite != null && (
+                      <div>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 font-semibold">Hybrid</p>
+                        <div className="space-y-1.5">
+                          <Row label="Hybrid 4D" v={r.hybrid4DComposite} color={verdictColor(r.hybridVerdict)} bold />
+                          <Row label="Verdict" v={r.hybridVerdict} plain color={verdictColor(r.hybridVerdict)} />
+                          <Row label="Wave Vortex (cal)" v={r.hybridVortexAlignment} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Full Box */}
+                    {r.fullBox4DComposite != null && (
+                      <div>
+                        <p className="text-[10px] text-cyan-500/60 uppercase tracking-wider mb-1.5 font-semibold">Full Box</p>
+                        <div className="space-y-1.5">
+                          <Row label="Full Box 4D" v={r.fullBox4DComposite} color={verdictColor(r.fullBoxVerdict)} bold />
+                          <Row label="Verdict" v={r.fullBoxVerdict} plain color={verdictColor(r.fullBoxVerdict)} />
+                          <Row label="Wave Proximity" v={r.fullBoxProximity} />
+                          <Row label="Wave Vortex (cal)" v={r.fullBoxVortexAlignment} />
+                          <Row label="Wave Sync (cal)" v={r.fullBoxSynchronization} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Extra */}
+                    <div>
+                      <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 font-semibold">Details</p>
+                      <div className="space-y-1.5">
+                        <Row label="Solar" v={r.solarContext?.solarActivityLevel} plain />
+                        <Row label="TDF (proposal)" v={r.proposalTdf?.toExponential(3)} plain />
+                        <Row label="TDF (sun)" v={r.solarReferenceTdf?.toExponential(3)} plain />
+                      </div>
+                    </div>
+                  </>
+                })()}
+              </div>
             </div>
           </div>
         )}
