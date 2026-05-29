@@ -155,6 +155,7 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Deployed to Railway + Vercel with three sync'd endpoints
 - Real Codex TDF formula implemented — `tPTT × TAU × (1/BHS)` with mapping layer replaces FNV-1a hash
 - Phase 2 wave propagation prototype built — `wave()` function ported from temporalCalculator.ts, A/B wired into governance responses
+- Hybrid resonance model deployed — replaces dead `vortexAlignment` (0% spread, always ~1.0) with calibrated wave vortex (28.7% spread). 71% win rate on 35 real proposals vs current model
 
 The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the production formula — replacing the original FNV-1a hash with the real temporal physics. The mapping layer bridges Codex parameters and NOAA solar data, making Dynamo the first system to operationalize the Blurrn formula against live satellite feeds.
 

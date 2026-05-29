@@ -782,6 +782,7 @@ Live services:
 
 - **Threshold recalibration**: Sync now correctly scores 62-95% (was ~9% noise), current quiet thresholds (0.82/0.72/0.58) may be too permissive.
 - **Wave propagation calibration**: waveSynchronization drops to ~0.01 for non-identical proposals. The cos(θ₁−θ₀) metric and proximity scaling need tuning before wave scores can replace current formulas.
+- **Hybrid model live**: vortexAlignment replaced with calibrated waveVortexAlignment (71% win rate on 35 real proposals). Monitored in production.
 - **Current vortexAlignment is dead**: Produces 1.0 for ALL proposals (0% spread). Wave vortexAlignment has 98% spread — strong candidate for replacement.
 - **Phase 2 decision**: Evaluate A/B data from live endpoint. If wave consistently beats current formulas across real proposals, plan the migration.
 - **Codex v4.9/v5.0**: Write Codex update capturing deltaDiff sync, adaptive thresholds, 5D formula, Redis, Railway deploy, Kuramoto coupling, wave propagation.
