@@ -91,6 +91,10 @@ export function computeCalibratedWaveSync(rawSync: number): number {
   return Math.pow(Math.max(0.01, rawSync), 0.35)
 }
 
+export function computeCalibratedWaveVortex(rawVortex: number): number {
+  return Math.pow(Math.max(0.05, rawVortex), 0.4)
+}
+
 export function computeHybridResonance(
   currentProximity: number,
   phaseAlignment: number,
@@ -100,9 +104,10 @@ export function computeHybridResonance(
   activityLevel: string,
 ): HybridResonanceResult {
   const calibratedSync = computeCalibratedWaveSync(waveSynchronization)
+  const calibratedVortex = computeCalibratedWaveVortex(waveVortexAlignment)
 
   const hybrid4DComposite = Math.max(0.15, Math.min(0.98,
-    currentProximity * 0.20 + phaseAlignment * 0.20 + waveVortexAlignment * 0.30 + currentSync * 0.30
+    currentProximity * 0.20 + phaseAlignment * 0.20 + calibratedVortex * 0.30 + currentSync * 0.30
   ))
 
   const fullWave4DComposite = Math.max(0.15, Math.min(0.98,
@@ -110,7 +115,7 @@ export function computeHybridResonance(
   ))
 
   const calibratedWave4DComposite = Math.max(0.15, Math.min(0.98,
-    currentProximity * 0.20 + phaseAlignment * 0.20 + waveVortexAlignment * 0.30 + calibratedSync * 0.30
+    currentProximity * 0.20 + phaseAlignment * 0.20 + calibratedVortex * 0.30 + calibratedSync * 0.30
   ))
 
   const thresholds: Record<string, { strong: number; good: number; weak: number }> = {
@@ -126,7 +131,7 @@ export function computeHybridResonance(
     'REJECT'
 
   return {
-    hybridVortexAlignment: waveVortexAlignment,
+    hybridVortexAlignment: calibratedVortex,
     hybrid4DComposite,
     hybridVerdict: verdict,
     fullWave4DComposite,
