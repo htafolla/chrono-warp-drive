@@ -369,10 +369,18 @@ export default function DynamoDeploy() {
   useEffect(() => {
     const fetchFeed = async () => {
       try {
-        const res = await fetch(`${MCP_URL}/public_feed`, { signal: AbortSignal.timeout(5000) });
+        const res = await fetch(`${MCP_URL}/history?n=50`, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           const data = await res.json();
-          if (data.entries) setFeed(data.entries);
+          if (data.entries) {
+            setFeed(data.entries.map((e: any) => ({
+              proposal: e.proposal,
+              resonanceScore: e.response.resonanceScore ?? e.response.structuralResonance ?? 0,
+              recommendation: e.response.recommendation ?? 'NEEDS_REVISION',
+              activityLevel: e.response.solarContext?.solarActivityLevel ?? 'moderate',
+              timestamp: e.timestamp,
+            })));
+          }
         }
       } catch {}
     };
