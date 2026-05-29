@@ -119,10 +119,10 @@ export function computeHybridResonance(
   ))
 
   const thresholds: Record<string, { strong: number; good: number; weak: number }> = {
-    quiet:    { strong: 0.82, good: 0.72, weak: 0.58 },
-    moderate: { strong: 0.88, good: 0.78, weak: 0.62 },
-    active:   { strong: 0.88, good: 0.78, weak: 0.62 },
-    storm:    { strong: 0.92, good: 0.84, weak: 0.70 },
+    quiet:    { strong: 0.82, good: 0.72, weak: 0.50 },
+    moderate: { strong: 0.88, good: 0.78, weak: 0.54 },
+    active:   { strong: 0.88, good: 0.78, weak: 0.54 },
+    storm:    { strong: 0.92, good: 0.84, weak: 0.62 },
   }
   const t = thresholds[activityLevel] || thresholds.moderate
   const verdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT' =
