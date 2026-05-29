@@ -6,7 +6,7 @@ import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
-import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, tdfToEmbedding16 } from './wavePropagation';
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -212,7 +212,7 @@ export class SolarGovernanceIntegration {
 
       const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
-      const proposalEmbedding = tdfToEmbedding16(proposalTdf)
+      const proposalEmbedding = textToEmbedding16(proposal)
 
       const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf, sunNeuralEmbedding, proposalEmbedding)
 

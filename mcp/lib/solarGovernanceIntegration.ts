@@ -8,7 +8,7 @@ import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataF
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
 import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
-import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, tdfToEmbedding16 } from './wavePropagation.js'
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -259,8 +259,8 @@ export class SolarGovernanceIntegration {
       // static phaseCoherence difference, and content-hash cascade indices.
       const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
-      // Derive proposal neural embedding from its TDF fingerprint
-      const proposalEmbedding = tdfToEmbedding16(proposalTdf)
+      // Phase 2: Derive proposal neural embedding from proposal text (richer, semantic)
+      const proposalEmbedding = textToEmbedding16(proposal)
 
       // Phase 2 wave propagation (A/B alongside current TDF formulas)
       // Neural embedding from NeuralFusion becomes 16 virtual spectrum bands inside the box

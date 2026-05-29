@@ -84,13 +84,34 @@ function crossCorrelate(a: number[], b: number[], centered = false): number {
   return Math.max(0, Math.min(1, num / Math.sqrt(denA * denB)))
 }
 
-/** Derive a 16-dim neural embedding from a TDF scalar for proposal-side wave computation. */
+// 16 distinct primes for per-dimension modulo hashing (Phase 1 quick win)
+const EMBEDDING_PRIMES = [997, 991, 983, 977, 971, 967, 953, 947, 941, 937, 929, 919, 911, 907, 887, 883]
+
+/** Derive a 16-dim neural embedding from a TDF scalar, using prime-modulo hashing.
+ *  Each dimension = intPart % prime_d / prime_d, giving 16 dense varying dims. */
 export function tdfToEmbedding16(tdf: number): number[] {
+  const intPart = Math.abs(Math.floor(tdf))
+  return EMBEDDING_PRIMES.map((p) => (intPart % p) / p)
+}
+
+/** Derive a 16-dim neural embedding from proposal text using character-position-based
+ *  FNV hashing. Each dimension captures a different character window of the text. */
+export function textToEmbedding16(text: string): number[] {
   const emb: number[] = new Array(16).fill(0)
-  let n = Math.floor(Math.abs(tdf))
-  for (let i = 0; i < 16 && n > 0; i++) {
-    emb[i] = (n % 1000) / 1000
-    n = Math.floor(n / 1000)
+  const cleaned = text.toLowerCase().replace(/[^\w\s]/g, ' ').trim()
+  if (!cleaned) return emb
+  const segLen = Math.max(1, Math.ceil(cleaned.length / 16))
+  for (let d = 0; d < 16; d++) {
+    const start = d * segLen
+    if (start >= cleaned.length) break
+    const end = Math.min(start + segLen, cleaned.length)
+    const seg = cleaned.slice(start, end)
+    let h = 2166136261
+    for (let j = 0; j < seg.length; j++) {
+      h ^= seg.charCodeAt(j)
+      h = Math.imul(h, 16777619)
+    }
+    emb[d] = ((h >>> 0) % 100000) / 100000
   }
   return emb
 }
