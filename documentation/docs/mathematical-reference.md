@@ -364,10 +364,10 @@ When neural embeddings absent (graceful degradation):
 
 | Activity | PASS | Good | NEEDS_REVISION | REJECT |
 |----------|------|------|----------------|--------|
-| Quiet | ≥0.82 | ≥0.72 | ≥0.58 | <0.58 |
-| Moderate | ≥0.88 | ≥0.78 | ≥0.62 | <0.62 |
-| Active | ≥0.88 | ≥0.78 | ≥0.62 | <0.62 |
-| Storm | ≥0.92 | ≥0.84 | ≥0.70 | <0.70 |
+| Quiet | ≥0.82 | ≥0.72 | ≥0.58 | &lt;0.58 |
+| Moderate | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
+| Active | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
+| Storm | ≥0.92 | ≥0.84 | ≥0.70 | &lt;0.70 |
 
 Storm override: any PASS → NEEDS_REVISION, confidence −0.12. Active override: PASS confidence −0.06.
 
@@ -375,19 +375,19 @@ Storm override: any PASS → NEEDS_REVISION, confidence −0.12. Active override
 
 | Activity | PASS | Good | NEEDS_REVISION | REJECT |
 |----------|------|------|----------------|--------|
-| Quiet | ≥0.82 | ≥0.72 | ≥0.50 | <0.50 |
-| Moderate | ≥0.88 | ≥0.78 | ≥0.54 | <0.54 |
-| Active | ≥0.88 | ≥0.78 | ≥0.54 | <0.54 |
-| Storm | ≥0.92 | ≥0.84 | ≥0.62 | <0.62 |
+| Quiet | ≥0.82 | ≥0.72 | ≥0.50 | &lt;0.50 |
+| Moderate | ≥0.88 | ≥0.78 | ≥0.54 | &lt;0.54 |
+| Active | ≥0.88 | ≥0.78 | ≥0.54 | &lt;0.54 |
+| Storm | ≥0.92 | ≥0.84 | ≥0.62 | &lt;0.62 |
 
 ### Full Box 6D
 
 | Activity | PASS | Good | NEEDS_REVISION | REJECT |
 |----------|------|------|----------------|--------|
-| Quiet | ≥0.82 | ≥0.72 | ≥0.50 | <0.50 |
-| Moderate | ≥0.85 | ≥0.75 | ≥0.52 | <0.52 |
-| Active | ≥0.85 | ≥0.75 | ≥0.52 | <0.52 |
-| Storm | ≥0.88 | ≥0.80 | ≥0.58 | <0.58 |
+| Quiet | ≥0.82 | ≥0.72 | ≥0.50 | &lt;0.50 |
+| Moderate | ≥0.85 | ≥0.75 | ≥0.52 | &lt;0.52 |
+| Active | ≥0.85 | ≥0.75 | ≥0.52 | &lt;0.52 |
+| Storm | ≥0.88 | ≥0.80 | ≥0.58 | &lt;0.58 |
 
 Lower than hammer thresholds because 6D distributes scores lower when neural metrics are included.
 
