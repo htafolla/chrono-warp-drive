@@ -205,15 +205,6 @@ export class SolarGovernanceIntegration {
 
       const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf)
 
-      const hybrid = computeHybridResonance(
-        proximity,
-        phaseAlignment,
-        synchronization,
-        waveResonance.waveVortexAlignment,
-        waveResonance.waveSynchronization,
-        solarData.activityLevel,
-      )
-
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
       const deltaDiff = Math.abs((proposalTdf % 1e6) - (solarRefTdf % 1e6))
@@ -227,6 +218,15 @@ export class SolarGovernanceIntegration {
 
       const syncRaw = Math.max(0, 1 - deltaDiff / 1e6)
       const synchronization = Math.max(0.15, syncRaw)
+
+      const hybrid = computeHybridResonance(
+        proximity,
+        phaseAlignment,
+        synchronization,
+        waveResonance.waveVortexAlignment,
+        waveResonance.waveSynchronization,
+        solarData.activityLevel,
+      )
 
       const neuralContextUsed = spectralQuality !== undefined
       const structuralResonance = neuralContextUsed

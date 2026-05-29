@@ -253,16 +253,6 @@ export class SolarGovernanceIntegration {
       // Phase 2 wave propagation (A/B alongside current TDF formulas)
       const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf)
 
-      // Hybrid resonance: replace dead vortexAlignment (always ~1.0) with waveVortexAlignment
-      const hybrid = computeHybridResonance(
-        proximity,
-        phaseAlignment,
-        synchronization,
-        waveResonance.waveVortexAlignment,
-        waveResonance.waveSynchronization,
-        solarData.activityLevel,
-      )
-
       // Cross-correlate for full structural comparison (strength + lag + vortexVolume)
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
@@ -293,6 +283,16 @@ export class SolarGovernanceIntegration {
       // Together they're complementary (not redundant) response curves on the same input.
       const syncRaw = Math.max(0, 1 - deltaDiff / 1e6)
       const synchronization = Math.max(0.15, syncRaw)
+
+      // Hybrid resonance: replace dead vortexAlignment (always ~1.0) with waveVortexAlignment
+      const hybrid = computeHybridResonance(
+        proximity,
+        phaseAlignment,
+        synchronization,
+        waveResonance.waveVortexAlignment,
+        waveResonance.waveSynchronization,
+        solarData.activityLevel,
+      )
 
       // === COMPOSITE: Structural Resonance (inside the vortex) ===
       // 4D formula (no neural context): proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30
