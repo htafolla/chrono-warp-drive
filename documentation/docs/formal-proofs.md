@@ -288,7 +288,7 @@ Let me correct: The continuous-time convergence time is τ_s ≈ 6/0.75 = 8 time
 
 **Worst-case bound.** Under the conservative assumption of worst-case initial phases and natural frequencies, the bound R ≥ 1/√N ≈ 0.577 (the value for uniformly distributed random phases) always holds after the floor clamp. In production, the minimum R observed across all test conditions is 0.587, confirming this bound. ∎
 
-**Corollary.** *With 20 integration steps at Δt = 0.05, the system always reaches at least moderate synchronization (R ≥ 0.15 by clamp floor, typically R ≥ 0.77). No initial condition produces a completely desynchronized state at timestep 20.*
+**Corollary (Production conservatism).** *With 20 integration steps at Δt = 0.05, the system always reaches at least moderate synchronization (R ≥ 0.15 by clamp floor, typically R ≥ 0.77). No initial condition produces a completely desynchronized state at timestep 20. The production window of 20 timesteps is ~33% more conservative than the proven 15-step convergence bound, providing an additional safety margin against numerical edge cases.*
 
 ---
 
@@ -350,7 +350,7 @@ Setting xᵢ = 0 for i ∈ A removes Σᵢ∈A wᵢ from the score. But the floo
 
 **Key result:** No single dimension can dominate the score. The largest weight is 0.20 (phase alignment), meaning even a fully compromised phase alignment dimension can inflate the score by at most 0.20 before the clamp.
 
-**Corollary (Neural Robustness).** *Both neural dimensions together account for 0.35 of the total weight. If an adversary can manipulate both neural embeddings simultaneously, they can shift the score by at most 0.35. However, the neural embeddings are derived from independent sources (proposal text hash and sun TF.js autoencoder), making simultaneous compromise difficult.* ∎
+**Corollary (Neural Robustness).** *Both neural dimensions together account for 0.35 of the total weight. If an adversary can manipulate both neural embeddings simultaneously, they can shift the score by at most 0.35. However, the neural embeddings are derived from independent sources — the proposal text uses character-position FNV hashing while the sun uses a TF.js autoencoder — making simultaneous compromise of both dimensions substantially more difficult than compromising either alone, and requiring independent adversarial control over two fundamentally different signal paths.* ∎
 
 ---
 
@@ -648,7 +648,7 @@ S' = clamp(Σᵢ wᵢxᵢ + Δ × x_k, 0.15, 0.98)
 
 |S' − S| ≤ |Δ| × |x_k| ≤ |Δ| (since x_k ∈ [0, 1])
 
-Therefore, a perturbation of ±0.02 to any weight changes the score by at most ±0.02. Since thresholds are separated by at least 0.02 (e.g., quiet PASS 0.82 vs NEEDS_REVISION 0.72), a perturbation of ±0.02 can only change verdicts for proposals within 0.02 of the threshold boundary. ∎
+Therefore, a perturbation of ±0.02 to any weight changes the score by at most ±0.02. Since thresholds are separated by at least 0.02 (e.g., quiet PASS 0.82 vs NEEDS_REVISION 0.72), a perturbation of ±0.02 can only change verdicts for proposals within 0.02 of the threshold boundary. This also implies robustness to small floating-point rounding errors or minor implementation variations in the weights across different code paths or platforms. ∎
 
 ---
 
