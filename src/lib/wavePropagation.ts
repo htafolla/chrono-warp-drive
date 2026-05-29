@@ -92,7 +92,7 @@ export function computeCalibratedWaveSync(rawSync: number): number {
 }
 
 export function computeCalibratedWaveVortex(rawVortex: number): number {
-  return Math.pow(Math.max(0.05, rawVortex), 0.4)
+  return Math.pow(Math.max(0.05, rawVortex), 0.3)
 }
 
 export function computeHybridResonance(
