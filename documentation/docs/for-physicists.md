@@ -313,18 +313,57 @@ The current `vortexAlignment` formula (`1 − logRatio/logMax`) compresses all p
 
 ### Current State
 
-The wave fields are returned as add-only A/B fields in the API response (`waveProximity`, `waveVortexAlignment`, `waveSynchronization`). The current TDF-based resonance formulas remain unchanged — wave scores are informative overlays only. The Phase 2 prototype is wired but not yet replacing any existing governance dimension.
+The wave fields are returned as add-only A/B fields in the API response (`waveProximity`, `waveVortexAlignment`, `waveSynchronization`). The current TDF-based resonance formulas remain unchanged — wave scores are informative overlays only.
+
+### Hybrid Model (Production)
+
+As of May 2026, a **hybrid model** replaces the dead `vortexAlignment` dimension (always ~1.0, 0% spread) with a calibrated wave-based version. This is the first production use of wave physics in governance verdicts.
+
+**Hybrid formula:**
+```
+hybrid4DComposite = proximity×0.20 + phaseAlignment×0.20 + hybridVortexAlignment×0.30 + synchronization×0.30
+```
+
+Where `hybridVortexAlignment` is calibrated from the raw wave cross-correlation:
+```
+hybridVortexAlignment = pow(max(0.05, waveVortexAlignment), 0.25)
+```
+
+Calibration mapping:
+| Raw waveVortexAlignment | Calibrated hybridVortexAlignment |
+|------------------------|----------------------------------|
+| 0.01 (floor) | 0.47 |
+| 0.10 | 0.56 |
+| 0.30 | 0.74 |
+| 0.50 | 0.84 |
+| 0.90 | 0.97 |
+
+**Governance verdict mapping** (hybrid model):
+| Activity | PASS | NEEDS_REVISION | REJECT |
+|----------|------|----------------|--------|
+| Quiet | ≥0.82 | ≥0.50 | <0.50 |
+| Moderate | ≥0.88 | ≥0.54 | <0.54 |
+| Active | ≥0.88 | ≥0.54 | <0.54 |
+| Storm | ≥0.92 | ≥0.62 | <0.62 |
+
+Note: the REJECT threshold is shifted −0.08 relative to the current model to account for the shifted score distribution caused by replacing a constant ~1.0 signal with a real 0.47–0.97 range.
+
+**A/B comparison fields:**
+- `fullWave4DComposite` — uses raw wave values for all 3 dimensions (no calibration)
+- `calibratedWave4DComposite` — uses calibrated vortex + calibrated sync
 
 ## Adaptive Thresholds
 
-The decision thresholds shift as a function of solar activity:
+The current TDF model uses these thresholds:
 
-| Activity | Strong PASS | Good PASS | Weak (Revision) | Reject |
-|----------|-------------|-----------|-----------------|--------|
+| Activity | PASS | NEEDS_REVISION | REJECT |
+|----------|------|----------------|--------|
 | Quiet | ≥0.82 | ≥0.72 | ≥0.58 | &lt;0.58 |
 | Moderate | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
 | Active | ≥0.88 | ≥0.78 | ≥0.62 | &lt;0.62 |
 | Storm | ≥0.92 | ≥0.84 | ≥0.70 | &lt;0.70 |
+
+The hybrid model uses a separate threshold set with REJECT threshold shifted −0.08 (see [Hybrid Model section](#hybrid-model-production)).
 
 The underlying principle: when the reference signal is noisy (storm), require higher resonance to pass. When it's stable (quiet), lower thresholds suffice.
 

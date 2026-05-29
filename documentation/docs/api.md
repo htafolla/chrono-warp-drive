@@ -104,6 +104,11 @@ Submit a proposal for solar-resonance evaluation.
 | `waveProximity` | number | Phase 2 wave-modulated proximity with Gaussian decay on wave-amplitude mismatch (0–1) |
 | `waveVortexAlignment` | number | Phase 2 isotopic vortex alignment via C-12/C-14 cross-correlation across 12 spectrum bands (0–1) |
 | `waveSynchronization` | number | Phase 2 wave synchronization via mean trajectory phase coherence cos(θ₁−θ₀) (0–1) |
+| `hybridVortexAlignment` | number | Calibrated wave vortex used in hybrid model. `pow(rawVortex, 0.25)` with floor 0.05 (0.41–0.96) |
+| `hybrid4DComposite` | number | Hybrid model 4D score: proximity×0.20 + phase×0.20 + hybridVortex×0.30 + sync×0.30 (0.15–0.98) |
+| `hybridVerdict` | string | Hybrid model verdict: PASS \| NEEDS_REVISION \| REJECT (uses adjusted REJECT threshold −0.08) |
+| `fullWave4DComposite` | number | Full wave model 4D score using raw wave dimensions (A/B comparison) |
+| `calibratedWave4DComposite` | number | Full wave model 4D score with calibrated sync (A/B comparison) |
 | `smoothedResonance` | number | 3-min rolling average (optional) |
 | `trend` | string | rising \| falling \| stable (optional) |
 | `momentum` | number | dR/dt per minute (optional) |
