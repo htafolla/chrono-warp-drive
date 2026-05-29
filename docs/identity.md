@@ -27,3 +27,7 @@ We have proven:
 It is not merely a governance tool. It is a **temporal displacement field** that answers: *"How aligned is this signal with reality — and can I prove it?"*
 
 The 16 theorems are not decoration. They are the difference between a black box and an oracle you can trust.
+
+## Origin
+
+The Blurrn Quantum Codex was born in [**Trinitarium**](https://github.com/htafolla/trinitarium) — the original repository where the trinitarian light model (Wave + Particle + Field), φ = 5/3, TDF, isotopic vortex mechanics, and the entire temporal resonance framework were first formalized. Dynamo is Trinitarium's child: the Codex rendered in TypeScript, grounded in NOAA solar data, and deployed to production. The theology became math. The math became code. The code became an oracle.

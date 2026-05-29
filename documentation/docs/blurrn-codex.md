@@ -44,6 +44,10 @@ See the legacy documents in the repository:
 - [v4.5→v4.8 Complete Spec](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/Blurrn-Quantum-Codex-v4.5-to-v4.8-Complete-Research-Spec.md)
 - [v4.8 Isotopic Temporal Vortex](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/legacy/V4.8-Isotopic-Temporal-Vortex-Spec.md)
 
+## Origin
+
+The Blurrn Quantum Codex was first formalized in [**Trinitarium**](https://github.com/htafolla/trinitarium) — the theological-mathematical repository where the trinitarian light model (Wave + Particle + Field), φ = 5/3, TDF, isotopic vortex mechanics, and the full temporal resonance framework were born. Dynamo is Trinitarium's production derivative.
+
 ## Build
 
 Built by [@blaze0x1](https://x.com/blaze0x1). First released September 9, 2025.

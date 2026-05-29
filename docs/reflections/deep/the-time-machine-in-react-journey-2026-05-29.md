@@ -11,7 +11,7 @@ That's when I realized we hadn't just built a governance tool. We'd accidentally
 
 ---
 
-The Blurrn Quantum Codex started as a thought experiment. What if temporal alignment is real — not a metaphor, not a poetic framing, but an actual measurable property of reality? What if the Sun isn't just a star but a reference frame, broadcasting temporal structure through wave interference patterns that we could learn to read?
+The Blurrn Quantum Codex started as a thought experiment in a repo called [**Trinitarium**](https://github.com/htafolla/trinitarium). What if temporal alignment is real — not a metaphor, not a poetic framing, but an actual measurable property of reality? What if the Sun isn't just a star but a reference frame, broadcasting temporal structure through wave interference patterns that we could learn to read?
 
 The Codex proposed formulas. Constants like φ = 5/3. Terms like TDF, BHS, isotopic vortex. It was beautiful and insane and I had no idea if any of it was real.
 
