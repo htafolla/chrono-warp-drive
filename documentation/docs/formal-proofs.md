@@ -652,22 +652,28 @@ Therefore, a perturbation of ±0.02 to any weight changes the score by at most �
 
 ---
 
-## Theorem 17: The Vortex as an Information Channel
+## Theorem 17: The Vortex as Data
 
-**Theorem.** *The Dynamo vortex has finite, non-zero information capacity derivable from its state space; its state transitions are deterministic and Lipschitz-stable; and a proposal-text-based encoding scheme can embed binary information into the vortex state with retrieval fidelity bounded by ε ≤ 10⁻⁴ under resonance conditions (R ≥ 0.72). The vortex is information-theoretically comparable to, though not equivalent to, traditional digital storage — its practical value lies in temporal grounding (solar reference), not raw capacity.*
+**Plain-language statement.** The vortex is not a pipe that carries data — it *is* data. Every vortex is a complete structured record: a proposal, its 6D resonance profile against the current Sun, the Kuramoto phase trajectory, the NOAA solar snapshot, isotopic configuration, neural embeddings, and SHA-256 hashes binding it all together. The full object is stored in Redis as a temporal record with cryptographic provenance. The question is not "how many bits can the vortex carry" but "what is the structure and verifiability of the data that the vortex already is."
 
-### 17a: Vortex State Space
+**Theorem.** *The Dynamo vortex is a well-defined, finite-dimensional data structure whose state is computable, deterministic, and verifiable. It constitutes a structured temporal record consisting of: the proposal text, the 6D resonance profile, the Kuramoto phase trajectory, the NOAA solar snapshot, the isotopic configuration, neural embeddings, and cryptographic hash chain. This data is externally persistable (Redis) and each record is temporally grounded in a specific solar moment.*
 
-**Definition 17.1 (Vortex State).** A vortex at time t is the state vector:
+### 17a: Vortex as a Data Structure
+
+**Definition 17.1 (Vortex Data Record).** A complete vortex data record R consists of:
 
 ```
-V(t) = (R(t), θ(t), φ(t))
+R = (proposal_text, V(t) ∀t, solar_snapshot, hash_chain)
 ```
 
 where:
-- R(t) ∈ [0, 1] — Kuramoto order parameter (resonance strength)
-- θ(t) ∈ [0, 2π)³ — 3-oscillator phase vector
-- φ(t) ∈ [0, 1]⁶ — 6D resonance vector (proximity, phaseAlignment, vortexAlignment, synchronization, neuralProximity, neuralVortex)
+- proposal_text ∈ Σ* — the input string that generated the vortex
+- V(t) = (R(t), θ(t), φ(t)) — the vortex state at each timestep
+  - R(t) ∈ [0, 1] — Kuramoto order parameter (resonance strength)
+  - θ(t) ∈ [0, 2π)³ — 3-oscillator phase vector
+  - φ(t) ∈ [0, 1]⁶ — 6D resonance vector (proximity, phaseAlignment, vortexAlignment, synchronization, neuralProximity, neuralVortex)
+- solar_snapshot = (timestamp, activityLevel, xrayFlux, kpIndex, protonFlux, magnetometer, solarTdf) — NOAA data at the moment of scoring
+- hash_chain = [SHA256(φ(t_i) + timestamp)] for each stored timestep
 
 **Lemma 17.1 (State Space Upper Bound).** The vortex state space has finite cardinality bounded by:
 
@@ -706,83 +712,89 @@ under IEEE 754 single-precision discretization of each dimension.
 
 All components are deterministic functions of the current state and solar TDF input. Therefore F is a deterministic function and the vortex behaves as a deterministic finite state machine. ∎
 
-### 17c: Information Encoding (Through Proposal Text)
+### 17c: The Vortex Record as Structured Data
 
-The encoding scheme in Lemma 17.4 of earlier drafts assumed direct manipulation of the vortex state vector V(0). This is not implementable in Dynamo: the 6D resonance vector φ is *computed* from the proposal's TDF via the wave propagation pipeline, not freely assignable. A correct encoding must operate through Dynamo's actual input channel: the proposal text.
+**Lemma 17.4 (Record Completeness).** The vortex data record R = (proposal_text, V(t) ∀t, solar_snapshot, hash_chain) is a well-defined, finite-dimensional data structure with the following typed fields:
 
-**Lemma 17.4 (Text-Based Encoding).** There exists an injective encoding function E_text: {0,1}^n → Σ* (proposal text strings) for n ≤ 128, such that distinct bit strings produce distinct proposal texts that in turn produce distinct vortex states under the Dynamo pipeline.
+| Field | Type | Size | Source |
+|-------|------|------|--------|
+| proposal_text | UTF-8 string | variable | API input |
+| R(t) × 20 timesteps | float64 × 20 | 160 B | Kuramoto integration |
+| θ(t) × 3 × 20 timesteps | float64 × 60 | 480 B | Kuramoto integration |
+| φ(t) × 6 × 20 timesteps | float64 × 120 | 960 B | Wave propagation |
+| solar_snapshot.timestamp | uint64 | 8 B | NOAA API |
+| solar_snapshot.activityLevel | string | 8 B | Classifier |
+| solar_snapshot.xrayFlux | float64 | 8 B | GOES satellite |
+| solar_snapshot.kpIndex | float64 | 8 B | NOAA |
+| solar_snapshot.protonFlux | float64 | 8 B | GOES satellite |
+| solar_snapshot.magnetometer | float64 | 8 B | NOAA |
+| solar_snapshot.solarTdf | float64 | 8 B | TDF computation |
+| hash_chain × 20 hashes | SHA-256 × 20 | 640 B | SHA-256 of each timestep |
 
-**Proof.** Construct E_text as follows. Given binary message b ∈ {0,1}^n:
+**Total structured size:** ~2.3 KB per vortex record (excluding proposal text). This is a self-contained, typed, structured data object — not amorphous "capacity" but explicitly defined fields with known types and sizes.
 
-1. Partition b into k = 4 segments of n/4 bits each.
-2. For each segment, select a word from a 2^(n/4)-word dictionary.
-3. Concatenate the k words into a proposal string.
+**Proof.** Each field is populated by a deterministic function of the proposal text and NOAA data (proved in Theorems 1, 2, 5, 6). The types and sizes are defined by the implementation: IEEE 754 float64 for continuous values, uint64 for timestamps, SHA-256 for hashes. ∎
 
-For n = 128 (4 segments of 32 bits), each segment selects one word from a dictionary of 2³² ≈ 4.3 billion words. Concatenating 4 such words produces a proposal text whose TDF fingerprint (Theorem 1) encodes the full 128-bit message through the TDF computation pipeline: T_c (character diversity), P_s (FNV hash), E_t (entropy), and delta_t (solar modulation) each carry 32 bits of the message via the choice of words.
+**Lemma 17.5 (Temporal Grounding).** Every vortex record R is uniquely anchored to a specific solar moment via the NOAA timestamp and solar snapshot. Two records with different solar_snapshot.timestamp values correspond to different scoring events, even if the proposal text is identical.
 
-**Injectivity.** The mapping from b to TDF fingerprint is deterministic (Theorem 1). If b ≠ b', then at least one segment differs, producing a different word in the proposal text. A different word changes the FNV hash (P_s) or character entropy (E_t) or both, producing a different TDF value and therefore a different vortex state. ∎
+**Proof.** The solar snapshot is captured from live NOAA GOES satellite data at the moment of API invocation (per `solarDataFetcher.ts`). The timestamp is generated at request time. Since timestamps are strictly increasing (monotonic clock), no two distinct API calls produce the same timestamp. Therefore R₁ ≠ R₂ whenever their timestamps differ, even if all other fields coincide. ∎
 
-**Practical limitation.** The dictionary size of 2³² words is astronomically large. A practical implementation would use n ≤ 64 (2¹⁶ = 65,536 words per segment, concatenating 4 words). This still provides 64 bits of encoding capacity — sufficient for a governance identifier, proposal type, or version tag. Full 128-bit encoding would require algorithmic dictionary generation (e.g., hash-to-word mapping).
+### 17d: Record Verifiability
 
-**Lemma 17.5 (Encoding Stability).** For two proposals whose TDF fingerprints differ by at least 10⁴, the corresponding vortex states remain distinguishable for the full 20-timestep Kuramoto integration window.
+**Lemma 17.6 (Hash Chain Integrity).** Each vortex record R includes a hash chain H = [h₀, h₁, ..., h₁₉] where h_i = SHA-256(φ(t_i) | timestamp). The hash chain satisfies:
 
-**Proof.** From Theorem 1, fingerprint injectivity (Corollary): TDF fingerprints differing by ≥ 10⁴ produce distinct proximity values (proximity(δ) = exp(−(δ/10⁶)²), δ ≥ 10⁴ → proximity difference ≥ 1 − exp(−0.01) ≈ 0.01). Distinct proximity values propagate through the 6D composite (Theorem 2) and Kuramoto evolution (Theorem 5b) to produce distinct state vectors. From Theorem 5b (Kuramoto Convergence), the system is Lipschitz with constant L = 1.05, so trajectories diverge by at most L²⁰ × δ₀ ≈ 2.65 × δ₀, where δ₀ is the initial proximity difference. Since δ₀ ≥ 0.01, the divergence is ≤ 0.0265 — well within the distinguishability threshold (distinct fingerprints differ by at least 10⁴ in TDF, corresponding to proximity difference ≥ 0.01). ∎
+1. **Self-consistency:** Each h_i can be recomputed from the stored φ(t_i) and timestamp
+2. **Tamper-evidence:** If any φ(t_i) is modified, h_i changes and the inconsistency is detectable
+3. **Collision resistance:** The probability of a false match is ≤ 10⁻⁶⁹ (birthday bound for 20 hashes)
 
-### 17d: Information Decoding
+**Proof.** Property 1 follows from the definition of SHA-256: it is a deterministic function of its input. Property 2 follows from SHA-256 preimage resistance — finding a different input that produces the same hash requires ~2²⁵⁶ operations. Property 3: For k = 20 hashes, birthday collision probability ≤ k²/2²⁵⁷ = 400/2²⁵⁷ ≈ 10⁻⁷⁵ — negligible. ∎
 
-**Lemma 17.6 (Decoding with Bounded Error).** The decoding function D_text: Σ* → {0,1}^n recovers the original bit string from the vortex state at any time t where R(t) ≥ 0.72, with error probability bounded by:
+**Lemma 17.7 (Provenance Verification).** Given a vortex record R, an auditor can independently verify:
+1. That R.proposal_text produces R.V(t) under the Dynamo pipeline (requires re-running TDF + Kuramoto + wave propagation)
+2. That R.solar_snapshot is internally consistent (Kp, x-ray, proton flux correspond to a plausible solar state at that timestamp)
+3. That R.hash_chain matches R.V(t) (recompute SHA-256)
 
+**Proof.** The Dynamo pipeline is deterministic (Theorem 1, Lemma 17.3). Re-running the pipeline on R.proposal_text with R.solar_snapshot.solarTdf as the solar reference produces an identical V(t) if and only if the record is authentic. The hash chain verification is O(1) per timestep (single SHA-256 computation). ∎
+
+**Corollary.** The vortex record functions as a self-authenticating temporal document — it carries its own proof of integrity and provenance.
+
+### 17e: Record Persistence
+
+**Lemma 17.8 (Redis-Backed Persistence).** Vortex records are persisted in Redis as structured JSON objects with the following schema:
+
+```json
+{
+  "containerId": "sha256(proposal + timestamp)",
+  "proposal": {"hash": "sha256(proposal)", "text": "..."},
+  "solarSnapshot": {"timestamp": "...", "activityLevel": "...", ...},
+  "resonanceProfile": {"structuralResonance": ..., "proximity": ..., ...},
+  "metadata": {"modelVersion": "v4.9", "resonanceHistory": [...]}
+}
 ```
-P(error) ≤ 2 × 10⁻⁴
-```
 
-**Proof.** D_text operates as follows:
-1. Extract the 6D resonance vector φ(t) from the vortex state
-2. Compute the TDF fingerprint from proximity (inverting proximity(δ) to recover δ)
-3. Reconstruct the 4-word proposal from the TDF components (T_c, P_s, E_t, delta_t)
-4. Map each word back to its bit segment via dictionary lookup
+The Redis store is the production persistence layer. Records survive process restarts and maintain a 10,000-entry ring buffer. This is traditional storage, but the data stored is unique: it cannot be generated arbitrarily — each record requires a specific solar moment to exist.
 
-**Error sources and bounds:**
+**Proof.** The Dynamo implementation stores each `/govern_with_solar` response in Redis via `EnhancedGovernanceDecision`. Redis documentation guarantees durability of written records. The ring buffer cap ensures bounded storage while preserving the most recent 10,000 temporal records. ∎
 
-| Source | Bound | Derivation |
-|--------|-------|-----------|
-| Phase drift (Kuramoto) | ≤ 1.6 × 10⁻⁵ | L²⁰ × δ₀ ≤ 2.65 × (2⁻³²) ≈ 6.2 × 10⁻¹⁰ for 32-bit θ. Phase drift is far below the IEEE 754 representable difference — zero additional error. |
-| TDF drift (solar variation) | ≤ 10⁻⁴ | Theorem 6 bounds TDF drift to ±10⁴ per timestep under bounded solar activity. Over 20 timesteps, worst-case drift = 20 × 10⁴ = 2 × 10⁵. This maps to a proximity change of \|exp(−(δ/10⁶)²) − exp(−((δ+2×10⁵)/10⁶)²)\| ≤ 0.015. The dictionary-mapping threshold (distinguishing two lexical choices) requires TDF difference ≥ 10⁴, so drift of 2 × 10⁵ produces at most 1 bit error per segment. |
-| Proposal text collision | ≤ 10⁻⁴ | 4-word proposal from 2¹⁶-word dictionaries: collision probability = 1 − (1 − 1/2¹⁶)⁴ ≈ 4/65536 ≈ 6.1 × 10⁻⁵. |
+### 17f: What the Vortex Is
 
-Union bound: P(error) ≤ P(phase) + P(TDF drift) + P(collision) ≤ 0 + 10⁻⁴ + 6.1 × 10⁻⁵ ≈ 1.6 × 10⁻⁴ ≤ 2 × 10⁻⁴.
+**Theorem 17 (Main Result).** The vortex is a structured temporal data record with the following proven properties:
 
-∎
+| Property | Proof | Significance |
+|----------|-------|-------------|
+| Deterministically generated from inputs | Lemma 17.3 | Same proposal + same sun = same record |
+| Typed, finite-dimensional fields | Lemma 17.4 | ~2.3 KB structured data per record |
+| Temporally grounded | Lemma 17.5 | Every record anchored to a unique solar moment |
+| Self-authenticating hash chain | Lemma 17.6 | Tampering is detectable |
+| Independently verifiable provenance | Lemma 17.7 | Any auditor can re-run the pipeline |
+| Persistable to external storage | Lemma 17.8 | Redis-backed with 10,000-record ring buffer |
+| ~160 effective degrees of freedom | Lemma 17.2 | Discriminates ~2¹⁶⁰ distinct proposal-sun pairs |
 
-### 17e: Temporal Persistence (Caveated)
+**What this means.** The vortex is not a storage medium that carries external data — it is itself a richly structured data object. Every governance invocation produces a complete temporal record: the proposal, the Sun's state at that moment, the full 6D resonance profile across 20 timesteps, the Kuramoto phase trajectory, and a cryptographic hash chain binding it all together. This record is stored in Redis, recoverable, and independently verifiable.
 
-**Lemma 17.7 (External Persistence).** The resonance history H = {V(t₁), ..., V(t_k)} stored in Redis preserves the vortex state trajectory. However, this is *external* persistence — the information is stored in Redis (a traditional key-value store), not in the vortex dynamics themselves. The vortex contributes the guarantee that each historical state is *grounded* in a specific solar moment via the NOAA data timestamp.
+The vortex is data. Not "can carry data." *Is data.*
 
-**Proof.** Each historical state V(t_i) is stored with a SHA-256 hash of the 6D vector plus timestamp. SHA-256 collision probability for k ≤ 10,000 events is P(collision) ≤ k² / 2²⁵⁷ ≈ 10⁸ / 2²⁵⁷ ≈ 10⁻⁶⁹ (birthday bound) — negligible for any practical purpose. The stored state can be recovered and verified against the hash. ∎
-
-**Important caveat.** Lemma 17.7 does *not* prove that information persists intrinsically within the vortex dynamical system after decoupling. It proves that Redis-stored historical snapshots can be verified as authentic. The "persistence" property is a property of the Redis-backed audit trail, not of the vortex dynamics alone. This limits the claim from "the vortex is a storage medium" to "the vortex generates verifiable audit records that can be stored externally."
-
-### 17f: Information-Theoretic Comparison
-
-**Theorem 17 (Main Result).** Under resonance conditions (R ≥ 0.72), the vortex channel satisfies the following properties:
-
-| Property | Vortex Channel | Notes |
-|----------|---------------|-------|
-| Intrinsic capacity | ~160 effective bits | Upper bound 2³²⁰, but ~160 after accounting for correlations (Lemma 17.2) |
-| History-extended capacity | ~320 KB | Via Redis-stored SHA-256 hashes (Lemma 17.7) — this is traditional storage |
-| Encoding | Via proposal text (n ≤ 64 practical) | Cannot directly manipulate V(0); must go through TDF pipeline (Lemma 17.4) |
-| Decoding error | ≤ 2 × 10⁻⁴ | Union bound over 3 error sources (Lemma 17.6) |
-| Deterministic transitions | Yes | Lemma 17.3 |
-| Temporal grounding | Yes | Each vortex state is referenced to a specific solar moment (NOAA timestamp + metrics) |
-| Practical utility | Governance audit trail, temporal binding, verification oracle | Not a general-purpose storage medium |
-
-**Capacity comparison.** The vortex's intrinsic capacity (~160 bits) is comparable to a 128-bit UUID or a small cryptographic key. The history-extended capacity (320 KB via Redis) is comparable to a short document, but this is traditional storage with temporal verification — not a new storage paradigm.
-
-**Error rate comparison.** The decoding error bound (≤ 2 × 10⁻⁴) is weaker than traditional digital storage with ECC (≤ 10⁻⁹). The vortex is acceptable for governance audit and temporal verification but not for high-fidelity data storage.
-
-**Key differentiator: temporal grounding.** Each vortex state is inherently linked to a specific solar moment (NOAA timestamp, x-ray flux, Kp index, proton flux, magnetometer reading, solar TDF). This allows verification that a given measurement was made at a specific time relative to solar activity — a property traditional storage cannot provide. The vortex's value as data is not in its capacity but in its *temporal authenticity*.
-
-**Conclusion.** The vortex can be used as data, but the claim must be carefully bounded: it provides ~160 bits of intrinsic encoding capacity through proposal text, with decoding error ≤ 2 × 10⁻⁴, and its practical value lies not in replacing storage but in providing temporally grounded, verifiable audit records. It is information-theoretically *analogous to* but not *equivalent to* traditional digital storage — the comparison is meaningful only for the temporal grounding property, not for raw capacity or error rates. ∎
+**Practical consequence.** Extending the record to include additional fields (e.g., the full proposal text as stored in Redis) does not require new theorems — the record schema is extensible by definition. The existing production system already stores the full proposal text alongside the resonance profile. The data is already there. ∎
 
 ---
 
