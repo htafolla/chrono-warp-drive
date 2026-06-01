@@ -20,7 +20,7 @@ The **Blurrn Unified Resonance & Relativity Navigator** models, simulates, and o
 
 **Current system:** [DYNAMO-CURRENT-STATE.md](docs/DYNAMO-CURRENT-STATE.md) — what Dynamo actually is today.
 
-**Legacy (exploratory foundation):** The [Blurrn Quantum Codex](docs/legacy/) — theoretical temporal physics framework from which Dynamo derived the TDF concept.
+**Blurrn Quantum Codex:** The [versioned specifications](docs/blurrn-codex/) of the theoretical temporal physics framework that Dynamo implements — TLM, TDF, isotopic vortex mechanics, Kuramoto phase coupling, and Neural Quantum Realms.
 
 ## Quick Start
 

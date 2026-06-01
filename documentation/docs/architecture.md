@@ -122,4 +122,4 @@ A/B test results show wave spreads 2–2.5× wider than current TDF formulas for
 ## Further Reading
 
 - [DYNAMO-CURRENT-STATE.md](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/DYNAMO-CURRENT-STATE.md) — authoritative current-state document with all formulas, design decisions, and deployment notes
-- [Blurrn Codex](/docs/blurrn-codex) — foundational cosmological research that inspired Dynamo (archived under `docs/legacy/`)
+- [Blurrn Codex](/docs/blurrn-codex) — the theoretical temporal physics framework that Dynamo implements (versioned specs under `docs/blurrn-codex/`)

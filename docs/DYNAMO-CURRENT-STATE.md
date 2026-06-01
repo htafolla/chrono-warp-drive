@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-29
 **Version:** v4.9 (6D temporal box with neural dimensions) — v5.0 specification drafted
-**Origin:** Derived from the [Blurrn Quantum Codex](legacy/) temporal physics framework
+**Origin:** Implements the [Blurrn Quantum Codex](blurrn-codex/) temporal physics framework — the Codex's TDF formula, Kuramoto coupling, isotopic vortex mechanics, and Neural Quantum Realms, rendered in TypeScript against live NOAA solar data.
 
 ## What Dynamo Is
 

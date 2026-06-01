@@ -66,4 +66,4 @@ Open [dynamo.rippel.ai](https://dynamo.rippel.ai) and type any proposal. The Sun
 
 For a complete picture of what Dynamo is today — architecture, design decisions, deployment, and relationship to the Blurrn Quantum Codex — see [DYNAMO-CURRENT-STATE.md](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/DYNAMO-CURRENT-STATE.md).
 
-For the foundational cosmological research, see the [Blurrn Codex](/docs/blurrn-codex) page or the archived specs under `docs/legacy/` in the repository.
+For the theoretical temporal physics framework that Dynamo implements, see the [Blurrn Codex](/docs/blurrn-codex) page or the versioned specs under `docs/blurrn-codex/` in the repository.

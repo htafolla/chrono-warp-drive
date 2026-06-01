@@ -117,5 +117,5 @@ The model maps to something real.
 
 ## What Next?
 
-- Codex v5.0 spec is drafted in `docs/legacy/` — formalize the v5.0 production document based on current implementation
+- Codex v5.0 spec is drafted in `docs/blurrn-codex/` — formalize the v5.0 production document based on current implementation
 - Next story to write: The five neural bugs — a technical deep dive into what "silent failure" looks like in practice
