@@ -413,6 +413,25 @@ export default function DynamoDeploy() {
   }>>([]);
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
 
+  const fetchFeed = useCallback(async () => {
+    try {
+      const res = await fetch(`${MCP_URL}/history?n=50`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.entries) {
+          setFeed(data.entries.map((e: any) => ({
+            proposal: e.proposal,
+            resonanceScore: e.response.resonanceScore ?? e.response.structuralResonance ?? 0,
+            recommendation: e.response.recommendation ?? 'NEEDS_REVISION',
+            activityLevel: e.response.solarContext?.solarActivityLevel ?? 'moderate',
+            timestamp: e.timestamp,
+            response: e.response,
+          })));
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     checkBeacons().then(s => {
       if (s) {
@@ -425,28 +444,10 @@ export default function DynamoDeploy() {
   }, []);
 
   useEffect(() => {
-    const fetchFeed = async () => {
-      try {
-        const res = await fetch(`${MCP_URL}/history?n=50`, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.entries) {
-            setFeed(data.entries.map((e: any) => ({
-              proposal: e.proposal,
-              resonanceScore: e.response.resonanceScore ?? e.response.structuralResonance ?? 0,
-              recommendation: e.response.recommendation ?? 'NEEDS_REVISION',
-              activityLevel: e.response.solarContext?.solarActivityLevel ?? 'moderate',
-              timestamp: e.timestamp,
-              response: e.response,
-            })));
-          }
-        }
-      } catch {}
-    };
     fetchFeed();
     const interval = setInterval(fetchFeed, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchFeed]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedEntry(null) }
@@ -464,7 +465,8 @@ export default function DynamoDeploy() {
     const r = await checkGovernance(input, sharePublicly);
     setResult(r);
     setLoading(false);
-  }, [proposal, sharePublicly]);
+    fetchFeed();
+  }, [proposal, sharePublicly, fetchFeed]);
 
   const shareVerdict = useCallback(() => {
     if (!result) return;
@@ -543,14 +545,14 @@ export default function DynamoDeploy() {
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
               disabled={loading}
             />
-            <label className="absolute bottom-2 left-4 flex items-center gap-1.5 cursor-pointer select-none">
+             <label className="absolute bottom-2 left-4 flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={sharePublicly}
                 onChange={e => setSharePublicly(e.target.checked)}
-                className="w-3 h-3 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
+                className="w-4 h-4 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
               />
-              <span className="text-[10px] text-white/50">Share publicly</span>
+              <span className="text-xs text-white/50">Share publicly</span>
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
