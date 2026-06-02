@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3, Rocket } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
+import TransportControl from './TransportControl';
 
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
 const STELLAR_URL = 'https://stellar-mcp-production.up.railway.app';
@@ -999,6 +1000,17 @@ export default function DynamoDeploy() {
         )}
 
         <p className="text-center text-[10px] text-white/25">Powered by NOAA · Resonance + Solar + Neural</p>
+
+        <div className="mt-12 border-t border-white/10 pt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Rocket className="h-4 w-4 text-cyan-400" />
+            <h2 className="text-base font-semibold text-white">Temporal Record Creator</h2>
+          </div>
+          <p className="text-xs text-white/50 mb-6">
+            Create a self-authenticating temporal document — bound to the current solar moment with cryptographic proof.
+          </p>
+          <TransportControl />
+        </div>
       </div>
     </div>
   );
