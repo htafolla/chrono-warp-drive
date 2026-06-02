@@ -186,6 +186,7 @@ export class NeuralFusion {
   private patternModel: tf.LayersModel | null = null;
   private isInitialized = false;
   private isTrained = false;
+  private _isTraining = false;
 
   async initialize(): Promise<void> {
     try {
@@ -661,4 +662,29 @@ export class NeuralFusion {
   }
 
   get isTrainedModel(): boolean { return this.isTrained; }
+  get isTraining(): boolean { return this._isTraining; }
+
+  /**
+   * Retrain on current solar data, with a lock to prevent concurrent retraining.
+   * Uses the accumulated rolling buffer of real NOAA observations + synthetic regimes.
+   * If a retrain is already in progress, returns false without retraining.
+   */
+  async retrainOnSolarData(): Promise<boolean> {
+    if (this._isTraining) {
+      console.log('[NeuralFusion] Retrain skipped — already in progress');
+      return false;
+    }
+    this._isTraining = true;
+    try {
+      console.log('[NeuralFusion] Starting periodic retrain on current solar conditions...');
+      await this.trainOnSolarData();
+      console.log('[NeuralFusion] Periodic retrain complete — model is current');
+      return true;
+    } catch (error) {
+      console.error('[NeuralFusion] Periodic retrain failed:', error);
+      return false;
+    } finally {
+      this._isTraining = false;
+    }
+  }
 }

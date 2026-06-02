@@ -40,6 +40,17 @@ async function initializeEngine() {
     console.log('[Backend] Starting solar-data training...');
     await neuralFusion.trainOnSolarData();
     console.log('[Backend] Solar-data training complete — models are Sun-grounded');
+
+    // Schedule periodic retraining so the neural model stays current with evolving solar
+    // conditions. The rolling buffer accumulates real NOAA observations (up to 32 unique
+    // regimes) which enriches each retrain with more diverse historical context.
+    const retrainMs = parseInt(process.env.NEURAL_RETRAIN_INTERVAL_MS || '', 10) || 6 * 60 * 60 * 1000;
+    console.log(`[Backend] Scheduling neural retrain every ${retrainMs / 3_600_000}h`);
+    setInterval(() => {
+      neuralFusion?.retrainOnSolarData().then(didRetrain => {
+        if (didRetrain) console.log('[Backend] Periodic neural retrain completed');
+      });
+    }, retrainMs);
   } catch (error) {
     console.error('[Backend] Failed to initialize engines:', error);
     process.exit(1);
