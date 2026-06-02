@@ -1009,7 +1009,7 @@ export default function DynamoDeploy() {
           <p className="text-xs text-white/50 mb-6">
             Create a self-authenticating temporal document — bound to the current solar moment with cryptographic proof.
           </p>
-          <TransportControl />
+          <TransportControl simple />
         </div>
       </div>
     </div>
