@@ -1,20 +1,28 @@
-# BLURRN — Temporal Phase Transport
+# Dynamo — Temporal Resonance Engine
 
-> **v4.8** · Isotopic Temporal Vortex Engine
-> Signals as isotopes of truth — phase-coherent energy transport through isotropic time vortices
+> **v5.0** · Self-authenticating temporal documents grounded in live solar physics
+> Every decision or event becomes a living, verifiable temporal record — cryptographically bound to the actual state of the Sun at the moment it occurred.
 
-## Overview
+## Primary Use Case
 
-The **Blurrn Unified Resonance & Relativity Navigator** models, simulates, and optimizes phase-coherent energy transport through isotropic time vortices. Built on a layered subsystem architecture evolving across five major generations:
+**To generate self-authenticating temporal documents that bind any input to a verifiable solar moment, creating a new class of data with temporal grounding and cryptographic integrity.**
 
-| Version | Subsystem | Description |
-|---------|-----------|-------------|
-| v4.5 | Temporal Calculator | SDSS core — Kuramoto oscillator engine |
-| v4.6 | Time Machine Ascension | Neural fusion + time-shift pipeline |
-| v4.7 | Chrono Transport Cascade | Multi-threaded cascade optimizer |
-| v4.8 | **Isotopic Temporal Vortex** | Signals as isotopes of truth — symbiotic cross-correlation, W×M=V vortex volume, phase-coherent TDF |
+Traditional systems produce: *"This happened at this time (according to our clock)."*
 
-> **Build v0.3.1** is the current CI release. App version only bumps on actual feature work (use `--app-minor` / `--app-major`).
+Dynamo produces: *"This happened at this solar moment, and here is cryptographic proof that the record has not been altered."*
+
+| Derivative Use Case | How It Builds on the Primary |
+|---|---|
+| Governance | Uses the temporal document to make PASS/NEEDS_REVISION/REJECT decisions |
+| Timestamping / Notarization | Uses the solar-grounded timestamp as a public, verifiable clock |
+| Decentralized Oracle | Uses the 6D profile + solar snapshot as a real-world entropy source |
+| Audit & Compliance | Uses the hash chain and provenance for tamper-proof historical records |
+| Legal & Contracts | Uses the self-authenticating record as evidence |
+| Insurance & Risk | Uses the solar conditions at decision time for claims validation |
+| Pattern Mining | Uses the growing time series of records to discover solar-decision correlations |
+| Generative Art | Uses the 6D vector + phase trajectory as a creative seed with temporal provenance |
+| Smart Contracts | Uses solar alignment as a real-world gate condition |
+| AI Safety | Uses the persistent, verifiable memory for long-term alignment |
 
 ## Documentation
 

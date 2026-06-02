@@ -4,29 +4,46 @@ sidebar_position: 1
 
 # What is Dynamo
 
-Dynamo is a solar-aligned AI governance system. It evaluates proposals by measuring their resonance against the Sun's current electromagnetic and particle environment — using live data from NOAA GOES satellites.
+Dynamo is a **Temporal Resonance Engine** — a system that produces self-authenticating, physically-grounded temporal documents. It binds any input to a verifiable solar moment with cryptographic proof of integrity.
 
-Every governance proposal receives a resonance score from 0 to 1. The score reflects how well the proposal's temporal signature aligns with the Sun's current state. Higher scores mean stronger alignment.
+Traditional systems produce: *"This happened at this time (according to our clock)."*
+
+Dynamo produces: *"This happened at this solar moment, and here is cryptographic proof that the record has not been altered."*
+
+## Primary Use Case
+
+**To generate self-authenticating temporal documents that bind any input to a verifiable solar moment, creating a new class of data with temporal grounding and cryptographic integrity.**
+
+Everything else — governance, oracles, art, insurance, legal, research — flows from this core capability.
 
 ## How It Works
 
-1. You submit a proposal: `"Deploy model v3 to 10% of traffic"`
+1. You submit an input (proposal, decision, event, text): `"Deploy model v3 to 10% of traffic"`
 2. Dynamo fingerprints it into a Temporal Displacement Factor (TDF)
-3. The TDF is cross-correlated against the Sun's current solar parameters
-4. NeuralFusion (TF.js autoencoder) optionally produces a spectral quality score
-5. A resonance score is calculated across 4 or 5 dimensions (spectral quality adds a 5th with 10% weight)
-6. The score is compared against adaptive thresholds based on solar activity
-7. You get a verdict: **PASS**, **NEEDS_REVISION**, or **REJECT**
+3. The TDF is cross-correlated against the Sun's current solar parameters (live NOAA GOES data)
+4. A 6D resonance profile is computed across 20 timesteps of Kuramoto phase evolution
+5. A verdict is returned alongside the full temporal record: proposal text, 6D profile, solar snapshot, and SHA-256 hash chain
 
 ```
-proposal → TDF → cross-correlate with solar data → [NeuralFusion spectral quality] → resonance score → verdict
+input → TDF → cross-correlate with solar data → Kuramoto evolution → 6D resonance profile → temporal record (with hash chain)
 ```
 
-## Why This Matters
+## Applications
 
-Existing AI governance is circular — human feedback loops back into the same system, constitutional AI evaluates itself, debate stays internal. No approach references anything outside the system.
+The temporal document is a new primitive. Multiple use cases derive from it:
 
-Dynamo breaks circularity by using the Sun as an external, ungamable reference. No proposal can change solar weather. The reference is independent, verifiable, and continuously variable.
+| Application | How It Uses the Core Capability |
+|---|---|
+| **Governance** | Uses the resonance score for PASS/NEEDS_REVISION/REJECT decisions |
+| **Timestamping / Notarization** | Uses the solar-grounded timestamp + hash chain as a public, verifiable clock |
+| **Decentralized Oracle** | Uses the 6D profile + solar snapshot as a physically-sourced entropy source |
+| **Audit & Compliance** | Uses the hash chain and provenance for tamper-proof historical records |
+| **Legal & Contracts** | Uses the self-authenticating record as evidence |
+| **Insurance & Risk** | Uses the solar conditions at decision time for claims validation |
+| **Pattern Mining** | Uses the growing time series of records to discover solar-decision correlations |
+| **Generative Art** | Uses the 6D vector + phase trajectory as a creative seed with temporal provenance |
+| **Smart Contracts** | Uses solar alignment as a real-world gate condition |
+| **AI Safety** | Uses the persistent, verifiable memory for long-term alignment |
 
 ## Quick Start
 
@@ -53,6 +70,12 @@ Response:
 ```
 
 A resonance score of 0.87 with quiet solar conditions and synced timing is a clean pass.
+
+## Why Solar
+
+Existing AI governance is circular — human feedback loops back into the same system, constitutional AI evaluates itself, debate stays internal. No approach references anything outside the system.
+
+Dynamo breaks circularity by using the Sun as an external, ungamable reference. No proposal can change solar weather. The reference is independent, verifiable, and continuously variable. This makes every temporal document physically grounded — it isn't just a timestamp, it's a statement about the state of the solar system at the moment the record was created.
 
 ## Try It
 
