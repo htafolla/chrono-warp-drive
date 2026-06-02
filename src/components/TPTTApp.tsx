@@ -827,8 +827,8 @@ export function TPTTApp() {
                 <span className="hidden sm:inline">Time Shift</span>
               </TabsTrigger>
               <TabsTrigger value="v47cascade" className="flex items-center gap-2 whitespace-nowrap">
-                <Zap className="h-4 w-4" />
-                <span className="hidden sm:inline">v{APP_VERSION} Cascade</span>
+                <Rocket className="h-4 w-4" />
+                <span className="hidden sm:inline">Temporal Record</span>
               </TabsTrigger>
               <TabsTrigger value="system" className="flex items-center gap-2 whitespace-nowrap">
                 <Laptop className="h-4 w-4" />
@@ -1289,19 +1289,13 @@ export function TPTTApp() {
 
           {/* v4.7 Chrono Transport Cascade Tab */}
           <TabsContent value="v47cascade" className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="text-2xl font-semibold">{APP_TAG}</h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  {APP_TAGLINE}
-                </p>
-              </div>
-              <Badge variant={chronoResult?.status === 'Approved' ? 'default' : 'secondary'}>
-                {chronoResult?.status || 'Ready'}
-              </Badge>
+            <div>
+              <h2 className="text-2xl font-semibold">Temporal Record</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                Self-authenticating documents grounded in live solar physics
+              </p>
             </div>
 
-              {/* Temporal Record Creator - connects to real backend */}
             <TransportControl />
 
             {/* Formula Reference */}
