@@ -68,8 +68,6 @@ import CollaborationDashboard from './CollaborationDashboard';
 import AnalyticsExport from './AnalyticsExport';
 import { generateStellarTimestamp, getObservationSession } from '@/lib/stellarTimestamp';
 import { memoryManager } from '@/lib/memoryManager';
-import ChronoSlider from './ChronoSlider';
-import EntanglementViz from './EntanglementViz';
 import TransportControl from './TransportControl';
 import { ChronoTransportEngine } from '@/lib/chronoTransportInterface';
 import { CascadeParameters, ChronoTransportResult } from '@/types/blurrn-v4-7';
@@ -1303,82 +1301,8 @@ export function TPTTApp() {
               </Badge>
             </div>
 
-            {/* Main Control Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column: Controls */}
-              <div className="space-y-6">
-                <ChronoSlider
-                  onChange={(params) => {
-                    setCascadeParams(prev => ({ ...prev, ...params }));
-                    // Compute CTI on parameter change
-                    const result = chronoEngine.runInterview({
-                      ...cascadeParams,
-                      ...params
-                    });
-                    setChronoResult(result);
-                  }}
-                  initialDeltaPhase={cascadeParams.delta_phase}
-                  initialN={cascadeParams.n}
-                />
-
-                <TransportControl
-                  n={cascadeParams.n}
-                  deltaPhase={cascadeParams.delta_phase}
-                  efficiency={chronoResult?.efficiency}
-                  status={chronoResult?.status}
-                  onWarp={() => {
-                    toast.success('Time Warp Initiated!', {
-                      description: `n=${cascadeParams.n}, Q_ent=${chronoResult?.q_ent.toFixed(4)}`
-                    });
-                  }}
-                />
-              </div>
-
-              {/* Right Column: Visualization */}
-              <div className="space-y-6">
-                <EntanglementViz
-                  deltaPhase={cascadeParams.delta_phase}
-                  n={cascadeParams.n}
-                  q_ent={chronoResult?.q_ent}
-                />
-
-                {/* Metrics Card */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>CTI Cascade Metrics</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Cascade Index</div>
-                        <div className="text-lg font-mono">{chronoResult?.cascadeIndex || 'N/A'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Q_ent</div>
-                        <div className="text-lg font-mono">{chronoResult?.q_ent.toFixed(4) || 'N/A'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Transport Score</div>
-                        <div className="text-lg font-mono">{chronoResult?.score.toFixed(4) || 'N/A'}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Efficiency</div>
-                        <div className="text-lg font-mono">{chronoResult?.efficiency.toFixed(2)}%</div>
-                      </div>
-                      <div className="space-y-1 col-span-2">
-                        <div className="text-xs text-muted-foreground">Dual Black Hole Sync</div>
-                        <div className="text-sm font-mono space-y-1">
-                          <div>Seq 1: {chronoResult?.dualBlackHole.seq1.toFixed(4) || 'N/A'}</div>
-                          <div>Seq 2: {chronoResult?.dualBlackHole.seq2.toFixed(4) || 'N/A'}</div>
-                          <div>Total: {chronoResult?.dualBlackHole.total.toFixed(4) || 'N/A'}</div>
-                          <div>Sync Eff: {((chronoResult?.dualBlackHole.syncEfficiency || 0) * 100).toFixed(2)}%</div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+              {/* Temporal Record Creator - connects to real backend */}
+            <TransportControl />
 
             {/* Formula Reference */}
             <Card>
