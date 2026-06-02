@@ -6,7 +6,7 @@ import { solarDataFetcher, SolarData } from './solarDataFetcher';
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
-import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation';
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -233,6 +233,9 @@ export class SolarGovernanceIntegration {
       const syncRaw = Math.max(0, 1 - deltaDiff / 1e6)
       const synchronization = Math.max(0.15, syncRaw)
 
+      // Replace dead vortexAlignment (always ~1.0) with calibrated wave vortex
+      const calibratedVortex = computeCalibratedWaveVortex(waveResonance.waveVortexAlignment)
+
       const hybrid = computeHybridResonance(
         proximity,
         phaseAlignment,
@@ -253,12 +256,13 @@ export class SolarGovernanceIntegration {
       )
 
       const neuralContextUsed = spectralQuality !== undefined
+      // vortexAlignment was dead (always 1.0) — replaced with live calibratedVortex.
       const structuralResonance = neuralContextUsed
         ? Math.max(0.15, Math.min(0.98,
-            proximity * 0.18 + phaseAlignment * 0.18 + vortexAlignment * 0.27 + synchronization * 0.27 + spectralQuality! * 0.10
+            proximity * 0.18 + phaseAlignment * 0.18 + calibratedVortex * 0.27 + synchronization * 0.27 + spectralQuality! * 0.10
           ))
         : Math.max(0.15, Math.min(0.98,
-            proximity * 0.20 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.30
+            proximity * 0.20 + phaseAlignment * 0.20 + calibratedVortex * 0.30 + synchronization * 0.30
           ))
 
       const solarIsotopicResonance = structuralResonance

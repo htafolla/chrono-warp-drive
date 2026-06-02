@@ -8,7 +8,7 @@ import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataF
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
 import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
-import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation.js'
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -300,7 +300,9 @@ export class SolarGovernanceIntegration {
       const syncRaw = Math.max(0, 1 - deltaDiff / 1e6)
       const synchronization = Math.max(0.15, syncRaw)
 
-      // Hybrid resonance: replace dead vortexAlignment (always ~1.0) with waveVortexAlignment
+      // Replace dead vortexAlignment (always ~1.0) with calibrated wave vortex
+      const calibratedVortex = computeCalibratedWaveVortex(waveResonance.waveVortexAlignment)
+
       const hybrid = computeHybridResonance(
         proximity,
         phaseAlignment,
@@ -325,13 +327,14 @@ export class SolarGovernanceIntegration {
       // 4D formula (no neural context): proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30
       // 5D formula (with spectralQuality): proximity×0.18 + phase×0.18 + volume×0.27 + sync×0.27 + spectralQuality×0.10
       // Sync weight at 0.30 — temporal alignment now equals volume in importance.
+      // vortexAlignment was dead (always 1.0) — replaced with live calibratedVortex.
       const neuralContextUsed = spectralQuality !== undefined
       const structuralResonance = neuralContextUsed
         ? Math.max(0.15, Math.min(0.98,
-            proximity * 0.18 + phaseAlignment * 0.18 + vortexAlignment * 0.27 + synchronization * 0.27 + spectralQuality! * 0.10
+            proximity * 0.18 + phaseAlignment * 0.18 + calibratedVortex * 0.27 + synchronization * 0.27 + spectralQuality! * 0.10
           ))
         : Math.max(0.15, Math.min(0.98,
-            proximity * 0.20 + phaseAlignment * 0.20 + vortexAlignment * 0.30 + synchronization * 0.30
+            proximity * 0.20 + phaseAlignment * 0.20 + calibratedVortex * 0.30 + synchronization * 0.30
           ))
 
       // Backward-compatible: solarIsotopicResonance is now the composite
