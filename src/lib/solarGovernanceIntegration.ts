@@ -226,10 +226,6 @@ export class SolarGovernanceIntegration {
 
       const phaseAlignment = kuramoto.phaseAlignment
 
-      const logRatio = Math.abs(Math.log(Math.max(proposalTdf, 1)) - Math.log(Math.max(solarRefTdf, 1)))
-      const logMax = Math.log(Math.max(proposalTdf, solarRefTdf, 1))
-      const vortexAlignment = Math.max(0.15, 1 - logRatio / logMax)
-
       const syncRaw = Math.max(0, 1 - deltaDiff / 1e6)
       const synchronization = Math.max(0.15, syncRaw)
 
@@ -281,7 +277,7 @@ export class SolarGovernanceIntegration {
         structuralResonance,
         proximity,
         phaseAlignment,
-        vortexAlignment,
+        vortexAlignment: calibratedVortex,
         synchronization,
         crossCorrelationStrength: correlation.strength,
         crossCorrelationLag: correlation.lag,
@@ -327,7 +323,7 @@ export class SolarGovernanceIntegration {
         structuralResonance: 0.80,
         proximity: 0.80,
         phaseAlignment: 0.80,
-        vortexAlignment: Math.max(0.15, 1 - Math.abs(Math.log(Math.max(fallbackTdf, 1)) - Math.log(Math.max(fallbackTdf + 1000, 1))) / Math.log(Math.max(fallbackTdf, fallbackTdf + 1000, 1))),
+        vortexAlignment: 0.80,
         synchronization: 0.80,
         crossCorrelationStrength: 0.80,
         crossCorrelationLag: 1,

@@ -281,15 +281,6 @@ export class SolarGovernanceIntegration {
       // Order parameter R measures phase synchronization across proposal, sun, and system.
       const phaseAlignment = kuramoto.phaseAlignment
 
-      // === TRIANGLE LEG 3: Vortex Alignment (energy volume fit) ===
-      // Does the proposal's energy fit inside the sun's container?
-      // Log-space ratio protects small heroes: a proposal with TDF 1,000
-      // vs sun TDF 500,000 gets ~0.53 (not 0.002 with raw ratio).
-      // Orders of magnitude matter, not raw magnitude.
-      const logRatio = Math.abs(Math.log(Math.max(proposalTdf, 1)) - Math.log(Math.max(solarRefTdf, 1)))
-      const logMax = Math.log(Math.max(proposalTdf, solarRefTdf, 1))
-      const vortexAlignment = Math.max(0.15, 1 - logRatio / logMax)
-
       // === TETRAHEDRON FACE 4: Synchronization (temporal alignment) ===
       // Uses the same deltaDiff as proximity, but with a linear decay instead of Gaussian.
       // This makes sync broader: high sync even when proximity is moderate,
@@ -357,7 +348,7 @@ export class SolarGovernanceIntegration {
         structuralResonance,
         proximity,
         phaseAlignment,
-        vortexAlignment,
+        vortexAlignment: calibratedVortex,
         synchronization,
         crossCorrelationStrength: correlation.strength,
         crossCorrelationLag: correlation.lag,
@@ -403,7 +394,7 @@ export class SolarGovernanceIntegration {
         structuralResonance: 0.80,
         proximity: 0.80,
         phaseAlignment: 0.80,
-        vortexAlignment: Math.max(0.15, 1 - Math.abs(Math.log(Math.max(fallbackTdf, 1)) - Math.log(Math.max(fallbackTdf + 1000, 1))) / Math.log(Math.max(fallbackTdf, fallbackTdf + 1000, 1))),
+        vortexAlignment: 0.80,
         synchronization: 0.80,
         crossCorrelationStrength: 0.80,
         crossCorrelationLag: 1,
