@@ -28,37 +28,6 @@ app.use(express.json({ limit: '10mb' }))
 
 let neuralFusion: NeuralFusion | null = null
 
-// ── Divergence-based retrain monitor ──
-const RETRAIN_COOLDOWN_MS = parseInt(process.env.NEURAL_RETRAIN_COOLDOWN_MS || '', 10) || 30 * 60 * 1000
-let lastRetrainTime = 0
-
-async function checkDivergence(result: any): Promise<void> {
-  if (!neuralFusion) return
-  const now = Date.now()
-  if (now - lastRetrainTime < RETRAIN_COOLDOWN_MS) return
-
-  const waveSync = result.waveSynchronization ?? 1
-  const hammerVerdict = result.recommendation ?? ''
-  const fullBoxVerdict = result.fullBoxVerdict ?? ''
-  const resonance = result.resonanceScore ?? 0
-  const isBorderline = resonance >= 0.70 && resonance <= 0.82
-  const hammerPasses = hammerVerdict === 'PASS'
-  const fullBoxRejects = fullBoxVerdict === 'NEEDS_REVISION' || fullBoxVerdict === 'REJECT'
-
-  let triggerReason = ''
-  if (waveSync < 0.30) {
-    triggerReason = `wave sync ${(waveSync * 100).toFixed(0)}% < 30%`
-  } else if (isBorderline && hammerPasses && fullBoxRejects) {
-    triggerReason = `hammer PASS (${(resonance * 100).toFixed(0)}%) but full box ${fullBoxVerdict}`
-  }
-
-  if (triggerReason) {
-    console.log(`[Divergence] Triggering retrain: ${triggerReason}`)
-    const ok = await neuralFusion.retrainOnSolarData()
-    if (ok) lastRetrainTime = Date.now()
-  }
-}
-
 async function initializeEngine() {
   try {
     neuralFusion = new NeuralFusion()
@@ -74,15 +43,16 @@ async function initializeEngine() {
     await neuralFusion.trainOnSolarData()
     console.log('[Backend] Solar-data training complete — models are Sun-grounded')
 
-    // Fallback periodic retrain (24h) — divergence-based triggering is the primary
-    // mechanism, but this ensures the model stays current even without governance traffic.
-    const fallbackMs = parseInt(process.env.NEURAL_RETRAIN_INTERVAL_MS || '', 10) || 24 * 60 * 60 * 1000
-    console.log(`[Backend] Fallback neural retrain every ${fallbackMs / 3_600_000}h (divergence-triggered is primary)`)
+    // Schedule periodic retraining so the neural model stays current with evolving solar
+    // conditions. The rolling buffer accumulates real NOAA observations (up to 32 unique
+    // regimes) which enriches each retrain with more diverse historical context.
+    const retrainMs = parseInt(process.env.NEURAL_RETRAIN_INTERVAL_MS || '', 10) || 6 * 60 * 60 * 1000
+    console.log(`[Backend] Scheduling neural retrain every ${retrainMs / 3_600_000}h`)
     setInterval(() => {
       neuralFusion?.retrainOnSolarData().then(didRetrain => {
-        if (didRetrain) lastRetrainTime = Date.now()
+        if (didRetrain) console.log('[Backend] Periodic neural retrain completed')
       })
-    }, fallbackMs)
+    }, retrainMs)
   } catch (error) {
     console.error('[Backend] Failed to initialize engines:', error)
     process.exit(1)
@@ -115,9 +85,6 @@ app.post('/govern-with-solar', async (req, res) => {
       sharePublicly,
       sq,
     )
-
-    // Fire-and-forget divergence check; don't block the response
-    checkDivergence(enhancedDecision)
 
     res.json({
       success: true,
@@ -253,17 +220,6 @@ app.post('/process-current-sun', async (req, res) => {
       solarModulation: result.solarModulation,
       engine: 'real-tensorflow + multi-channel-noaa + activity-level-coupled',
     })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message })
-  }
-})
-
-app.post('/retrain', async (req, res) => {
-  try {
-    if (!neuralFusion) return res.status(503).json({ error: 'Neural Fusion engine not initialized' })
-    const ok = await neuralFusion.retrainOnSolarData()
-    if (ok) lastRetrainTime = Date.now()
-    res.json({ success: ok, trained: neuralFusion.isTrainedModel })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
