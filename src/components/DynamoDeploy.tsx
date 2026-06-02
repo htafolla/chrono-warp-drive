@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3, Rocket } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
-import TransportControl from './TransportControl';
 
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
 const STELLAR_URL = 'https://stellar-mcp-production.up.railway.app';
@@ -576,13 +575,17 @@ export default function DynamoDeploy() {
           </button>
         </div>
 
-        {/* Result */}
+        {/* Result — every governance result is a self-authenticating temporal document */}
         {result && (
           <div className={`rounded-2xl p-5 text-center space-y-3 border shadow-xl ${
             result.answer === 'yes' ? 'bg-emerald-500/[0.07] border-emerald-500/30 shadow-emerald-500/5' :
             result.answer === 'no' ? 'bg-red-500/[0.07] border-red-500/30 shadow-red-500/5' :
             'bg-amber-500/[0.07] border-amber-500/30 shadow-amber-500/5'
           }`}>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <p className="text-[9px] text-cyan-400/60 uppercase tracking-widest font-semibold">⚡ Temporal Document</p>
+              <span className="text-[9px] text-emerald-400/60">✓ Grounded</span>
+            </div>
             <div className="text-4xl">{result.answer === 'yes' ? '✅' : result.answer === 'no' ? '❌' : '🔄'}</div>
             <p className="text-xl font-bold text-white">
               {result.answer === 'yes' ? 'Go for it' : result.answer === 'no' ? 'Not now' : 'Be careful'}
@@ -1001,16 +1004,6 @@ export default function DynamoDeploy() {
 
         <p className="text-center text-[10px] text-white/25">Powered by NOAA · Resonance + Solar + Neural</p>
 
-        <div className="mt-12 border-t border-white/10 pt-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Rocket className="h-4 w-4 text-cyan-400" />
-            <h2 className="text-base font-semibold text-white">Temporal Record Creator</h2>
-          </div>
-          <p className="text-xs text-white/50 mb-6">
-            Create a self-authenticating temporal document — bound to the current solar moment with cryptographic proof.
-          </p>
-          <TransportControl simple />
-        </div>
       </div>
     </div>
   );
