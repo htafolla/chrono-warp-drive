@@ -191,7 +191,7 @@ export function computeFullBoxResonance(
     neuralVortex * neuralWeight
   ))
 
-  const gematriaWeight = 0.10
+  const gematriaWeight = 0.12
   const reduce6D = 1 - gematriaWeight
   const fullBox7DComposite = Math.max(0.15, Math.min(0.98,
     waveProximity * (0.15 * reduce6D) +

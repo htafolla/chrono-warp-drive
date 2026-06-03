@@ -191,7 +191,7 @@ export function computeFullBoxResonance(
 
   // 7D model: 4 physical + 2 neural + 1 gematria symbolic dimension
   // Gematria adds 10% weight, rebalancing all others proportionally (×0.90)
-  const gematriaWeight = 0.10
+  const gematriaWeight = 0.12
   const reduce6D = 1 - gematriaWeight
   const wProx = 0.15 * reduce6D
   const wPhase = 0.20 * reduce6D
