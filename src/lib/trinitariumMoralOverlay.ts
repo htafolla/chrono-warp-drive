@@ -228,26 +228,24 @@ function scorePatterns(text: string, patterns: RegExp[]): number {
   for (const p of patterns) {
     if (p.test(text)) matches++
   }
-  return Math.min(1, matches / (patterns.length * 0.30))
+  return Math.min(1, matches / Math.max(1, patterns.length * 0.30))
 }
 
-function detectMatchingPatterns(
+function scoreGroups(
   text: string,
-  patternGroups: { label: string; patterns: RegExp[] }[],
-  key: string = 'label',
-): string[] {
-  const detected: string[] = []
-  for (const g of patternGroups) {
+  groups: { label: string; patterns: RegExp[] }[],
+): { score: number; matched: string[] } {
+  const matched: string[] = []
+  for (const g of groups) {
     for (const p of g.patterns) {
-      const g2 = g as Record<string, unknown>
-      const label = typeof g2[key] === 'string' ? g2[key] : g2.label
       if (p.test(text)) {
-        detected.push(String(label))
+        matched.push(g.label)
         break
       }
     }
   }
-  return detected
+  const score = groups.length > 0 ? matched.length / groups.length : 0
+  return { score, matched }
 }
 
 const VIRTUE_GROUPS: { label: string; patterns: RegExp[] }[] = VIRTUE_PATTERNS.map(g => ({ label: g.virtue, patterns: g.patterns }))
@@ -258,38 +256,39 @@ export function computeTrinitariumOverlay(input: TrinitariumOverlayInput): Trini
   const intent = input.intent || text
   const searchSpace = `${text} ${intent}`
 
-  const virtueScore = scorePatterns(searchSpace, VIRTUE_PATTERNS.flatMap(g => g.patterns))
-  const concernScore = scorePatterns(searchSpace, CONCERN_PATTERNS.flatMap(g => g.patterns))
-
-  const detectedVirtues = detectMatchingPatterns(searchSpace, VIRTUE_GROUPS)
-  const detectedConcerns = detectMatchingPatterns(searchSpace, CONCERN_GROUPS)
+  const virtueResult = scoreGroups(searchSpace, VIRTUE_GROUPS)
+  const concernResult = scoreGroups(searchSpace, CONCERN_GROUPS)
+  const detectedVirtues = virtueResult.matched
+  const detectedConcerns = concernResult.matched
 
   const sacredAffinity = scorePatterns(searchSpace, SACRED_TEXT_PATTERNS)
 
   let riskPenalty = 0
-  if (input.riskLevel === 'high') riskPenalty = 0.20
-  else if (input.riskLevel === 'medium') riskPenalty = 0.08
+  if (input.riskLevel === 'high') riskPenalty = 0.25
+  else if (input.riskLevel === 'medium') riskPenalty = 0.12
 
   let intentAlignment = 0.65
-  if (detectedVirtues.length > 4) intentAlignment = 0.92
-  else if (detectedVirtues.length > 2) intentAlignment = 0.82
+  if (detectedVirtues.length > 4) intentAlignment = 0.94
+  else if (detectedVirtues.length > 2) intentAlignment = 0.84
   else if (detectedVirtues.length > 0) intentAlignment = 0.72
-  else if (detectedVirtues.length === 0 && detectedConcerns.length > 2) intentAlignment = 0.30
-  else if (detectedVirtues.length === 0 && detectedConcerns.length > 0) intentAlignment = 0.45
-  if (input.riskLevel === 'high') intentAlignment = Math.max(0.15, intentAlignment - 0.25)
+  else if (detectedVirtues.length === 0 && detectedConcerns.length > 2) intentAlignment = 0.25
+  else if (detectedVirtues.length === 0 && detectedConcerns.length > 0) intentAlignment = 0.40
+  if (input.riskLevel === 'high') intentAlignment = Math.max(0.12, intentAlignment - 0.30)
 
-  const harmPotential = Math.max(0, Math.min(1, 1 - concernScore * 1.2))
+  const virtueScore = virtueResult.score
+  const concernScore = concernResult.score
+  const harmPotential = Math.max(0.05, Math.min(1, 1 - concernScore * 1.5))
 
-  const virtueAlignment = Math.max(0.15, Math.min(0.98,
-    virtueScore * 0.55 + harmPotential * 0.25 + sacredAffinity * 0.20
+  const virtueAlignment = Math.max(0.12, Math.min(0.98,
+    virtueScore * 0.60 + harmPotential * 0.25 + sacredAffinity * 0.15
   ))
 
-  const sacredBonus = sacredAffinity * 0.08
-  const gematriaBonus = (input.gematriaResonance ?? 0.5) > 0.85 ? 0.04 : 0
+  const sacredBonus = sacredAffinity * 0.06
+  const gematriaBonus = (input.gematriaResonance ?? 0.5) > 0.85 ? 0.03 : 0
 
   const rawScore = (
-    virtueAlignment * 0.40 +
-    harmPotential * 0.20 +
+    virtueAlignment * 0.35 +
+    harmPotential * 0.25 +
     intentAlignment * 0.30 +
     sacredBonus +
     gematriaBonus
