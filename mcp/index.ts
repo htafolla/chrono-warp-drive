@@ -8,8 +8,13 @@ import { createGovernanceRouter, evaluateGovernance } from './governance'
 import { dynamoSolarGovernance, getPublicFeed, getHistory } from './lib/dynamoSolarGovernance.js'
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
 import { ambientField } from './lib/ambientField.js'
+import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
+import type { ContainerVortex } from './lib/temporalContainer.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
+
+const containerStore: ContainerVortex[] = []
+let latestContainerHash = '0x' + '0'.repeat(64)
 
 async function fetchSunNeuralEmbedding(): Promise<number[] | undefined> {
   try {
@@ -1519,15 +1524,48 @@ app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const rawProposal = body.proposal ?? body.structuredProposal
   if (!rawProposal) return c.json({ success: false, error: 'proposal or structuredProposal required' }, 400)
-  const proposalText = extractProposalText(isStructuredProposal(rawProposal) ? rawProposal : String(rawProposal))
+  const proposalText = extractProposalText(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
   const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding)
+
+  const persistToChain = body.persistToChain === true
+  if (persistToChain) {
+    const source = determineSource(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
+    const container = governanceToContainer(result, proposalText, source, latestContainerHash)
+    containerStore.push(container)
+    latestContainerHash = container.containerHash
+    return c.json({ success: true, ...result, temporalContainer: { containerId: container.containerId, containerHash: container.containerHash, source: container.source, timestamp: container.timestamp } })
+  }
+
   return c.json({ success: true, ...result })
 })
 
 app.get('/public_feed', (c: Context) => {
   return c.json({ success: true, entries: getPublicFeed() })
+})
+
+app.get('/containers', (c: Context) => {
+  const offset = parseInt(c.req.query('offset') || '0', 10)
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100)
+  const page = containerStore.slice(offset, offset + limit)
+  return c.json({ success: true, containers: page, total: containerStore.length, offset, limit })
+})
+
+app.get('/containers/:id', (c: Context) => {
+  const id = c.req.param('id')
+  const container = containerStore.find(v => v.containerId === id)
+  if (!container) return c.json({ success: false, error: 'Container not found' }, 404)
+  return c.json({ success: true, container })
+})
+
+app.get('/ambient/status', (c: Context) => {
+  return c.json({
+    success: true,
+    isRunning: ambientField.isRunning,
+    totalVortices: ambientField.totalVortices,
+    momentum: ambientField.getFieldMomentum(),
+  })
 })
 
 app.get('/history', async (c: Context) => {
