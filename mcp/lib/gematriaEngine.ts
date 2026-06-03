@@ -6,6 +6,9 @@ export interface GematriaResult {
   digitalRootFR: number
   gematriaTDF: number
   letterCount: number
+  eoDensity: number
+  frDensity: number
+  roDensity: number
 }
 
 const EO: Record<string, number> = {}
@@ -38,24 +41,24 @@ export function computeGematria(text: string): GematriaResult {
   }
   const drEO = digitalRoot(eo)
   const drFR = digitalRoot(fr)
+  const len = clean.length || 1
   const gematriaTDF = eo * 1e8 + fr * 1e4 + ro
-  return { englishOrdinal: eo, fullReduction: fr, reverseOrdinal: ro, digitalRootEO: drEO, digitalRootFR: drFR, gematriaTDF, letterCount: clean.length }
+  return { englishOrdinal: eo, fullReduction: fr, reverseOrdinal: ro, digitalRootEO: drEO, digitalRootFR: drFR, gematriaTDF, letterCount: clean.length, eoDensity: eo / len, frDensity: fr / len, roDensity: ro / len }
 }
 
 export function computeGematriaResonance(
   proposalGematria: GematriaResult,
   solarGematria: GematriaResult,
 ): number {
-  const eoDiff = Math.abs(proposalGematria.englishOrdinal - solarGematria.englishOrdinal)
-  const frDiff = Math.abs(proposalGematria.fullReduction - solarGematria.fullReduction)
-  const roDiff = Math.abs(proposalGematria.reverseOrdinal - solarGematria.reverseOrdinal)
-  const maxEO = Math.max(proposalGematria.englishOrdinal, solarGematria.englishOrdinal, 1)
-  const maxFR = Math.max(proposalGematria.fullReduction, solarGematria.fullReduction, 1)
-  const maxRO = Math.max(proposalGematria.reverseOrdinal, solarGematria.reverseOrdinal, 1)
-  const eoSim = 1 - eoDiff / (maxEO + 1)
-  const frSim = 1 - frDiff / (maxFR + 1)
-  const roSim = 1 - roDiff / (maxRO + 1)
-  return Math.max(0.15, Math.min(0.98, eoSim * 0.40 + frSim * 0.35 + roSim * 0.25))
+  const eoDensitySim = 1 - Math.abs(proposalGematria.eoDensity - solarGematria.eoDensity) / (solarGematria.eoDensity + 1)
+  const frDensitySim = 1 - Math.abs(proposalGematria.frDensity - solarGematria.frDensity) / (solarGematria.frDensity + 1)
+  const roDensitySim = 1 - Math.abs(proposalGematria.roDensity - solarGematria.roDensity) / (solarGematria.roDensity + 1)
+
+  const drEOMatch = proposalGematria.digitalRootEO === solarGematria.digitalRootEO ? 0.15 : 0
+  const drFRMatch = proposalGematria.digitalRootFR === solarGematria.digitalRootFR ? 0.10 : 0
+
+  const raw = eoDensitySim * 0.25 + frDensitySim * 0.20 + roDensitySim * 0.15 + drEOMatch + drFRMatch + 0.15
+  return Math.max(0.15, Math.min(0.98, raw))
 }
 
 export function computeGematriaVortex(
