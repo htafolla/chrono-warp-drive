@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { publish, subscribe } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
 import { dynamoSolarGovernance, getPublicFeed, getHistory } from './lib/dynamoSolarGovernance.js'
+import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
+import { ambientField } from './lib/ambientField.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -1164,8 +1166,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'govern_with_solar',
-    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' } }, required: ['proposal'] },
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Accepts a raw proposal string OR a structuredDerivativeProposal object (with summary field).',
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' } }, required: [] },
   },
   {
     name: 'call_connected_tool',
@@ -1291,14 +1293,20 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return evaluateGovernance(TOOL_HANDLERS, args)
   },
   govern_with_solar: async (args: any) => {
-    const proposal = String(args?.proposal ?? '')
-    if (!proposal || proposal.length < 10) return { error: 'Proposal must be at least 10 characters.' }
+    const rawProposal = args?.proposal ?? args?.structuredProposal
+    if (!rawProposal) return { error: 'Either proposal (string) or structuredProposal (object with summary) is required.' }
+
+    const proposalText = extractProposalText(
+      isStructuredProposal(rawProposal) ? rawProposal : String(rawProposal)
+    )
+    if (!proposalText || proposalText.length < 10) return { error: 'Proposal text must be at least 10 characters.' }
+
     const baseVoteWeight = Math.max(0.5, Math.min(1.5, Number(args?.baseVoteWeight ?? 1)))
     const sharePublicly = args?.sharePublicly === true
     const spectralQuality = args?.spectralQuality !== undefined ? Number(args.spectralQuality) : undefined
     const sunNeuralEmbedding = args?.sunNeuralEmbedding !== undefined ? args.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
 
-    return dynamoSolarGovernance.enhanceGovernanceDecision(proposal, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding)
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding)
   },
   call_connected_tool: async (args: any) => {
     const toolName = args?.tool_name
@@ -1460,11 +1468,12 @@ app.route('/', createGovernanceRouter(TOOL_HANDLERS))
 app.get('/govern_with_solar', (c: Context) => {
   return c.json({
     name: 'govern_with_solar',
-    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Automatically adjusts vote weight and can append warnings such as [SOLAR STORM WARNING].',
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Accepts a raw proposal string OR a structured derivative proposal.',
     method: 'POST',
     url: 'https://mcp-production-80e2.up.railway.app/govern_with_solar',
     parameters: {
-      proposal: { type: 'string', required: true, minLength: 10, description: 'Governance proposal text' },
+      proposal: { type: 'string', required: false, minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' },
+      structuredProposal: { type: 'object', required: false, description: 'Structured derivative proposal with summary, intent, stateDelta' },
       baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight (0.5-1.5)' },
       sharePublicly: { type: 'boolean', required: false, default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },
       spectralQuality: { type: 'number', required: false, description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' },
@@ -1508,9 +1517,12 @@ app.get('/govern_with_solar', (c: Context) => {
 
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
+  const rawProposal = body.proposal ?? body.structuredProposal
+  if (!rawProposal) return c.json({ success: false, error: 'proposal or structuredProposal required' }, 400)
+  const proposalText = extractProposalText(isStructuredProposal(rawProposal) ? rawProposal : String(rawProposal))
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
-  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(body.proposal, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding)
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding)
   return c.json({ success: true, ...result })
 })
 

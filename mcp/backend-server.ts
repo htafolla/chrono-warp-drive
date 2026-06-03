@@ -21,6 +21,8 @@ import { NeuralFusion } from './lib/neuralFusion.js'
 import { stellarLibrary } from './lib/stellarLibraryLoader.js'
 import { solarDataFetcher } from './lib/solarDataFetcher.js'
 import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
+import { ambientField } from './lib/ambientField.js'
+import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
 
 const app = express()
 app.use(cors())
@@ -71,16 +73,17 @@ app.get('/health', (req, res) => {
 
 app.post('/govern-with-solar', async (req, res) => {
   try {
-    const { proposal, baseVoteWeight = 1.0, spectralQuality } = req.body
-
-    if (!proposal) {
-      return res.status(400).json({ error: 'proposal is required' })
+    const rawProposal = req.body.proposal ?? req.body.structuredProposal
+    if (!rawProposal) {
+      return res.status(400).json({ error: 'proposal or structuredProposal is required' })
     }
+    const proposalText = extractProposalText(isStructuredProposal(rawProposal) ? rawProposal : String(rawProposal))
 
+    const baseVoteWeight = req.body.baseVoteWeight ?? 1.0
     const sharePublicly = req.body.sharePublicly === true
-    const sq = spectralQuality !== undefined ? Number(spectralQuality) : undefined
+    const sq = req.body.spectralQuality !== undefined ? Number(req.body.spectralQuality) : undefined
     const enhancedDecision = await dynamoSolarGovernance.enhanceGovernanceDecision(
-      proposal,
+      proposalText,
       baseVoteWeight,
       sharePublicly,
       sq,
@@ -229,6 +232,8 @@ const PORT = process.env.PORT || 3001
 app.listen(PORT, async () => {
   console.log(`Real Neural Fusion Backend running on port ${PORT}`)
   await initializeEngine()
+  ambientField.start()
+  console.log('[ambient] Ambient Resonance Field started')
 })
 
 export default app
