@@ -4,6 +4,8 @@ Versioned specifications of the Blurrn Quantum Codex — the theoretical tempora
 
 | Document | Version | Description |
 |----------|---------|-------------|
+| [v5.2 Trinitarium Moral Overlay + 0xRay Integration](Blurrn-Quantum-Codex-v5.2-Trinitarium-Moral-Overlay.md) | v5.2 | TMO, negation-aware scoring, tension labels, 0xRay moral override, UI chips |
+| [v5.1 7D Full Box: Numerological Axis](Blurrn-Quantum-Codex-v5.1-7D-Full-Box.md) | v5.1 | Gematria resonance, density normalization, DR distance, 12% weight validated |
 | [v5.0 Temporal Displacement Field (Draft)](Blurrn-Quantum-Codex-v5.0-Temporal-Displacement-Field.md) | v5.0 | Containers, semantic embeddings, adaptive calibration, φ-harmonic weights |
 | [v4.9 6D Temporal Box + NQR](Blurrn-Quantum-Codex-v4.9-6D-Temporal-Box.md) | v4.9 | 6D temporal box, Neural Quantum Realms, per-dim MSE, cosine vortex |
 | [v4.8 Isotopic Temporal Vortex](V4.8-Isotopic-Temporal-Vortex-Spec.md) | v4.8 | Isotopic signals, cross-correlation, vortex volume |
