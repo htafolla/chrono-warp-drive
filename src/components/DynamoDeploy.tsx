@@ -197,6 +197,9 @@ interface GovernanceResult {
   fullBox4DComposite: number | null;
   fullBoxVerdict: string | null;
   fullBoxThresholds: { strong: number; good: number; weak: number } | null;
+  fullBoxGematriaResonance: number | null;
+  fullBox7DComposite: number | null;
+  fullBox7DVerdict: string | null;
   neuralWaveProximity: number | null;
   neuralWaveVortexAlignment: number | null;
   smoothedResonance: number | null;
@@ -292,6 +295,9 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const fullBox4DComposite = solar?.fullBox4DComposite != null ? Number(solar.fullBox4DComposite) : null;
   const fullBoxVerdict = solar?.fullBoxVerdict || null;
   const fullBoxThresholds = solar?.fullBoxThresholds ?? null;
+  const fullBoxGematriaResonance = solar?.fullBoxGematriaResonance != null ? Number(solar.fullBoxGematriaResonance) : null;
+  const fullBox7DComposite = solar?.fullBox7DComposite != null ? Number(solar.fullBox7DComposite) : null;
+  const fullBox7DVerdict = solar?.fullBox7DVerdict || null;
   const neuralWaveProximity = solar?.neuralWaveProximity != null ? Number(solar.neuralWaveProximity) : null;
   const neuralWaveVortexAlignment = solar?.neuralWaveVortexAlignment != null ? Number(solar.neuralWaveVortexAlignment) : null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
@@ -357,6 +363,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       signature, alignmentRec, alignmentReason, source, neuralContextUsed,
       resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, hybrid4DComposite, hybridVerdict, hybridVortexAlignment, fullWave4DComposite, calibratedWave4DComposite, momentum, peakForecast, adaptiveThresholds,
       fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBoxNeuralProximity, fullBoxNeuralVortex, fullBox4DComposite, fullBoxVerdict, fullBoxThresholds,
+      fullBoxGematriaResonance, fullBox7DComposite, fullBox7DVerdict,
       neuralWaveProximity, neuralWaveVortexAlignment,
     };
   } catch {
@@ -729,6 +736,22 @@ export default function DynamoDeploy() {
                             </p>
                           </div>
                           )}
+                          {result.fullBox7DComposite != null && (
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                            <p className="text-[10px] text-amber-500/60">Full Box 7D (with gematria)</p>
+                            <p className="text-sm font-semibold text-amber-300">{(result.fullBox7DComposite * 100).toFixed(0)}%</p>
+                          </div>
+                          )}
+                          {result.fullBox7DVerdict != null && (
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
+                            <p className="text-[10px] text-amber-500/60">7D Verdict</p>
+                            <p className={`text-sm font-semibold ${
+                              result.fullBox7DVerdict === 'PASS' ? 'text-emerald-400' :
+                              result.fullBox7DVerdict === 'REJECT' ? 'text-red-400' :
+                              'text-amber-400'
+                            }`}>{result.fullBox7DVerdict}</p>
+                          </div>
+                          )}
                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
                            <p className="text-[10px] text-cyan-500/60">Wave Proximity</p>
                            <p className="text-sm font-semibold text-cyan-300">{(result.fullBoxProximity! * 100).toFixed(0)}%</p>
@@ -953,6 +976,16 @@ export default function DynamoDeploy() {
                           <Row label="Wave Sync (cal)" v={r.fullBoxSynchronization} />
                           <Row label="Neural Prox (6D)" v={r.fullBoxNeuralProximity} />
                           <Row label="Neural Vortex (6D)" v={r.fullBoxNeuralVortex} />
+                        </div>
+                      </div>
+                    )}
+                    {r.fullBox7DComposite != null && (
+                      <div className="mt-2">
+                        <p className="text-[10px] text-amber-500/60 uppercase tracking-wider mb-1.5 font-semibold">Full Box 7D (+gematria)</p>
+                        <div className="space-y-1.5">
+                          <Row label="Full Box 7D" v={r.fullBox7DComposite} color={verdictColor(r.fullBox7DVerdict)} bold />
+                          <Row label="7D Verdict" v={r.fullBox7DVerdict} plain color={verdictColor(r.fullBox7DVerdict)} />
+                          <Row label="Gematria Res" v={r.fullBoxGematriaResonance} />
                         </div>
                       </div>
                     )}

@@ -251,6 +251,11 @@ const TransportControl = ({ simple }: TransportControlProps) => {
                 <div className="flex justify-center">{getVerdictBadge(record.fullBoxVerdict)}</div>
                 <div className="text-xs font-mono text-muted-foreground">{(record.fullBox4DComposite * 100).toFixed(0)}%</div>
               </div>
+              <div className="rounded-lg border p-2 text-center space-y-1">
+                <div className="text-xs text-muted-foreground">Full Box 7D (+gem)</div>
+                <div className="flex justify-center">{getVerdictBadge(record.fullBox7DVerdict)}</div>
+                <div className="text-xs font-mono text-muted-foreground">{record.fullBox7DComposite != null ? `${(record.fullBox7DComposite * 100).toFixed(0)}%` : '—'}</div>
+              </div>
             </div>
           </div>
 

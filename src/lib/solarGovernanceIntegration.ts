@@ -259,6 +259,7 @@ export class SolarGovernanceIntegration {
         solarData.activityLevel,
         waveResonance.neuralWaveProximity,
         waveResonance.neuralWaveVortexAlignment,
+        gematriaVortex.gematriaResonance,
       )
 
       const neuralContextUsed = spectralQuality !== undefined
@@ -320,6 +321,9 @@ export class SolarGovernanceIntegration {
         fullBox4DComposite: fullBox.fullBox4DComposite,
         fullBoxVerdict: fullBox.fullBoxVerdict,
         fullBoxThresholds: fullBox.fullBoxThresholds,
+        fullBoxGematriaResonance: fullBox.fullBoxGematriaResonance,
+        fullBox7DComposite: fullBox.fullBox7DComposite,
+        fullBox7DVerdict: fullBox.fullBox7DVerdict,
         neuralSunEmbedding: sunNeuralEmbedding,
         neuralProposalEmbedding: proposalEmbedding,
         neuralWaveProximity: waveResonance.neuralWaveProximity,
@@ -373,6 +377,9 @@ export class SolarGovernanceIntegration {
         fullBox4DComposite: 0.80,
         fullBoxVerdict: 'PASS' as const,
         fullBoxThresholds: { strong: 0.85, good: 0.75, weak: 0.52 },
+        fullBoxGematriaResonance: 0.80,
+        fullBox7DComposite: 0.80,
+        fullBox7DVerdict: 'PASS' as const,
         neuralSunEmbedding: undefined,
         neuralProposalEmbedding: undefined,
         neuralWaveProximity: 0.80,

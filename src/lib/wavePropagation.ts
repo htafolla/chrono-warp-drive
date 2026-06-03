@@ -153,6 +153,9 @@ export interface FullBoxResonanceResult {
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   fullBoxThresholds: { strong: number; good: number; weak: number }
+  fullBoxGematriaResonance: number
+  fullBox7DComposite: number
+  fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
 }
 
 export function computeCalibratedWaveSync(rawSync: number): number {
@@ -172,15 +175,11 @@ export function computeFullBoxResonance(
   activityLevel: string,
   neuralProximity: number = 0,
   neuralVortex: number = 0,
+  gematriaResonance: number = 0.80,
 ): FullBoxResonanceResult {
   const calVortex = computeCalibratedWaveVortex(waveVortexAlignment)
   const calSync = computeCalibratedWaveSync(waveSynchronization)
 
-  // 6D model: 4 physical dims + 2 neural dims
-  // Neural metrics (0.23-0.25 spread) are the best discriminators, get 35%
-  // Phase (Kuramoto) is next best physical dim, gets 20%
-  // Physical vortex + sync compressed but still valuable, 15% each
-  // Proximity always ~0.99, minimal discrimination, 15%
   const neuralWeight = (neuralProximity > 0 && neuralVortex > 0) ? 0.175 : 0
   const physRedistribute = neuralWeight === 0 ? 0.0875 : 0
   const fullBox4DComposite = Math.max(0.15, Math.min(0.98,
@@ -190,6 +189,18 @@ export function computeFullBoxResonance(
     calSync * (0.15 + physRedistribute) +
     neuralProximity * neuralWeight +
     neuralVortex * neuralWeight
+  ))
+
+  const gematriaWeight = 0.10
+  const reduce6D = 1 - gematriaWeight
+  const fullBox7DComposite = Math.max(0.15, Math.min(0.98,
+    waveProximity * (0.15 * reduce6D) +
+    phaseAlignment * (0.20 * reduce6D) +
+    calVortex * (0.15 * reduce6D) +
+    calSync * (0.15 * reduce6D) +
+    neuralProximity * (0.175 * reduce6D) +
+    neuralVortex * (0.175 * reduce6D) +
+    gematriaResonance * gematriaWeight
   ))
 
   const thresholds: Record<string, { strong: number; good: number; weak: number }> = {
@@ -204,6 +215,11 @@ export function computeFullBoxResonance(
     fullBox4DComposite >= t.weak ? 'NEEDS_REVISION' :
     'REJECT'
 
+  const verdict7D: 'PASS' | 'NEEDS_REVISION' | 'REJECT' =
+    fullBox7DComposite >= t.strong ? 'PASS' :
+    fullBox7DComposite >= t.weak ? 'NEEDS_REVISION' :
+    'REJECT'
+
   return {
     fullBoxProximity: waveProximity,
     fullBoxVortexAlignment: calVortex,
@@ -213,6 +229,9 @@ export function computeFullBoxResonance(
     fullBox4DComposite,
     fullBoxVerdict: verdict,
     fullBoxThresholds: t,
+    fullBoxGematriaResonance: gematriaResonance,
+    fullBox7DComposite,
+    fullBox7DVerdict: verdict7D,
   }
 }
 
