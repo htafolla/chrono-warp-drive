@@ -88,7 +88,7 @@ A separate moral discernment axis that does **not** modify the 7D resonance scor
 
 - **Moral Score** (0–1): `virtueAlignment×0.35 + harmPotential×0.25 + intentAlignment×0.30 + sacredBonus + gematriaBonus − riskPenalty`
 - **Gematria Fusion**: `tmoScore × gematriaResonance` — interpretive signal for downstream consumers
-- **Moral-Numerological Tension**: Aligned (≥0.60) / Mild (≥0.40) / Significant (≥0.25) / Critical (<0.25)
+- **Moral-Numerological Tension**: Aligned (&ge;0.60) / Mild (&ge;0.40) / Significant (&ge;0.25) / Critical (&lt;0.25)
 
 ### Virtue Pillars (9)
 
