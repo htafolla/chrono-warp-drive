@@ -74,6 +74,13 @@ export interface EnhancedGovernanceDecision {
   neuralProposalEmbedding?: number[]
   neuralWaveProximity: number
   neuralWaveVortexAlignment: number
+  gematriaEnglishOrdinal: number
+  gematriaFullReduction: number
+  gematriaReverseOrdinal: number
+  gematriaDigitalRootEO: number
+  gematriaDigitalRootFR: number
+  gematriaResonance: number
+  gematriaTDF: number
 }
 
 export interface PublicFeedEntry {
@@ -414,6 +421,13 @@ export class DynamoSolarGovernance {
       neuralProposalEmbedding: hammer.neuralProposalEmbedding,
       neuralWaveProximity: hammer.neuralWaveProximity,
       neuralWaveVortexAlignment: hammer.neuralWaveVortexAlignment,
+      gematriaEnglishOrdinal: hammer.gematriaEnglishOrdinal,
+      gematriaFullReduction: hammer.gematriaFullReduction,
+      gematriaReverseOrdinal: hammer.gematriaReverseOrdinal,
+      gematriaDigitalRootEO: hammer.gematriaDigitalRootEO,
+      gematriaDigitalRootFR: hammer.gematriaDigitalRootFR,
+      gematriaResonance: hammer.gematriaResonance,
+      gematriaTDF: hammer.gematriaTDF,
     }
 
     // Persist every query+response to Redis for durable history

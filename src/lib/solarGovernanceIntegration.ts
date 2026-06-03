@@ -7,6 +7,7 @@ import { TemporalBlurrnSignal } from './temporalBlurrnSignal';
 import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
 import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation';
+import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -190,6 +191,13 @@ export class SolarGovernanceIntegration {
     neuralProposalEmbedding?: number[]
     neuralWaveProximity: number
     neuralWaveVortexAlignment: number
+    gematriaEnglishOrdinal: number
+    gematriaFullReduction: number
+    gematriaReverseOrdinal: number
+    gematriaDigitalRootEO: number
+    gematriaDigitalRootFR: number
+    gematriaResonance: number
+    gematriaTDF: number
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -218,6 +226,8 @@ export class SolarGovernanceIntegration {
       const proposalEmbedding = textToEmbedding16(proposal)
 
       const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf, sunNeuralEmbedding, proposalEmbedding)
+
+      const gematriaVortex = computeGematriaVortex(proposal || 'empty-proposal', DEFAULT_SOLAR_GEMATRIA_TEXT)
 
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
@@ -314,6 +324,13 @@ export class SolarGovernanceIntegration {
         neuralProposalEmbedding: proposalEmbedding,
         neuralWaveProximity: waveResonance.neuralWaveProximity,
         neuralWaveVortexAlignment: waveResonance.neuralWaveVortexAlignment,
+        gematriaEnglishOrdinal: gematriaVortex.proposal.englishOrdinal,
+        gematriaFullReduction: gematriaVortex.proposal.fullReduction,
+        gematriaReverseOrdinal: gematriaVortex.proposal.reverseOrdinal,
+        gematriaDigitalRootEO: gematriaVortex.proposal.digitalRootEO,
+        gematriaDigitalRootFR: gematriaVortex.proposal.digitalRootFR,
+        gematriaResonance: gematriaVortex.gematriaResonance,
+        gematriaTDF: gematriaVortex.gematriaTDF,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -360,6 +377,13 @@ export class SolarGovernanceIntegration {
         neuralProposalEmbedding: undefined,
         neuralWaveProximity: 0.80,
         neuralWaveVortexAlignment: 0.80,
+        gematriaEnglishOrdinal: 0,
+        gematriaFullReduction: 0,
+        gematriaReverseOrdinal: 0,
+        gematriaDigitalRootEO: 0,
+        gematriaDigitalRootFR: 0,
+        gematriaResonance: 0.80,
+        gematriaTDF: 0,
       }
     }
   }
