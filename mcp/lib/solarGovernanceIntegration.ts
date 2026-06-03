@@ -20,7 +20,7 @@ const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active
 
 function normalizeProposalText(text: string): string {
   let t = text.toLowerCase();
-  t = t.replace(/[^\w\s?]/g, ' ');
+  t = t.replace(/[^\w\s]/g, ' ');
   t = t.replace(/\s+/g, ' ').trim();
   const stop = ['the', 'a', 'an', 'is', 'are', 'of', 'for', 'to', 'and', 'or', 'but', 'in', 'on', 'with', 'that', 'this'];
   return t.split(' ').filter(w => w && !stop.includes(w)).join(' ');
