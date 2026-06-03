@@ -37,7 +37,14 @@ contract TemporalContainerTest is Test {
             neuralProximity:     0.746e18,
             neuralVortex:        0.773e18,
             verdict:             "PASS",
-            confidence:          0.93e18
+            confidence:          0.93e18,
+            fullBox7DComposite:  0.97e18,
+            fullBox7DVerdict:    "PASS",
+            gematriaResonance:   0.82e18,
+            gematriaEnglishOrdinal: 74,
+            gematriaFullReduction:  32,
+            gematriaDigitalRootEO:  5,
+            gematriaDigitalRootFR:  5
         });
     }
 

@@ -4,8 +4,9 @@ pragma solidity ^0.8.20;
 /// @title TemporalContainerRegistry
 /// @notice On-chain registry for Dynamo temporal resonance containers on Base
 /// @dev Each container captures a complete temporal resonance event: proposal,
-///      solar snapshot, 6D resonance profile, and cryptographic proof of integrity.
-///      Deployed on Base for low-cost, fast-finality iteration.
+///      solar snapshot, 7D resonance profile (physical + temporal + neural + symbolic),
+///      and cryptographic proof of integrity. Deployed on Base for low-cost,
+///      fast-finality iteration.
 contract TemporalContainerRegistry {
     // ---------- scaling ----------
     uint256 public constant SCALE_1E18 = 1e18;
@@ -34,6 +35,13 @@ contract TemporalContainerRegistry {
         uint256 neuralVortex;
         string  verdict;             // "PASS" | "NEEDS_REVISION" | "REJECT"
         uint256 confidence;
+        uint256 fullBox7DComposite;  // 7D composite with gematria (scaled by SCALE_1E18)
+        string  fullBox7DVerdict;    // "PASS" | "NEEDS_REVISION" | "REJECT"
+        uint256 gematriaResonance;   // scaled by SCALE_1E18
+        uint256 gematriaEnglishOrdinal;
+        uint256 gematriaFullReduction;
+        uint256 gematriaDigitalRootEO;
+        uint256 gematriaDigitalRootFR;
     }
 
     struct TemporalContainer {
