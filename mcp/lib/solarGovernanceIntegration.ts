@@ -168,6 +168,9 @@ export interface StructuralResonanceResult {
   fullBox4DComposite: number
   fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   fullBoxThresholds: { strong: number; good: number; weak: number }
+  fullBoxGematriaResonance: number
+  fullBox7DComposite: number
+  fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
   neuralSunEmbedding?: number[]
   neuralProposalEmbedding?: number[]
   neuralWaveProximity: number

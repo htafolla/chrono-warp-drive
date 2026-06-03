@@ -54,10 +54,12 @@ export function computeGematriaResonance(
   const frDensitySim = 1 - Math.abs(proposalGematria.frDensity - solarGematria.frDensity) / (solarGematria.frDensity + 1)
   const roDensitySim = 1 - Math.abs(proposalGematria.roDensity - solarGematria.roDensity) / (solarGematria.roDensity + 1)
 
-  const drEOMatch = proposalGematria.digitalRootEO === solarGematria.digitalRootEO ? 0.15 : 0
-  const drFRMatch = proposalGematria.digitalRootFR === solarGematria.digitalRootFR ? 0.10 : 0
+  const drDistEO = Math.abs(proposalGematria.digitalRootEO - solarGematria.digitalRootEO)
+  const drDistFR = Math.abs(proposalGematria.digitalRootFR - solarGematria.digitalRootFR)
+  const drEOBonus = 0.10 * (1 - drDistEO / 9)
+  const drFRBonus = 0.08 * (1 - drDistFR / 9)
 
-  const raw = eoDensitySim * 0.25 + frDensitySim * 0.20 + roDensitySim * 0.15 + drEOMatch + drFRMatch + 0.15
+  const raw = eoDensitySim * 0.25 + frDensitySim * 0.20 + roDensitySim * 0.15 + drEOBonus + drFRBonus + 0.15
   return Math.max(0.15, Math.min(0.98, raw))
 }
 
