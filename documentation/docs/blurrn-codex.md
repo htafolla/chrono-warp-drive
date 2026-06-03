@@ -12,6 +12,8 @@ The Blurrn Quantum Codex is the active framework that defines Dynamo's mathemati
 
 | Version | Release | Key Innovation |
 |---------|---------|---------------|
+| v5.2 | 2026-06-03 | Trinitarium Moral Overlay — negation-aware scoring, tension labels, 0xRay moral override, UI chips |
+| v5.1 | 2026-06-03 | 7D Full Box — gematria resonance, density normalization, DR distance, 12% weight validated |
 | v5.0 | 2026-05-29 (Draft) | Temporal Displacement Field — containers, semantic embeddings, adaptive calibration, cross-domain, φ-harmonic weights |
 | v4.9 | 2026-05-29 | 6D temporal box, Neural Quantum Realms, per-dim MSE, cosine vortex, text-based embeddings, auto-fetch |
 | v4.8 | 2025-10-15 | Isotopic Temporal Vortex — signals as isotopes, symbiotic cross-correlation, W×M=V vortex volume |
@@ -35,6 +37,8 @@ Dynamo is the Codex's production child — it implements the **core TDF formula*
 
 See the full versioned specifications in the repository:
 
+- [v5.2 Trinitarium Moral Overlay + 0xRay Integration](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/blurrn-codex/Blurrn-Quantum-Codex-v5.2-Trinitarium-Moral-Overlay.md)
+- [v5.1 7D Full Box: Numerological Axis](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/blurrn-codex/Blurrn-Quantum-Codex-v5.1-7D-Full-Box.md)
 - [v5.0 Temporal Displacement Field (Draft)](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/blurrn-codex/Blurrn-Quantum-Codex-v5.0-Temporal-Displacement-Field.md)
 - [v4.9 Neural Quantum Realms & 6D Temporal Box](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/blurrn-codex/Blurrn-Quantum-Codex-v4.9-6D-Temporal-Box.md)
 - [v4.8 Isotopic Temporal Vortex](https://github.com/htafolla/chrono-warp-drive/blob/main/docs/blurrn-codex/V4.8-Isotopic-Temporal-Vortex-Spec.md)
