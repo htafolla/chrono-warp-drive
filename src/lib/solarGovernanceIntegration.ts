@@ -8,6 +8,7 @@ import { computeFullTDF, VortexTdfParams } from './vortexMath';
 import { runKuramotoCoupling } from './kuramotoOscillators';
 import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation';
 import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine';
+import { computeTrinitariumOverlay, computeTrinitariumGematriaFusion } from './trinitariumMoralOverlay';
 
 // Solar-Isotopic Hammer helpers (kept in sync with mcp/lib version)
 const ACTIVITY_ORDINAL: Record<string, number> = { quiet: 0, moderate: 1, active: 2, storm: 3 }
@@ -198,6 +199,15 @@ export class SolarGovernanceIntegration {
     gematriaDigitalRootFR: number
     gematriaResonance: number
     gematriaTDF: number
+    trinitariumMoralScore?: number
+    trinitariumVirtueAlignment?: number
+    trinitariumHarmPotential?: number
+    trinitariumIntentAlignment?: number
+    trinitariumSacredTextAffinity?: number
+    trinitariumDetectedVirtues?: string[]
+    trinitariumDetectedConcerns?: string[]
+    trinitariumGematriaFusion?: number
+    moralNumerologicalTension?: string
   }> {
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
@@ -228,6 +238,16 @@ export class SolarGovernanceIntegration {
       const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf, sunNeuralEmbedding, proposalEmbedding)
 
       const gematriaVortex = computeGematriaVortex(proposal || 'empty-proposal', DEFAULT_SOLAR_GEMATRIA_TEXT)
+
+      const trinitarium = computeTrinitariumOverlay({
+        proposalText: proposal || '',
+        gematriaResonance: gematriaVortex.gematriaResonance,
+      })
+
+      const { trinitariumGematriaFusion, moralNumerologicalTension } = computeTrinitariumGematriaFusion(
+        trinitarium.trinitariumMoralScore,
+        gematriaVortex.gematriaResonance,
+      )
 
       const correlation = proposalSignal.crossCorrelate(sunSignal)
 
@@ -335,6 +355,15 @@ export class SolarGovernanceIntegration {
         gematriaDigitalRootFR: gematriaVortex.proposal.digitalRootFR,
         gematriaResonance: gematriaVortex.gematriaResonance,
         gematriaTDF: gematriaVortex.gematriaTDF,
+        trinitariumMoralScore: trinitarium.trinitariumMoralScore,
+        trinitariumVirtueAlignment: trinitarium.virtueAlignment,
+        trinitariumHarmPotential: trinitarium.harmPotential,
+        trinitariumIntentAlignment: trinitarium.intentAlignment,
+        trinitariumSacredTextAffinity: trinitarium.sacredTextAffinity,
+        trinitariumDetectedVirtues: trinitarium.details.detectedVirtues,
+        trinitariumDetectedConcerns: trinitarium.details.detectedConcerns,
+        trinitariumGematriaFusion,
+        moralNumerologicalTension,
       }
     } catch (error) {
       console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
@@ -391,7 +420,19 @@ export class SolarGovernanceIntegration {
         gematriaDigitalRootFR: 0,
         gematriaResonance: 0.80,
         gematriaTDF: 0,
+        trinitariumMoralScore: 0.70,
+        trinitariumVirtueAlignment: 0.70,
+        trinitariumHarmPotential: 0.80,
+        trinitariumIntentAlignment: 0.70,
+        trinitariumSacredTextAffinity: 0.50,
+        trinitariumDetectedVirtues: [],
+        trinitariumDetectedConcerns: [],
+        trinitariumGematriaFusion: 0.56,
+        moralNumerologicalTension: 'Mild',
       }
+    }
+  }
+}
     }
   }
 

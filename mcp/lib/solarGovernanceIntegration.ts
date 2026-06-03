@@ -10,6 +10,7 @@ import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
 import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation.js'
 import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine.js'
+import { computeTrinitariumOverlay, computeTrinitariumGematriaFusion } from './trinitariumMoralOverlay.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -182,6 +183,15 @@ export interface StructuralResonanceResult {
   gematriaDigitalRootFR: number
   gematriaResonance: number
   gematriaTDF: number
+  trinitariumMoralScore?: number
+  trinitariumVirtueAlignment?: number
+  trinitariumHarmPotential?: number
+  trinitariumIntentAlignment?: number
+  trinitariumSacredTextAffinity?: number
+  trinitariumDetectedVirtues?: string[]
+  trinitariumDetectedConcerns?: string[]
+  trinitariumGematriaFusion?: number
+  moralNumerologicalTension?: string
 }
 
 export class SolarGovernanceIntegration {
@@ -282,6 +292,17 @@ export class SolarGovernanceIntegration {
 
       // Gematria vortex — numerological resonance dimension
       const gematriaVortex = computeGematriaVortex(proposal || 'empty-proposal', DEFAULT_SOLAR_GEMATRIA_TEXT)
+
+      // Trinitarium Moral Overlay — separate axis, not mixed into 7D
+      const trinitarium = computeTrinitariumOverlay({
+        proposalText: proposal || '',
+        gematriaResonance: gematriaVortex.gematriaResonance,
+      })
+
+      const { trinitariumGematriaFusion, moralNumerologicalTension } = computeTrinitariumGematriaFusion(
+        trinitarium.trinitariumMoralScore,
+        gematriaVortex.gematriaResonance,
+      )
 
       // Cross-correlate for full structural comparison (strength + lag + vortexVolume)
       const correlation = proposalSignal.crossCorrelate(sunSignal)
@@ -410,6 +431,15 @@ export class SolarGovernanceIntegration {
         gematriaDigitalRootFR: gematriaVortex.proposal.digitalRootFR,
         gematriaResonance: gematriaVortex.gematriaResonance,
         gematriaTDF: gematriaVortex.gematriaTDF,
+        trinitariumMoralScore: trinitarium.trinitariumMoralScore,
+        trinitariumVirtueAlignment: trinitarium.virtueAlignment,
+        trinitariumHarmPotential: trinitarium.harmPotential,
+        trinitariumIntentAlignment: trinitarium.intentAlignment,
+        trinitariumSacredTextAffinity: trinitarium.sacredTextAffinity,
+        trinitariumDetectedVirtues: trinitarium.details.detectedVirtues,
+        trinitariumDetectedConcerns: trinitarium.details.detectedConcerns,
+        trinitariumGematriaFusion,
+        moralNumerologicalTension,
       }
     } catch (error) {
       console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
@@ -466,6 +496,15 @@ export class SolarGovernanceIntegration {
         gematriaDigitalRootFR: 0,
         gematriaResonance: 0.80,
         gematriaTDF: 0,
+        trinitariumMoralScore: 0.70,
+        trinitariumVirtueAlignment: 0.70,
+        trinitariumHarmPotential: 0.80,
+        trinitariumIntentAlignment: 0.70,
+        trinitariumSacredTextAffinity: 0.50,
+        trinitariumDetectedVirtues: [],
+        trinitariumDetectedConcerns: [],
+        trinitariumGematriaFusion: 0.56,
+        moralNumerologicalTension: 'Mild',
       }
     }
   }

@@ -84,6 +84,15 @@ export interface EnhancedGovernanceDecision {
   gematriaDigitalRootFR: number
   gematriaResonance: number
   gematriaTDF: number
+  trinitariumMoralScore?: number
+  trinitariumVirtueAlignment?: number
+  trinitariumHarmPotential?: number
+  trinitariumIntentAlignment?: number
+  trinitariumSacredTextAffinity?: number
+  trinitariumDetectedVirtues?: string[]
+  trinitariumDetectedConcerns?: string[]
+  trinitariumGematriaFusion?: number
+  moralNumerologicalTension?: string
 }
 
 export interface PublicFeedEntry {
@@ -434,6 +443,15 @@ export class DynamoSolarGovernance {
       gematriaDigitalRootFR: hammer.gematriaDigitalRootFR,
       gematriaResonance: hammer.gematriaResonance,
       gematriaTDF: hammer.gematriaTDF,
+      trinitariumMoralScore: hammer.trinitariumMoralScore,
+      trinitariumVirtueAlignment: hammer.trinitariumVirtueAlignment,
+      trinitariumHarmPotential: hammer.trinitariumHarmPotential,
+      trinitariumIntentAlignment: hammer.trinitariumIntentAlignment,
+      trinitariumSacredTextAffinity: hammer.trinitariumSacredTextAffinity,
+      trinitariumDetectedVirtues: hammer.trinitariumDetectedVirtues,
+      trinitariumDetectedConcerns: hammer.trinitariumDetectedConcerns,
+      trinitariumGematriaFusion: hammer.trinitariumGematriaFusion,
+      moralNumerologicalTension: hammer.moralNumerologicalTension,
     }
 
     // Persist every query+response to Redis for durable history
