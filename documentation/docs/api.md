@@ -6,6 +6,8 @@ sidebar_position: 4
 
 **Base URL:** `https://mcp-production-80e2.up.railway.app`
 
+**Version:** v5.2 (Trinitarium Moral Overlay + 7D model)
+
 No authentication required. All requests and responses are JSON.
 
 ## POST /govern_with_solar
@@ -128,6 +130,18 @@ Submit a proposal for solar-resonance evaluation.
 | `fullBoxNeuralVortex` | number | Full Box neural vortex (cosine similarity, 0–1). 0 when neural embeddings unavailable |
 | `fullBox4DComposite` | number | Full Box 6D composite: proximity×0.15 + phase×0.20 + calVortex×0.15 + calSync×0.15 + neuralProx×0.175 + neuralVortex×0.175 |
 | `fullBoxVerdict` | string | PASS \| NEEDS_REVISION \| REJECT |
+| `fullBox7DComposite` | number | Full Box 7D composite: 6D×0.88 + gematria×0.12, clamped [0.15, 0.98] |
+| `fullBox7DVerdict` | string | PASS \| NEEDS_REVISION \| REJECT |
+| `fullBoxGematriaResonance` | number | Numerological density similarity (0.15–0.98) |
+| `trinitariumMoralScore` | number | Overall moral alignment (0.08–0.98) |
+| `trinitariumVirtueAlignment` | number | Proportion of 9 virtue pillars matched (0–1) |
+| `trinitariumHarmPotential` | number | Raw harm potential (0.05–1). Moral Safety = 1 − harmPotential |
+| `trinitariumIntentAlignment` | number | Intent alignment with virtue/concern patterns (0.25–0.94) |
+| `trinitariumSacredTextAffinity` | number | Similarity to sacred text patterns (0–1) |
+| `trinitariumGematriaFusion` | number | moralScore × gematriaResonance — interpretive fusion signal |
+| `moralNumerologicalTension` | string | Aligned \| Mild \| Significant \| Critical |
+| `trinitariumDetectedVirtues` | string[] | Matched virtue pillars (love, truth, stewardship, etc.) |
+| `trinitariumDetectedConcerns` | string[] | Matched concern pillars (destruction, deception, harm, exploitation, selfishness) |
 | `neuralSunEmbedding` | number[] | 16-dim sun neural embedding (from `/process-current-sun`) |
 | `neuralProposalEmbedding` | number[] | 16-dim proposal embedding (from `textToEmbedding16`) |
 | `neuralWaveProximity` | number | Neural-only per-dim MSE proximity (0–1). Steeper decay amplifies embedding differences |
@@ -188,7 +202,7 @@ Server health check.
 {
   "status": "ok",
   "name": "blurrn-mcp",
-  "version": "4.8.3",
+  "version": "5.2.0",
   "tools": 20,
   "storedSignals": 1
 }

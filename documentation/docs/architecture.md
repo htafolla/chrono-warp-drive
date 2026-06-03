@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Architecture
 
-Dynamo has two independent subsystems that converge in the governance verdict.
+Dynamo has three independent subsystems that converge in the governance verdict: solar resonance (7D), neural quantification, and moral alignment (TMO).
 
 ## Data Flow
 
@@ -20,49 +20,100 @@ NOAA GOES (7 feeds)
                 │
         [TemporalBlurrnSignal]  ← computes TDF, phase coherence, vortex volume
                 │
-        [SolarGovernanceIntegration] ← 4D: 0.20/0.20/0.30/0.30
-                │                       5D: 0.18/0.18/0.27/0.27/0.10 (with spectralQuality)
+        [gematriaEngine.ts]  ← numerological encoding (EO/FR/RO density + DR smoothing)
+                │
+        [SolarGovernanceIntegration]  ← 7D: 6D×0.88 + gematria×0.12
+                │
+        [Trinitarium Moral Overlay]  ← virtue/concern scoring + negation awareness
                 │
         [DynamoSolarGovernance]  ← adaptive thresholds, momentum, verdict
                 │
                 ▼
    PASS / NEEDS_REVISION / REJECT
+   + TMO overlay (Aligned / Mild / Significant / Critical)
 ```
 
 ## NeuralFusion Integration
 
-**NeuralFusion** (TensorFlow.js) is a 3-layer autoencoder (200→48→24→16 bottleneck) that reconstructs NOAA spectrum data. Its `spectralQuality` output (0–1, based on reconstruction error) directly feeds into the governance formula:
+**NeuralFusion** (TensorFlow.js) is a 3-layer autoencoder (200→48→24→16 bottleneck) that reconstructs NOAA spectrum data. Its `spectralQuality` output (0–1, based on reconstruction error) was the 5th dimension in earlier versions. In the 7D Full Box model, two neural dimensions are used directly:
 
-- **4D mode** (no NeuralFusion): `proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30`
-- **5D mode** (with `spectralQuality`): `proximity×0.18 + phase×0.18 + volume×0.27 + sync×0.27 + spectralQuality×0.10`
+- **Neural Proximity** (per-dim MSE, exp(−MSE×5)) — 0.154 weight
+- **Neural Vortex** (cosine similarity of 16-dim embeddings) — 0.154 weight
 
-When `spectralQuality` is provided, the weights rebalance by exactly 10% to accommodate it. The `neuralContextUsed` flag tracks which mode was active.
+The `neuralContextUsed` flag tracks whether neural embeddings were available.
 
-NeuralFusion also produces a `confidenceScore` (line 584) and `metamorphosisIndex` (line 552) for UI display, but these do not influence governance — only `spectralQuality` does.
+## The Seven Dimensions (Full Box 7D)
 
-## The Four Dimensions
+Resonance is calculated across seven dimensions, organized into four orthogonal axes:
 
-Resonance is calculated across four dimensions. When NeuralFusion spectral quality is available, a fifth dimension is added.
+| # | Dimension | Weight | Axis | What It Measures |
+|---|-----------|--------|------|-------------------|
+| 1 | Wave Proximity | 0.132 | Physical | exp(−MSE) across 3 active spectrum bands |
+| 2 | Phase Alignment | 0.176 | Temporal | Kuramoto oscillator coherence (N=3, K=0.5) |
+| 3 | Calibrated Vortex | 0.132 | Physical | pow(waveVortex, 0.25) with floor 0.05 |
+| 4 | Calibrated Sync | 0.132 | Physical | 0.15 + 0.85 × pow(deltaDiff, 0.35) |
+| 5 | Neural Proximity | 0.154 | Neural | Per-dim MSE between proposal and sun embeddings |
+| 6 | Neural Vortex | 0.154 | Neural | Cosine similarity of raw 16-dim embedding vectors |
+| 7 | Gematria Resonance | 0.120 | Numerological | EO/FR/RO density similarity + DR distance smoothing |
 
-| # | Dimension | Weight (4D) | Weight (5D) | What It Measures |
-|---|-----------|-------------|-------------|-------------------|
-| 1 | Proximity | 0.20 | 0.18 | Gaussian similarity between proposal and sun TDF deltas |
-| 2 | Phase Alignment | 0.20 | 0.18 | Structural coherence match (1 - \|proposalCoherence - sunCoherence\|) |
-| 3 | Vortex Alignment | 0.30 | 0.27 | Energy volume fit (log-space ratio) |
-| 4 | Synchronization | 0.30 | 0.27 | Temporal cascade alignment (linear decay) |
-| 5 | Spectral Quality | — | 0.10 | NeuralFusion reconstruction quality (optional) |
-
-**4D Formula:**
+**7D Formula:**
 ```
-structuralResonance = proximity × 0.20 + phaseAlignment × 0.20 + vortexAlignment × 0.30 + synchronization × 0.30
-```
-
-**5D Formula** (when spectralQuality is provided):
-```
-structuralResonance = proximity × 0.18 + phaseAlignment × 0.18 + vortexAlignment × 0.27 + synchronization × 0.27 + spectralQuality × 0.10
+fullBox7D = WaveProximity×0.132 + PhaseAlignment×0.176 + CalibratedVortex×0.132
+          + CalibratedSync×0.132 + NeuralProximity×0.154 + NeuralVortex×0.154
+          + GematriaResonance×0.120
 ```
 
-Both are clamped to [0.15, 0.98].
+Clamped to [0.15, 0.98].
+
+Earlier models are preserved in every response:
+- **4D Hammer**: proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30
+- **5D (with spectralQuality)**: adds spectralQuality×0.10
+- **6D Full Box**: same dimensions as 7D without gematria
+- **7D Full Box**: 6D×0.88 + gematria×0.12
+
+### Four Orthogonal Axes
+
+| Axis | Dimensions | Weight |
+|------|-----------|--------|
+| **Physical** (solar TDF + wave) | Wave Proximity, Calibrated Vortex, Calibrated Sync | 0.396 |
+| **Temporal** (Kuramoto phase + ordering) | Phase Alignment | 0.176 |
+| **Neural** (learned embeddings) | Neural Proximity, Neural Vortex | 0.308 |
+| **Numerological** (gematria encoding) | Gematria Resonance | 0.120 |
+
+Gematria is 99% orthogonal to the 6D model (r=0.080), adding ~11–12% effective new discrimination without corrupting the physical measurement.
+
+## Trinitarium Moral Overlay (TMO)
+
+A separate moral discernment axis that does **not** modify the 7D resonance score. TMO evaluates proposals against virtue and concern patterns, producing:
+
+- **Moral Score** (0–1): `virtueAlignment×0.35 + harmPotential×0.25 + intentAlignment×0.30 + sacredBonus + gematriaBonus − riskPenalty`
+- **Gematria Fusion**: `tmoScore × gematriaResonance` — interpretive signal for downstream consumers
+- **Moral-Numerological Tension**: Aligned (≥0.60) / Mild (≥0.40) / Significant (≥0.25) / Critical (<0.25)
+
+### Virtue Pillars (9)
+
+love, truth, stewardship, redemptive purpose, humility, justice, peace, faith, hospitality
+
+### Concern Pillars (5)
+
+destruction, deception, harm, exploitation, selfishness
+
+### Negation Awareness
+
+The concern scorer detects protective phrases ("protect against", "prevent", "defend from", "safeguard") and reduces concern scores by 75%. This prevents "Add rate limiting to protect against DDoS attacks" from being flagged as harmful.
+
+### TMO Override in 0xRay
+
+When TMO flows into the 0xRay governance pipeline:
+
+| Tension | Effect |
+|---------|--------|
+| **Critical** | Force REJECT (weight 1.6, confidence 0.92) |
+| **Significant** | Downgrade PASS → NEEDS_REVISION (weight ×0.85) |
+| **Aligned** | Slight confidence boost (+0.03, weight ×1.05) |
+| **Mild** | No override |
+
+The `GovernanceResult` carries `moralOverride` for audit: `'rejected_critical'` | `'downgraded_significant'` | `'none'`.
 
 ## Key Design Decisions
 
@@ -82,11 +133,15 @@ logRatio = |ln(proposalTdf) - ln(solarRefTdf)|
 vortexAlignment = max(0.15, 1 - logRatio / logMax)
 ```
 
-Log-space protects small proposals. A proposal with TDF 1,000 vs sun TDF 500,000 gets ~0.53 instead of 0.002 with raw ratio. Orders of magnitude matter, not raw magnitude.
+Log-space protects small proposals. A proposal with TDF 1,000 vs sun TDF 500,000 gets ~0.53 instead of 0.002 with raw ratio.
 
 ### Cascade indices are not temporal
 
-The old implementation used cascade-index-based lag for synchronization. Cascade indices are content hashes — a text hash vs a solar physics constant produces random lag (~33 average) even with perfect TDF match. Sync now uses deltaDiff linear decay, which correctly scores 45–90% depending on actual TDF alignment. Cascade indices are retained only for signal timing labels (leading/trailing/synced).
+The old implementation used cascade-index-based lag for synchronization. Cascade indices are content hashes — a text hash vs a solar physics constant produces random lag (~33 average) even with perfect TDF match. Sync now uses deltaDiff linear decay, which correctly scores 45–90% depending on actual TDF alignment.
+
+### Gematria is numerological, not symbolic
+
+The gematria engine treats language as a numeric field against solar constants. It uses English Ordinal, Full Reduction, and Reverse Ordinal density normalization with digital root distance smoothing. The reference text is `"The Sun is the source of all life and light and truth"` (EO=488, DR=2).
 
 ## 0xRay Governance Boundary
 
@@ -94,6 +149,7 @@ The old implementation used cascade-index-based lag for synchronization. Cascade
 
 - **3-agent voting committee** — agents deliberate and cast weighted votes on proposals
 - **Governance boundary enforcement** — 0xRay routes proposals through Dynamo's solar resonance check before final decisions
+- **Moral override** — TMO tension flows through the governance pipeline: Critical → force REJECT, Significant → downgrade PASS
 - **Automatic decision routing** — proposals that score below threshold are automatically flagged for revision
 - **Cross-session consistency** — historical coherence tracking across agent sessions
 
@@ -105,7 +161,7 @@ Dynamo serves as the external, ungamable signal layer. 0xRay consumes that signa
 
 **File:** `mcp/lib/wavePropagation.ts`
 
-A Phase 2 prototype that computes three resonance dimensions from wave interference patterns in the Kuramoto oscillator trajectory (20-timestep), rather than from external TDF formulas. It ports the `wave()` function from `src/lib/temporalCalculator.ts`.
+A Phase 2 prototype that computes three resonance dimensions from wave interference patterns in the Kuramoto oscillator trajectory (20-timestep), rather than from external TDF formulas.
 
 **How it fits:** The wave layer runs in parallel with the existing SolarGovernanceIntegration. It does not replace any current formula — the three wave dimensions are additive A/B fields in the API response, providing an informative overlay for analysis and comparison.
 

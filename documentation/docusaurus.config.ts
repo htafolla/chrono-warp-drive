@@ -3,7 +3,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'Dynamo',
-  tagline: 'Solar-aligned AI governance — grounded in real-time solar physics',
+  tagline: 'Solar-aligned AI governance with moral discernment — grounded in real-time solar physics',
   favicon: 'img/favicon.svg',
 
   url: 'https://dynamo-docs.vercel.app',
