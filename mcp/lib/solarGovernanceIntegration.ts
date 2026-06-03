@@ -280,7 +280,7 @@ export class SolarGovernanceIntegration {
       // Neural embedding from NeuralFusion becomes 16 virtual spectrum bands inside the box
       const waveResonance = computeWaveResonance(kuramoto, proposalTdf, solarRefTdf, sunNeuralEmbedding, proposalEmbedding)
 
-      // Gematria vortex — symbolic numerological resonance dimension
+      // Gematria vortex — numerological resonance dimension
       const gematriaVortex = computeGematriaVortex(proposal || 'empty-proposal', DEFAULT_SOLAR_GEMATRIA_TEXT)
 
       // Cross-correlate for full structural comparison (strength + lag + vortexVolume)
@@ -317,7 +317,7 @@ export class SolarGovernanceIntegration {
         solarData.activityLevel,
       )
 
-      // Full Box: 7D model — 4 physical dims + 2 neural dims + 1 gematria symbolic dim
+      // Full Box: 7D model — 4 physical dims + 2 neural dims + 1 numerological dim
       const fullBox = computeFullBoxResonance(
         waveResonance.waveProximity,
         phaseAlignment,

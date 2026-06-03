@@ -1,8 +1,8 @@
 # Dynamo — Current State
 
-**Date:** 2026-05-29
-**Version:** v4.9 (6D temporal box with neural dimensions) — v5.0 specification drafted
-**Origin:** Implements the [Blurrn Quantum Codex](blurrn-codex/) temporal physics framework — the Codex's TDF formula, Kuramoto coupling, isotopic vortex mechanics, and Neural Quantum Realms, rendered in TypeScript against live NOAA solar data.
+**Date:** 2026-06-03
+**Version:** v5.1 (7D temporal box with numerological dimension)
+**Origin:** Implements the [Blurrn Quantum Codex](blurrn-codex/) temporal physics framework — the Codex's TDF formula, Kuramoto coupling, isotopic vortex mechanics, Neural Quantum Realms, and gematria alphanumeric encoding, rendered in TypeScript against live NOAA solar data.
 
 ## What Dynamo Is
 
@@ -17,25 +17,37 @@ It is **not** a theoretical cosmology engine. It is a production system deployed
 ## How It Works
 
 ```
-proposal → Codex TDF formula (tPTT × TAU × 1/BHS) → cross-correlate with sun TDF → 6D resonance formula → adaptive thresholds → verdict
+proposal → Codex TDF formula (tPTT × TAU × 1/BHS) → cross-correlate with sun TDF → 7D resonance formula → adaptive thresholds → verdict
 ```
 
-### The Six Dimensions (Full Box 6D)
+### The Seven Dimensions (Full Box 7D)
+
+Four orthogonal resonance axes:
+
+| Axis | Dimensions | Weight |
+|------|-----------|--------|
+| **Physical** (solar TDF + wave propagation) | Wave Proximity, Calibrated Vortex, Calibrated Sync | 0.396 |
+| **Temporal** (Kuramoto phase + ordering) | Phase Alignment | 0.176 |
+| **Neural** (learned embeddings) | Neural Proximity, Neural Vortex | 0.308 |
+| **Numerological** (gematria encoding) | Gematria Resonance | 0.120 |
 
 | Dimension | Weight | Method | Spread |
 |-----------|--------|--------|--------|
-| Wave Proximity | 0.15 | exp(-MSE) across 3 active EM bands | ~0.00 (compressed) |
-| Phase Alignment | 0.20 | 1 − |proposalCoherence − sunCoherence| (Kuramoto) | 0.30 |
-| Calibrated Vortex | 0.15 | pow(waveVortexAlignment, 0.25) | ~0.13 (compressed) |
-| Calibrated Sync | 0.15 | 0.15 + 0.85 × pow(deltaDiff, 0.35) | ~0.13 (compressed) |
-| Neural Proximity | 0.175 | Per-dim MSE across 16 neural bands, exp(−MSE×5) | 0.31 |
-| Neural Vortex | 0.175 | Cosine similarity of raw 16-dim embeddings | 0.25 |
+| Wave Proximity | 0.132 | exp(-MSE) across 3 active EM bands | ~0.00 (compressed) |
+| Phase Alignment | 0.176 | 1 − \|proposalCoherence − sunCoherence\| (Kuramoto) | 0.30 |
+| Calibrated Vortex | 0.132 | pow(waveVortexAlignment, 0.25) | ~0.13 (compressed) |
+| Calibrated Sync | 0.132 | 0.15 + 0.85 × pow(deltaDiff, 0.35) | ~0.13 (compressed) |
+| Neural Proximity | 0.154 | Per-dim MSE across 16 neural bands, exp(−MSE×5) | 0.31 |
+| Neural Vortex | 0.154 | Cosine similarity of raw 16-dim embeddings | 0.25 |
+| Gematria Resonance | 0.120 | EO/FR/RO density similarity + DR distance smoothing | 0.10 |
 
-When neural embeddings are unavailable, the 35% neural weight redistributes to the four physical dimensions (+8.75% each), yielding approximately the original 4D weights.
+Gematria is 99% orthogonal to the 6D composite (r²=0.01 on 83-proposal gambit). The numerological layer adds ~11–12% effective new discrimination.
 
-When NeuralFusion spectral quality is available (5D hammer mode), the structural resonance formula adds a 5th dimension: `proximity×0.18 + phase×0.18 + vortex×0.27 + sync×0.27 + spectralQuality×0.10`.
+When neural embeddings are unavailable, the 30.8% neural weight redistributes to the remaining five dimensions proportionally.
 
-### Adaptive Thresholds (6D Full Box)
+### Adaptive Thresholds (7D Full Box)
+
+Same thresholds used for both 6D and 7D composites:
 
 | Activity | PASS | NEEDS_REVISION | REJECT |
 |----------|------|----------------|--------|
@@ -44,7 +56,7 @@ When NeuralFusion spectral quality is available (5D hammer mode), the structural
 | Active | ≥0.85 | ≥0.75 | ≥0.52 | <0.52 |
 | Storm | ≥0.88 | ≥0.80 | ≥0.58 | <0.58 |
 
-Thresholds were lowered from the 4D model (moderate was 0.88) because the 6D model's wider spread means scores distribute lower. The neural dimensions pull scores down for poorly-aligned proposals.
+Thresholds were lowered from the 4D model (moderate was 0.88) because the 6D/7D model's wider spread means scores distribute lower. The neural dimensions pull scores down for poorly-aligned proposals.
 
 ## Architecture
 
@@ -76,7 +88,7 @@ Thresholds were lowered from the 4D model (moderate was 0.88) because the 6D mod
 | `mcp/lib/dynamoSolarGovernance.ts` | Adaptive thresholds, momentum, ring buffers, Redis history |
 | `mcp/pubsub.ts` | Redis client (getRedisClient) |
 | `mcp/index.ts` | Tool definitions, POST /govern_with_solar, GET /history, auto-fetch sun embedding |
-| `src/components/DynamoDeploy.tsx` | UI — resonance breakdown, sparkline, trend, 6D display |
+| `src/components/DynamoDeploy.tsx` | UI — resonance breakdown, sparkline, trend, 7D display |
 | `mcp/lib/wavePropagation.ts` | Phase 2 wave propagation, hybrid & 6D full box models, `textToEmbedding16()`, NQR |
 | `src/lib/wavePropagation.ts` | Frontend mirror of wave propagation & NQR |
 | `mcp/scripts/test-wave-propagation.ts` | Phase 2 A/B test harness |
@@ -84,35 +96,36 @@ Thresholds were lowered from the 4D model (moderate was 0.88) because the 6D mod
 ## Key Design Decisions
 
 - **NeuralFusion directly influences governance** — `spectralQuality` feeds into 5D hammer mode with 10% weight. The `neuralContextUsed` flag tracks whether 5D mode is active.
-- **Full Box 6D model** — the primary composite includes 4 physical dimensions + 2 neural dimensions (neural proximity 17.5% + neural vortex 17.5%). Neural metrics are the best discriminators in the system (0.31 and 0.25 spread vs 0.00–0.30 for physical dims). Graceful degradation: when neural unavailable, 35% redistributes to physical dims (+8.75% each).
+- **Full Box 7D model** — the primary composite includes 4 physical dimensions + 2 neural dimensions + 1 numerological (gematria) dimension. Neural metrics are the best discriminators (0.31 and 0.25 spread). Gematria is 99% orthogonal to 6D (r=0.080). Graceful degradation: when neural unavailable, 30.8% redistributes to remaining five dimensions proportionally.
 - **Sync uses deltaDiff linear decay**, not cascade-index-based lag (fixed a critical bug where cascade indices produced ~13% noise floor instead of real temporal alignment)
 - **Redis-backed history** stores all governance calls (capped at 10k), with graceful fallback to in-memory
 - **Three sync'd entry points**: MCP tool handler, POST /govern_with_solar, mcp/backend-server.ts Express route
 - **TDF values stay below 2^53** (JS float64 safe integer range)
 - **Kuramoto oscillators** (N=3, K=0.5) with push-pull dynamics (±π/4 offset) and fractal toggle for isotopic modulation
 
-## Phase 2 — Wave Propagation & 6D Model
+## Phase 2 — Wave Propagation & 7D Model
 
-**Status:** Production. The 6D Full Box model is the primary composite, incorporating 2 neural dimensions alongside 4 physical wave dimensions.
+**Status:** Production. The 7D Full Box model is the primary composite, incorporating 2 neural dimensions + 1 numerological dimension alongside 4 physical wave dimensions.
 
 ### What It Is
 
-The wave propagation layer ports the `wave()` function from `src/lib/temporalCalculator.ts` into a standalone module (`mcp/lib/wavePropagation.ts`). It uses the Kuramoto 20-timestep trajectory to compute resonance from wave interference patterns inside the temporal box — instead of from external TDF math. As of v4.9, the Full Box composite is a **6D model** including 2 neural dimensions.
+The wave propagation layer ports the `wave()` function from `src/lib/temporalCalculator.ts` into a standalone module (`mcp/lib/wavePropagation.ts`). It uses the Kuramoto 20-timestep trajectory to compute resonance from wave interference patterns inside the temporal box — instead of from external TDF math. As of v5.1, the Full Box composite is a **7D model** including 2 neural dimensions + 1 numerological dimension.
 
-### Six Dimensions (Full Box 6D)
+### Seven Dimensions (Full Box 7D)
 
 | Dimension | Weight | Source | Spread |
 |-----------|--------|--------|--------|
-| Wave Proximity | 0.15 | exp(-MSE) across 3 active bands | ~0.00 (compressed, always ~0.99) |
-| Phase Alignment | 0.20 | Kuramoto oscillator coherence | 0.30 (3rd best) |
-| Calibrated Vortex | 0.15 | pow(waveVortex, 0.25) | ~0.13 (compressed) |
-| Calibrated Sync | 0.15 | 0.15 + 0.85 × pow(deltaDiff, 0.35) | ~0.13 (compressed) |
-| Neural Proximity | 0.175 | Per-dim MSE, exp(−MSE×5) | 0.31 (best discriminator) |
-| Neural Vortex | 0.175 | Cosine similarity, raw 16-dim | 0.25 (2nd best) |
+| Wave Proximity | 0.132 | exp(-MSE) across 3 active bands | ~0.00 (compressed, always ~0.99) |
+| Phase Alignment | 0.176 | Kuramoto oscillator coherence | 0.30 (3rd best) |
+| Calibrated Vortex | 0.132 | pow(waveVortex, 0.25) | ~0.13 (compressed) |
+| Calibrated Sync | 0.132 | 0.15 + 0.85 × pow(deltaDiff, 0.35) | ~0.13 (compressed) |
+| Neural Proximity | 0.154 | Per-dim MSE, exp(−MSE×5) | 0.31 (best discriminator) |
+| Neural Vortex | 0.154 | Cosine similarity, raw 16-dim | 0.25 (2nd best) |
+| Gematria Resonance | 0.120 | EO/FR/RO density similarity + DR distance smoothing | 0.10 |
 
-The three compressed physical dimensions (proximity, vortex, sync) contribute ~0.40 of floor regardless of proposal. Neural and phase dimensions provide meaningful discrimination (~0.17 effective spread).
+The three compressed physical dimensions (proximity, vortex, sync) contribute ~0.40 of floor regardless of proposal. Neural and phase dimensions provide meaningful discrimination (~0.17 effective spread). Gematria is 99% orthogonal to 6D, adding ~11–12% effective new discrimination.
 
-**Graceful degradation:** When neural embeddings unavailable (both = 0), each physical dim receives +8.75% weight, yielding approximately the original 4D distribution.
+**Graceful degradation:** When neural embeddings unavailable (both = 0), the 30.8% neural weight redistributes to remaining five dimensions proportionally.
 
 ### Spectrum Bands
 
@@ -124,14 +137,15 @@ The three compressed physical dimensions (proximity, vortex, sync) contribute ~0
 
 ### Files
 
-- `mcp/lib/wavePropagation.ts` — Canonical: `computeWaveResonance()`, `computeHybridResonance()`, `computeFullBoxResonance()` (6D), `textToEmbedding16()`, `tdfToEmbedding16()`
+- `mcp/lib/wavePropagation.ts` — Canonical: `computeWaveResonance()`, `computeHybridResonance()`, `computeFullBoxResonance()` (7D), `textToEmbedding16()`, `tdfToEmbedding16()`
+- `mcp/lib/gematriaEngine.ts` — Canonical: `computeGematria()`, `computeGematriaResonance()` (density-normalized), `computeGematriaVortex()`
 - `src/lib/wavePropagation.ts` — Frontend mirror
 - `mcp/scripts/test-wave-propagation.ts` — A/B test harness
 
 ### Known Issues
 
 - waveSynchronization drops to ~0.01 for non-identical proposals — `cos(θ₁−θ₀)` metric may need recalibration (mitigated by calibration exponent 0.35)
-- Wave proximity always ~0.99 for governance-scale TDFs (mitigated by 15% weight in 6D model, not relying on it for discrimination)
+- Wave proximity always ~0.99 for governance-scale TDFs (mitigated by 13.2% weight in 7D model, not relying on it for discrimination)
 - Thresholds may need further calibration across different solar conditions
 
 ## Relationship to the Blurrn Quantum Codex
@@ -142,7 +156,7 @@ The Codex (v4.5→v4.7) is the cosmological foundation — it defines TLM (L=3, 
 |---------------|----------------------|
 | Temporal Displacement Factor | Real Codex formula: `tPTT × TAU × (1/BHS)` with 6-parameter mapping layer |
 | 4D resonance (hammer) | Proximity, phase, vortex, sync (deterministic, 5D with spectralQuality) |
-| 6D Full Box | 4 physical wave dims + 2 neural dims (proximity 15%, phase 20%, vortex 15%, sync 15%, neuralProx 17.5%, neuralVortex 17.5%) |
+| 7D Full Box | 4 physical wave dims + 2 neural dims + 1 numerological dim (gematria 12%) |
 | Spectral quality (5D) | NeuralFusion spectral reconstruction |
 | Cascade cross-correlation | Signal timing (leading/trailing/synced) |
 | Adaptive thresholds | Solar activity modulation |
@@ -177,17 +191,16 @@ Dynamo started as a theoretical temporal physics experiment and evolved into a p
 - Phase 2 wave propagation prototype built — `wave()` function ported from temporalCalculator.ts, A/B wired into governance responses
 - Hybrid resonance model deployed — replaces dead `vortexAlignment` (0% spread, always ~1.0) with calibrated wave vortex (28.7% spread). 71% win rate on 35 real proposals vs current model
 - Neural Quantum Realms integrated — 16-dim TF.js embedding as virtual spectrum bands inside the temporal box. Proposal embedding upgraded from TDF-derived base-1000 (3/16 varying dims) → prime-modulo (16/16 dense) → text-based FNV hashing (12–16/16 semantic). 28 total bands (12 physical + 16 neural). Neural proximity uses per-dim MSE with 5× decay. Neural vortex uses cosine similarity of raw embedding vectors. One-step `/govern_with_solar` auto-fetches sun embedding.
-- **6D Full Box model** — replaces 4D composite with 6 dimensions including neural proximity (17.5%) and neural vortex (17.5%). Neural metrics are the best discriminators: proximity spread 0.31, vortex spread 0.25 vs 0.00–0.30 for physical dims. Graceful degradation when neural unavailable. Thresholds recalibrated: moderate 0.85 (was 0.88).
-- Three compressed physical dimensions (proximity ≡ 0.99, calibrated vortex ≈ 0.96, calibrated sync ≈ 0.93) produce ~0.40 predetermined floor. Neural and phase dimensions drive the remaining 0.17 effective spread. Previous 4D model had only 0.03 effective spread.
-- Full Box 6D thresholds returned in API response (`fullBoxThresholds`) and displayed in frontend cards
-- Codex v4.9 spec written — captures 6D model, NQR, calibration, φ = 1.666 in physics vs weights in aggregation
-- Codex v5.0 spec drafted — temporal containers, semantic embeddings, adaptive calibration, cross-domain applications, φ-harmonic weights, surrogate model
+- **7D Full Box model** — replaces 6D with 7 dimensions including gematria resonance (12%). Gematria is 99% orthogonal to 6D (r=0.080). 83-proposal gambit validated across 6 categories. Thresholds shared with 6D.
+- Gematria engine with density normalization and DR distance smoothing.
+- TemporalContainer contract updated to 7D/gematria schema.
+- Codex v5.1 spec written.
 
 The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the production formula — replacing the original FNV-1a hash with the real temporal physics. The mapping layer bridges Codex parameters and NOAA solar data, making Dynamo the first system to operationalize the Blurrn formula against live satellite feeds.
 
 The Codex lives on as the deep foundation. Dynamo is what it became when the theory met real-world data — a solar-aligned wave resonance engine that answers proposals with the Sun's current state.
 
-**Codex version lineage:** v4.5 (Trinitarium) → v4.6 (TDF breakthrough) → v4.7 (CTI) → v4.8 (Isotopic Temporal Vortex) → v4.9 (6D + NQR, production) → v5.0 (Temporal Displacement Field, draft spec)
+**Codex version lineage:** v4.5 (Trinitarium) → v4.6 (TDF breakthrough) → v4.7 (CTI) → v4.8 (Isotopic Temporal Vortex) → v4.9 (6D + NQR, production) → v5.0 (Temporal Displacement Field, draft spec) → v5.1 (7D + numerological axis, current)
 
 ---
 

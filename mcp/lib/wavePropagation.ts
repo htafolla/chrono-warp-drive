@@ -189,7 +189,7 @@ export function computeFullBoxResonance(
     neuralVortex * neuralWeight
   ))
 
-  // 7D model: 4 physical + 2 neural + 1 gematria symbolic dimension
+  // 7D model: 4 physical + 2 neural + 1 numerological dimension
   // Gematria adds 10% weight, rebalancing all others proportionally (×0.90)
   const gematriaWeight = 0.12
   const reduce6D = 1 - gematriaWeight

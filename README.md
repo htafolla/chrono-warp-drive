@@ -1,7 +1,7 @@
 # Dynamo — Temporal Resonance Engine
 
-> **v5.0** · Self-authenticating temporal documents grounded in live solar physics
-> Every decision or event becomes a living, verifiable temporal record — cryptographically bound to the actual state of the Sun at the moment it occurred.
+> **v5.1** · Self-authenticating temporal documents grounded in live solar physics + numerological resonance
+> Every decision or event becomes a living, verifiable temporal record — cryptographically bound to the actual state of the Sun at the moment it occurred, with alphanumeric fingerprint integrity.
 
 ## Primary Use Case
 
@@ -15,12 +15,12 @@ Dynamo produces: *"This happened at this solar moment, and here is cryptographic
 |---|---|
 | Governance | Uses the temporal document to make PASS/NEEDS_REVISION/REJECT decisions |
 | Timestamping / Notarization | Uses the solar-grounded timestamp as a public, verifiable clock |
-| Decentralized Oracle | Uses the 6D profile + solar snapshot as a real-world entropy source |
+| Decentralized Oracle | Uses the 7D profile + solar snapshot as a real-world entropy source |
 | Audit & Compliance | Uses the hash chain and provenance for tamper-proof historical records |
 | Legal & Contracts | Uses the self-authenticating record as evidence |
 | Insurance & Risk | Uses the solar conditions at decision time for claims validation |
 | Pattern Mining | Uses the growing time series of records to discover solar-decision correlations |
-| Generative Art | Uses the 6D vector + phase trajectory as a creative seed with temporal provenance |
+| Generative Art | Uses the 7D vector + phase trajectory as a creative seed with temporal provenance |
 | Smart Contracts | Uses solar alignment as a real-world gate condition |
 | AI Safety | Uses the persistent, verifiable memory for long-term alignment |
 

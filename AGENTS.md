@@ -730,17 +730,24 @@ Live services:
 
 | Component | File(s) | Purpose |
 |-----------|---------|---------|
-| Solar governance | `mcp/lib/solarGovernanceIntegration.ts`, `src/lib/` | 4D/5D resonance scoring, deltaDiff sync, Kuramoto phase coupling, adaptive thresholds |
+| Solar governance | `mcp/lib/solarGovernanceIntegration.ts`, `src/lib/` | 7D resonance scoring, 4 orthogonal axes (physical/temporal/neural/numerological), deltaDiff sync, Kuramoto phase coupling, adaptive thresholds |
 | Codex TDF formula | `mcp/lib/vortexMath.ts`, `src/lib/` | `tPTT × TAU × 1/BHS` with mapping layer (T_c, P_s, E_t, delta_t, voids, bhs_n) |
 | Kuramoto oscillators | `mcp/lib/kuramotoOscillators.ts`, `src/lib/` | N=3 model (K=0.5, φ_dark=π/6) replacing phaseAlignment, signalTiming, phaseCoherence |
 | Solar data fetcher | `mcp/lib/solarDataFetcher.ts` | NOAA GOES ingestion (xray, kp, particles, magnetometer, solarWind) |
+| Gematria engine | `mcp/lib/gematriaEngine.ts`, `src/lib/` | English Ordinal, Full Reduction, Reverse Ordinal, digital roots, density-normalized resonance |
 | Governance decisions | `mcp/lib/dynamoSolarGovernance.ts`, `src/lib/` | EnhancedGovernanceDecision, momentum/peak forecast, ring buffers, Redis-backed history |
 | MCP entry | `mcp/index.ts` | 20 tools, POST /govern_with_solar, GET /public_feed, GET /history |
 | NeuralFusion | (mcp TF.js) | `spectralQuality` feeds into governance as 5th dimension (10% weight) |
 
 ### Key Design Decisions
 
-- **Formula**: 4D = proximity×0.20 + phase×0.20 + volume×0.30 + sync×0.30. 5D adds spectralQuality×0.10 with rebalance to 0.18/0.18/0.27/0.27.
+- **Full Box 7D model**: WaveProximity×0.132 + PhaseAlignment×0.176 + CalibratedVortex×0.132 + CalibratedSync×0.132 + NeuralProximity×0.154 + NeuralVortex×0.154 + GematriaResonance×0.12, clamped [0.15, 0.98]
+- **7D ≈ 6D×0.88 + gematria×0.12** — 6D weights scaled down, 12% allocated to numerological axis
+- **Gematria 99% orthogonal to 6D** (r=0.080, 83-proposal gambit). Mean shift +0.08pp, 2 verdict flips.
+- **Gematria resonance**: EO density×0.25 + FR density×0.20 + RO density×0.15 + distance-based DR bonus + 0.15 floor
+- **DR bonus**: continuous distance (not binary): `0.10×(1−|drDiff|/9)` EO + `0.08×(1−|drDiff|/9)` FR
+- **Reference text**: `"The Sun is the source of all life and light and truth"` (EO=488, DR=2)
+- **Four orthogonal axes**: physical (solar TDF + wave), temporal (Kuramoto phase + sync), neural (learned embeddings), numerological (gematria encoding)
 - **Sync**: deltaDiff linear decay (not cascade-index lag). Verified 43-91% range.
 - **Phase Alignment**: Kuramoto order parameter R from N=3 oscillator evolution. Verified 70-99% (was 13-24% noise floor).
 - **Signal Timing**: Kuramoto phase ordering (not content-hash cascade comparison).
