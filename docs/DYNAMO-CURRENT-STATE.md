@@ -1,7 +1,7 @@
 # Dynamo — Current State
 
 **Date:** 2026-06-03
-**Version:** v5.1 (7D temporal box with numerological dimension)
+**Version:** v5.2 (7D temporal box with numerological dimension + Trinitarium Moral Overlay)
 **Origin:** Implements the [Blurrn Quantum Codex](blurrn-codex/) temporal physics framework — the Codex's TDF formula, Kuramoto coupling, isotopic vortex mechanics, Neural Quantum Realms, and gematria alphanumeric encoding, rendered in TypeScript against live NOAA solar data.
 
 ## What Dynamo Is
@@ -109,7 +109,7 @@ Thresholds were lowered from the 4D model (moderate was 0.88) because the 6D/7D 
 
 ### What It Is
 
-The wave propagation layer ports the `wave()` function from `src/lib/temporalCalculator.ts` into a standalone module (`mcp/lib/wavePropagation.ts`). It uses the Kuramoto 20-timestep trajectory to compute resonance from wave interference patterns inside the temporal box — instead of from external TDF math. As of v5.1, the Full Box composite is a **7D model** including 2 neural dimensions + 1 numerological dimension.
+The wave propagation layer ports the `wave()` function from `src/lib/temporalCalculator.ts` into a standalone module (`mcp/lib/wavePropagation.ts`). It uses the Kuramoto 20-timestep trajectory to compute resonance from wave interference patterns inside the temporal box — instead of from external TDF math. As of v5.2, the Full Box composite is a **7D model** including 2 neural dimensions + 1 numerological dimension, with a separate **Trinitarium Moral Overlay** interpretive axis.
 
 ### Seven Dimensions (Full Box 7D)
 
@@ -147,6 +147,53 @@ The three compressed physical dimensions (proximity, vortex, sync) contribute ~0
 - waveSynchronization drops to ~0.01 for non-identical proposals — `cos(θ₁−θ₀)` metric may need recalibration (mitigated by calibration exponent 0.35)
 - Wave proximity always ~0.99 for governance-scale TDFs (mitigated by 13.2% weight in 7D model, not relying on it for discrimination)
 - Thresholds may need further calibration across different solar conditions
+
+## Phase 3 — Trinitarium Moral Overlay (TMO)
+
+**Status:** Production. A separate moral discernment axis that evaluates proposals against virtue and concern patterns, producing a moral score, gematria fusion, and tension label — without mixing into the 7D resonance formula.
+
+### What It Is
+
+The TMO is a deterministic, local, auditable moral alignment layer. It does NOT modify the 7D composite. Instead, it produces an interpretive signal that downstream consumers (UI, 0xRay agents, Temporal Container) can use to filter or flag proposals.
+
+**Key principle:** High 7D + low TMO = "proceed with extreme caution" — productive tension, not a blended score.
+
+### TMO Formula
+
+```
+virtueAlignment × 0.35 + harmPotential × 0.25 + intentAlignment × 0.30 + sacredBonus + gematriaBonus − riskPenalty
+```
+
+Where:
+- **virtueAlignment**: proportion of 9 virtue pillars matched (group-based scoring)
+- **harmPotential**: `1 − concernScore × 1.5` where concernScore is proportion of 5 concern pillars matched
+- **intentAlignment**: boosted by detected virtues, reduced by detected concerns
+- **Negation awareness**: phrases like "protect against", "prevent", "defend from" reduce concern score by 75%
+
+### Tension Labels
+
+Based on TMO score alone (not fusion):
+- **Aligned** (≥0.60): moral alignment confirmed
+- **Mild** (≥0.40): some moral signal, proceed
+- **Significant** (≥0.25): moral concern, downgrade PASS → NEEDS_REVISION
+- **Critical** (<0.25): moral violation, force REJECT
+
+### 0xRay Integration
+
+TMO flows through 0xRay governance via `DecisionMatrixInput.moralTension`:
+- `Critical` → force REJECT (weight 1.6, confidence 0.92)
+- `Significant` → downgrade PASS to NEEDS_REVISION (weight ×0.85)
+- `Aligned` → slight confidence boost (+0.03, weight ×1.05)
+
+Audit trail: `GovernanceResult.moralOverride` = `'rejected_critical'` | `'downgraded_significant'` | `'none'`
+
+### Files
+
+- `mcp/lib/trinitariumMoralOverlay.ts` — Canonical: `computeTrinitariumOverlay()`, `computeTrinitariumGematriaFusion()`
+- `src/lib/trinitariumMoralOverlay.ts` — Frontend mirror
+- `stringray/src/governance/governance-core.ts` — `applyDecisionMatrix()` with moral override
+- `stringray/src/integrations/governance/types.ts` — `SolarGovernanceCheckResponse` with TMO fields
+- `stringray/src/integrations/governance/governance-client.ts` — Extracts TMO from Dynamo response
 
 ## Relationship to the Blurrn Quantum Codex
 
@@ -200,7 +247,7 @@ The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the
 
 The Codex lives on as the deep foundation. Dynamo is what it became when the theory met real-world data — a solar-aligned wave resonance engine that answers proposals with the Sun's current state.
 
-**Codex version lineage:** v4.5 (Trinitarium) → v4.6 (TDF breakthrough) → v4.7 (CTI) → v4.8 (Isotopic Temporal Vortex) → v4.9 (6D + NQR, production) → v5.0 (Temporal Displacement Field, draft spec) → v5.1 (7D + numerological axis, current)
+**Codex version lineage:** v4.5 (Trinitarium) → v4.6 (TDF breakthrough) → v4.7 (CTI) → v4.8 (Isotopic Temporal Vortex) → v4.9 (6D + NQR, production) → v5.0 (Temporal Displacement Field, draft spec) → v5.1 (7D + numerological axis) → v5.2 (Trinitarium Moral Overlay + 0xRay integration, current)
 
 ---
 

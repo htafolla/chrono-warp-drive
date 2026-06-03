@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { Rocket, Sun, Waves, Hash, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { Rocket, Sun, Waves, Hash, AlertCircle, CheckCircle2, XCircle, Shield } from 'lucide-react';
 
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
 
@@ -52,6 +53,15 @@ interface TemporalRecord {
   adaptiveThresholds: { strong: number; good: number; weak: number };
   spectralQuality?: number;
   neuralContextUsed: boolean;
+  trinitariumMoralScore?: number;
+  trinitariumVirtueAlignment?: number;
+  trinitariumHarmPotential?: number;
+  trinitariumIntentAlignment?: number;
+  trinitariumSacredTextAffinity?: number;
+  trinitariumDetectedVirtues?: string[];
+  trinitariumDetectedConcerns?: string[];
+  trinitariumGematriaFusion?: number;
+  moralNumerologicalTension?: string;
 }
 
 const TransportControl = ({ simple }: TransportControlProps) => {
@@ -258,6 +268,65 @@ const TransportControl = ({ simple }: TransportControlProps) => {
               </div>
             </div>
           </div>
+
+          {/* Trinitarium Moral Overlay */}
+          {record.trinitariumMoralScore != null && (
+            <TooltipProvider delayDuration={300}>
+            <div className="rounded-lg border bg-amber-500/[0.04] border-amber-500/20 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-amber-400" />
+                <span className="text-sm font-medium">Trinitarium Moral Overlay</span>
+              </div>
+<div className="grid grid-cols-3 gap-2 text-center">
+                  <Tooltip><TooltipTrigger asChild><div className="rounded-lg border p-2 cursor-help">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Moral Score</div>
+                    <div className={`text-sm font-bold font-mono ${
+                      record.trinitariumMoralScore >= 0.60 ? 'text-emerald-400' :
+                      record.trinitariumMoralScore >= 0.40 ? 'text-amber-400' :
+                      record.trinitariumMoralScore >= 0.25 ? 'text-orange-400' : 'text-red-400'
+                    }`}>{(record.trinitariumMoralScore * 100).toFixed(0)}%</div>
+                  </div></TooltipTrigger><TooltipContent>Overall moral alignment (0–100%). Combines virtue, safety, intent, and sacred text affinity</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><div className="rounded-lg border p-2 cursor-help">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Fusion</div>
+                    <div className="text-sm font-bold font-mono text-amber-300">
+                      {record.trinitariumGematriaFusion != null ? `${(record.trinitariumGematriaFusion * 100).toFixed(0)}%` : '—'}
+                    </div>
+                  </div></TooltipTrigger><TooltipContent>Moral score × numerological resonance — how well moral intent aligns with the numerological moment</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><div className="rounded-lg border p-2 cursor-help">
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Tension</div>
+                    <div className={`text-sm font-bold font-mono ${
+                      record.moralNumerologicalTension === 'Aligned' ? 'text-emerald-400' :
+                      record.moralNumerologicalTension === 'Mild' ? 'text-amber-400' :
+                      record.moralNumerologicalTension === 'Significant' ? 'text-orange-400' :
+                      record.moralNumerologicalTension === 'Critical' ? 'text-red-400' : 'text-white/50'
+                    }`}>{record.moralNumerologicalTension ?? '—'}</div>
+                  </div></TooltipTrigger><TooltipContent>Moral-Numerological Tension: Aligned, Mild, Significant, or Critical</TooltipContent></Tooltip>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
+                  <Tooltip><TooltipTrigger asChild><span className="text-muted-foreground cursor-help">Virtue Alignment:</span></TooltipTrigger><TooltipContent>How many of the 9 virtue pillars the proposal matches</TooltipContent></Tooltip>
+                  <span>{record.trinitariumVirtueAlignment != null ? `${(record.trinitariumVirtueAlignment * 100).toFixed(0)}%` : '—'}</span>
+                  <Tooltip><TooltipTrigger asChild><span className="text-muted-foreground cursor-help">Moral Safety:</span></TooltipTrigger><TooltipContent>Inverse of harm potential — higher means morally safer</TooltipContent></Tooltip>
+                  <span>{record.trinitariumHarmPotential != null ? `${((1 - record.trinitariumHarmPotential) * 100).toFixed(0)}%` : '—'}</span>
+                  <Tooltip><TooltipTrigger asChild><span className="text-muted-foreground cursor-help">Intent Alignment:</span></TooltipTrigger><TooltipContent>Whether the proposal's intent aligns with virtue or concern patterns</TooltipContent></Tooltip>
+                  <span>{record.trinitariumIntentAlignment != null ? `${(record.trinitariumIntentAlignment * 100).toFixed(0)}%` : '—'}</span>
+                  <Tooltip><TooltipTrigger asChild><span className="text-muted-foreground cursor-help">Sacred Text Affinity:</span></TooltipTrigger><TooltipContent>Similarity to sacred text patterns (prayer, worship, scriptural language)</TooltipContent></Tooltip>
+                  <span>{record.trinitariumSacredTextAffinity != null ? `${(record.trinitariumSacredTextAffinity * 100).toFixed(0)}%` : '—'}</span>
+                </div>
+              {record.trinitariumDetectedVirtues && record.trinitariumDetectedVirtues.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-emerald-500/70">Virtues: </span>
+                  <span className="text-emerald-400/80">{record.trinitariumDetectedVirtues.join(', ')}</span>
+                </div>
+              )}
+              {record.trinitariumDetectedConcerns && record.trinitariumDetectedConcerns.length > 0 && (
+                <div className="text-xs">
+                  <span className="text-red-500/70">Concerns: </span>
+                  <span className="text-red-400/80">{record.trinitariumDetectedConcerns.join(', ')}</span>
+                </div>
+              )}
+            </div>
+            </TooltipProvider>
+          )}
 
           {/* Temporal Grounding Info */}
           <div className="rounded-lg border p-3 space-y-2">

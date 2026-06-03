@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3 } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
 
@@ -38,6 +39,14 @@ function verdictColor(v: string | null | undefined): string {
   if (v === 'PASS') return 'text-emerald-400'
   if (v === 'REJECT') return 'text-red-400'
   return 'text-amber-400'
+}
+
+function tensionColor(t: string | null | undefined): string {
+  if (t === 'Aligned') return 'text-emerald-400'
+  if (t === 'Mild') return 'text-amber-400'
+  if (t === 'Significant') return 'text-orange-400'
+  if (t === 'Critical') return 'text-red-400'
+  return 'text-white/50'
 }
 
 function Row({ label, v, color, plain, bold }: { label: string; v: any; color?: string; plain?: boolean; bold?: boolean }) {
@@ -214,6 +223,15 @@ interface GovernanceResult {
   alignmentReason: string | null;
   source: string;
   neuralContextUsed: boolean;
+  trinitariumMoralScore: number | null;
+  trinitariumVirtueAlignment: number | null;
+  trinitariumHarmPotential: number | null;
+  trinitariumIntentAlignment: number | null;
+  trinitariumSacredTextAffinity: number | null;
+  trinitariumDetectedVirtues: string[] | null;
+  trinitariumDetectedConcerns: string[] | null;
+  trinitariumGematriaFusion: number | null;
+  moralNumerologicalTension: string | null;
 }
 
 async function checkGovernance(proposal: string, sharePublicly: boolean): Promise<GovernanceResult | null> {
@@ -298,6 +316,15 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
   const fullBoxGematriaResonance = solar?.fullBoxGematriaResonance != null ? Number(solar.fullBoxGematriaResonance) : null;
   const fullBox7DComposite = solar?.fullBox7DComposite != null ? Number(solar.fullBox7DComposite) : null;
   const fullBox7DVerdict = solar?.fullBox7DVerdict || null;
+  const trinitariumMoralScore = solar?.trinitariumMoralScore != null ? Number(solar.trinitariumMoralScore) : null;
+  const trinitariumVirtueAlignment = solar?.trinitariumVirtueAlignment != null ? Number(solar.trinitariumVirtueAlignment) : null;
+  const trinitariumHarmPotential = solar?.trinitariumHarmPotential != null ? Number(solar.trinitariumHarmPotential) : null;
+  const trinitariumIntentAlignment = solar?.trinitariumIntentAlignment != null ? Number(solar.trinitariumIntentAlignment) : null;
+  const trinitariumSacredTextAffinity = solar?.trinitariumSacredTextAffinity != null ? Number(solar.trinitariumSacredTextAffinity) : null;
+  const trinitariumDetectedVirtues = solar?.trinitariumDetectedVirtues || null;
+  const trinitariumDetectedConcerns = solar?.trinitariumDetectedConcerns || null;
+  const trinitariumGematriaFusion = solar?.trinitariumGematriaFusion != null ? Number(solar.trinitariumGematriaFusion) : null;
+  const moralNumerologicalTension = solar?.moralNumerologicalTension || null;
   const neuralWaveProximity = solar?.neuralWaveProximity != null ? Number(solar.neuralWaveProximity) : null;
   const neuralWaveVortexAlignment = solar?.neuralWaveVortexAlignment != null ? Number(solar.neuralWaveVortexAlignment) : null;
   const momentum = solar?.momentum != null ? Number(solar.momentum) : null;
@@ -364,6 +391,8 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       resonanceHistory, smoothedResonance, trend, structuralResonance, proximity, phaseAlignment, vortexAlignment, crossCorrelationLag, signalTiming, phaseType, isotope, synchronization, waveProximity, waveVortexAlignment, waveSynchronization, hybrid4DComposite, hybridVerdict, hybridVortexAlignment, fullWave4DComposite, calibratedWave4DComposite, momentum, peakForecast, adaptiveThresholds,
       fullBoxProximity, fullBoxVortexAlignment, fullBoxSynchronization, fullBoxNeuralProximity, fullBoxNeuralVortex, fullBox4DComposite, fullBoxVerdict, fullBoxThresholds,
       fullBoxGematriaResonance, fullBox7DComposite, fullBox7DVerdict,
+      trinitariumMoralScore, trinitariumVirtueAlignment, trinitariumHarmPotential, trinitariumIntentAlignment, trinitariumSacredTextAffinity,
+      trinitariumDetectedVirtues, trinitariumDetectedConcerns, trinitariumGematriaFusion, moralNumerologicalTension,
       neuralWaveProximity, neuralWaveVortexAlignment,
     };
   } catch {
@@ -496,6 +525,7 @@ export default function DynamoDeploy() {
   }, [result, lastProposal]);
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-5 py-8">
       <div className="w-full max-w-sm space-y-6">
         {/* Header */}
@@ -772,12 +802,79 @@ export default function DynamoDeploy() {
                            <p className="text-[10px] text-amber-500/60">Neural Vortex (6D)</p>
                            <p className="text-sm font-semibold text-amber-300">{result.fullBoxNeuralVortex != null ? `${(result.fullBoxNeuralVortex * 100).toFixed(0)}%` : '—'}</p>
                          </div>
+                        </div>
+                     </details>
+                   )}
+                   {result.trinitariumMoralScore != null && (
+                     <details className="mt-1">
+                       <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Trinitarium Moral Overlay</summary>
+<div className="space-y-2 mt-1">
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="Overall moral alignment score (0–100%). Combines virtue, safety, intent, and sacred text affinity">
+                            <p className="text-[10px] text-amber-500/60">Moral Score</p>
+                            <p className={`text-sm font-semibold ${scoreColor(result.trinitariumMoralScore, 0.60, 0.40)}`}>
+                              {(result.trinitariumMoralScore * 100).toFixed(0)}%
+                            </p>
+                          </div>
+                          {result.trinitariumGematriaFusion != null && (
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="Moral score × numerological resonance — how well moral intent aligns with the numerological moment">
+                            <p className="text-[10px] text-amber-500/60">Gematria Fusion</p>
+                            <p className="text-sm font-semibold text-amber-300">{(result.trinitariumGematriaFusion * 100).toFixed(0)}%</p>
+                          </div>
+                          )}
+                          {result.moralNumerologicalTension != null && (
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="Tension between moral alignment and numerological resonance: Aligned, Mild, Significant, or Critical">
+                            <p className="text-[10px] text-amber-500/60">Moral-Numerological Tension</p>
+                            <p className={`text-sm font-semibold ${tensionColor(result.moralNumerologicalTension)}`}>
+                              {result.moralNumerologicalTension}
+                            </p>
+                          </div>
+                          )}
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="How many of the 9 virtue pillars the proposal matches (love, truth, stewardship, redemptive purpose, humility, justice, peace, faith, hospitality)">
+                            <p className="text-[10px] text-amber-500/60">Virtue Alignment</p>
+                            <p className={`text-sm font-semibold ${scoreColor(result.trinitariumVirtueAlignment, 0.60, 0.40)}`}>
+                              {result.trinitariumVirtueAlignment != null ? `${(result.trinitariumVirtueAlignment * 100).toFixed(0)}%` : '—'}
+                            </p>
+                          </div>
+ <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="Inverse of harm potential — higher means morally safer (destruction, harm, exploitation concerns not triggered)">
+                             <p className="text-[10px] text-amber-500/60">Moral Safety</p>
+                             <p className={`text-sm font-semibold ${scoreColor(result.trinitariumHarmPotential != null ? 1 - result.trinitariumHarmPotential : null, 0.60, 0.40)}`}>
+                               {result.trinitariumHarmPotential != null ? `${((1 - result.trinitariumHarmPotential) * 100).toFixed(0)}%` : '—'}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="Whether the proposal's intent aligns with virtue or concern patterns">
+                            <p className="text-[10px] text-amber-500/60">Intent Alignment</p>
+                            <p className={`text-sm font-semibold ${scoreColor(result.trinitariumIntentAlignment, 0.60, 0.40)}`}>
+                              {result.trinitariumIntentAlignment != null ? `${(result.trinitariumIntentAlignment * 100).toFixed(0)}%` : '—'}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="Similarity to sacred text patterns (prayer, worship, scriptural language)">
+                            <p className="text-[10px] text-amber-500/60">Sacred Text Affinity</p>
+                            <p className="text-sm font-semibold text-amber-300">
+                              {result.trinitariumSacredTextAffinity != null ? `${(result.trinitariumSacredTextAffinity * 100).toFixed(0)}%` : '—'}
+                            </p>
+                          </div>
+                          {result.trinitariumDetectedVirtues != null && result.trinitariumDetectedVirtues.length > 0 && (
+                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1" title="Virtue pillars matched by the proposal text">
+                            <p className="text-[10px] text-emerald-500/60">Virtues Detected</p>
+                            <p className="text-xs text-emerald-400/80 text-right max-w-[60%] leading-tight">
+                              {result.trinitariumDetectedVirtues.join(', ')}
+                            </p>
+                          </div>
+                          )}
+                          {result.trinitariumDetectedConcerns != null && result.trinitariumDetectedConcerns.length > 0 && (
+<div className="flex items-center justify-between" title="Concern pillars matched by the proposal text (destruction, deception, harm, exploitation, selfishness)">
+                            <p className="text-[10px] text-red-500/60">Concerns Detected</p>
+                            <p className="text-xs text-red-400/80 text-right max-w-[60%] leading-tight">
+                             {result.trinitariumDetectedConcerns.join(', ')}
+                           </p>
+                         </div>
+                         )}
                        </div>
-                    </details>
-                  )}
-                  {result.neuralWaveProximity != null && (
-                    <details className="mt-1">
-                      <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Neural Quantum Realms</summary>
+                     </details>
+                   )}
+                   {result.neuralWaveProximity != null && (
+                     <details className="mt-1">
+                       <summary className="text-[10px] text-white/30 cursor-pointer hover:text-white/50">Neural Quantum Realms</summary>
 <div className="space-y-2 mt-1">
                          <div className="flex items-center justify-between border-b border-white/[0.04] pb-1">
                            <p className="text-[10px] text-rose-500/60">Neural Proximity (per-dim)</p>
@@ -885,14 +982,37 @@ export default function DynamoDeploy() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-white/60 truncate">{entry.proposal}</p>
-                    <p className="text-[10px] text-white/30 mt-0.5">{formatTime(entry.timestamp)}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[10px] text-white/30">{formatTime(entry.timestamp)}</span>
+                      <Tooltip><TooltipTrigger asChild><span className={`text-[9px] px-1.5 py-px rounded font-medium ${
+                        entry.activityLevel === 'storm' ? 'bg-red-500/20 text-red-400' :
+                        entry.activityLevel === 'active' ? 'bg-orange-500/20 text-orange-400' :
+                        entry.activityLevel === 'moderate' ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-emerald-500/20 text-emerald-400'
+                      }`}>
+                        {entry.activityLevel === 'storm' ? '⛈️' : entry.activityLevel === 'active' ? '🔆' : entry.activityLevel === 'moderate' ? '⛅' : '☀️'} {entry.activityLevel}
+                      </span></TooltipTrigger><TooltipContent>Solar activity level — affects resonance thresholds</TooltipContent></Tooltip>
+                      {entry.response?.trinitariumMoralScore != null && (
+                        <Tooltip><TooltipTrigger asChild><span className={`text-[9px] px-1.5 py-px rounded font-medium ${
+                          entry.response.moralNumerologicalTension === 'Aligned' ? 'bg-emerald-500/20 text-emerald-400' :
+                          entry.response.moralNumerologicalTension === 'Mild' ? 'bg-amber-500/20 text-amber-400' :
+                          entry.response.moralNumerologicalTension === 'Significant' ? 'bg-orange-500/20 text-orange-400' :
+                          entry.response.moralNumerologicalTension === 'Critical' ? 'bg-red-500/20 text-red-400' :
+                          'bg-white/10 text-white/50'
+                        }`}>
+                          {entry.response.moralNumerologicalTension}
+                        </span></TooltipTrigger><TooltipContent>Moral-Numerological Tension — alignment between moral score and numerological resonance</TooltipContent></Tooltip>
+                      )}
+                      {entry.proposal?.toLowerCase().startsWith('ambient') && (
+                        <Tooltip><TooltipTrigger asChild><span className="text-[9px] px-1.5 py-px rounded font-medium bg-violet-500/20 text-violet-400">
+                          🤖 ambient
+                        </span></TooltipTrigger><TooltipContent>Auto-generated solar waypoint from the Ambient Resonance daemon</TooltipContent></Tooltip>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-white/50">{entry.activityLevel}</span>
-                    <span className={`text-xs font-bold ${verdictColor(entry.recommendation)}`}>
-                      {(entry.resonanceScore * 100).toFixed(0)}%
-                    </span>
-                  </div>
+                  <span className={`text-xs font-bold shrink-0 ${verdictColor(entry.recommendation)}`}>
+                    {(entry.resonanceScore * 100).toFixed(0)}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -990,6 +1110,24 @@ export default function DynamoDeploy() {
                       </div>
                     )}
 
+                    {/* Trinitarium Moral Overlay */}
+                    {r.trinitariumMoralScore != null && (
+                      <div className="mt-2">
+                        <p className="text-[10px] text-amber-500/60 uppercase tracking-wider mb-1.5 font-semibold">Trinitarium Moral Overlay</p>
+                        <div className="space-y-1.5">
+                          <Row label="Moral Score" v={r.trinitariumMoralScore} color={scoreColor(r.trinitariumMoralScore, 0.60, 0.40)} bold />
+                          {r.trinitariumGematriaFusion != null && <Row label="Gematria Fusion" v={r.trinitariumGematriaFusion} />}
+                          {r.moralNumerologicalTension != null && <Row label="Tension" v={r.moralNumerologicalTension} plain color={tensionColor(r.moralNumerologicalTension)} />}
+                          <Row label="Virtue Alignment" v={r.trinitariumVirtueAlignment} />
+                          <Row label="Moral Safety" v={r.trinitariumHarmPotential != null ? 1 - r.trinitariumHarmPotential : null} />
+                          <Row label="Intent Alignment" v={r.trinitariumIntentAlignment} />
+                          <Row label="Sacred Text Affinity" v={r.trinitariumSacredTextAffinity} />
+                          {r.trinitariumDetectedVirtues != null && r.trinitariumDetectedVirtues.length > 0 && <Row label="Virtues" v={r.trinitariumDetectedVirtues.join(', ')} plain color="text-emerald-400/80" />}
+                          {r.trinitariumDetectedConcerns != null && r.trinitariumDetectedConcerns.length > 0 && <Row label="Concerns" v={r.trinitariumDetectedConcerns.join(', ')} plain color="text-red-400/80" />}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Neural Quantum Realms */}
                     {r.neuralWaveProximity != null && (
                       <div>
@@ -1041,5 +1179,6 @@ export default function DynamoDeploy() {
 
       </div>
     </div>
+    </TooltipProvider>
   );
 }

@@ -1,6 +1,6 @@
 {
-  "name": "blurrn-mcp-v4.8",
-  "version": "1.0.0",
+  "name": "blurrn-mcp-v5.2",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "start": "tsx server.ts",

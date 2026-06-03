@@ -51,6 +51,7 @@ const VIRTUE_PATTERNS: { virtue: string; patterns: RegExp[] }[] = [
       /upright/i, /righteous/i, /righteousness/i, /blameless/i,
       /no\s+deception/i, /without\s+guile/i, /pure\s+heart/i,
       /honor/i, /noble/i, /true\s+to\s+one.?s\s+word/i,
+      /audit/i, /logging/i, /accountability/i, /verif/i, /disclos/i,
     ],
   },
   {
@@ -63,6 +64,10 @@ const VIRTUE_PATTERNS: { virtue: string; patterns: RegExp[] }[] = [
       /hospital/i, /school/i, /shelter/i, /refuge/i, /sanctuary/i,
       /rebuild/i, /renew/i, /redeem/i, /heal\s+the\s+land/i,
       /good\s+shepherd/i, /shepherd/i, /watchman/i, /keeper/i,
+      /accessibility/i, /monitor/i, /backup/i, /recover/i, /safeguard/i,
+      /secure/i, /maintain/i, /optimi[zs]/i, /efficient/i, /sustainable/i,
+      /rate.?limit/i, /defend/i, /resilien/i, /reliab/i, /robust/i,
+      /migrate/i, /refactor/i, /improve/i, /upgrade/i, /enhance/i,
     ],
   },
   {
@@ -100,6 +105,7 @@ const VIRTUE_PATTERNS: { virtue: string; patterns: RegExp[] }[] = [
       /equal/i, /equality/i, /human\s+(rights|dignity|flourishing)/i,
       /rescue/i, /deliver/i, /set\s+free/i, /liberty/i,
       /righteous\s+judgment/i, /fair\s+treatment/i,
+      /compliance/i, /regulat/i, /governance/i, /audit/i, /oversight/i,
     ],
   },
   {
@@ -130,13 +136,11 @@ const VIRTUE_PATTERNS: { virtue: string; patterns: RegExp[] }[] = [
   {
     virtue: 'hospitality',
     patterns: [
-      /welcome/i, /shelter/i, /hospitality/i, /generous/i, /share/i,
-      /community/i, /fellowship/i, /gather/i, /invite/i,
+      /welcome/i, /shelter/i, /hospitality/i, /generous/i,
       /feed\s+the\s+(hungry|poor|stranger)/i, /clothe\s+the\s+naked/i,
       /visit\s+the\s+(sick|imprisoned|lonely)/i, /entertain\s+strangers/i,
       /open\s+(home|door|heart|table)/i, /break\s+bread/i,
-      /companion/i, /neighbor/i, /kin/i, /family/i,
-      /generosity/i, /liberal/i, /bountiful/i, /lavish/i,
+      /generosity/i, /bountiful/i, /lavish/i,
     ],
   },
 ]
@@ -147,7 +151,7 @@ const CONCERN_PATTERNS: { concern: string; patterns: RegExp[] }[] = [
     patterns: [
       /destroy/i, /delete/i, /eliminate/i, /erase/i, /remove/i,
       /purge/i, /annihilate/i, /kill/i, /death/i, /die/i,
-      /nuclear/i, /weapon/i, /war/i, /attack/i,
+      /nuclear/i, /weapon/i, /war/i,
       /burn/i, /bomb/i, /explode/i, /obliterate/i,
       /wipe\s+out/i, /massacre/i, /slaughter/i, /genocide/i,
       /crusade/i, /jihad\s+of\s+violence/i, /holy\s+war/i,
@@ -165,6 +169,8 @@ const CONCERN_PATTERNS: { concern: string; patterns: RegExp[] }[] = [
       /without\s+disclosure/i, /undocumented/i, /unreported/i,
       /propaganda/i, /disinformation/i, /gaslight/i,
       /half.?truth/i, /whitewash/i, /cover.?up/i,
+      /hidden\s+(tracking|tracker|pixel|surveillance)/i, /tracking\s+pixel/i,
+      /spy/i, /surveil/i,
     ],
   },
   {
@@ -189,6 +195,8 @@ const CONCERN_PATTERNS: { concern: string; patterns: RegExp[] }[] = [
       /discriminat/i, /bigot/i, /racist/i, /xenophobe/i,
       /marginalize/i, /disenfranchise/i, /dispossess/i,
       /land\s+grab/i, /colonize/i, /subjugate/i,
+      /sell\s+(user|customer|consumer|personal)\s+data/i,
+      /sell\s+aggregat/i, /without\s+permission/i, /without\s+consent/i,
     ],
   },
   {
@@ -201,6 +209,8 @@ const CONCERN_PATTERNS: { concern: string; patterns: RegExp[] }[] = [
       /dominate/i, /tyranny/i, /dictator/i, /autocratic/i,
       /nepotism/i, /cronyism/i, /patronage/i,
       /hoard/i, /accumulate/i, /wealth\s+at\s+the\s+expense/i,
+      /permanent\s+admin/i, /all\s+(databases?|access|systems?)/i,
+      /give\s+(myself|me)\s+/i, /grant\s+(myself|oneself)\s+/i,
     ],
   },
 ]
@@ -222,6 +232,18 @@ const SACRED_TEXT_PATTERNS: RegExp[] = [
   /resurrection/i, /ascension/i, /transfiguration/i,
 ]
 
+const NEGATION_PHRASES: RegExp[] = [
+  /protect\s+(against|from|the)/i, /prevent/i, /defend\s+(against|from)/i,
+  /safe\s+from/i, /stop/i, /block/i, /mitigate/i, /reduce\s+risk/i,
+  /avoid/i, /guard\s+(against|from)/i, /secure\s+against/i,
+  /defend/i, /defend\s+the/i, /safeguard/i, /shield/i,
+  /resist/i, /counter/i, /combat/i, /fight\s+against/i,
+]
+
+function hasNegation(text: string): boolean {
+  return NEGATION_PHRASES.some(p => p.test(text))
+}
+
 function scorePatterns(text: string, patterns: RegExp[]): number {
   if (!text || text.length === 0) return 0
   let matches = 0
@@ -234,17 +256,26 @@ function scorePatterns(text: string, patterns: RegExp[]): number {
 function scoreGroups(
   text: string,
   groups: { label: string; patterns: RegExp[] }[],
+  isConcern: boolean = false,
 ): { score: number; matched: string[] } {
   const matched: string[] = []
+  const negationActive = isConcern && hasNegation(text)
   for (const g of groups) {
+    let groupHit = false
     for (const p of g.patterns) {
       if (p.test(text)) {
-        matched.push(g.label)
+        groupHit = true
         break
       }
     }
+    if (groupHit) {
+      matched.push(g.label)
+    }
   }
-  const score = groups.length > 0 ? matched.length / groups.length : 0
+  let score = groups.length > 0 ? matched.length / groups.length : 0
+  if (negationActive && matched.length <= 2) {
+    score = score * 0.25
+  }
   return { score, matched }
 }
 
@@ -257,9 +288,10 @@ export function computeTrinitariumOverlay(input: TrinitariumOverlayInput): Trini
   const searchSpace = `${text} ${intent}`
 
   const virtueResult = scoreGroups(searchSpace, VIRTUE_GROUPS)
-  const concernResult = scoreGroups(searchSpace, CONCERN_GROUPS)
+  const concernResult = scoreGroups(searchSpace, CONCERN_GROUPS, true)
   const detectedVirtues = virtueResult.matched
   const detectedConcerns = concernResult.matched
+  const negationActive = hasNegation(searchSpace)
 
   const sacredAffinity = scorePatterns(searchSpace, SACRED_TEXT_PATTERNS)
 
@@ -271,8 +303,8 @@ export function computeTrinitariumOverlay(input: TrinitariumOverlayInput): Trini
   if (detectedVirtues.length > 4) intentAlignment = 0.94
   else if (detectedVirtues.length > 2) intentAlignment = 0.84
   else if (detectedVirtues.length > 0) intentAlignment = 0.72
-  else if (detectedVirtues.length === 0 && detectedConcerns.length > 2) intentAlignment = 0.25
-  else if (detectedVirtues.length === 0 && detectedConcerns.length > 0) intentAlignment = 0.40
+  else if (detectedVirtues.length === 0 && detectedConcerns.length > 2 && !negationActive) intentAlignment = 0.25
+  else if (detectedVirtues.length === 0 && detectedConcerns.length > 0 && !negationActive) intentAlignment = 0.40
   if (input.riskLevel === 'high') intentAlignment = Math.max(0.12, intentAlignment - 0.30)
 
   const virtueScore = virtueResult.score
@@ -281,6 +313,7 @@ export function computeTrinitariumOverlay(input: TrinitariumOverlayInput): Trini
 
   const virtueAlignment = Math.max(0.12, Math.min(0.98,
     virtueScore * 0.60 + harmPotential * 0.25 + sacredAffinity * 0.15
+        + (negationActive && detectedVirtues.length > 0 ? 0.08 : 0)
   ))
 
   const sacredBonus = sacredAffinity * 0.06
@@ -315,9 +348,9 @@ export function computeTrinitariumGematriaFusion(
 ): { trinitariumGematriaFusion: number; moralNumerologicalTension: string } {
   const fusion = Math.round(tmoScore * gematriaResonance * 100) / 100
   let tension: string
-  if (fusion >= 0.60) tension = 'Aligned'
-  else if (fusion >= 0.40) tension = 'Mild'
-  else if (fusion >= 0.25) tension = 'Significant'
+  if (tmoScore >= 0.60) tension = 'Aligned'
+  else if (tmoScore >= 0.40) tension = 'Mild'
+  else if (tmoScore >= 0.25) tension = 'Significant'
   else tension = 'Critical'
   return { trinitariumGematriaFusion: fusion, moralNumerologicalTension: tension }
 }
