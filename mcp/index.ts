@@ -1523,8 +1523,13 @@ app.get('/govern_with_solar', (c: Context) => {
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const rawProposal = body.proposal ?? body.structuredProposal
-  if (!rawProposal) return c.json({ success: false, error: 'proposal or structuredProposal required' }, 400)
+  if (!rawProposal || (typeof rawProposal === 'string' && !rawProposal.trim())) {
+    return c.json({ success: false, error: 'proposal or structuredProposal required' }, 400)
+  }
   const proposalText = extractProposalText(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
+  if (!proposalText || !proposalText.trim()) {
+    return c.json({ success: false, error: 'proposal text cannot be empty' }, 400)
+  }
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
   const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding)
