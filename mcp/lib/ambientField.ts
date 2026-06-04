@@ -202,14 +202,7 @@ export class AmbientField {
   }
 
   private buildAmbientSummary(snapshot: SolarSnapshot): string {
-    const adjectives: Record<string, string> = {
-      quiet: 'Ambient solar field — stable',
-      moderate: 'Ambient solar field — moderate activity',
-      active: 'Ambient solar field — elevated activity',
-      storm: 'Ambient solar field — geomagnetic storm',
-    }
-    const base = adjectives[snapshot.activityLevel] || 'Ambient solar field sampling'
-    return `${base} (Kp=${snapshot.kpIndex.toFixed(1)})`
+    return 'Ambient solar field'
   }
 }
 
