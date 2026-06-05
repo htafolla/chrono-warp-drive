@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { solarDataFetcher } from './solarDataFetcher.js'
-import { dynamoSolarGovernance } from './dynamoSolarGovernance.js'
+import { dynamoSolarGovernance, getPublicFeed } from './dynamoSolarGovernance.js'
 import { isStructuredProposal, type StructuredDerivativeProposal } from './structuredProposal.js'
 import { governanceToContainer, type ContainerVortex } from './temporalContainer.js'
 import { persistContainerToChain } from './contractClient.js'
@@ -153,6 +153,22 @@ export class AmbientField {
     }
   }
 
+  private pickFeedCandidate(): string | null {
+    try {
+      const feed = getPublicFeed()
+      if (feed.length === 0) return null
+
+      const available = feed.filter(e => !this.recentlySampledHashes.has(e.proposal))
+      if (available.length === 0) return null
+
+      const pick = available[Math.floor(Math.random() * available.length)]
+      this.recentlySampledHashes.add(pick.proposal)
+      return pick.proposal
+    } catch {
+      return null
+    }
+  }
+
   private pickSelfReflectionCandidate(): { summary: string; hash: string; originalResonance: number } | null {
     const candidates = temporalManifold.getSelfReflectionCandidates(
       this.config.selfReflectWindowMs,
@@ -224,11 +240,13 @@ export class AmbientField {
       const candidate = this.pickSelfReflectionCandidate()
 
       let summary: string
-      let isEcho = false
 
       if (candidate) {
         summary = candidate.summary + ECHO_SUFFIX
-        isEcho = true
+      } else if (temporalManifold.getPointCount() < 10) {
+        // Jump-start: sample from Redis public feed when Manifold is sparse
+        const feedCandidate = this.pickFeedCandidate()
+        summary = feedCandidate ?? 'Ambient solar field'
       } else {
         summary = 'Ambient solar field'
       }
