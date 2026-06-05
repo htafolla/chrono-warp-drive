@@ -3,6 +3,9 @@
 
 import { solarGovernance } from './solarGovernanceIntegration.js'
 import { getRedisClient } from '../pubsub.js'
+import { computeFullGematriaDecomposition } from './temporalManifold.js'
+import { generateVortexMessage } from './vortexMessage.js'
+import type { GematriaDecomposition } from './temporalManifold.js'
 
 const REDIS_HISTORY_KEY = 'dynamo:history'
 const REDIS_FEED_KEY = 'dynamo:feed'
@@ -73,6 +76,7 @@ export interface EnhancedGovernanceDecision {
   fullBoxGematriaResonance: number
   fullBox7DComposite: number
   fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  signalPurity: number
   neuralSunEmbedding?: number[]
   neuralProposalEmbedding?: number[]
   neuralWaveProximity: number
@@ -93,6 +97,8 @@ export interface EnhancedGovernanceDecision {
   trinitariumDetectedConcerns?: string[]
   trinitariumGematriaFusion?: number
   moralNumerologicalTension?: string
+  gematriaDecomposition?: GematriaDecomposition
+  vortexMessage?: string
 }
 
 export interface PublicFeedEntry {
@@ -246,7 +252,7 @@ export class DynamoSolarGovernance {
     // Storm sun: harder to PASS (higher thresholds)
     // Moderate/active: standard thresholds
     const adaptiveThresholds = {
-      quiet:    { strong: 0.82, good: 0.72, weak: 0.58 },
+      quiet:    { strong: 0.86, good: 0.78, weak: 0.64 },
       moderate: { strong: 0.88, good: 0.78, weak: 0.62 },
       active:   { strong: 0.88, good: 0.78, weak: 0.62 },
       storm:    { strong: 0.92, good: 0.84, weak: 0.70 },
@@ -363,6 +369,7 @@ export class DynamoSolarGovernance {
 
     const finalRec = hammerRec === 'PASS' ? 'PASS' : hammerRec === 'REJECT' ? 'REJECT' : 'NEEDS_REVISION'
     const tagged = `${originalRecommendation} [SOLAR HAMMER: ${finalRec} @ ${(r*100).toFixed(0)}%]`
+    const gematriaDec = computeFullGematriaDecomposition(originalRecommendation)
 
     if (sharePublicly && originalRecommendation.length >= 3) {
       const feedEntry: PublicFeedEntry = {
@@ -432,6 +439,7 @@ export class DynamoSolarGovernance {
       fullBoxGematriaResonance: hammer.fullBoxGematriaResonance,
       fullBox7DComposite: hammer.fullBox7DComposite,
       fullBox7DVerdict: hammer.fullBox7DVerdict,
+      signalPurity: hammer.signalPurity,
       neuralSunEmbedding: hammer.neuralSunEmbedding,
       neuralProposalEmbedding: hammer.neuralProposalEmbedding,
       neuralWaveProximity: hammer.neuralWaveProximity,
@@ -452,6 +460,17 @@ export class DynamoSolarGovernance {
       trinitariumDetectedConcerns: hammer.trinitariumDetectedConcerns,
       trinitariumGematriaFusion: hammer.trinitariumGematriaFusion,
       moralNumerologicalTension: hammer.moralNumerologicalTension,
+      gematriaDecomposition: gematriaDec,
+      vortexMessage: generateVortexMessage({
+        gematriaDecomposition: gematriaDec,
+        phaseType: hammer.phaseType,
+        isotope: hammer.isotope,
+        fullBox7DComposite: hammer.fullBox7DComposite,
+        trinitariumDetectedVirtues: hammer.trinitariumDetectedVirtues,
+        trinitariumDetectedConcerns: hammer.trinitariumDetectedConcerns,
+        moralNumerologicalTension: hammer.moralNumerologicalTension,
+        recommendation: finalRec,
+      }),
     }
 
     // Persist every query+response to Redis for durable history

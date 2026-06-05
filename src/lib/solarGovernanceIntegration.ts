@@ -41,7 +41,8 @@ function deriveProposalCodexParams(words: string[], solarData: SolarData): Vorte
   const combined = effective.join(' ')
   const totalChars = combined.length
   const uniqueChars = new Set(combined).size
-  const hashVal = fnvHash(combined)
+  const temporalNonce = Math.floor(Date.now() / 1000) ^ Math.floor((solarData.xray?.long ?? 0) * 1e6)
+  const hashVal = fnvHash(combined + String(temporalNonce))
 
   const T_c = 0.5 + (wordCount / 50) + (uniqueChars / Math.max(totalChars, 1)) * 0.5
   const P_s = 0.1 + (hashVal % 100000) / 100000
@@ -188,6 +189,10 @@ export class SolarGovernanceIntegration {
     fullBox4DComposite: number
     fullBoxVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
     fullBoxThresholds: { strong: number; good: number; weak: number }
+    fullBoxGematriaResonance: number
+    fullBox7DComposite: number
+    fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+    signalPurity: number
     neuralSunEmbedding?: number[]
     neuralProposalEmbedding?: number[]
     neuralWaveProximity: number
@@ -344,6 +349,7 @@ export class SolarGovernanceIntegration {
         fullBoxGematriaResonance: fullBox.fullBoxGematriaResonance,
         fullBox7DComposite: fullBox.fullBox7DComposite,
         fullBox7DVerdict: fullBox.fullBox7DVerdict,
+        signalPurity: fullBox.signalPurity,
         neuralSunEmbedding: sunNeuralEmbedding,
         neuralProposalEmbedding: proposalEmbedding,
         neuralWaveProximity: waveResonance.neuralWaveProximity,
@@ -409,6 +415,7 @@ export class SolarGovernanceIntegration {
         fullBoxGematriaResonance: 0.80,
         fullBox7DComposite: 0.80,
         fullBox7DVerdict: 'PASS' as const,
+        signalPurity: 0.85,
         neuralSunEmbedding: undefined,
         neuralProposalEmbedding: undefined,
         neuralWaveProximity: 0.80,

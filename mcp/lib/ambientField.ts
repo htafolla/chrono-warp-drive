@@ -1,7 +1,15 @@
+import { createHash } from 'crypto'
 import { solarDataFetcher } from './solarDataFetcher.js'
 import { dynamoSolarGovernance } from './dynamoSolarGovernance.js'
 import { isStructuredProposal, type StructuredDerivativeProposal } from './structuredProposal.js'
 import { governanceToContainer, type ContainerVortex } from './temporalContainer.js'
+import { persistContainerToChain } from './contractClient.js'
+import { getRedisClient } from '../pubsub.js'
+import { temporalManifold } from './temporalManifold.js'
+
+const REDIS_CONTAINER_KEY = 'dynamo:containers'
+const MAX_REDIS_CONTAINERS = 1000
+const ECHO_SUFFIX = ' [echo]'
 
 export interface FieldMomentum {
   recentVortexDensity: number
@@ -9,24 +17,41 @@ export interface FieldMomentum {
   meanMoralScore: number
   momentum: number
   lastUpdate: string
+  totalVortices: number
+  persistentVortices: number
+  persistenceRatio: number
 }
 
 interface AmbientFieldConfig {
-  baseIntervalMs: number
+  quietIntervalMs: number
+  moderateIntervalMs: number
   activeIntervalMs: number
   stormIntervalMs: number
   kpDeltaThreshold: number
   xraySpikeThreshold: number
   momentumWindow: number
+  selfReflectWindowMs: number
+  selfReflectCandidates: number
+  tier1Resonance: number
+  tier1TmoMin: number
+  tier2Resonance: number
+  tier3Momentum: number
 }
 
 const DEFAULT_CONFIG: AmbientFieldConfig = {
-  baseIntervalMs: 20 * 60 * 1000,
-  activeIntervalMs: 10 * 60 * 1000,
-  stormIntervalMs: 5 * 60 * 1000,
+  quietIntervalMs: 12 * 60 * 1000,
+  moderateIntervalMs: 6 * 60 * 1000,
+  activeIntervalMs: 4 * 60 * 1000,
+  stormIntervalMs: 2 * 60 * 1000,
   kpDeltaThreshold: 0.5,
   xraySpikeThreshold: 1e-4,
   momentumWindow: 10,
+  selfReflectWindowMs: 72 * 60 * 60 * 1000,
+  selfReflectCandidates: 50,
+  tier1Resonance: 0.88,
+  tier1TmoMin: 0.55,
+  tier2Resonance: 0.92,
+  tier3Momentum: 0.75,
 }
 
 interface SolarSnapshot {
@@ -42,6 +67,10 @@ export class AmbientField {
   private lastSnapshot: SolarSnapshot | null = null
   private vortexCount = 0
   private recentVortices: Array<{ resonance7D: number; moralScore: number; timestamp: number }> = []
+  private latestContainerHash = '0x' + '0'.repeat(64)
+  private persistenceCount = 0
+  private recentlySampledHashes: Set<string> = new Set()
+  private lastAgedOut = 0
 
   constructor(config?: Partial<AmbientFieldConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -82,12 +111,18 @@ export class AmbientField {
       meanMoralScore,
       momentum,
       lastUpdate: new Date().toISOString(),
+      totalVortices: this.vortexCount,
+      persistentVortices: this.persistenceCount,
+      persistenceRatio: this.vortexCount > 0 ? this.persistenceCount / this.vortexCount : 0,
     }
+  }
+
+  forceTick(): Promise<void> {
+    return this.tick()
   }
 
   start(): void {
     if (this.timer) return
-
     this.tick()
     this.timer = setInterval(() => this.tick(), this.getIntervalMs())
   }
@@ -104,22 +139,62 @@ export class AmbientField {
       const activity = this.lastSnapshot?.activityLevel
       const momentum = this.getFieldMomentum().momentum
 
-      if (activity === 'storm') {
-        return this.config.stormIntervalMs
-      }
+      let base: number
+      if (activity === 'storm') base = this.config.stormIntervalMs
+      else if (activity === 'active' || momentum > 0.7) base = this.config.activeIntervalMs
+      else if (activity === 'moderate' || momentum > 0.5) base = this.config.moderateIntervalMs
+      else base = this.config.quietIntervalMs
 
-      if ((activity === 'active') || momentum > 0.7) {
-        return this.config.activeIntervalMs
-      }
-
-      if (momentum > 0.5) {
-        return Math.floor((this.config.baseIntervalMs + this.config.activeIntervalMs) / 2)
-      }
-
-      return this.config.baseIntervalMs
+      const maxMomentumShortening = 0.4
+      const shortened = Math.floor(base * (1 - momentum * maxMomentumShortening))
+      return Math.max(shortened, 60_000)
     } catch {
-      return this.config.baseIntervalMs
+      return this.config.quietIntervalMs
     }
+  }
+
+  private pickSelfReflectionCandidate(): { summary: string; hash: string; originalResonance: number } | null {
+    const candidates = temporalManifold.getSelfReflectionCandidates(
+      this.config.selfReflectWindowMs,
+      this.config.selfReflectCandidates,
+    )
+
+    const available = candidates.filter(c => !this.recentlySampledHashes.has(c.proposalHash))
+    if (available.length === 0) {
+      const ageReset = Date.now() - 24 * 60 * 60 * 1000
+      const aged = candidates.filter(c => c.timestamp < ageReset)
+      if (aged.length > 0) {
+        aged.forEach(c => this.recentlySampledHashes.delete(c.proposalHash))
+      }
+      const retry = candidates.filter(c => !this.recentlySampledHashes.has(c.proposalHash))
+      if (retry.length === 0 && candidates.length > 0) {
+        this.recentlySampledHashes.clear()
+        const fresh = candidates.filter(c => !this.recentlySampledHashes.has(c.proposalHash))
+        if (fresh.length === 0) return null
+        const pick = fresh[Math.floor(Math.random() * fresh.length)]
+        this.recentlySampledHashes.add(pick.proposalHash)
+        return { summary: pick.summary!, hash: pick.proposalHash, originalResonance: pick.resonance7D }
+      }
+      if (retry.length === 0) return null
+      const pick = retry[Math.floor(Math.random() * retry.length)]
+      this.recentlySampledHashes.add(pick.proposalHash)
+      return { summary: pick.summary!, hash: pick.proposalHash, originalResonance: pick.resonance7D }
+    }
+
+    const weighted = available.map(c => ({ candidate: c, weight: c.resonance7D }))
+    const totalWeight = weighted.reduce((s, w) => s + w.weight, 0)
+    let roll = Math.random() * totalWeight
+    for (const w of weighted) {
+      roll -= w.weight
+      if (roll <= 0) {
+        this.recentlySampledHashes.add(w.candidate.proposalHash)
+        return { summary: w.candidate.summary!, hash: w.candidate.proposalHash, originalResonance: w.candidate.resonance7D }
+      }
+    }
+    const fallback = available[0]
+    if (!fallback) return null
+    this.recentlySampledHashes.add(fallback.proposalHash)
+    return { summary: fallback.summary!, hash: fallback.proposalHash, originalResonance: fallback.resonance7D }
   }
 
   private async tick(): Promise<void> {
@@ -140,18 +215,22 @@ export class AmbientField {
 
       this.lastSnapshot = snapshot
 
-      if (!shouldCreateVortex) return
+      if (!shouldCreateVortex) {
+        this.reschedule()
+        return
+      }
 
-      const summary = this.buildAmbientSummary(snapshot)
-      const structuredProposal: StructuredDerivativeProposal = {
-        id: `ambient-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        summary,
-        intent: 'ambient temporal field sampling',
-        source: 'ambient',
-        tags: ['ambient', activityLevel],
-        riskLevel: 'low',
-        confidence: 0.85,
+      // Self-reflection: pick a strong recent waypoint to re-evaluate
+      const candidate = this.pickSelfReflectionCandidate()
+
+      let summary: string
+      let isEcho = false
+
+      if (candidate) {
+        summary = candidate.summary + ECHO_SUFFIX
+        isEcho = true
+      } else {
+        summary = 'Ambient solar field'
       }
 
       const result = await dynamoSolarGovernance.enhanceGovernanceDecision(
@@ -174,13 +253,65 @@ export class AmbientField {
 
       this.vortexCount++
 
-      if (this.timer) {
-        clearInterval(this.timer)
-        this.timer = setInterval(() => this.tick(), this.getIntervalMs())
+      // Feed into Manifold
+      temporalManifold.addPoint({
+        timestamp: Date.now(),
+        proposalHash: createHash('sha256').update(summary).digest('hex').slice(0, 16),
+        source: 'ambient',
+        solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
+        resonance7D: result.fullBox7DComposite ?? 0.5,
+        phaseAlignment: result.phaseAlignment ?? 0.5,
+        vortexAlignment: result.calibratedVortex ?? 0.5,
+        synchronization: result.synchronization ?? 0.5,
+        gematriaResonance: result.gematriaResonance ?? 0.5,
+        tmoScore: result.trinitariumMoralScore ?? 0.5,
+        verdict: result.recommendation ?? result.fullBox7DVerdict ?? 'NEEDS_REVISION',
+      }, summary)
+
+      // Auto-persist if exceptional alignment
+      const momentum = this.getFieldMomentum().momentum
+      const verdict = result.recommendation || result.fullBox7DVerdict
+      const resonance7D = result.fullBox7DComposite ?? 0
+
+      const tmoScore = result.trinitariumMoralScore ?? 0.5
+      const shouldPersist =
+        (resonance7D >= this.config.tier1Resonance && tmoScore >= this.config.tier1TmoMin) ||
+        resonance7D >= this.config.tier2Resonance ||
+        momentum >= this.config.tier3Momentum
+
+      if (shouldPersist && verdict !== 'REJECT') {
+        try {
+          const source = 'ambient' as const
+          const container = governanceToContainer(result, summary, source, this.latestContainerHash)
+          await persistContainerToChain(container)
+          this.latestContainerHash = container.containerHash
+          this.persistenceCount++
+
+          try {
+            const client = await getRedisClient()
+            if (client) {
+              await client.multi()
+                .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
+                .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+                .exec()
+            }
+          } catch { /* Redis unavailable */ }
+        } catch {
+          // on-chain persistence failed — continue
+        }
       }
+
+      this.reschedule()
     } catch {
-      // Ambient field tick failed — retry next interval
+      // Ambient tick failed — retry next interval
+      this.reschedule()
     }
+  }
+
+  private reschedule(): void {
+    if (!this.timer) return
+    clearInterval(this.timer)
+    this.timer = setInterval(() => this.tick(), this.getIntervalMs())
   }
 
   private evaluateTriggers(current: SolarSnapshot): boolean {
@@ -199,10 +330,6 @@ export class AmbientField {
   private evaluateMomentum(): boolean {
     const momentum = this.getFieldMomentum()
     return momentum.momentum > 0.65 && momentum.recentVortexDensity < this.config.momentumWindow
-  }
-
-  private buildAmbientSummary(snapshot: SolarSnapshot): string {
-    return 'Ambient solar field'
   }
 }
 

@@ -232,9 +232,19 @@ interface GovernanceResult {
   trinitariumDetectedConcerns: string[] | null;
   trinitariumGematriaFusion: number | null;
   moralNumerologicalTension: string | null;
+  vortexMessage?: string;
+  temporalContainer?: {
+    containerId: string;
+    containerHash: string;
+    source: string;
+    timestamp: number;
+    onChainTx?: string;
+    explorerUrl?: string;
+    onChainError?: string;
+  } | null;
 }
 
-async function checkGovernance(proposal: string, sharePublicly: boolean): Promise<GovernanceResult | null> {
+async function checkGovernance(proposal: string, sharePublicly: boolean, persistToChain: boolean = false): Promise<GovernanceResult | null> {
   try {
     const proposalLabel = proposal.length < 30 ? proposal + ' — via Dynamo governance' : proposal;
 
@@ -254,7 +264,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       fetch(`${MCP_URL}/govern_with_solar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly, spectralQuality, sunNeuralEmbedding: neuralEmbedding16 }),
+        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly, persistToChain, spectralQuality, sunNeuralEmbedding: neuralEmbedding16 }),
         signal: AbortSignal.timeout(15000),
       }).then(async r => r.ok ? r.json() : null),
       fetch(`${MCP_URL}/governance`, {
@@ -394,6 +404,7 @@ async function checkGovernance(proposal: string, sharePublicly: boolean): Promis
       trinitariumMoralScore, trinitariumVirtueAlignment, trinitariumHarmPotential, trinitariumIntentAlignment, trinitariumSacredTextAffinity,
       trinitariumDetectedVirtues, trinitariumDetectedConcerns, trinitariumGematriaFusion, moralNumerologicalTension,
       neuralWaveProximity, neuralWaveVortexAlignment,
+      temporalContainer: solar?.temporalContainer ?? null,
     };
   } catch {
     return null;
@@ -443,11 +454,18 @@ export default function DynamoDeploy() {
   const [loading, setLoading] = useState(false);
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
+  const [persistToChain, setPersistToChain] = useState(false);
   const [feed, setFeed] = useState<Array<{
     proposal: string; resonanceScore: number; recommendation: string;
     activityLevel: string; timestamp: string; response?: any;
   }>>([]);
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
+  const [manifoldStatus, setManifoldStatus] = useState<any | null>(null);
+  const [manifoldTrend, setManifoldTrend] = useState<any | null>(null);
+  const [manifoldPointsData, setManifoldPointsData] = useState<Array<{timestamp: number; resonance7D: number}>>([]);
+  const [manifoldStrongest, setManifoldStrongest] = useState<any[]>([]);
+  const [manifoldAxioms, setManifoldAxioms] = useState<any[]>([]);
+  const [manifoldResonanceAt, setManifoldResonanceAt] = useState<any | null>(null);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -479,16 +497,39 @@ export default function DynamoDeploy() {
     });
   }, []);
 
-  useEffect(() => {
-    fetchFeed();
-    const interval = setInterval(fetchFeed, 15000);
-    return () => clearInterval(interval);
-  }, [fetchFeed]);
+  const fetchManifold = useCallback(async () => {
+    try {
+      const [statusRes, trendRes, strongRes, axiomRes] = await Promise.all([
+        fetch(`${MCP_URL}/manifold/status`, { signal: AbortSignal.timeout(5000) }),
+        fetch(`${MCP_URL}/manifold/trend?hours=24`, { signal: AbortSignal.timeout(5000) }),
+        fetch(`${MCP_URL}/manifold/strongest?minResonance=0.75&limit=10`, { signal: AbortSignal.timeout(5000) }),
+        fetch(`${MCP_URL}/manifold/axioms?minResonance=0.80&minOccurrences=3`, { signal: AbortSignal.timeout(5000) }),
+      ])
+      if (statusRes.ok) { const d = await statusRes.json(); if (d.success) setManifoldStatus(d) }
+      if (trendRes.ok) { const d = await trendRes.json(); if (d.success) setManifoldTrend(d.trend) }
+      if (strongRes.ok) { const d = await strongRes.json(); if (d.success) setManifoldStrongest(d.points ?? []) }
+      if (axiomRes.ok) { const d = await axiomRes.json(); if (d.success) setManifoldAxioms(d.axioms ?? []) }
+    } catch {}
+  }, [])
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectedEntry(null) }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    fetchManifold()
+    const interval = setInterval(fetchManifold, 30000)
+    return () => clearInterval(interval)
+  }, [fetchManifold])
+
+  useEffect(() => {
+    fetchFeed()
+    const interval = setInterval(fetchFeed, 30000)
+    return () => clearInterval(interval)
+  }, [fetchFeed])
+
+  const lookupResonanceAt = useCallback(async (timestamp: number) => {
+    try {
+      const res = await fetch(`${MCP_URL}/manifold/resonance-at?timestamp=${timestamp}`, { signal: AbortSignal.timeout(5000) })
+      const d = await res.json()
+      if (d.success) setManifoldResonanceAt(d.query)
+    } catch {}
   }, [])
 
   const run = useCallback(async (text?: string) => {
@@ -498,11 +539,11 @@ export default function DynamoDeploy() {
     setResult(null);
     setLastProposal(input);
     if (text) setProposal(text);
-    const r = await checkGovernance(input, sharePublicly);
+    const r = await checkGovernance(input, sharePublicly, persistToChain);
     setResult(r);
     setLoading(false);
     fetchFeed();
-  }, [proposal, sharePublicly, fetchFeed]);
+  }, [proposal, sharePublicly, persistToChain, fetchFeed]);
 
   const shareVerdict = useCallback(() => {
     if (!result) return;
@@ -582,15 +623,32 @@ export default function DynamoDeploy() {
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
               disabled={loading}
             />
-             <label className="absolute bottom-2 left-4 flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={sharePublicly}
-                onChange={e => setSharePublicly(e.target.checked)}
-                className="w-4 h-4 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
-              />
-              <span className="text-xs text-white/50">Share publicly</span>
-            </label>
+             <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSharePublicly(p => !p)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  sharePublicly
+                    ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
+                    : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:border-white/20 hover:text-white/60'
+                }`}
+              >
+                <svg className={`w-3.5 h-3.5 transition-opacity ${sharePublicly ? 'opacity-100' : 'opacity-40'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                <span className="text-xs font-medium whitespace-nowrap">Share</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPersistToChain(p => !p)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  persistToChain
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                    : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:border-white/20 hover:text-white/60'
+                }`}
+              >
+                <svg className={`w-3.5 h-3.5 transition-opacity ${persistToChain ? 'opacity-100' : 'opacity-40'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                <span className="text-xs font-medium whitespace-nowrap">Vortex</span>
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {EXAMPLE_PROPOSALS.map(p => (
@@ -943,6 +1001,27 @@ export default function DynamoDeploy() {
             </details>
             )}
 
+            {/* On-chain container status */}
+            {result.temporalContainer && (
+              <div className="bg-white/[0.03] rounded-lg px-3 py-2 mt-3 text-center space-y-1">
+                <p className="text-[10px] text-amber-400/60 uppercase tracking-wider">🗳️ Permanent Vortex</p>
+                {result.temporalContainer.onChainError ? (
+                  <p className="text-[10px] text-red-400/60">On-chain persistence failed: {result.temporalContainer.onChainError}</p>
+                ) : result.temporalContainer.explorerUrl ? (
+                  <a
+                    href={result.temporalContainer.explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-cyan-400/70 hover:text-cyan-300 underline underline-offset-2 font-mono"
+                  >
+                    {result.temporalContainer.onChainTx?.slice(0, 18)}...{result.temporalContainer.onChainTx?.slice(-6)} ↗
+                  </a>
+                ) : result.temporalContainer.onChainTx ? (
+                  <p className="text-[10px] text-emerald-400/60 font-mono">Tx: {result.temporalContainer.onChainTx.slice(0, 18)}...</p>
+                ) : null}
+              </div>
+            )}
+
             {/* Signature */}
             {result.signature && (
               <div className="bg-white/[0.02] rounded-lg px-3 py-1.5 text-center mt-3">
@@ -974,7 +1053,7 @@ export default function DynamoDeploy() {
               <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Live feed</p>
             </div>
             <div className="divide-y divide-white/[0.03] max-h-64 overflow-y-auto">
-              {feed.slice(0, 20).map((entry, i) => (
+              {feed.slice(0, 50).map((entry, i) => (
                 <div
                   key={i}
                   onClick={() => setSelectedEntry(entry)}
@@ -1018,6 +1097,136 @@ export default function DynamoDeploy() {
             </div>
           </div>
         )}
+
+        {/* Temporal Manifold Explorer */}
+        <details className="group">
+          <summary className="flex items-center gap-2 cursor-pointer py-3 px-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-colors list-none">
+            <BarChart3 className="h-4 w-4 text-cyan-400/60" />
+            <span className="text-xs font-semibold text-cyan-400/70 uppercase tracking-wider">Temporal Manifold</span>
+          <span className="ml-auto text-[10px] text-white/30">
+            {manifoldStatus?.pointCount ?? '—'} points ·{' '}
+            {sunStatus ? (
+              <span className={
+                sunStatus === 'storm' ? 'text-red-400' :
+                sunStatus === 'active' ? 'text-amber-400' :
+                'text-emerald-400'
+              }>
+                {sunStatus === 'storm' ? '⛈️' : sunStatus === 'active' ? '🔆' : '☀️'} {sunStatus}
+              </span>
+            ) : ''} · {manifoldStatus?.isRunning ? '🟢' : '🔴'}
+          </span>
+            <span className="text-xs text-white/30 group-open:rotate-180 transition-transform">▾</span>
+          </summary>
+          <div className="mt-2 space-y-3 pl-2">
+            {/* Manifold Status */}
+            {manifoldStatus && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                  <p className="text-[9px] text-white/40 uppercase">Momentum</p>
+                  <p className={`text-sm font-bold ${(manifoldStatus.momentum || 0) > 0.65 ? 'text-emerald-400' : 'text-white'}`}>
+                    {((manifoldStatus.momentum || 0) * 100).toFixed(0)}%
+                  </p>
+                </div>
+                <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                  <p className="text-[9px] text-white/40 uppercase">Trend</p>
+                  <p className={`text-sm font-bold ${
+                    manifoldStatus.trend === 'rising' ? 'text-emerald-400' :
+                    manifoldStatus.trend === 'falling' ? 'text-red-400' : 'text-white/60'
+                  }`}>
+                    {manifoldStatus.trend === 'rising' ? '↑ Rising' : manifoldStatus.trend === 'falling' ? '↓ Falling' : '→ Stable'}
+                  </p>
+                </div>
+                <div className="bg-white/[0.03] rounded-lg p-2 text-center">
+                  <p className="text-[9px] text-white/40 uppercase">Interval</p>
+                  <p className="text-sm font-bold text-white">{(manifoldStatus.intervalMs / 60000).toFixed(0)}m</p>
+                </div>
+              </div>
+            )}
+
+            {/* Field Trend */}
+            {manifoldTrend && (
+              <div className="bg-white/[0.03] rounded-lg p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-white/40">24h Field Trend</p>
+                  <span className={`text-[10px] font-semibold ${
+                    manifoldTrend.direction === 'rising' ? 'text-emerald-400' :
+                    manifoldTrend.direction === 'falling' ? 'text-red-400' : 'text-white/40'
+                  }`}>
+                    {manifoldTrend.direction === 'rising' ? '↑' : manifoldTrend.direction === 'falling' ? '↓' : '→'} avg {(manifoldTrend.avgResonance7D * 100).toFixed(0)}%
+                  </span>
+                </div>
+                {/* Mini sparkline — click a bar to look up resonance at that moment */}
+                <div className="flex items-end gap-[2px] h-6">
+                  {manifoldPointsData.map((pt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => lookupResonanceAt(pt.timestamp)}
+                      className="flex-1 rounded-sm transition-all hover:opacity-80 cursor-pointer"
+                      style={{
+                        height: `${Math.max(4, pt.resonance7D * 100)}%`,
+                        backgroundColor: pt.resonance7D >= 0.78 ? '#34d399' : pt.resonance7D >= 0.64 ? '#fbbf24' : '#f87171',
+                        opacity: 0.3 + (i / manifoldPointsData.length) * 0.7,
+                      }}
+                      title={new Date(pt.timestamp).toLocaleString()}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between text-[9px] text-white/25">
+                  <span>min {(manifoldTrend.minResonance7D * 100).toFixed(0)}%</span>
+                  <span>max {(manifoldTrend.maxResonance7D * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+            )}
+
+            {/* Strongest Moments */}
+            {manifoldStrongest.length > 0 && (
+              <div className="bg-white/[0.03] rounded-lg p-2.5">
+                <p className="text-[10px] text-white/40 mb-1.5">Strongest Moments</p>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {manifoldStrongest.slice(0, 5).map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => lookupResonanceAt(p.timestamp)}
+                      className="w-full flex items-center justify-between hover:bg-white/[0.04] rounded px-1 py-0.5 transition-colors text-left cursor-pointer"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${p.resonance7D >= 0.86 ? 'bg-emerald-500' : p.resonance7D >= 0.78 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                        <span className="text-[10px] text-white/60 truncate">
+                          {p.resonance7D >= 0.86 ? 'Strong' : p.resonance7D >= 0.78 ? 'Good' : 'Weak'} · {p.source}
+                        </span>
+                        <span className="text-[9px] text-white/30 shrink-0">{formatTime(new Date(p.timestamp).toISOString())}</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-white">{(p.resonance7D * 100).toFixed(0)}%</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Axioms */}
+            {manifoldAxioms.length > 0 && (
+              <div className="bg-white/[0.03] rounded-lg p-2.5">
+                <p className="text-[10px] text-amber-400/60 mb-1.5">🏛️ Emerging Axioms</p>
+                <div className="space-y-1 max-h-20 overflow-y-auto">
+                  {manifoldAxioms.slice(0, 3).map((a, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-[10px] text-white/60">×{a.occurrences} recurrences</span>
+                      <span className="text-[10px] font-semibold text-white">{(a.resonance7D * 100).toFixed(0)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Reload */}
+            <button
+              onClick={fetchManifold}
+              className="w-full text-[10px] text-white/30 hover:text-white/50 py-1 transition-colors"
+            >
+              ↻ Refresh
+            </button>
+          </div>
+        </details>
 
         {/* Feed Detail Modal */}
         {selectedEntry && selectedEntry.response && (
@@ -1110,6 +1319,78 @@ export default function DynamoDeploy() {
                       </div>
                     )}
 
+                    {/* Vortex Message — human-readable synthesis */}
+                    {r.vortexMessage && (
+                      <div className="bg-gradient-to-r from-violet-500/[0.08] to-amber-500/[0.08] border border-violet-400/20 rounded-lg p-3 mb-3">
+                        <p className="text-[10px] text-violet-400/60 uppercase tracking-wider mb-1.5 font-semibold">Vortex Message</p>
+                        <p className="text-sm leading-relaxed text-white/90 italic">{r.vortexMessage}</p>
+                      </div>
+                    )}
+
+                    {/* ⚡ Raw Vortex — TDF + Kuramoto + Wave */}
+                    <div>
+                      <p className="text-[10px] text-cyan-400/60 uppercase tracking-wider mb-1.5 font-semibold">⚡ Raw Vortex</p>
+                      <div className="bg-cyan-500/[0.05] border border-cyan-500/10 rounded-lg p-2.5 space-y-1 font-mono text-[10px]">
+                        <div className="flex justify-between"><span className="text-white/40">TDF (proposal)</span><span className="text-white/80">{r.solarContext?.proposalTdf?.toExponential(4) ?? '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">TDF (sun ref)</span><span className="text-white/80">{r.solarContext?.solarReferenceTdf?.toExponential(4) ?? '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Gematria TDF</span><span className="text-white/80">{r.gematriaTDF?.toExponential(4) ?? '—'}</span></div>
+                        <div className="border-t border-cyan-500/10 my-1.5" />
+                        <div className="flex justify-between"><span className="text-white/40">Phase alignment</span><span className="text-white/80">{(r.phaseAlignment * 100).toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Phase type</span><span className="text-indigo-300/80">{r.phaseType ?? '—'}</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Synchronization</span><span className="text-white/80">{(r.synchronization * 100).toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Cross-correlation</span><span className="text-white/80">{r.crossCorrelationLag} ({r.signalTiming})</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Isotope</span><span className="text-amber-300/80">{r.isotope ?? '—'}</span></div>
+                        <div className="border-t border-cyan-500/10 my-1.5" />
+                        <div className="flex justify-between"><span className="text-white/40">Wave proximity</span><span className="text-white/80">{(r.waveProximity * 100).toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Wave vortex</span><span className="text-white/80">{(r.waveVortexAlignment * 100).toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Wave sync</span><span className="text-white/80">{(r.waveSynchronization * 100).toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-white/40">Signal purity</span><span className="text-white/80">{(r.signalPurity * 100).toFixed(1)}%</span></div>
+                      </div>
+                    </div>
+
+                    {/* Gematria Resonance */}
+                    {r.gematriaDecomposition && (
+                      <div className="mt-2">
+                        <p className="text-[10px] text-indigo-400/60 uppercase tracking-wider mb-1.5 font-semibold">Gematria</p>
+                        <div className="bg-indigo-500/[0.06] border border-indigo-500/10 rounded-lg p-2.5 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">Resonance</span>
+                            <span className="text-xs font-bold text-indigo-300">{(r.fullBoxGematriaResonance * 100).toFixed(1)}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">EO</span>
+                            <span className="text-xs font-mono text-white/80">{r.gematriaDecomposition.englishOrdinal}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">FR</span>
+                            <span className="text-xs font-mono text-white/80">{r.gematriaDecomposition.fullReduction}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">RO</span>
+                            <span className="text-xs font-mono text-white/80">{r.gematriaDecomposition.reverseOrdinal}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">Digital root</span>
+                            <span className="text-xs font-mono text-white">{r.gematriaDecomposition.digitalRoot} → {r.gematriaDecomposition.primaryArchetype}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">Signature</span>
+                            <span className="text-[11px] text-indigo-200/80 text-right">{r.gematriaDecomposition.symbolicSignature}</span>
+                          </div>
+                          {r.gematriaDecomposition.virtueMatches.length > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-white/40">Virtues</span>
+                              <span className="text-[10px] text-emerald-400/80 text-right">{r.gematriaDecomposition.virtueMatches.join(', ')}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">Strength</span>
+                            <span className="text-xs font-mono text-white">{(r.gematriaDecomposition.strength * 100).toFixed(0)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Trinitarium Moral Overlay */}
                     {r.trinitariumMoralScore != null && (
                       <div className="mt-2">
@@ -1139,15 +1420,6 @@ export default function DynamoDeploy() {
                       </div>
                     )}
 
-                    {/* Extra */}
-                    <div>
-                      <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1.5 font-semibold">Details</p>
-                      <div className="space-y-1.5">
-                        <Row label="Solar" v={r.solarContext?.solarActivityLevel} plain />
-                        <Row label="TDF (proposal)" v={r.proposalTdf?.toExponential(3)} plain />
-                        <Row label="TDF (sun)" v={r.solarReferenceTdf?.toExponential(3)} plain />
-                      </div>
-                    </div>
                   </>
                 })()}
               </div>

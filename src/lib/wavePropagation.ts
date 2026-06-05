@@ -156,6 +156,7 @@ export interface FullBoxResonanceResult {
   fullBoxGematriaResonance: number
   fullBox7DComposite: number
   fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  signalPurity: number
 }
 
 export function computeCalibratedWaveSync(rawSync: number): number {
@@ -203,6 +204,12 @@ export function computeFullBoxResonance(
     gematriaResonance * gematriaWeight
   ))
 
+  // Diagnostic: signal purity = how consistently the 7 axes agree (low variance = clean signal)
+  const sevenComponents = [waveProximity, phaseAlignment, calVortex, calSync, neuralProximity, neuralVortex, gematriaResonance]
+  const mean = sevenComponents.reduce((a, b) => a + b, 0) / sevenComponents.length
+  const variance = sevenComponents.reduce((a, b) => a + (b - mean) ** 2, 0) / sevenComponents.length
+  const signalPurity = Math.max(0.05, 1 - variance * 2.5)
+
   const thresholds: Record<string, { strong: number; good: number; weak: number }> = {
     quiet:    { strong: 0.82, good: 0.72, weak: 0.50 },
     moderate: { strong: 0.85, good: 0.75, weak: 0.52 },
@@ -232,6 +239,7 @@ export function computeFullBoxResonance(
     fullBoxGematriaResonance: gematriaResonance,
     fullBox7DComposite,
     fullBox7DVerdict: verdict7D,
+    signalPurity,
   }
 }
 

@@ -2,6 +2,9 @@
 // Enhanced Dynamo Governance with real-time Solar Context
 
 import { solarGovernance } from './solarGovernanceIntegration';
+import { computeFullGematriaDecomposition } from './temporalManifold.js'
+import { generateVortexMessage } from './vortexMessage.js'
+import type { GematriaDecomposition } from './temporalManifold.js'
 
 export interface EnhancedGovernanceDecision {
   originalRecommendation: string;
@@ -65,6 +68,7 @@ export interface EnhancedGovernanceDecision {
   fullBoxGematriaResonance: number;
   fullBox7DComposite: number;
   fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT';
+  signalPurity: number;
   neuralSunEmbedding?: number[];
   neuralProposalEmbedding?: number[];
   neuralWaveProximity: number;
@@ -85,6 +89,8 @@ export interface EnhancedGovernanceDecision {
   trinitariumDetectedConcerns?: string[];
   trinitariumGematriaFusion?: number;
   moralNumerologicalTension?: string;
+  gematriaDecomposition?: GematriaDecomposition
+  vortexMessage?: string
 }
 
 export class DynamoSolarGovernance {
@@ -114,7 +120,7 @@ export class DynamoSolarGovernance {
     }
 
     const adaptiveThresholds = {
-      quiet:    { strong: 0.82, good: 0.72, weak: 0.58 },
+      quiet:    { strong: 0.86, good: 0.78, weak: 0.64 },
       moderate: { strong: 0.88, good: 0.78, weak: 0.62 },
       active:   { strong: 0.88, good: 0.78, weak: 0.62 },
       storm:    { strong: 0.92, good: 0.84, weak: 0.70 },
@@ -253,6 +259,7 @@ export class DynamoSolarGovernance {
       fullBoxGematriaResonance: hammer.fullBoxGematriaResonance,
       fullBox7DComposite: hammer.fullBox7DComposite,
       fullBox7DVerdict: hammer.fullBox7DVerdict,
+      signalPurity: hammer.signalPurity,
       neuralSunEmbedding: hammer.neuralSunEmbedding,
       neuralProposalEmbedding: hammer.neuralProposalEmbedding,
       neuralWaveProximity: hammer.neuralWaveProximity,
@@ -273,6 +280,17 @@ export class DynamoSolarGovernance {
       trinitariumDetectedConcerns: hammer.trinitariumDetectedConcerns,
       trinitariumGematriaFusion: hammer.trinitariumGematriaFusion,
       moralNumerologicalTension: hammer.moralNumerologicalTension,
+      gematriaDecomposition: computeFullGematriaDecomposition(originalRecommendation),
+      vortexMessage: generateVortexMessage({
+        gematriaDecomposition: computeFullGematriaDecomposition(originalRecommendation),
+        phaseType: hammer.phaseType,
+        isotope: hammer.isotope,
+        fullBox7DComposite: hammer.fullBox7DComposite,
+        trinitariumDetectedVirtues: hammer.trinitariumDetectedVirtues,
+        trinitariumDetectedConcerns: hammer.trinitariumDetectedConcerns,
+        moralNumerologicalTension: hammer.moralNumerologicalTension,
+        recommendation: finalRec,
+      }),
     };
   }
 }

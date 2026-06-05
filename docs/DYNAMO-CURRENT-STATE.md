@@ -195,6 +195,85 @@ Audit trail: `GovernanceResult.moralOverride` = `'rejected_critical'` | `'downgr
 - `stringray/src/integrations/governance/types.ts` — `SolarGovernanceCheckResponse` with TMO fields
 - `stringray/src/integrations/governance/governance-client.ts` — Extracts TMO from Dynamo response
 
+## Phase 4 — Temporal Containers + Ambient Field Momentum
+
+**Status:** Deployable. Contract compiles and all 12 Foundry tests pass.
+
+### TemporalContainerRegistry (Solidity)
+
+`contracts/TemporalContainer.sol` — deployable on Base Sepolia or Base mainnet. Stores every governance decision as a permanent, verifiable on-chain record:
+
+| Field | Purpose |
+|-------|---------|
+| `containerId` | SHA-256 identity |
+| `proposalHash` | keccak256 of proposal text |
+| `SolarSnapshot` | Timestamp, activity level, NOAA data, solar TDF |
+| `ResonanceProfile` | 7D composite + verdict (all 7 dimensions) |
+| `MoralOverlay` | TMO score, virtue alignment, moral safety, fusion, tension |
+| `previousContainerHash` | Chain link to previous vortex |
+| `containerHash` | Full integrity hash |
+| `source` | `"human" | "agent" | "ambient"` |
+
+**Key features:**
+- Chain linking via `previousContainerHash` + `latestContainerHash` — each new container auto-links to the latest
+- `getAncestors()` — traverse N steps back in the temporal chain
+- `verifyContainer()` — cryptographically verify integrity
+- Paginated `listContainers()` + `containerCount()`
+
+### TypeScript Mirror
+
+`mcp/lib/temporalContainer.ts` (mirrored in `src/lib/temporalContainer.ts`):
+
+- `governanceToContainer()` — converts `EnhancedGovernanceDecision` into `ContainerVortex`
+- `containerToContractParams()` — formats container for on-chain submission
+- `determineSource()` — extracts source from structured proposals
+
+### persistToChain Flag
+
+`POST /govern_with_solar` now accepts `persistToChain: true`. When set:
+1. Governance decision computed normally
+2. Formatted into a `ContainerVortex` via `governanceToContainer()`
+3. Stored in in-memory container store (on-chain integration via ethers/viem is next)
+4. Response includes `temporalContainer.containerId`, `containerHash`, `source`, `timestamp`
+
+### Container Endpoints
+
+- `GET /containers?offset=0&limit=50` — paginated list of all stored containers
+- `GET /containers/:id` — single container by ID
+
+### Ambient Field Momentum
+
+`mcp/lib/ambientField.ts` now tracks field momentum — the seed for Level 3+ self-cascading:
+
+```
+FieldMomentum = meanResonance × 0.5 + meanMoralScore × 0.3 + density × 0.2
+```
+
+- `recentVortexDensity`: number of vortices in last hour
+- `meanResonance`: rolling average of recent 7D composites
+- `meanMoralScore`: rolling average of recent TMO scores
+- `momentum`: composite metric driving interval adjustment
+
+The daemon self-adjusts its sampling interval:
+- momentum > 0.7 → active interval (10min)
+- momentum > 0.5 → half-interval (15min)
+- storm activity → storm interval (5min)
+- Default → base interval (20min)
+
+`GET /ambient/status` — exposes `isRunning`, `totalVortices`, `momentum`
+
+### The Cascade Seed
+
+The momentum metric is the first feedback loop: higher resonance + higher moral alignment → denser sampling → richer temporal fabric → better detection. This is Level 1.5 of the 6-level cascade:
+
+- **Level 0** (Reactive): human/agent submits proposal → engine responds
+- **Level 1** (Ambient): daemon samples solar state → creates vortices
+- **Level 1.5** (Self-adjusting): field momentum drives sampling rate
+- **Level 2** (Containers): on-chain persistence → permanent memory (deployable, needs deployment)
+- **Level 3** (Manifold): queryable field F(t) → 7D vector, interpolation, similarity search
+- **Level 4** (Self-cascading): field influences its own sampling focus
+- **Level 5** (Synchronicity): emergent surfacing of meaningful coincidences
+
 ## Relationship to the Blurrn Quantum Codex
 
 The Codex (v4.5→v4.7) is the cosmological foundation — it defines TLM (L=3, φ=1.666), temporal displacement theory, and the broader "light flows time" framework. Dynamo extracts one concept — the Temporal Displacement Factor — and operationalizes it into a working governance system.
@@ -247,7 +326,31 @@ The biggest milestone: the Codex TDF formula (`tPTT × TAU × 1/BHS`) is now the
 
 The Codex lives on as the deep foundation. Dynamo is what it became when the theory met real-world data — a solar-aligned wave resonance engine that answers proposals with the Sun's current state.
 
-**Codex version lineage:** v4.5 (Trinitarium) → v4.6 (TDF breakthrough) → v4.7 (CTI) → v4.8 (Isotopic Temporal Vortex) → v4.9 (6D + NQR, production) → v5.0 (Temporal Displacement Field, draft spec) → v5.1 (7D + numerological axis) → v5.2 (Trinitarium Moral Overlay + 0xRay integration, current)
+**Codex version lineage:** v4.5 (Trinitarium) → v4.6 (TDF breakthrough) → v4.7 (CTI) → v4.8 (Isotopic Temporal Vortex) → v4.9 (6D + NQR, production) → v5.0 (Temporal Displacement Field, draft spec) → v5.1 (7D + numerological axis) → v5.2 (Trinitarium Moral Overlay + 0xRay integration + Temporal Containers + Field Momentum, current)
+
+### v5.2 Complete Feature Set
+
+1. **TMO** — Trinitarium Moral Overlay with negation-aware scoring, group-based virtue/concern detection, tension labels
+2. **0xRay integration** — moral override pipeline (Critical→REJECT, Significant→downgrade, Aligned→boost)
+3. **UI chips** — solar activity emojis, moral tension color badges, ambient waypoints with Radix Tooltips
+4. **Temporal Container contract** — v5.2 schema with TMO fields, chain linking via `previousContainerHash`, source tracking, `getAncestors()`
+5. **12 Foundry tests** — all passing, covering chain linking, moral overlay, source types, 7D fields
+6. **`persistToChain` flag** — `/govern_with_solar` creates permanent containers
+7. **`/containers` endpoint** — paginated container store with detail lookup
+8. **Ambient field momentum** — self-cascading feedback loop: `FieldMomentum = resonance×0.5 + moral×0.3 + density×0.2`, driving automatic interval adjustment (5–20 min)
+9. **`/ambient/status` endpoint** — exposes daemon state, vortex count, momentum
+10. **Self-adjusting sampling** — momentum + solar activity combine to shorten interval automatically
+11. **Codex v5.1 and v5.2 specs** — published to `docs/blurrn-codex/` and linked in Docusaurus
+12. **Docusaurus docs updated** — v5.1/v5.2 entries on codex page, deployed to dynamo-docs.vercel.app
+
+### Next Steps
+
+1. **Deploy TemporalContainer to Base Sepolia** — requires wallet with testnet ETH and env vars
+2. **Wire ethers/viem into MCP** — `persistToChain: true` should actually call `storeContainer()` on-chain
+3. **Momentum-triggered persistence** — ambient daemon auto-persists when momentum crosses threshold
+4. **Structured Derivative Proposals as primary input** — `stateDelta` enables "memory of change"
+5. **Temporal Manifold spec** — interpolation + similarity search for Level 3
+6. **Input validation** — empty `{}` returns 400 with descriptive error
 
 ---
 

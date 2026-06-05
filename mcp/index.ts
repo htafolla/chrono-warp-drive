@@ -1,20 +1,52 @@
+import { createHash } from 'crypto'
 import { Hono, Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
-import { publish, subscribe } from './pubsub'
+import { publish, subscribe, getRedisClient } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
 import { dynamoSolarGovernance, getPublicFeed, getHistory } from './lib/dynamoSolarGovernance.js'
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
+import { persistContainerToChain } from './lib/contractClient.js'
+import { temporalManifold } from './lib/temporalManifold.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
 const containerStore: ContainerVortex[] = []
 let latestContainerHash = '0x' + '0'.repeat(64)
+
+const REDIS_CONTAINER_KEY = 'dynamo:containers'
+const MAX_REDIS_CONTAINERS = 1000
+
+// Bootstrap: load containers from Redis on module init
+;(async () => {
+  try {
+    const client = await getRedisClient()
+    if (!client) return
+    const raw = await client.lrange(REDIS_CONTAINER_KEY, 0, -1)
+    for (const entry of raw.reverse()) {
+      try {
+        const c = JSON.parse(entry) as ContainerVortex
+        containerStore.push(c)
+        if (c.containerHash && c.containerHash !== '0x' + '0'.repeat(64)) {
+          latestContainerHash = c.containerHash
+        }
+      } catch { /* skip corrupt */ }
+    }
+  } catch { /* Redis unavailable */ }
+})()
+
+// Rate-limit for manual persistToChain: 1 per 10 seconds globally
+let lastPersistTime = 0
+const PERSIST_COOLDOWN_MS = 10_000
+
+function temporalManifoldProposalHash(text: string): string {
+  return createHash('sha256').update(text).digest('hex').slice(0, 16)
+}
 
 async function fetchSunNeuralEmbedding(): Promise<number[] | undefined> {
   try {
@@ -1536,12 +1568,98 @@ app.post('/govern_with_solar', async (c: Context) => {
 
   const persistToChain = body.persistToChain === true
   if (persistToChain) {
+    // Rate-limit: 1 persist per 60 seconds globally
+    const now = Date.now()
+    if (now - lastPersistTime < PERSIST_COOLDOWN_MS) {
+      const remaining = Math.ceil((PERSIST_COOLDOWN_MS - (now - lastPersistTime)) / 1000)
+      return c.json({
+        success: true,
+        ...result,
+        temporalContainer: {
+          onChainError: `Rate-limited. Try again in ${remaining}s.`,
+        },
+      })
+    }
+
+    // Resonance gate: only persist non-REJECT verdicts
+    const verdict = result.recommendation || result.fullBox7DVerdict
+    if (verdict === 'REJECT') {
+      return c.json({
+        success: true,
+        ...result,
+        temporalContainer: {
+          onChainError: 'Proposal rejected — cannot persist to chain.',
+        },
+      })
+    }
+
+    lastPersistTime = now
     const source = determineSource(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
     const container = governanceToContainer(result, proposalText, source, latestContainerHash)
     containerStore.push(container)
     latestContainerHash = container.containerHash
-    return c.json({ success: true, ...result, temporalContainer: { containerId: container.containerId, containerHash: container.containerHash, source: container.source, timestamp: container.timestamp } })
+
+    // Feed into Temporal Manifold
+    temporalManifold.addFromContainer(container, proposalText)
+
+    // Persist container to Redis for durability across deploys
+    ;(async () => {
+      try {
+        const client = await getRedisClient()
+        if (client) {
+          await client.multi()
+            .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
+            .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+            .exec()
+        }
+      } catch { /* Redis unavailable */ }
+    })()
+
+    let onChain: { txHash: string } | null = null
+    try {
+      onChain = await persistContainerToChain(container)
+    } catch (err: any) {
+      return c.json({
+        success: true,
+        ...result,
+        temporalContainer: {
+          containerId: container.containerId,
+          containerHash: container.containerHash,
+          source: container.source,
+          timestamp: container.timestamp,
+        },
+        onChainError: err.message,
+      })
+    }
+
+    return c.json({
+      success: true,
+      ...result,
+      temporalContainer: {
+        containerId: container.containerId,
+        containerHash: container.containerHash,
+        source: container.source,
+        timestamp: container.timestamp,
+        onChainTx: onChain.txHash,
+        explorerUrl: `https://sepolia.basescan.org/tx/${onChain.txHash}`,
+      },
+    })
   }
+
+  // Feed non-persisted governance result into Temporal Manifold
+  temporalManifold.addPoint({
+    timestamp: Date.now(),
+    proposalHash: temporalManifoldProposalHash(proposalText),
+    source: 'human',
+    solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
+    resonance7D: result.fullBox7DComposite ?? 0.5,
+    phaseAlignment: result.phaseAlignment ?? 0.5,
+    vortexAlignment: result.calibratedVortex ?? 0.5,
+    synchronization: result.synchronization ?? 0.5,
+    gematriaResonance: result.gematriaResonance ?? 0.5,
+    tmoScore: result.trinitariumMoralScore ?? 0.5,
+    verdict: result.recommendation ?? result.fullBox7DVerdict ?? 'NEEDS_REVISION',
+  }, proposalText)
 
   return c.json({ success: true, ...result })
 })
@@ -1571,6 +1689,57 @@ app.get('/ambient/status', (c: Context) => {
     totalVortices: ambientField.totalVortices,
     momentum: ambientField.getFieldMomentum(),
   })
+})
+
+// ── Temporal Manifold API ──
+
+app.post('/manifold/sample-now', async (c: Context) => {
+  try {
+    await ambientField.forceTick()
+    return c.json({ success: true, message: 'Ambient field tick forced' })
+  } catch (e) {
+    return c.json({ success: false, error: String(e) }, 500)
+  }
+})
+
+app.get('/manifold/status', (c: Context) => {
+  return c.json({
+    success: true,
+    ...temporalManifold.getStatus(),
+  })
+})
+
+app.get('/manifold/trend', (c: Context) => {
+  const hours = Math.min(parseInt(c.req.query('hours') || '24', 10) || 24, 720)
+  const trend = temporalManifold.getFieldTrend(hours * 60 * 60 * 1000)
+  return c.json({ success: true, trend })
+})
+
+app.get('/manifold/resonance-at', (c: Context) => {
+  const ts = parseInt(c.req.query('timestamp') || '', 10)
+  if (!ts) return c.json({ success: false, error: 'timestamp (ms) required' }, 400)
+  const query = temporalManifold.interpolateAt(ts)
+  return c.json({ success: true, query })
+})
+
+app.get('/manifold/strongest', (c: Context) => {
+  const minRes = parseFloat(c.req.query('minResonance') || '0.75')
+  const limit = Math.min(parseInt(c.req.query('limit') || '10', 10), 50)
+  const points = temporalManifold.getStrongestMoments(minRes, limit)
+  return c.json({ success: true, points, count: points.length })
+})
+
+app.get('/manifold/axioms', (c: Context) => {
+  const minRes = parseFloat(c.req.query('minResonance') || '0.80')
+  const minOcc = Math.max(1, parseInt(c.req.query('minOccurrences') || '3', 10))
+  const axioms = temporalManifold.getAxioms(minRes, minOcc)
+  return c.json({ success: true, axioms, count: axioms.length })
+})
+
+app.get('/manifold/points', (c: Context) => {
+  const limit = Math.min(parseInt(c.req.query('limit') || '100', 10), 1000)
+  const points = temporalManifold.getAllPoints().slice(-limit)
+  return c.json({ success: true, points, count: points.length, total: temporalManifold.getPointCount() })
 })
 
 app.get('/history', async (c: Context) => {
