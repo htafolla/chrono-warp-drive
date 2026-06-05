@@ -1736,6 +1736,12 @@ app.get('/manifold/axioms', (c: Context) => {
   return c.json({ success: true, axioms, count: axioms.length })
 })
 
+app.get('/manifold/ambient-activity', (c: Context) => {
+  const limit = Math.min(parseInt(c.req.query('limit') || '20', 10), 100)
+  const activity = ambientField.getRecentActivity(limit)
+  return c.json({ success: true, activity, count: activity.length })
+})
+
 app.get('/manifold/points', (c: Context) => {
   const limit = Math.min(parseInt(c.req.query('limit') || '100', 10), 1000)
   const points = temporalManifold.getAllPoints().slice(-limit)

@@ -11,6 +11,16 @@ const REDIS_CONTAINER_KEY = 'dynamo:containers'
 const MAX_REDIS_CONTAINERS = 1000
 const ECHO_SUFFIX = ' [echo]'
 
+export interface AmbientActivityEntry {
+  timestamp: number
+  summary: string
+  isEcho: boolean
+  resonance7D: number
+  previousResonance: number | null
+  delta: number | null
+  verdict: string
+}
+
 export interface FieldMomentum {
   recentVortexDensity: number
   meanResonance: number
@@ -70,6 +80,7 @@ export class AmbientField {
   private latestContainerHash = '0x' + '0'.repeat(64)
   private persistenceCount = 0
   private recentlySampledHashes: Set<string> = new Set()
+  private activityLog: AmbientActivityEntry[] = []
   private lastAgedOut = 0
 
   constructor(config?: Partial<AmbientFieldConfig>) {
@@ -82,6 +93,10 @@ export class AmbientField {
 
   get totalVortices(): number {
     return this.vortexCount
+  }
+
+  getRecentActivity(limit: number = 20): AmbientActivityEntry[] {
+    return this.activityLog.slice(-limit)
   }
 
   getFieldMomentum(): FieldMomentum {
@@ -259,8 +274,12 @@ export class AmbientField {
         undefined,
       )
 
+      const resonance7D = result.fullBox7DComposite ?? 0
+      const prevResonance = candidate?.originalResonance ?? null
+      const delta = prevResonance !== null ? resonance7D - prevResonance : null
+
       this.recentVortices.push({
-        resonance7D: result.fullBox7DComposite ?? 0,
+        resonance7D,
         moralScore: result.trinitariumMoralScore ?? 0.5,
         timestamp: Date.now(),
       })
@@ -270,6 +289,19 @@ export class AmbientField {
       }
 
       this.vortexCount++
+
+      this.activityLog.push({
+        timestamp: Date.now(),
+        summary: summary.replace(ECHO_SUFFIX, ''),
+        isEcho: !!candidate,
+        resonance7D,
+        previousResonance: prevResonance,
+        delta,
+        verdict: result.recommendation ?? result.fullBox7DVerdict ?? 'NEEDS_REVISION',
+      })
+      if (this.activityLog.length > 100) {
+        this.activityLog = this.activityLog.slice(-100)
+      }
 
       // Feed into Manifold
       temporalManifold.addPoint({
@@ -289,8 +321,6 @@ export class AmbientField {
       // Auto-persist if exceptional alignment
       const momentum = this.getFieldMomentum().momentum
       const verdict = result.recommendation || result.fullBox7DVerdict
-      const resonance7D = result.fullBox7DComposite ?? 0
-
       const tmoScore = result.trinitariumMoralScore ?? 0.5
       const shouldPersist =
         (resonance7D >= this.config.tier1Resonance && tmoScore >= this.config.tier1TmoMin) ||

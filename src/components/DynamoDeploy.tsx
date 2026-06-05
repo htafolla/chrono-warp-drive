@@ -465,6 +465,7 @@ export default function DynamoDeploy() {
   const [manifoldPointsData, setManifoldPointsData] = useState<Array<{timestamp: number; resonance7D: number}>>([]);
   const [manifoldStrongest, setManifoldStrongest] = useState<any[]>([]);
   const [manifoldAxioms, setManifoldAxioms] = useState<any[]>([]);
+  const [manifoldAmbientActivity, setManifoldAmbientActivity] = useState<any[]>([]);
   const [manifoldResonanceAt, setManifoldResonanceAt] = useState<any | null>(null);
 
   const fetchFeed = useCallback(async () => {
@@ -499,20 +500,19 @@ export default function DynamoDeploy() {
 
   const fetchManifold = useCallback(async () => {
     try {
-      const [statusRes, trendRes, strongRes, axiomRes] = await Promise.all([
+      const [statusRes, trendRes, strongRes, axiomRes, ambientRes] = await Promise.all([
         fetch(`${MCP_URL}/manifold/status`, { signal: AbortSignal.timeout(5000) }),
         fetch(`${MCP_URL}/manifold/trend?hours=24`, { signal: AbortSignal.timeout(5000) }),
         fetch(`${MCP_URL}/manifold/strongest?minResonance=0.75&limit=10`, { signal: AbortSignal.timeout(5000) }),
         fetch(`${MCP_URL}/manifold/axioms?minResonance=0.80&minOccurrences=3`, { signal: AbortSignal.timeout(5000) }),
+        fetch(`${MCP_URL}/manifold/ambient-activity?limit=20`, { signal: AbortSignal.timeout(5000) }),
       ])
       if (statusRes.ok) { const d = await statusRes.json(); if (d.success) setManifoldStatus(d) }
       if (trendRes.ok) { const d = await trendRes.json(); if (d.success) setManifoldTrend(d.trend) }
       if (strongRes.ok) { const d = await strongRes.json(); if (d.success) setManifoldStrongest(d.points ?? []) }
       if (axiomRes.ok) { const d = await axiomRes.json(); if (d.success) setManifoldAxioms(d.axioms ?? []) }
-    } catch {}
-  }, [])
-
-  useEffect(() => {
+      if (ambientRes.ok) { const d = await ambientRes.json(); if (d.success) setManifoldAmbientActivity(d.activity ?? []) }
+    } catch { /* skip */ }
     fetchManifold()
     const interval = setInterval(fetchManifold, 30000)
     return () => clearInterval(interval)
@@ -1198,6 +1198,36 @@ export default function DynamoDeploy() {
                       </div>
                       <span className="text-[10px] font-semibold text-white">{(p.resonance7D * 100).toFixed(0)}%</span>
                     </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ambient Activity */}
+            {manifoldAmbientActivity.length > 0 && (
+              <div className="bg-white/[0.03] rounded-lg p-2.5">
+                <p className="text-[10px] text-violet-400/60 mb-1.5">🔄 Ambient Activity</p>
+                <div className="space-y-1 max-h-28 overflow-y-auto">
+                  {manifoldAmbientActivity.slice(0, 8).map((a, i) => (
+                    <div key={i} className="flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                          a.isEcho ? 'bg-violet-500' : 'bg-cyan-500'
+                        }`} />
+                        <span className="text-white/60 truncate max-w-[140px]">{a.summary}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-semibold text-white/80">{(a.resonance7D * 100).toFixed(0)}%</span>
+                        {a.delta !== null && (
+                          <span className={`font-mono ${
+                            a.delta > 0.05 ? 'text-emerald-400' :
+                            a.delta < -0.05 ? 'text-red-400' : 'text-white/40'
+                          }`}>
+                            {a.delta > 0 ? '+' : ''}{(a.delta * 100).toFixed(1)}pp
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
