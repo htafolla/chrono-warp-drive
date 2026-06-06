@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import About from "./pages/About";
 import IsotopicVortex from "./pages/IsotopicVortex";
 import DynamoDeploy from "./pages/DynamoDeploy";
+import TPTTPage from "./pages/TPTTPage";
 import NotFound from "./pages/NotFound";
 
 // Simple consumer site should show the lightweight beacon dashboard as root
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/isotopic-vortex" element={<IsotopicVortex />} />
             <Route path="/deploy" element={<DynamoDeploy />} />
+            <Route path="/tptt" element={<TPTTPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

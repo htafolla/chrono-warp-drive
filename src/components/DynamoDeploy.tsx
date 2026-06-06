@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3, Hash, Waves, Orbit } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
@@ -455,6 +455,8 @@ export default function DynamoDeploy() {
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
   const [persistToChain, setPersistToChain] = useState(false);
+  const [pipelineStageIdx, setPipelineStageIdx] = useState(-1);
+  const pipelineTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [feed, setFeed] = useState<Array<{
     proposal: string; resonanceScore: number; recommendation: string;
     activityLevel: string; timestamp: string; response?: any;
@@ -465,8 +467,31 @@ export default function DynamoDeploy() {
   const [manifoldPointsData, setManifoldPointsData] = useState<Array<{timestamp: number; resonance7D: number}>>([]);
   const [manifoldStrongest, setManifoldStrongest] = useState<any[]>([]);
   const [manifoldAxioms, setManifoldAxioms] = useState<any[]>([]);
-  const [manifoldAmbientActivity, setManifoldAmbientActivity] = useState<any[]>([]);
   const [manifoldResonanceAt, setManifoldResonanceAt] = useState<any | null>(null);
+  const [manifoldAmbientActivity, setManifoldAmbientActivity] = useState<any[]>([]);
+
+  const PIPELINE_STAGES = [
+    { id: 'ingestion', label: 'Solar Ingestion', icon: <Radio className="h-3.5 w-3.5" /> },
+    { id: 'tdf', label: 'TDF Computation', icon: <Hash className="h-3.5 w-3.5" /> },
+    { id: 'kuramoto', label: 'Kuramoto Coupling', icon: <Waves className="h-3.5 w-3.5" /> },
+    { id: 'wave', label: 'Wave Propagation', icon: <Orbit className="h-3.5 w-3.5" /> },
+    { id: 'verdict', label: 'Governance Verdict', icon: <Shield className="h-3.5 w-3.5" /> },
+  ];
+
+  const clearPipelineTimers = useCallback(() => {
+    pipelineTimersRef.current.forEach(clearTimeout);
+    pipelineTimersRef.current = [];
+  }, []);
+
+  const advancePipeline = useCallback(() => {
+    setPipelineStageIdx(0);
+    clearPipelineTimers();
+    const durations = [600, 500, 600, 500];
+    durations.forEach((ms, i) => {
+      const timer = setTimeout(() => setPipelineStageIdx(i + 1), ms);
+      pipelineTimersRef.current.push(timer);
+    });
+  }, [clearPipelineTimers]);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -513,6 +538,9 @@ export default function DynamoDeploy() {
       if (axiomRes.ok) { const d = await axiomRes.json(); if (d.success) setManifoldAxioms(d.axioms ?? []) }
       if (ambientRes.ok) { const d = await ambientRes.json(); if (d.success) setManifoldAmbientActivity(d.activity ?? []) }
     } catch { /* skip */ }
+  }, [])
+
+  useEffect(() => {
     fetchManifold()
     const interval = setInterval(fetchManifold, 30000)
     return () => clearInterval(interval)
@@ -539,11 +567,14 @@ export default function DynamoDeploy() {
     setResult(null);
     setLastProposal(input);
     if (text) setProposal(text);
+    advancePipeline();
     const r = await checkGovernance(input, sharePublicly, persistToChain);
     setResult(r);
     setLoading(false);
+    setPipelineStageIdx(PIPELINE_STAGES.length - 1);
+    clearPipelineTimers();
     fetchFeed();
-  }, [proposal, sharePublicly, persistToChain, fetchFeed]);
+  }, [proposal, sharePublicly, persistToChain, fetchFeed, advancePipeline, clearPipelineTimers]);
 
   const shareVerdict = useCallback(() => {
     if (!result) return;
@@ -578,6 +609,7 @@ export default function DynamoDeploy() {
             <a href="https://dynamo-docs.vercel.app/about" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">About</a>
             <a href="https://github.com/htafolla/chrono-warp-drive" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">GitHub</a>
             <a href="https://x.com/blaze0x1" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">X / @blaze0x1</a>
+            <a href="/tptt" className="text-[10px] text-cyan-400/50 hover:text-cyan-300 transition-colors">Pipeline</a>
           </div>
         </div>
 
@@ -623,31 +655,25 @@ export default function DynamoDeploy() {
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); } }}
               disabled={loading}
             />
-             <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSharePublicly(p => !p)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer select-none ${
-                  sharePublicly
-                    ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
-                    : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:border-white/20 hover:text-white/60'
-                }`}
-              >
-                <svg className={`w-3.5 h-3.5 transition-opacity ${sharePublicly ? 'opacity-100' : 'opacity-40'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-                <span className="text-xs font-medium whitespace-nowrap">Share</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPersistToChain(p => !p)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer select-none ${
-                  persistToChain
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                    : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:border-white/20 hover:text-white/60'
-                }`}
-              >
-                <svg className={`w-3.5 h-3.5 transition-opacity ${persistToChain ? 'opacity-100' : 'opacity-40'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                <span className="text-xs font-medium whitespace-nowrap">Vortex</span>
-              </button>
+             <div className="absolute bottom-2 left-2 right-2 flex items-center gap-3">
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={sharePublicly}
+                  onChange={e => setSharePublicly(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-white/20 bg-white/[0.05] accent-violet-500 cursor-pointer"
+                />
+                <span className="text-xs text-white/50">Share publicly</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={persistToChain}
+                  onChange={e => setPersistToChain(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-white/20 bg-white/[0.05] accent-amber-500 cursor-pointer"
+                />
+                <span className="text-xs text-white/50">Post to blockchain</span>
+              </label>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -662,13 +688,44 @@ export default function DynamoDeploy() {
               </button>
             ))}
           </div>
+
+          {/* Pipeline visualization during loading */}
+          {loading && (
+            <div className="rounded-lg border bg-white/[0.03] border-white/[0.06] p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                {PIPELINE_STAGES.map((stage, i) => (
+                  <div key={stage.id} className="flex-1 flex flex-col items-center relative">
+                    {i > 0 && (
+                      <div className={`absolute top-[11px] right-1/2 w-full h-[2px] transition-colors duration-500 ${
+                        i <= pipelineStageIdx ? 'bg-cyan-500/40' : 'bg-white/10'
+                      }`} />
+                    )}
+                    <div className={`relative z-10 flex items-center justify-center w-[22px] h-[22px] rounded-full border transition-all duration-500 ${
+                      i < pipelineStageIdx
+                        ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
+                        : i === pipelineStageIdx
+                        ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 animate-pulse'
+                        : 'bg-white/[0.04] border-white/20 text-white/40'
+                    }`}>
+                      {i < pipelineStageIdx ? <CheckCircle2 className="h-3 w-3" /> : stage.icon}
+                    </div>
+                    <span className={`mt-1 text-[8px] text-center leading-tight transition-colors duration-500 ${
+                      i <= pipelineStageIdx ? 'text-white/60' : 'text-white/20'
+                    }`}>
+                      {stage.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button
             onClick={() => run()}
             disabled={loading || !proposal.trim()}
             className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg shadow-violet-600/30"
           >
-            {loading && <Loader2 className="h-5 w-5 animate-spin" />}
-            {loading ? 'Analyzing proposal...' : 'Ask Dynamo'}
+            {loading ? 'Analyzing...' : 'Ask Dynamo'}
           </button>
         </div>
 
@@ -682,6 +739,12 @@ export default function DynamoDeploy() {
             <div className="flex items-center justify-center gap-2 mb-2">
               <p className="text-[9px] text-cyan-400/60 uppercase tracking-widest font-semibold">⚡ Temporal Document</p>
               <span className="text-[9px] text-emerald-400/60">✓ Grounded</span>
+              <a
+                href={`/tptt?proposal=${encodeURIComponent(lastProposal)}`}
+                className="text-[9px] text-cyan-400/40 hover:text-cyan-300 transition-colors ml-1"
+              >
+                Pipeline ↗
+              </a>
             </div>
             <div className="text-4xl">{result.answer === 'yes' ? '✅' : result.answer === 'no' ? '❌' : '🔄'}</div>
             <p className="text-xl font-bold text-white">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { Rocket, Sun, Waves, Hash, AlertCircle, CheckCircle2, XCircle, Shield } from 'lucide-react';
+import { Rocket, Sun, Waves, Hash, AlertCircle, CheckCircle2, XCircle, Shield, Orbit, Radio, Loader2 } from 'lucide-react';
 
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
 
@@ -64,12 +64,62 @@ interface TemporalRecord {
   moralNumerologicalTension?: string;
 }
 
+type StageId = 'ingestion' | 'tdf' | 'kuramoto' | 'wave' | 'verdict';
+
+interface StageDef {
+  id: StageId;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+const STAGES: StageDef[] = [
+  { id: 'ingestion', label: 'Solar Ingestion', description: 'Fetching real-time solar data from NOAA GOES', icon: <Radio className="h-4 w-4" /> },
+  { id: 'tdf', label: 'TDF Computation', description: 'Computing Temporal Displacement Factor', icon: <Hash className="h-4 w-4" /> },
+  { id: 'kuramoto', label: 'Kuramoto Coupling', description: 'Running N=3 oscillator phase alignment', icon: <Waves className="h-4 w-4" /> },
+  { id: 'wave', label: 'Wave Propagation', description: 'Propagating resonance through temporal field', icon: <Orbit className="h-4 w-4" /> },
+  { id: 'verdict', label: 'Governance Verdict', description: 'Evaluating against adaptive thresholds', icon: <Shield className="h-4 w-4" /> },
+];
+
+const STAGE_DURATION_MS: Record<StageId, number> = {
+  ingestion: 600,
+  tdf: 500,
+  kuramoto: 600,
+  wave: 500,
+  verdict: Infinity,
+};
+
 const TransportControl = ({ simple }: TransportControlProps) => {
   const [proposal, setProposal] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [record, setRecord] = useState<TemporalRecord | null>(null);
   const [copied, setCopied] = useState(false);
+  const [currentStageIdx, setCurrentStageIdx] = useState(-1);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get('proposal');
+    if (p) setProposal(p);
+  }, []);
+
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }, []);
+
+  const advanceStages = useCallback(() => {
+    setCurrentStageIdx(0);
+    clearTimers();
+    STAGES.forEach((stage, i) => {
+      if (stage.id === 'verdict') return;
+      const timer = setTimeout(() => {
+        setCurrentStageIdx(i + 1);
+      }, STAGE_DURATION_MS[stage.id]);
+      timersRef.current.push(timer);
+    });
+  }, [clearTimers]);
 
   const createTemporalRecord = async () => {
     if (!proposal || proposal.length < 10) {
@@ -80,6 +130,7 @@ const TransportControl = ({ simple }: TransportControlProps) => {
     setLoading(true);
     setError(null);
     setRecord(null);
+    advanceStages();
 
     try {
       const res = await fetch(`${MCP_URL}/govern_with_solar`, {
@@ -99,9 +150,11 @@ const TransportControl = ({ simple }: TransportControlProps) => {
 
       const data = await res.json();
       setRecord(data);
+      setCurrentStageIdx(STAGES.length - 1);
     } catch (err: any) {
       setError(err.message || 'Failed to create temporal record');
     } finally {
+      clearTimers();
       setLoading(false);
     }
   };
@@ -166,9 +219,52 @@ const TransportControl = ({ simple }: TransportControlProps) => {
         className="w-full gap-2"
         size="lg"
       >
-        <Sun className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-        {loading ? 'Contacting Sun...' : 'Create Temporal Record'}
+        <Sun className="h-5 w-5" />
+        Create Temporal Record
       </Button>
+
+      {/* Pipeline Visualization */}
+      {loading && (
+        <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Running temporal pipeline…</span>
+          </div>
+          <div className="flex items-center justify-between">
+            {STAGES.map((stage, i) => (
+              <div key={stage.id} className="flex-1 flex flex-col items-center relative">
+                {/* Connecting line */}
+                {i > 0 && (
+                  <div className={`absolute top-[14px] right-1/2 w-full h-[2px] transition-colors duration-500 ${
+                    i <= currentStageIdx ? 'bg-cyan-500/60' : 'bg-muted-foreground/20'
+                  }`} />
+                )}
+                {/* Stage node */}
+                <div className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-full border-2 transition-all duration-500 ${
+                  i < currentStageIdx
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
+                    : i === currentStageIdx
+                    ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 animate-pulse'
+                    : 'bg-muted/30 border-muted-foreground/30 text-muted-foreground/50'
+                }`}>
+                  {i < currentStageIdx ? <CheckCircle2 className="h-3.5 w-3.5" /> : stage.icon}
+                </div>
+                {/* Label */}
+                <span className={`mt-1.5 text-[10px] text-center leading-tight transition-colors duration-500 ${
+                  i <= currentStageIdx ? 'text-foreground/80' : 'text-muted-foreground/40'
+                }`}>
+                  {stage.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="text-center text-[10px] text-muted-foreground/60">
+            {currentStageIdx >= 0 && currentStageIdx < STAGES.length
+              ? STAGES[currentStageIdx].description
+              : 'Initializing…'}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600 flex items-start gap-2">
