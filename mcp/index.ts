@@ -1641,7 +1641,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         source: container.source,
         timestamp: container.timestamp,
         onChainTx: onChain.txHash,
-        explorerUrl: `https://sepolia.basescan.org/tx/${onChain.txHash}`,
+        explorerUrl: `https://basescan.org/tx/${onChain.txHash}`,
       },
     })
   }
