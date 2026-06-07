@@ -4,6 +4,8 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
+import { http, createWalletClient, createPublicClient } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { publish, subscribe, getRedisClient } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
 import { dynamoSolarGovernance, getPublicFeed, getHistory } from './lib/dynamoSolarGovernance.js'
@@ -11,7 +13,7 @@ import { isStructuredProposal, extractProposalText } from './lib/structuredPropo
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
-import { persistContainerToChain } from './lib/contractClient.js'
+import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
@@ -21,6 +23,7 @@ let latestContainerHash = '0x' + '0'.repeat(64)
 
 const REDIS_CONTAINER_KEY = 'dynamo:containers'
 const MAX_REDIS_CONTAINERS = 1000
+const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
 
 // Bootstrap: load containers from Redis on module init
 ;(async () => {
@@ -2046,6 +2049,247 @@ app.post('/messages', async (c: Context) => {
 
   return c.json({ ok: true })
 })
+
+// ---------- Vortex Token endpoints ----------
+
+const VORTEX_TOKEN_ADDRESS = '0xDD84C180F5E54c79f66160583D9e85fBA7F933C5'
+
+function getVortexTokenClient() {
+  const account = privateKeyToAccount(getPrivateKey())
+  const walletClient = createWalletClient({
+    account,
+    chain: baseMainnet,
+    transport: http(),
+  })
+  const publicClient = createPublicClient({
+    chain: baseMainnet,
+    transport: http(),
+  })
+  return { walletClient, publicClient, account }
+}
+
+app.get('/vortex/info', async (c: Context) => {
+  try {
+    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const { publicClient } = getVortexTokenClient()
+    const [totalSupply, totalDonations, treasury] = await Promise.all([
+      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }) as Promise<bigint>,
+      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalDonations' }) as Promise<bigint>,
+      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'treasury' }) as Promise<string>,
+    ])
+    return c.json({
+      success: true,
+      tokenAddress: VORTEX_TOKEN_ADDRESS,
+      registryAddress: CONTRACT_ADDRESS,
+      totalSupply: totalSupply.toString(),
+      totalDonations: totalDonations.toString(),
+      treasury,
+      explorerUrl: `https://basescan.org/address/${VORTEX_TOKEN_ADDRESS}`,
+    })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+app.get('/vortex/container/:containerId', async (c: Context) => {
+  try {
+    const containerId = c.req.param('containerId') as `0x${string}`
+    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+    const { publicClient } = getVortexTokenClient()
+
+    // Check Redis cache first
+    let hasToken = false
+    let tokenId: bigint | null = null
+    try {
+      const client = await getRedisClient()
+      if (client) {
+        const cached = await client.hget(REDIS_VORTEX_KEY_MINT, containerId.toLowerCase()).catch(() => null) as string | null
+        if (cached) {
+          hasToken = true
+          tokenId = BigInt(cached)
+        }
+      }
+    } catch { /* Redis optional */ }
+
+    if (!hasToken) {
+      const tid = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS, abi,
+        functionName: 'tokenByContainerId',
+        args: [containerId],
+      }).catch(() => 0n) as bigint
+      hasToken = tid !== 0n
+      tokenId = hasToken ? tid : null
+    }
+
+    // Always fetch container data from registry (needed for UI even if token exists)
+    let containerData: Record<string, any> | null = null
+    try {
+      const registryClient = createPublicClient({ chain: baseMainnet, transport: http() })
+      const container = await registryClient.readContract({
+        address: CONTRACT_ADDRESS, abi: registryAbi,
+        functionName: 'getContainer',
+        args: [containerId],
+      }) as any
+      containerData = {
+        containerId,
+        timestamp: Number(container.timestamp),
+        verdict: container.resonanceProfile.verdict,
+        fullBox7DComposite: container.resonanceProfile.fullBox7DComposite.toString(),
+        trinitariumMoralScore: container.moralOverlay.trinitariumMoralScore.toString(),
+        moralTension: container.moralOverlay.moralNumerologicalTension,
+        source: container.source,
+      }
+    } catch { /* container might not exist in this registry */ }
+
+    return c.json({
+      success: true,
+      containerId,
+      hasToken,
+      tokenId: hasToken ? tokenId!.toString() : null,
+      containerData,
+      mintFunction: 'mintForDonation',
+      contractAddress: VORTEX_TOKEN_ADDRESS,
+      vortexUrl: hasToken ? `https://basescan.org/token/${VORTEX_TOKEN_ADDRESS}?a=${tokenId!.toString()}` : null,
+    })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+// Retro-mint a token for an existing registered container via mintForDonation (0 ETH)
+app.post('/vortex/mint', async (c: Context) => {
+  try {
+    const { containerId } = await c.req.json()
+    if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
+
+    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const { walletClient, publicClient } = getVortexTokenClient()
+
+    const txHash = await walletClient.writeContract({
+      address: VORTEX_TOKEN_ADDRESS,
+      abi,
+      functionName: 'mintForDonation',
+      args: [containerId as `0x${string}`],
+      value: 0n,
+    })
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+    // Cache in Redis
+    ;(async () => {
+      try {
+        const tid = await publicClient.readContract({
+          address: VORTEX_TOKEN_ADDRESS, abi,
+          functionName: 'tokenByContainerId',
+          args: [containerId as `0x${string}`],
+        }).catch(() => 0n)
+        if (tid !== 0n) await storeVortexStatusInRedis(containerId, tid.toString())
+      } catch { /* Redis optional */ }
+    })()
+
+    return c.json({
+      success: true,
+      tokenAddress: VORTEX_TOKEN_ADDRESS,
+      containerId,
+      txHash: receipt.transactionHash,
+      explorerUrl: `https://basescan.org/tx/${receipt.transactionHash}`,
+    })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+// Batch vortex statuses — uses Redis cache with on-chain fallback
+app.get('/vortex/statuses', async (c: Context) => {
+  try {
+    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+    const { publicClient } = getVortexTokenClient()
+
+    const containersResult = await publicClient.readContract({
+      address: CONTRACT_ADDRESS, abi: registryAbi,
+      functionName: 'listContainers',
+      args: [0n, 10n],
+    }) as [string[], bigint]
+
+    const containerIds = containersResult[0] as `0x${string}`[]
+    const statuses: Record<string, { claimed: boolean; tokenId: string | null }> = {}
+
+    // Try Redis batch
+    let redisMap: Record<string, string> | null = null
+    try {
+      const client = await getRedisClient()
+      if (client) {
+        const entries = await client.hgetall(REDIS_VORTEX_KEY_MINT).catch(() => null) as Record<string, string> | null
+        if (entries) redisMap = entries
+      }
+    } catch { /* Redis optional */ }
+
+    for (const cid of containerIds) {
+      const cidStr = cid.toLowerCase()
+      if (redisMap?.[cidStr]) {
+        statuses[cid] = { claimed: true, tokenId: redisMap[cidStr] }
+      } else {
+        const tid = await publicClient.readContract({
+          address: VORTEX_TOKEN_ADDRESS, abi,
+          functionName: 'tokenByContainerId',
+          args: [cid],
+        }).catch(() => 0n)
+        statuses[cid] = tid !== 0n
+          ? { claimed: true, tokenId: tid.toString() }
+          : { claimed: false, tokenId: null }
+      }
+    }
+
+    return c.json({ success: true, statuses })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
+  try {
+    const client = await getRedisClient()
+    if (client) await client.hset(REDIS_VORTEX_KEY_MINT, containerId.toLowerCase(), tokenId)
+  } catch { /* Redis optional */ }
+}
+
+// Auto-mint token for newly governed containers
+async function autoMintVortex(container: any) {
+  try {
+    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const { walletClient, publicClient } = getVortexTokenClient()
+
+    const txHash = await walletClient.writeContract({
+      address: VORTEX_TOKEN_ADDRESS,
+      abi,
+      functionName: 'mintForDonation',
+      args: [container.containerHash as `0x${string}`],
+      value: 0n,
+    })
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+    // Cache tokenId in Redis
+    ;(async () => {
+      try {
+        const tid = await publicClient.readContract({
+          address: VORTEX_TOKEN_ADDRESS, abi,
+          functionName: 'tokenByContainerId',
+          args: [container.containerHash as `0x${string}`],
+        }).catch(() => 0n)
+        if (tid !== 0n) await storeVortexStatusInRedis(container.containerHash, tid.toString())
+      } catch { /* Redis optional */ }
+    })()
+
+    console.log(`[vortex] Auto-minted token for container ${container.containerHash.slice(0, 18)}… tx: ${receipt.transactionHash}`)
+    return receipt.transactionHash
+  } catch (err: any) {
+    console.log(`[vortex] Auto-mint skipped: ${err.message}`)
+    return null
+  }
+}
 
 export default app
 export { app, TOOL_DEFINITIONS }
