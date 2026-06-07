@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAccount, useWalletClient, usePublicClient } from 'wagmi'
-import { base } from 'wagmi/chains'
+import { useAccount, usePublicClient, useWriteContract } from 'wagmi'
 import { WalletConnectButton } from '@/components/WalletConnectButton'
 import { Link } from 'react-router-dom'
 
@@ -146,9 +145,9 @@ function tensionColor(t: string) {
 
 export default function VortexClaim() {
   const { address, isConnected } = useAccount()
-  const { data: walletClient } = useWalletClient()
+  const { writeContractAsync } = useWriteContract()
   const publicClient = usePublicClient()
-  console.log('[vortex] render wallet:', { address: address?.slice(0, 10), isConnected, hasWalletClient: !!walletClient, hasPublicClient: !!publicClient })
+  console.log('[vortex] render wallet:', { address: address?.slice(0, 10), isConnected, hasWriteContract: !!writeContractAsync, hasPublicClient: !!publicClient })
 
   const [containers, setContainers] = useState<ContainerItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -212,8 +211,8 @@ export default function VortexClaim() {
   }
 
   async function handleMint(containerId: string) {
-    if (!isConnected || !walletClient || !publicClient) {
-      console.warn('[vortex] mint blocked: not connected', { isConnected, hasWallet: !!walletClient, hasPublic: !!publicClient })
+    if (!isConnected || !writeContractAsync || !publicClient) {
+      console.warn('[vortex] mint blocked: not connected', { isConnected, hasWriteContractAsync: !!writeContractAsync, hasPublic: !!publicClient })
       return
     }
     setMinting(containerId)
@@ -225,13 +224,12 @@ export default function VortexClaim() {
       const value = BigInt(Math.floor(parseFloat(amount) * 1e18))
       console.log('[vortex] mint sending:', { amount, value: value.toString(), containerId: cid.slice(0, 18) })
 
-      const txHash = await walletClient.writeContract({
+      const txHash = await writeContractAsync({
         address: VORTEX_TOKEN_ADDRESS,
         abi: VORTEX_ABI,
         functionName: 'mintForDonation',
         args: [cid],
         value,
-        chain: base,
       })
       console.log('[vortex] mint tx sent:', txHash)
 
