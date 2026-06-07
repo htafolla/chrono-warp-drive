@@ -582,6 +582,84 @@ export default function VortexClaim() {
                         </div>
                       </div>
 
+                      {/* Chain-readiness diagnostic */}
+                      <div className="rounded-lg bg-zinc-800/40 border border-zinc-700/50 p-3 space-y-1.5">
+                        <div className="text-[10px] text-zinc-500 uppercase tracking-wide">Chain Status</div>
+                        {(() => {
+                          const comp = c.resonanceProfile.fullBox7DComposite
+                          const tmo = c.moralOverlay.trinitariumMoralScore
+                          const meetsT1 = comp >= 0.88 && tmo >= 0.55
+                          const almostT1 = comp >= 0.82 && tmo >= 0.50
+                          const tier = meetsT1 ? 't1' : comp >= 0.92 ? 't2' : 'none'
+                          if (tier === 't1') {
+                            return (
+                              <div>
+                                <div className="text-xs text-emerald-400 font-medium">Ready to save to chain ✦</div>
+                                <p className="text-xs text-zinc-400 mt-1">Resonance and moral alignment both clear the threshold — this vortex auto-saves next time the field ticks.</p>
+                              </div>
+                            )
+                          }
+                          if (tier === 't2') {
+                            return (
+                              <div>
+                                <div className="text-xs text-fuchsia-400 font-medium">Exceptional — auto-saves ✦</div>
+                                <p className="text-xs text-zinc-400 mt-1">Resonance is so high it bypasses the moral gate entirely.</p>
+                              </div>
+                            )
+                          }
+                          if (comp >= 0.88 && tmo < 0.55) {
+                            const gap = ((0.55 - tmo) * 100).toFixed(0)
+                            return (
+                              <div>
+                                <div className="text-xs text-amber-400 font-medium">Almost there</div>
+                                <p className="text-xs text-zinc-400 mt-1">Resonance is high enough, but moral alignment needs to rise <span className="text-amber-400">{gap}%</span> to reach the threshold.</p>
+                              </div>
+                            )
+                          }
+                          if (tmo >= 0.55 && comp < 0.88) {
+                            const gap = ((0.88 - comp) * 100).toFixed(0)
+                            return (
+                              <div>
+                                <div className="text-xs text-amber-400 font-medium">Almost there</div>
+                                <p className="text-xs text-zinc-400 mt-1">Moral alignment is strong, but resonance needs to climb <span className="text-amber-400">{gap}%</span> to reach the threshold.</p>
+                              </div>
+                            )
+                          }
+                          if (almostT1) {
+                            const cGap = ((0.88 - comp) * 100).toFixed(0)
+                            const tGap = ((0.55 - tmo) * 100).toFixed(0)
+                            return (
+                              <div>
+                                <div className="text-xs text-zinc-400 font-medium">Needs improvement</div>
+                                <p className="text-xs text-zinc-500 mt-1">Resonance needs +<span className="text-zinc-300">{cGap}%</span> and moral alignment needs +<span className="text-zinc-300">{tGap}%</span> to qualify for auto-save.</p>
+                              </div>
+                            )
+                          }
+                          return (
+                            <div>
+                              <div className="text-xs text-zinc-500 font-medium">Below thresholds</div>
+                              <p className="text-xs text-zinc-600 mt-1">This vortex needs stronger resonance and moral alignment to qualify for chain storage.</p>
+                            </div>
+                          )
+                        })()}
+                        <div className="flex items-center gap-3 pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-zinc-500">Resonance</span>
+                              <span className="text-[10px] text-zinc-400">{scaleDisplay(c.resonanceProfile.fullBox7DComposite)}</span>
+                              <span className="text-[10px] text-zinc-600">/ 0.88</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-zinc-500">Moral</span>
+                              <span className="text-[10px] text-zinc-400">{scaleDisplay(c.moralOverlay.trinitariumMoralScore)}</span>
+                              <span className="text-[10px] text-zinc-600">/ 0.55</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* 7D Resonance Profile */}
                       <div>
                         <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-2">7D Resonance Profile</div>
