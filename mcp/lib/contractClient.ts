@@ -19,7 +19,10 @@ export function buildFallbackTransport() {
 }
 
 export function buildReadTransport() {
-  return http(UNIQUE_RPC_URLS[0], { timeout: 10000 })
+  return fallback(
+    UNIQUE_RPC_URLS.map(url => http(url, { timeout: 5000 })),
+    { rank: false }
+  )
 }
 
 export const baseMainnet = defineChain({

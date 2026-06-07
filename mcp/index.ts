@@ -2190,12 +2190,26 @@ app.post('/vortex/mint', async (c: Context) => {
     const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
     const { walletClient, publicClient } = getVortexTokenClient()
 
-    // Read container data from registry
-    const container = await publicClient.readContract({
-      address: CONTRACT_ADDRESS, abi: registryAbi,
-      functionName: 'getContainer',
-      args: [containerId as `0x${string}`],
-    }) as any
+    // Read container data from registry (or MCP store for non-registered containers)
+    let container: any
+    try {
+      container = await publicClient.readContract({
+        address: CONTRACT_ADDRESS, abi: registryAbi,
+        functionName: 'getContainer',
+        args: [containerId as `0x${string}`],
+      }) as any
+    } catch {
+      // Not on-chain — look up in MCP container store and auto-register
+      const stored = containerStore.find(c => c.containerId === containerId)
+      if (!stored) return c.json({ success: false, error: 'Container not found in registry or MCP store' }, 404)
+      await persistContainerToChain(stored)
+      // Re-read after registration
+      container = await publicClient.readContract({
+        address: CONTRACT_ADDRESS, abi: registryAbi,
+        functionName: 'getContainer',
+        args: [containerId as `0x${string}`],
+      }) as any
+    }
 
     const mintArgs = [
       to as `0x${string}`,
@@ -2275,16 +2289,9 @@ app.post('/vortex/store-mapping', async (c: Context) => {
 app.get('/vortex/statuses', async (c: Context) => {
   try {
     const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
-    const { publicClient } = getVortexTokenClient()
 
-    const containersResult = await publicClient.readContract({
-      address: CONTRACT_ADDRESS, abi: registryAbi,
-      functionName: 'listContainers',
-      args: [0n, 20n],
-    }) as [string[], bigint]
-
-    const containerIds = containersResult[0] as `0x${string}`[]
+    // Use all container IDs from the MCP's container store (not just on-chain ones)
+    const containerIds = containerStore.map(c => c.containerId) as `0x${string}`[]
     const statuses: Record<string, { claimed: boolean; tokenId: string | null }> = {}
 
     // Try Redis batch

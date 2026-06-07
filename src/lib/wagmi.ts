@@ -1,4 +1,4 @@
-import { http, createConfig } from 'wagmi'
+import { http, fallback, createConfig } from 'wagmi'
 import { base } from 'wagmi/chains'
 import { injected, coinbaseWallet } from 'wagmi/connectors'
 
@@ -9,6 +9,9 @@ export const config = createConfig({
     coinbaseWallet({ appName: 'Dynamo', preference: 'all' }),
   ],
   transports: {
-    [base.id]: http('https://mainnet.base.org'),
+    [base.id]: fallback([
+      http('https://mainnet.base.org', { timeout: 8000 }),
+      http('https://base-rpc.publicnode.com', { timeout: 8000 }),
+    ]),
   },
 })
