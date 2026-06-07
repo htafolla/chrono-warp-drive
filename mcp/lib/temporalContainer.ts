@@ -144,7 +144,7 @@ export function governanceToContainer(
 export function containerToContractParams(container: ContainerVortex) {
   return {
     containerId: container.containerId,
-    timestamp: container.timestamp,
+    timestamp: BigInt(Math.floor(container.timestamp)),
     proposalHash: container.proposalHash,
     solarSnapshot: {
       timestamp: BigInt(container.solarSnapshot.timestamp),
