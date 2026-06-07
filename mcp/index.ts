@@ -2289,6 +2289,7 @@ app.post('/vortex/store-mapping', async (c: Context) => {
 app.get('/vortex/statuses', async (c: Context) => {
   try {
     const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
+    const { publicClient } = getVortexTokenClient()
 
     // Use all container IDs from the MCP's container store (not just on-chain ones)
     const containerIds = containerStore.map(c => c.containerId) as `0x${string}`[]
