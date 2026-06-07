@@ -1,4 +1,4 @@
-import { http, createWalletClient, createPublicClient, defineChain, fallback } from 'viem'
+import { http, createWalletClient, createPublicClient, defineChain, fallback, nonceManager } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { ContainerVortex } from './temporalContainer.js'
 import { containerToContractParams } from './temporalContainer.js'
@@ -41,13 +41,17 @@ export function getPrivateKey(): `0x${string}` {
   return (pk.startsWith('0x') ? pk : `0x${pk}`) as `0x${string}`
 }
 
+let cachedClients: { walletClient: ReturnType<typeof createWalletClient>; publicClient: ReturnType<typeof createPublicClient>; account: ReturnType<typeof privateKeyToAccount> } | null = null
+
 function getContractClient() {
+  if (cachedClients) return cachedClients
   const account = privateKeyToAccount(getPrivateKey())
 
   const walletClient = createWalletClient({
     account,
     chain: baseMainnet,
     transport: buildFallbackTransport(),
+    nonceManager,
   })
 
   const publicClient = createPublicClient({
@@ -55,7 +59,8 @@ function getContractClient() {
     transport: buildReadTransport(),
   })
 
-  return { walletClient, publicClient, account }
+  cachedClients = { walletClient, publicClient, account }
+  return cachedClients
 }
 
 export async function persistContainerToChain(container: ContainerVortex): Promise<{ txHash: string }> {

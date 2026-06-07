@@ -4,7 +4,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
-import { createWalletClient, createPublicClient } from 'viem'
+import { createWalletClient, createPublicClient, nonceManager } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { publish, subscribe, getRedisClient } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
@@ -40,6 +40,38 @@ const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
         }
       } catch { /* skip corrupt */ }
     }
+    // Sync mint mappings to Redis if hash is empty (first-time setup)
+    try {
+      const existing = await client.hgetall(REDIS_VORTEX_KEY_MINT)
+      if (!existing || Object.keys(existing).length === 0) {
+        const { publicClient } = getVortexTokenClient()
+        const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
+        const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+        const ids = containerStore.map(c => c.containerId)
+        try {
+          const [chainIds] = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: registryAbi,
+            functionName: 'listContainers',
+            args: [0n, 100n],
+          }) as [string[], bigint]
+          for (const id of chainIds as string[]) {
+            if (!ids.includes(id)) ids.push(id)
+          }
+        } catch { /* registry unavailable */ }
+        for (const id of ids) {
+          try {
+            const tid = await publicClient.readContract({
+              address: VORTEX_TOKEN_ADDRESS, abi,
+              functionName: 'tokenByContainerId',
+              args: [id as `0x${string}`],
+            }) as bigint
+            if (tid > 0n) {
+              await client.hset(REDIS_VORTEX_KEY_MINT, id.toLowerCase(), tid.toString())
+            }
+          } catch { /* no token */ }
+        }
+      }
+    } catch { /* sync failed */ }
   } catch { /* Redis unavailable */ }
 })()
 
@@ -699,6 +731,19 @@ All govern_with_solar responses include:
 // ===== MCP Server =====
 const app = new Hono()
 app.use('/*', cors())
+
+// Request logger
+app.use('*', async (c, next) => {
+  const start = Date.now()
+  try {
+    await next()
+  } finally {
+    const ms = Date.now() - start
+    if (c.res.status >= 400) {
+      console.error(`[${new Date().toISOString()}] ${c.req.method} ${c.req.path} -> ${c.res.status} (${ms}ms)`)
+    }
+  }
+})
 
 function ok(c: Context, data: Record<string, unknown>) {
   return c.json({ success: true, ...data })
@@ -1813,9 +1858,12 @@ app.post('/call_connected_tool', async (c: Context) => {
     const result = await handler(params)
     return c.json({ success: true, tool: toolName, result })
   } catch (err: any) {
-    return c.json({ success: false, tool: toolName, error: err.message }, 500)
+    return c.json({ success: false, error: err.message }, 500)
   }
 })
+
+export default app
+export { app, TOOL_DEFINITIONS }
 
 // ===== Documentation Tools =====
 
@@ -2076,18 +2124,23 @@ app.post('/messages', async (c: Context) => {
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const VORTEX_TREASURY = '0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43'
 
+let cachedVortexClient: ReturnType<typeof getVortexTokenClient> | null = null
+
 function getVortexTokenClient() {
+  if (cachedVortexClient) return cachedVortexClient
   const account = privateKeyToAccount(getPrivateKey())
   const walletClient = createWalletClient({
     account,
     chain: baseMainnet,
     transport: buildFallbackTransport(),
+    nonceManager,
   })
   const publicClient = createPublicClient({
     chain: baseMainnet,
     transport: buildReadTransport(),
   })
-  return { walletClient, publicClient, account }
+  cachedVortexClient = { walletClient, publicClient, account }
+  return cachedVortexClient
 }
 
 app.get('/vortex/info', async (c: Context) => {
@@ -2182,7 +2235,7 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
 // Retro-mint a token for an existing registered container via v4 mint()
 app.post('/vortex/mint', async (c: Context) => {
   try {
-    const { containerId, to } = await c.req.json()
+    let { containerId, to } = await c.req.json() as { containerId: string; to: string }
     if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
     if (!to) return c.json({ success: false, error: 'recipient address (to) required' }, 400)
 
@@ -2192,23 +2245,140 @@ app.post('/vortex/mint', async (c: Context) => {
 
     // Read container data from registry (or MCP store for non-registered containers)
     let container: any
+    let fromRegistry = false
+
+    // 1) Try reading the container from the on-chain registry directly
     try {
       container = await publicClient.readContract({
         address: CONTRACT_ADDRESS, abi: registryAbi,
         functionName: 'getContainer',
         args: [containerId as `0x${string}`],
       }) as any
+      fromRegistry = true
     } catch {
-      // Not on-chain — look up in MCP container store and auto-register
+      // 2) Not in registry — check MCP container store and auto-register using same wallet client
       const stored = containerStore.find(c => c.containerId === containerId)
-      if (!stored) return c.json({ success: false, error: 'Container not found in registry or MCP store' }, 404)
-      await persistContainerToChain(stored)
-      // Re-read after registration
-      container = await publicClient.readContract({
-        address: CONTRACT_ADDRESS, abi: registryAbi,
-        functionName: 'getContainer',
-        args: [containerId as `0x${string}`],
-      }) as any
+      if (stored) {
+        try {
+          const params = containerToContractParams(stored)
+          const regTx = await walletClient.writeContract({
+            address: CONTRACT_ADDRESS,
+            abi: registryAbi,
+            functionName: 'storeContainer',
+            args: [
+              params.containerId as `0x${string}`,
+              params.timestamp,
+              params.proposalHash as `0x${string}`,
+              {
+                timestamp: params.solarSnapshot.timestamp,
+                activityLevel: params.solarSnapshot.activityLevel,
+                xrayFlux: params.solarSnapshot.xrayFlux,
+                kpIndex: params.solarSnapshot.kpIndex,
+                protonFlux: params.solarSnapshot.protonFlux,
+                magnetometer: params.solarSnapshot.magnetometer,
+                solarTdf: params.solarSnapshot.solarTdf,
+              },
+              {
+                fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
+                fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
+                waveProximity: params.resonanceProfile.waveProximity,
+                phaseAlignment: params.resonanceProfile.phaseAlignment,
+                calibratedVortex: params.resonanceProfile.calibratedVortex,
+                calibratedSync: params.resonanceProfile.calibratedSync,
+                neuralProximity: params.resonanceProfile.neuralProximity,
+                neuralVortex: params.resonanceProfile.neuralVortex,
+                gematriaResonance: params.resonanceProfile.gematriaResonance,
+                structuralResonance: params.resonanceProfile.structuralResonance,
+                verdict: params.resonanceProfile.verdict,
+                confidence: params.resonanceProfile.confidence,
+              },
+              {
+                trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
+                virtueAlignment: params.moralOverlay.virtueAlignment,
+                moralSafety: params.moralOverlay.moralSafety,
+                intentAlignment: params.moralOverlay.intentAlignment,
+                trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
+                moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
+              },
+              params.hammerReason,
+              params.containerHash as `0x${string}`,
+              params.source,
+            ],
+          })
+          await publicClient.waitForTransactionReceipt({ hash: regTx })
+        } catch (regErr: any) {
+          console.error('[vortex] auto-register failed:', regErr.message)
+        }
+        container = await publicClient.readContract({
+          address: CONTRACT_ADDRESS, abi: registryAbi,
+          functionName: 'getContainer',
+          args: [containerId as `0x${string}`],
+        }).catch(() => stored)
+        fromRegistry = true
+      }
+    }
+
+    // 3) Last resort: iterate on-chain registry to find a matching ID
+    if (!fromRegistry) {
+      try {
+        const [ids] = await publicClient.readContract({
+          address: CONTRACT_ADDRESS, abi: registryAbi,
+          functionName: 'listContainers',
+          args: [0n, 100n],
+        }) as [string[], bigint]
+        const match = (ids as string[]).find(id => id.toLowerCase() === containerId.toLowerCase())
+        if (match) {
+          container = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: registryAbi,
+            functionName: 'getContainer',
+            args: [match as `0x${string}`],
+          }) as any
+          fromRegistry = true
+        }
+      } catch { /* registry iteration failed */ }
+    }
+
+    // 4) Fuzzy match by prefix (first 20 hex chars) — handles stale IDs
+    if (!fromRegistry) {
+      const prefix = containerId.toLowerCase().slice(0, 18) // "0x" + 16 hex chars
+      const fromStore = containerStore.find(c => c.containerId.toLowerCase().startsWith(prefix))
+      if (fromStore) {
+        containerId = fromStore.containerId
+        try {
+          container = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: registryAbi,
+            functionName: 'getContainer',
+            args: [containerId as `0x${string}`],
+          }) as any
+          fromRegistry = true
+        } catch {
+          // Store ID exists but not on-chain — use stored data
+          container = fromStore
+        }
+      } else {
+        // Check registry by prefix too
+        try {
+          const [ids] = await publicClient.readContract({
+            address: CONTRACT_ADDRESS, abi: registryAbi,
+            functionName: 'listContainers',
+            args: [0n, 100n],
+          }) as [string[], bigint]
+          const match = (ids as string[]).find(id => id.toLowerCase().startsWith(prefix))
+          if (match) {
+            containerId = match
+            container = await publicClient.readContract({
+              address: CONTRACT_ADDRESS, abi: registryAbi,
+              functionName: 'getContainer',
+              args: [match as `0x${string}`],
+            }) as any
+            fromRegistry = true
+          }
+        } catch { /* registry prefix search failed */ }
+      }
+    }
+
+    if (!fromRegistry) {
+      return c.json({ success: false, error: 'Container not found in registry or MCP store. Try reloading the page to refresh container data.' }, 404)
     }
 
     const mintArgs = [
@@ -2272,6 +2442,7 @@ app.post('/vortex/mint', async (c: Context) => {
       explorerUrl: `https://basescan.org/tx/${receipt.transactionHash}`,
     })
   } catch (err: any) {
+    console.error(`[mint] ${err.message}`)
     return c.json({ success: false, error: err.message }, 500)
   }
 })
@@ -2292,10 +2463,28 @@ app.post('/vortex/store-mapping', async (c: Context) => {
 app.get('/vortex/statuses', async (c: Context) => {
   try {
     const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
+    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
 
-    // Use all container IDs from the MCP's container store (not just on-chain ones)
-    const containerIds = containerStore.map(c => c.containerId) as `0x${string}`[]
+    // Collect container IDs from the MCP store, plus any on-chain registry IDs
+    // that don't share a prefix with a store container (they're different containers)
+    const storeIds = containerStore.map(c => c.containerId) as string[]
+    const allIds = [...storeIds]
+    const storePrefixes = new Set(storeIds.map(id => id.toLowerCase().slice(0, 18)))
+    try {
+      const [ids] = await publicClient.readContract({
+        address: CONTRACT_ADDRESS, abi: registryAbi,
+        functionName: 'listContainers',
+        args: [0n, 100n],
+      }) as [string[], bigint]
+      for (const id of ids as string[]) {
+        if (!storePrefixes.has(id.toLowerCase().slice(0, 18))) {
+          allIds.push(id)
+        }
+      }
+    } catch { /* registry unavailable */ }
+
+    const containerIds = allIds as `0x${string}`[]
     const statuses: Record<string, { claimed: boolean; tokenId: string | null }> = {}
 
     // Try Redis batch
@@ -2548,5 +2737,204 @@ async function autoMintVortex(container: any, proposalText: string) {
   }
 }
 
-export default app
-export { app, TOOL_DEFINITIONS }
+// === Dev: seed test containers ===
+app.post('/dev/seed-containers', async (c: Context) => {
+  try {
+    const count = Math.min(50, parseInt((c.req.query('count') || '30') as string))
+    const { publicClient, walletClient, account } = getVortexTokenClient()
+    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+
+    const nonce = await publicClient.getTransactionCount({ address: account.address })
+
+    const containerToContractParams = (await import('./lib/temporalContainer.js')).containerToContractParams
+
+    const sources: ('human' | 'agent' | 'ambient')[] = ['human', 'agent', 'ambient']
+    const tensions = ['Mild', 'Low', 'Moderate', 'High']
+
+    const containers: ContainerVortex[] = Array.from({ length: count }, (_, i) => {
+      // Generate independent random metrics so no two containers follow a pattern
+      const r = () => Math.random()
+
+      // fullBox7DComposite: natural distribution — most ~0.5-0.9, few extremes
+      const compRaw = r() * 0.5 + r() * 0.3 + r() * 0.2
+      const fullBox7DComposite = Math.min(0.99, 0.15 + compRaw * 0.85)
+
+      // Each sub-metric varies independently — they can disagree with composite
+      const jitter = (base: number, range: number) => Math.max(0.01, Math.min(0.99, base + (r() - 0.5) * range))
+
+      const waveProximity = jitter(fullBox7DComposite, 0.35)
+      const phaseAlignment = jitter(fullBox7DComposite, 0.40)
+      const calibratedVortex = jitter(fullBox7DComposite, 0.30)
+      const calibratedSync = jitter(fullBox7DComposite, 0.38)
+      const neuralProximity = jitter(fullBox7DComposite, 0.32)
+      const neuralVortex = jitter(fullBox7DComposite, 0.28)
+      const gematriaResonance = jitter(fullBox7DComposite, 0.36)
+      const structuralResonance = jitter(fullBox7DComposite, 0.34)
+
+      // Average of sub-metrics determines a "true score" — can differ from composite
+      const avgSub = (waveProximity + phaseAlignment + calibratedVortex + calibratedSync +
+                      neuralProximity + neuralVortex + gematriaResonance + structuralResonance) / 8
+
+      // Verdict based on avgSub, not composite — creates organic disagreement
+      const verdict: 'PASS' | 'NEEDS_REVISION' | 'FAIL' =
+        avgSub >= 0.65 ? 'PASS' :
+        avgSub >= 0.42 ? 'NEEDS_REVISION' :
+        'FAIL'
+
+      // Confidence: how much avgSub agrees with composite
+      const agreement = 1 - Math.abs(avgSub - fullBox7DComposite)
+      const confidence = Math.min(0.99, Math.max(0.25, agreement * 0.5 + r() * 0.4))
+
+      // Moral overlay: independent from resonance — good resonance can have poor morals
+      const trinitariumMoralScore = jitter(0.55, 0.50)
+      const virtueAlignment = jitter(trinitariumMoralScore, 0.30)
+      const moralSafety = jitter(trinitariumMoralScore, 0.35)
+      const intentAlignment = jitter(trinitariumMoralScore, 0.28)
+
+      // Fusion can be radically different — it's the oddball metric
+      const trinitariumGematriaFusion = jitter(0.50, 0.55)
+
+      // Tension selects based on moral-verdict disagreement
+      const moralNumerologicalTension =
+        (verdict === 'PASS' && trinitariumMoralScore < 0.4) ? 'High' :
+        (verdict === 'FAIL' && trinitariumMoralScore > 0.7) ? 'High' :
+        Math.abs(avgSub - trinitariumMoralScore) > 0.35 ? 'Moderate' :
+        tensions[Math.floor(r() * tensions.length)]
+
+      // Solar data: completely independent
+      const solarScore = r()
+      const activityLevel = solarScore > 0.7 ? 'high' as const :
+                            solarScore > 0.4 ? 'moderate' as const :
+                            'quiet' as const
+
+      const seed = `seed-container-${i}-${Date.now()}-${r()}`
+      const containerId = '0x' + createHash('sha256').update(seed).digest('hex')
+
+      return {
+        containerId,
+        timestamp: Math.floor(Date.now() / 1000),
+        proposalHash: '0x' + createHash('sha256').update(`proposal-${i}-${r()}`).digest('hex'),
+        solarSnapshot: {
+          timestamp: Math.floor(Date.now() / 1000),
+          activityLevel,
+          xrayFlux: 1e-8 + r() * 2.0e-6,
+          kpIndex: Math.floor(r() * 9),
+          protonFlux: Math.floor(r() * 200),
+          magnetometer: Math.floor((r() - 0.5) * 200),
+          solarTdf: Math.floor(r() * 5),
+        },
+        resonanceProfile: {
+          fullBox7DComposite: Number(fullBox7DComposite.toFixed(4)),
+          fullBox7DVerdict: verdict,
+          waveProximity: Number(waveProximity.toFixed(4)),
+          phaseAlignment: Number(phaseAlignment.toFixed(4)),
+          calibratedVortex: Number(calibratedVortex.toFixed(4)),
+          calibratedSync: Number(calibratedSync.toFixed(4)),
+          neuralProximity: Number(neuralProximity.toFixed(4)),
+          neuralVortex: Number(neuralVortex.toFixed(4)),
+          gematriaResonance: Number(gematriaResonance.toFixed(4)),
+          structuralResonance: Number(structuralResonance.toFixed(4)),
+          verdict,
+          confidence: Number(confidence.toFixed(4)),
+        },
+        moralOverlay: {
+          trinitariumMoralScore: Number(trinitariumMoralScore.toFixed(4)),
+          virtueAlignment: Number(virtueAlignment.toFixed(4)),
+          moralSafety: Number(moralSafety.toFixed(4)),
+          intentAlignment: Number(intentAlignment.toFixed(4)),
+          trinitariumGematriaFusion: Number(trinitariumGematriaFusion.toFixed(4)),
+          moralNumerologicalTension,
+        },
+        hammerReason: verdict === 'PASS' ? 'Strong alignment verified' :
+                       verdict === 'NEEDS_REVISION' ? 'Partial alignment detected' :
+                       'Poor alignment - major revision needed',
+        previousContainerHash: '0x' + '0'.repeat(64),
+        containerHash: '0x' + createHash('sha256').update(`container-data-${i}-${Date.now()}-${r()}`).digest('hex'),
+        source: sources[Math.floor(r() * sources.length)],
+      }
+    })
+
+    const results: { id: string; onChain: string | null; store: boolean; error?: string }[] = []
+    for (let i = 0; i < containers.length; i++) {
+      const c = containers[i]
+      const entry: typeof results[number] = { id: c.containerId.slice(0, 20), onChain: null, store: false }
+      try {
+        const params = containerToContractParams(c)
+        const currentNonce = BigInt(nonce) + BigInt(i)
+        const txHash = await walletClient.writeContract({
+          address: CONTRACT_ADDRESS,
+          abi: registryAbi,
+          functionName: 'storeContainer',
+          args: [
+            params.containerId as `0x${string}`,
+            params.timestamp,
+            params.proposalHash as `0x${string}`,
+            {
+              timestamp: params.solarSnapshot.timestamp,
+              activityLevel: params.solarSnapshot.activityLevel,
+              xrayFlux: params.solarSnapshot.xrayFlux,
+              kpIndex: params.solarSnapshot.kpIndex,
+              protonFlux: params.solarSnapshot.protonFlux,
+              magnetometer: params.solarSnapshot.magnetometer,
+              solarTdf: params.solarSnapshot.solarTdf,
+            },
+            {
+              fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
+              fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
+              waveProximity: params.resonanceProfile.waveProximity,
+              phaseAlignment: params.resonanceProfile.phaseAlignment,
+              calibratedVortex: params.resonanceProfile.calibratedVortex,
+              calibratedSync: params.resonanceProfile.calibratedSync,
+              neuralProximity: params.resonanceProfile.neuralProximity,
+              neuralVortex: params.resonanceProfile.neuralVortex,
+              gematriaResonance: params.resonanceProfile.gematriaResonance,
+              structuralResonance: params.resonanceProfile.structuralResonance,
+              verdict: params.resonanceProfile.verdict,
+              confidence: params.resonanceProfile.confidence,
+            },
+            {
+              trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
+              virtueAlignment: params.moralOverlay.virtueAlignment,
+              moralSafety: params.moralOverlay.moralSafety,
+              intentAlignment: params.moralOverlay.intentAlignment,
+              trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
+              moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
+            },
+            params.hammerReason,
+            params.containerHash as `0x${string}`,
+            params.source,
+          ],
+          nonce: currentNonce,
+        })
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+        entry.onChain = receipt.transactionHash
+        containerStore.push(c)
+      } catch (err: any) {
+        entry.error = err.message
+      }
+      try {
+        const client = await getRedisClient()
+        if (client) {
+          await client.multi()
+            .lpush(REDIS_CONTAINER_KEY, JSON.stringify(c))
+            .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+            .exec()
+          entry.store = true
+        }
+      } catch { /* redis failed */ }
+      results.push(entry)
+    }
+
+    const ok = results.filter(r => r.onChain && r.store)
+    const failed = results.filter(r => !r.onChain || !r.store)
+    return c.json({
+      success: true,
+      total: containers.length,
+      registered: ok.length,
+      failed: failed.length,
+      results: failed.length > 0 ? failed : undefined,
+    })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
