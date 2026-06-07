@@ -150,6 +150,17 @@ function verdictColor(verdict: string) {
   return 'text-red-400'
 }
 
+const TIERS = [
+  { label: 'Peak Resonance', min: 0.95, color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/20', border: 'border-fuchsia-500/30', glow: 'shadow-fuchsia-500/20' },
+  { label: 'Resonant', min: 0.78, color: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/30', glow: '' },
+  { label: 'Unstable', min: 0.50, color: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30', glow: '' },
+  { label: 'Dissonant', min: 0, color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30', glow: '' },
+]
+
+function rarityTier(val: number) {
+  return TIERS.find(t => val >= t.min) || TIERS[TIERS.length - 1]
+}
+
 function tensionColor(t: string) {
   if (t === 'Aligned') return 'text-emerald-400'
   if (t === 'Mild') return 'text-amber-400'
@@ -381,14 +392,19 @@ export default function VortexClaim() {
                     alt={`Vortex #${t.tokenId}`}
                     className="w-full aspect-square"
                   />
-                  <div className="p-2.5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-zinc-200">#{t.tokenId}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${t.containerData ? verdictColor(t.containerData.verdict as string) : ''}`}>
-                        {t.containerData?.verdict as string || '...'}
-                      </span>
-                    </div>
-                    <a
+                    <div className="p-2.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-zinc-200">#{t.tokenId}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${t.containerData ? verdictColor(t.containerData.verdict as string) : ''}`}>
+                          {t.containerData?.verdict as string || '...'}
+                        </span>
+                      </div>
+                      {t.containerData && (
+                        <div className={`text-[10px] px-1.5 py-0.5 rounded-full border text-center mb-1 ${rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).bg} ${rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).color} ${rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).border}`}>
+                          {rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).label}
+                        </div>
+                      )}
+                      <a
                       href={`https://basescan.org/token/${VORTEX_TOKEN_ADDRESS}?a=${t.tokenId}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -463,6 +479,9 @@ export default function VortexClaim() {
                         <span className="text-xs text-zinc-400 font-medium">{formatDate(c.timestamp)}</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded ${verdictColor(c.resonanceProfile.verdict)} bg-opacity-20`}>
                           {c.resonanceProfile.verdict}
+                        </span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${rarityTier(c.resonanceProfile.fullBox7DComposite).bg} ${rarityTier(c.resonanceProfile.fullBox7DComposite).color} ${rarityTier(c.resonanceProfile.fullBox7DComposite).border} border`}>
+                          {rarityTier(c.resonanceProfile.fullBox7DComposite).label}
                         </span>
                         {status?.hasToken && (
                           <span className="text-xs text-emerald-500">Token #{status.tokenId}</span>
@@ -566,6 +585,11 @@ export default function VortexClaim() {
                       {/* 7D Resonance Profile */}
                       <div>
                         <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-2">7D Resonance Profile</div>
+                        <div className="mb-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${rarityTier(c.resonanceProfile.fullBox7DComposite).bg} ${rarityTier(c.resonanceProfile.fullBox7DComposite).color} ${rarityTier(c.resonanceProfile.fullBox7DComposite).border}`}>
+                            {rarityTier(c.resonanceProfile.fullBox7DComposite).label}
+                          </span>
+                        </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <Metric label="Composite" value={scaleDisplay(c.resonanceProfile.fullBox7DComposite)} bar cls={scaleColor(c.resonanceProfile.fullBox7DComposite)} />
                           <Metric label="Wave Prox" value={scaleDisplay(c.resonanceProfile.waveProximity)} bar cls={scaleColor(c.resonanceProfile.waveProximity)} />
