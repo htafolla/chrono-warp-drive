@@ -375,7 +375,7 @@ export default function VortexClaim() {
           </Link>
           <div className="flex items-center gap-3">
             <span className="text-xs text-zinc-500 hidden sm:inline">
-              {stats ? `${stats.totalSupply} minted · ${stats.totalDonations === '0' ? '0' : (BigInt(stats.totalDonations || '0') / 10n ** 17n).toString() + '%20'} ETH` : 'Vortex'}
+              {stats ? `${stats.totalSupply} minted · ${(Number(BigInt(stats.totalDonations || '0')) / 1e18).toFixed(6)} ETH donated` : 'Vortex'}
             </span>
             <WalletConnectButton />
           </div>
@@ -478,14 +478,9 @@ export default function VortexClaim() {
               const isMinting = minting === c.containerId
               const mintResult = mintResults[c.containerId]
               const mintError = mintErrors[c.containerId]
-              const donationAmt = donationAmounts[c.containerId] || '0.001'
               const isOpen = expanded === c.containerId
               const onChain = onChainMetadata[c.containerId]
-                  const mintAmount = parseFloat(donationAmounts[c.containerId] || '0.001')
-                  const mintValue = BigInt(Math.floor(mintAmount * 1e18))
-                  const insufficientBalance = ethBalance !== null && ethBalance < mintValue + BigInt(1e15)
-                  const showMint = !status?.hasToken && !statusLoading && isConnected
-              if (showMint) console.log('[vortex] show mint btn for', c.containerId.slice(0, 18))
+              const showMint = !status?.hasToken && !statusLoading && isConnected
 
               return (
                 <div key={c.containerId} className="rounded-xl bg-zinc-900/50 border border-zinc-800/60 overflow-hidden">
@@ -539,35 +534,16 @@ export default function VortexClaim() {
                       )}
                       {!status?.hasToken && !statusLoading && isConnected && (
                         <div onClick={e => e.stopPropagation()} className="flex items-center gap-1.5">
-                          {insufficientBalance && ethBalance !== null && (
-                            <span className="text-[10px] text-red-400 whitespace-nowrap">
-                              Balance low
-                            </span>
-                          )}
-                          <input
-                            type="number"
-                            value={donationAmt}
-                            onChange={e => setDonationAmounts(prev => ({ ...prev, [c.containerId]: e.target.value }))}
-                            step="0.001"
-                            min="0"
-                            className="w-16 px-2 py-1 text-xs rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
-                            placeholder="ETH"
-                          />
-                          {ethPrice && (
-                            <span className="text-[10px] text-zinc-500 w-12 text-right shrink-0">
-                              ~${(parseFloat(donationAmt || '0.001') * ethPrice).toFixed(2)}
-                            </span>
-                          )}
                           <button
                             onClick={() => handleMint(c.containerId)}
-                            disabled={isMinting || insufficientBalance}
+                            disabled={isMinting}
                             className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors text-white ${
-                              insufficientBalance
-                                ? 'bg-red-600/50 cursor-not-allowed'
-                                : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500'
+                              isMinting
+                                ? 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+                                : 'bg-emerald-600 hover:bg-emerald-500'
                             }`}
                           >
-                            {isMinting ? '...' : insufficientBalance ? 'Low Bal' : 'Mint'}
+                            {isMinting ? '...' : 'Claim'}
                           </button>
                         </div>
                       )}
