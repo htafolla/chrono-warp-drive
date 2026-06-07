@@ -2248,23 +2248,26 @@ app.post('/vortex/mint', async (c: Context) => {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
 
-    // Cache in Redis
-    ;(async () => {
-      try {
-        const tid = await publicClient.readContract({
-          address: VORTEX_TOKEN_ADDRESS, abi,
-          functionName: 'tokenByContainerId',
-          args: [containerId as `0x${string}`],
-        }).catch(() => 0n)
-        if (tid !== 0n) await storeVortexStatusInRedis(containerId, tid.toString())
-      } catch { /* Redis optional */ }
-    })()
+    // Cache in Redis and get tokenId from receipt
+    let tokenId: string | null = null
+    try {
+      const tid = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS, abi,
+        functionName: 'tokenByContainerId',
+        args: [containerId as `0x${string}`],
+      }).catch(() => 0n)
+      if (tid !== 0n) {
+        tokenId = tid.toString()
+        await storeVortexStatusInRedis(containerId, tokenId)
+      }
+    } catch { /* Redis optional */ }
 
     return c.json({
       success: true,
       tokenAddress: VORTEX_TOKEN_ADDRESS,
       containerId,
       to,
+      tokenId,
       txHash: receipt.transactionHash,
       explorerUrl: `https://basescan.org/tx/${receipt.transactionHash}`,
     })
