@@ -1,20 +1,20 @@
-# 0xRay Agents
+# StringRay Agents
 
-Quick reference for 0xRay AI orchestration framework.
+Quick reference for StringRay AI orchestration framework.
 
-## What is 0xRay?
+## What is StringRay?
 
-0xRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
+StringRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
 
-## How 0xRay Works
+## How StringRay Works
 
-0xRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
+StringRay provides intelligent multi-agent orchestration with automatic delegation and Codex compliance validation. Agents operate via OpenCode plugin injection - no manual setup needed.
 
 ### Basic Operation
 
 1. **Install**: Run `npx strray-ai install` to configure agents in your project
 2. **Invoke**: Use `@agent-name` syntax in prompts or code comments (e.g., `@architect design this API`)
-3. **Automatic Routing**: 0xRay automatically routes tasks to the appropriate agent based on complexity
+3. **Automatic Routing**: StringRay automatically routes tasks to the appropriate agent based on complexity
 4. **Agent Modes**: Agents can be `primary` (main coordinator) or `subagent` (specialized helper)
 
 ### Where to Find Reflections
@@ -69,7 +69,7 @@ frameworkLogger.log("my-module", "process-start", "info", { message: "Starting p
 
 Reflection Template Paths
 
-0xRay uses **two reflection folders** for different purposes:
+StringRay uses **two reflection folders** for different purposes:
 
 #### Option 1: Standard Reflections (`docs/reflections/`)
 **When to use:** Single-session work, specific bug fixes, targeted implementations
@@ -135,7 +135,7 @@ The storyteller is now a **skill** (not an agent) so it runs with full session c
 
 ## Available Skills
 
-0xRay ships with 30 framework skills and provides a registry of 10 curated community sources.
+StringRay ships with 30 framework skills and provides a registry of 10 curated community sources.
 
 **Manage skills:**
 ```bash
@@ -149,7 +149,7 @@ npx strray-ai antigravity status         # Show installed skills
 
 ## Complexity Routing
 
-0xRay automatically routes tasks based on complexity:
+StringRay automatically routes tasks based on complexity:
 
 - **Simple (≤15)**: Single agent
 - **Moderate (≤25)**: Single agent with tools
@@ -172,7 +172,7 @@ npm run test:pipelines     # Pipeline integration tests
 
 ## Features.json Configuration
 
-0xRay uses `.opencode/strray/features.json` for feature flags and settings:
+StringRay uses `.opencode/strray/features.json` for feature flags and settings:
 
 ### Location
 - **Path**: `.opencode/strray/features.json`
@@ -296,11 +296,11 @@ module.exports = async (context, tool) => {
 
 ## Codex
 
-0xRay enforces Universal Development Codex (60 terms) for systematic error prevention. See [.opencode/strray/codex.json](.opencode/strray/codex.json) for full reference.
+StringRay enforces Universal Development Codex (60 terms) for systematic error prevention. See [.opencode/strray/codex.json](https://github.com/htafolla/stringray/blob/master/.opencode/strray/codex.json) for full reference.
 
 ## Configuration Files Reference
 
-0xRay uses multiple configuration files to control behavior:
+StringRay uses multiple configuration files to control behavior:
 
 ### Main Configuration Files
 
@@ -333,7 +333,7 @@ STRRAY_NO_TELEMETRY=1              # Disable analytics
 
 ### Git Hooks Integration
 
-0xRay integrates with Git hooks for automated validation:
+StringRay integrates with Git hooks for automated validation:
 
 ```bash
 # Install Git hooks
@@ -360,7 +360,7 @@ npx strray-ai report --auto
 
 **GitHub Actions Example**:
 ```yaml
-- name: 0xRay Validation
+- name: StringRay Validation
   run: |
     npx strray-ai validate
     npx strray-ai report --ci
@@ -405,7 +405,7 @@ npx strray-ai marketplace list
 
 ### Complexity Calibration
 
-0xRay uses complexity scoring to route tasks to appropriate agents:
+StringRay uses complexity scoring to route tasks to appropriate agents:
 
 ```bash
 # Calibrate complexity scoring
@@ -658,139 +658,39 @@ npx strray-ai --version
 ## Documentation
 
 - [Full Documentation](https://github.com/htafolla/stringray)
-- [Guides](https://github.com/htafolla/stringray/tree/master/docs/guides)
+- [Configuration Guide](https://github.com/htafolla/stringray/blob/master/docs/CONFIGURATION.md)
+- [Troubleshooting](https://github.com/htafolla/stringray/blob/master/docs/TROUBLESHOOTING.md)
+
+---
+
+## Project Contracts
+
+### VortexToken (Base Mainnet)
+| Field | Value |
+|-------|-------|
+| **Token** | `0xDD84C180F5E54c79f66160583D9e85fBA7F933C5` |
+| **Registry** | `0xCB418F081D4fDAD6B2b17027294865B26cb26855` |
+| **Treasury** | `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43` |
+| **MCP** | `https://mcp-production-80e2.up.railway.app` |
+| **Frontend** | `https://dynamo.rippel.ai/vortex` |
+| **Basescan** | `https://basescan.org/address/0xDD84C180F5E54c79f66160583D9e85fBA7F933C5` |
+
+### Vortex Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/vortex/info` | GET | totalSupply, totalDonations, treasury |
+| `/vortex/container/:containerId` | GET | token status + container data from registry |
+| `/vortex/statuses` | GET | batch claimed/unclaimed for all on-chain containers |
+| `/vortex/mint` | POST | retro-mint via deployer key (mintForDonation, 0 ETH) |
+
+### VortexToken Functions
+| Function | Description |
+|----------|-------------|
+| `mintForDonation(bytes32 containerId)` | payable — mints token to `msg.sender`, records donation |
+| `tokenByContainerId(bytes32) → uint256` | returns token ID or reverts |
+| `getContainerData(uint256 tokenId)` | returns full 7D profile + TMO from registry |
+| `totalSupply() → uint256` | total minted tokens |
+| `totalDonations() → uint256` | total ETH donated (wei) |
 
 ---
 **Version**: 1.22.60 | [GitHub](https://github.com/htafolla/stringray)
-
----
-
-## Deployment Guide
-
-### Service Map
-
-| Service | Platform | Deploy From | Entry Point | URL |
-|---------|----------|------------|-------------|-----|
-| **dynamo-ui** (frontend) | Vercel | Repo root (`/`) | `vite build` → `dist/` | `dynamo-ui.vercel.app` |
-| **neural-fusion-backend** | Railway | `mcp/` directory | `backend-server.ts` | `neural-fusion-backend-*.up.railway.app` |
-| **mcp** (main MCP server) | Railway | `mcp/` directory | `server.ts` | `mcp-*.up.railway.app` |
-| **stellar-mcp** | Railway | `mcp/` directory | `stellar-server.ts` | `stellar-mcp-*.up.railway.app` |
-
-### Railway Deploy Procedure
-
-All three Railway services share the same `mcp/` directory. To deploy:
-
-```bash
-# 1. Link to the desired service first
-railway service link neural-fusion-backend   # Port 3001, entry: backend-server.ts
-railway service link mcp                      # Port 3000, entry: server.ts
-railway service link stellar-mcp              # Port 3001, entry: stellar-server.ts
-
-# 2. Deploy from mcp/ directory (CRITICAL - must be mcp/, not root)
-cd mcp && railway up
-```
-
-**Key rules:**
-- **Always `cd mcp` before `railway up`** — deploying from the root builds the Vite frontend instead of the backend
-- The `mcp/railway.toml` and `mcp/package.json` configure the build automatically
-- `ENTRY_POINT` env var per service determines which server file to start
-- `mcp/` is pre-linked in Railway config at `~/.railway/config.json`
-
-### Vercel Deploy Procedure
-
-```bash
-# Frontend (dynamo-ui) — deploys from repo root
-vercel --prod
-```
-
-**Key rules:**
-- `.vercelignore` excludes `mcp/`, `.strray`, `.opencode`, `docs/reflections`, test files
-- Only the Vite React app at root is deployed
-- The `mcp/vercel.json` config is for Vercel-based MCP deployments (not currently used)
-
-### Troubleshooting
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Railway health returns HTML/Vite app | Deployed from root instead of `mcp/` | `cd mcp && railway up` |
-| Build fails: `npm: command not found` | Deployed from root without Node.js runtime | Deploy from `mcp/` where `package.json` is detected |
-| Railway health returns 404/error | Wrong `ENTRY_POINT` for the service | Check `railway variables` for the service |
-| Vercel shows wrong app | Wrong branch/project linked | `vercel link` then `vercel --prod` |
-
----
-
-## Dynamo Project State
-
-Live services:
-- **MCP backend**: `https://mcp-production-80e2.up.railway.app` (Railway, deploys from `mcp/`)
-- **Frontend (dynamo-ui)**: `https://dynamo.rippel.ai` (Vercel, deploys from repo root)
-- **Docusaurus docs**: `https://dynamo-docs.vercel.app` (Vercel, deploys from `documentation/`)
-
-### Core Architecture
-
-| Component | File(s) | Purpose |
-|-----------|---------|---------|
-| Solar governance | `mcp/lib/solarGovernanceIntegration.ts`, `src/lib/` | 7D resonance scoring, 4 orthogonal axes (physical/temporal/neural/numerological), deltaDiff sync, Kuramoto phase coupling, adaptive thresholds |
-| Codex TDF formula | `mcp/lib/vortexMath.ts`, `src/lib/` | `tPTT × TAU × 1/BHS` with mapping layer (T_c, P_s, E_t, delta_t, voids, bhs_n) |
-| Kuramoto oscillators | `mcp/lib/kuramotoOscillators.ts`, `src/lib/` | N=3 model (K=0.5, φ_dark=π/6) replacing phaseAlignment, signalTiming, phaseCoherence |
-| Solar data fetcher | `mcp/lib/solarDataFetcher.ts` | NOAA GOES ingestion (xray, kp, particles, magnetometer, solarWind) |
-| Gematria engine | `mcp/lib/gematriaEngine.ts`, `src/lib/` | English Ordinal, Full Reduction, Reverse Ordinal, digital roots, density-normalized resonance |
-| Governance decisions | `mcp/lib/dynamoSolarGovernance.ts`, `src/lib/` | EnhancedGovernanceDecision, momentum/peak forecast, ring buffers, Redis-backed history |
-| MCP entry | `mcp/index.ts` | 20 tools, POST /govern_with_solar, GET /public_feed, GET /history |
-| NeuralFusion | (mcp TF.js) | `spectralQuality` feeds into governance as 5th dimension (10% weight) |
-
-### Key Design Decisions
-
-- **Full Box 7D model**: WaveProximity×0.132 + PhaseAlignment×0.176 + CalibratedVortex×0.132 + CalibratedSync×0.132 + NeuralProximity×0.154 + NeuralVortex×0.154 + GematriaResonance×0.12, clamped [0.15, 0.98]
-- **7D ≈ 6D×0.88 + gematria×0.12** — 6D weights scaled down, 12% allocated to numerological axis
-- **Gematria 99% orthogonal to 6D** (r=0.080, 83-proposal gambit). Mean shift +0.08pp, 2 verdict flips.
-- **Gematria resonance**: EO density×0.25 + FR density×0.20 + RO density×0.15 + distance-based DR bonus + 0.15 floor
-- **DR bonus**: continuous distance (not binary): `0.10×(1−|drDiff|/9)` EO + `0.08×(1−|drDiff|/9)` FR
-- **Reference text**: `"The Sun is the source of all life and light and truth"` (EO=488, DR=2)
-- **Four orthogonal axes**: physical (solar TDF + wave), temporal (Kuramoto phase + sync), neural (learned embeddings), numerological (gematria encoding)
-- **Sync**: deltaDiff linear decay (not cascade-index lag). Verified 43-91% range.
-- **Phase Alignment**: Kuramoto order parameter R from N=3 oscillator evolution. Verified 70-99% (was 13-24% noise floor).
-- **Signal Timing**: Kuramoto phase ordering (not content-hash cascade comparison).
-- **TDF normalization**: Fractional part of `rawTdf/1e9` (not integer `round()`). Reason: terrestrial inputs ~4e7-6e7 → integer round gives 0.
-- **Mapping layer**: Character-level entropy, 100k FNV granularity for P_s, content-dependent bhs_n.
-- **Vortex alignment**: Log-space ratio (protects small TDF proposals from 0.002 scores).
-- **Spectral Lift (S_L)**: Skipped — all TDFs > 1e6, threshold crossing always true.
-- **E_t_growth**: Skipped — introduces order-dependent bias.
-- **Cascade indices**: Replaced with `tdfCascade()` derived from TDF fine structure (cross-correlation lag only).
-- **Thresholds**: Adaptive by solar activity (quiet/moderate/active/storm). Storms require higher scores to PASS.
-- **Momentum/peak forecast**: Display-only.
-- **Redis**: Backed history (10,000 cap), graceful fallback to in-memory.
-- **0xRay (was StringRay)**: User-facing name changed; CLI, npm, dir paths preserved.
-
-### Relevant Files
-
-- `mcp/lib/solarGovernanceIntegration.ts` — Solar hammer, 4D/5D formulas, Kuramoto wiring
-- `src/lib/solarGovernanceIntegration.ts` — Frontend mirror
-- `mcp/lib/kuramotoOscillators.ts` — Kuramoto N=3 coupling model (canonical)
-- `src/lib/kuramotoOscillators.ts` — Frontend mirror
-- `mcp/lib/vortexMath.ts` — Codex TDF formula, fractional-part normalization
-- `src/lib/vortexMath.ts` — Frontend mirror
-- `mcp/lib/dynamoSolarGovernance.ts` — EnhancedGovernanceDecision, adaptive thresholds, Redis
-- `src/lib/dynamoSolarGovernance.ts` — Frontend mirror (no Redis)
-- `mcp/lib/temporalBlurrnSignal.ts` — TDF cross-correlation
-- `mcp/lib/wavePropagation.ts` — Phase 2 wave propagation layer (A/B alongside TDF formulas)
-- `src/lib/wavePropagation.ts` — Frontend mirror
-- `mcp/scripts/test-wave-propagation.ts` — Phase 2 A/B test harness
-- `mcp/lib/solarDataFetcher.ts` — NOAA GOES ingestion
-- `mcp/index.ts` — Tool definitions, HTTP routes
-- `mcp/backend-server.ts` — Express entry point
-- `src/components/DynamoDeploy.tsx` — UI, sequential neural→governance, wave score display
-- `src/__tests__/mcp.test.ts` — 97 tests, all pass
-- `docs/DYNAMO-CURRENT-STATE.md` — Authoritative current-state document
-- `docs/governance/0xray-integration-guide.md` — 0xRay integration
-- `documentation/docs/for-physicists.md` — Deep-dive docs (mapping tables, Kuramoto section, Phase 2 wave propagation)
-
-### Known Gaps / Next Possible Work
-
-- **Threshold recalibration**: Sync now correctly scores 62-95% (was ~9% noise), current quiet thresholds (0.82/0.72/0.58) may be too permissive.
-- **Wave propagation calibration**: waveSynchronization drops to ~0.01 for non-identical proposals. The cos(θ₁−θ₀) metric and proximity scaling need tuning before wave scores can replace current formulas.
-- **Hybrid model live**: vortexAlignment replaced with calibrated waveVortexAlignment (71% win rate on 35 real proposals). Monitored in production.
-- **Dead vortexAlignment removed**: The old log-ratio magnitude formula (always 1.0 for terrestrial TDFs) was removed from both codebase mirrors. `vortexAlignment` field preserved in returns, now aliased to live `calibratedVortex`.
-- **Phase 2 decision**: Evaluate A/B data from live endpoint. If wave consistently beats current formulas across real proposals, plan the migration.
-- **Codex v4.9/v5.0**: Write Codex update capturing deltaDiff sync, adaptive thresholds, 5D formula, Redis, Railway deploy, Kuramoto coupling, wave propagation.
-- **0xRay domain transition**: Update references when GitHub org moves to 0xRay.
