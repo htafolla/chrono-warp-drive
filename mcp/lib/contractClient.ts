@@ -4,21 +4,22 @@ import type { ContainerVortex } from './temporalContainer.js'
 import { containerToContractParams } from './temporalContainer.js'
 
 const RPC_URLS = [
-  process.env.BASE_RPC_URL,
-  'https://base.llamarpc.com',
-  'https://base-rpc.publicnode.com',
   'https://mainnet.base.org',
-].filter(Boolean) as string[]
+  'https://base-rpc.publicnode.com',
+  process.env.BASE_RPC_URL,
+].filter((u): u is string => !!u)
+
+const UNIQUE_RPC_URLS = [...new Set(RPC_URLS)]
 
 export function buildFallbackTransport() {
   return fallback(
-    RPC_URLS.map(url => http(url, { timeout: 5000 })),
+    UNIQUE_RPC_URLS.map(url => http(url, { timeout: 5000 })),
     { rank: false }
   )
 }
 
 export function buildReadTransport() {
-  return http(RPC_URLS[0], { timeout: 10000 })
+  return http(UNIQUE_RPC_URLS[0], { timeout: 10000 })
 }
 
 export const baseMainnet = defineChain({
@@ -26,7 +27,7 @@ export const baseMainnet = defineChain({
   name: 'Base',
   network: 'base',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: RPC_URLS } },
+  rpcUrls: { default: { http: UNIQUE_RPC_URLS } },
 })
 
 export const CONTRACT_ADDRESS = '0xCB418F081D4fDAD6B2b17027294865B26cb26855'
