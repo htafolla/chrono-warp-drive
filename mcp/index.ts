@@ -2052,7 +2052,7 @@ app.post('/messages', async (c: Context) => {
 
 // ---------- Vortex Token endpoints ----------
 
-const VORTEX_TOKEN_ADDRESS = '0xDD84C180F5E54c79f66160583D9e85fBA7F933C5'
+const VORTEX_TOKEN_ADDRESS = '0x6C61feb8389c99EBf00576E7A110140866C5D9fF'
 
 function getVortexTokenClient() {
   const account = privateKeyToAccount(getPrivateKey())

@@ -183,7 +183,8 @@ contract VortexToken is ERC721, AccessControl {
 
         string memory head = string.concat(
             '{"name":"Dynamo Vortex #', tokenId.toString(),
-            unicode'","description":"A temporal resonance vortex captured by the Dynamo engine — a moment when human intention was evaluated against the 7D Full Box and Trinitarium Moral Overlay.","attributes":['
+            unicode'","description":"A temporal resonance vortex captured by the Dynamo engine — a moment when human intention was evaluated against the 7D Full Box and Trinitarium Moral Overlay.","image":"https://mcp-production-80e2.up.railway.app/vortex/token-image/',
+            tokenId.toString(), '","attributes":['
         );
         string memory traits1 = string.concat(
             '{"trait_type":"Verdict","value":"', c.verdict, '"},',

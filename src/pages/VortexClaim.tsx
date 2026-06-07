@@ -3,7 +3,7 @@ import { useAccount, usePublicClient, useWriteContract } from 'wagmi'
 import { WalletConnectButton } from '@/components/WalletConnectButton'
 import { Link } from 'react-router-dom'
 
-const VORTEX_TOKEN_ADDRESS = '0xDD84C180F5E54c79f66160583D9e85fBA7F933C5'
+const VORTEX_TOKEN_ADDRESS = '0x6C61feb8389c99EBf00576E7A110140866C5D9fF'
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app'
 const VORTEX_ABI = [
   {
