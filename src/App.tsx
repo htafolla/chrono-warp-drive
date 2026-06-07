@@ -1,24 +1,22 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { Web3Providers } from "@/providers/Web3Providers";
 import Index from "./pages/Index";
 import About from "./pages/About";
 import IsotopicVortex from "./pages/IsotopicVortex";
 import DynamoDeploy from "./pages/DynamoDeploy";
 import TPTTPage from "./pages/TPTTPage";
+import VortexClaim from "./pages/VortexClaim";
 import NotFound from "./pages/NotFound";
 
-// Simple consumer site should show the lightweight beacon dashboard as root
 const isSimpleConsumer = typeof window !== 'undefined' &&
   (window.location.hostname.includes('dynamo-ui') || window.location.hostname.includes('rippel.ai'));
 
-const queryClient = new QueryClient();
-
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <Web3Providers>
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"
@@ -35,13 +33,13 @@ const App = () => (
             <Route path="/isotopic-vortex" element={<IsotopicVortex />} />
             <Route path="/deploy" element={<DynamoDeploy />} />
             <Route path="/tptt" element={<TPTTPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/vortex" element={<VortexClaim />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>
-  </QueryClientProvider>
+  </Web3Providers>
 );
 
 export default App;

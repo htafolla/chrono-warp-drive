@@ -3,7 +3,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import type { ContainerVortex } from './temporalContainer.js'
 import { containerToContractParams } from './temporalContainer.js'
 
-const baseMainnet = defineChain({
+export const baseMainnet = defineChain({
   id: 8453,
   name: 'Base',
   network: 'base',
@@ -11,9 +11,9 @@ const baseMainnet = defineChain({
   rpcUrls: { default: { http: ['https://mainnet.base.org'] } },
 })
 
-const CONTRACT_ADDRESS = '0xCB418F081D4fDAD6B2b17027294865B26cb26855'
+export const CONTRACT_ADDRESS = '0xCB418F081D4fDAD6B2b17027294865B26cb26855'
 
-function getPrivateKey(): `0x${string}` {
+export function getPrivateKey(): `0x${string}` {
   const pk = process.env.DEPLOYER_PRIVATE_KEY
   if (!pk) throw new Error('DEPLOYER_PRIVATE_KEY not set')
   return (pk.startsWith('0x') ? pk : `0x${pk}`) as `0x${string}`

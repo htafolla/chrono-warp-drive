@@ -792,6 +792,7 @@ export function TPTTApp() {
             <Link to="/about" className="text-primary hover:underline">About</Link>
             <span className="text-muted-foreground">·</span>
             <Link to="/deploy" className="text-primary hover:underline flex items-center gap-1"><Zap className="h-3 w-3" />Deploy</Link>
+            <Link to="/vortex" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2 flex items-center gap-1">Vortex</Link>
           </nav>
         </header>
 

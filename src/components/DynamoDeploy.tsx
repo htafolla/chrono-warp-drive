@@ -610,7 +610,16 @@ export default function DynamoDeploy() {
             <a href="https://github.com/htafolla/chrono-warp-drive" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">GitHub</a>
             <a href="https://x.com/blaze0x1" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">X / @blaze0x1</a>
             <a href="/tptt" className="text-[10px] text-cyan-400/50 hover:text-cyan-300 transition-colors">Pipeline</a>
+            <a href="/vortex" className="text-[10px] text-emerald-400/70 hover:text-emerald-300 transition-colors font-semibold">Vortex</a>
           </div>
+          <a
+            href="/vortex"
+            className="mt-3 block w-full rounded-xl bg-emerald-600/20 border border-emerald-500/30
+              hover:bg-emerald-600/30 hover:border-emerald-500/50 transition-all px-4 py-3 text-center"
+          >
+            <span className="text-xs text-emerald-400 font-semibold">Browse & Claim VortexTokens &rarr;</span>
+            <p className="text-[9px] text-emerald-500/60 mt-0.5">Donate ETH to mint an ERC-721 for any temporal container</p>
+          </a>
         </div>
 
         {/* Three service cards — grid row, icon left of text */}

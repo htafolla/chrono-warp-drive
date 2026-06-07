@@ -1,0 +1,686 @@
+[
+  {
+    "type": "function",
+    "name": "KP_SCALE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_CONTAINERS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "SCALE_1E18",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "XRAY_SCALE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "containerCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "containerExists",
+    "inputs": [
+      {
+        "name": "_containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAncestors",
+    "inputs": [
+      {
+        "name": "_containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ancestors",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getContainer",
+    "inputs": [
+      {
+        "name": "_containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct TemporalContainerRegistry.TemporalContainer",
+        "components": [
+          {
+            "name": "containerId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "proposalHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "solarSnapshot",
+            "type": "tuple",
+            "internalType": "struct TemporalContainerRegistry.SolarSnapshot",
+            "components": [
+              {
+                "name": "timestamp",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "activityLevel",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "xrayFlux",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "kpIndex",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "protonFlux",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "magnetometer",
+                "type": "int256",
+                "internalType": "int256"
+              },
+              {
+                "name": "solarTdf",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "resonanceProfile",
+            "type": "tuple",
+            "internalType": "struct TemporalContainerRegistry.ResonanceProfile",
+            "components": [
+              {
+                "name": "fullBox7DComposite",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "fullBox7DVerdict",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "waveProximity",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "phaseAlignment",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "calibratedVortex",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "calibratedSync",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "neuralProximity",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "neuralVortex",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "gematriaResonance",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "structuralResonance",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "verdict",
+                "type": "string",
+                "internalType": "string"
+              },
+              {
+                "name": "confidence",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
+          },
+          {
+            "name": "moralOverlay",
+            "type": "tuple",
+            "internalType": "struct TemporalContainerRegistry.MoralOverlay",
+            "components": [
+              {
+                "name": "trinitariumMoralScore",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "virtueAlignment",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "moralSafety",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "intentAlignment",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "trinitariumGematriaFusion",
+                "type": "uint256",
+                "internalType": "uint256"
+              },
+              {
+                "name": "moralNumerologicalTension",
+                "type": "string",
+                "internalType": "string"
+              }
+            ]
+          },
+          {
+            "name": "hammerReason",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "previousContainerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "containerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "source",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "creator",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPreviousContainer",
+    "inputs": [
+      {
+        "name": "_containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "latestContainerHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "listContainers",
+    "inputs": [
+      {
+        "name": "_offset",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ids",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "total",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "storeContainer",
+    "inputs": [
+      {
+        "name": "_containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_proposalHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_solarSnapshot",
+        "type": "tuple",
+        "internalType": "struct TemporalContainerRegistry.SolarSnapshot",
+        "components": [
+          {
+            "name": "timestamp",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "activityLevel",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "xrayFlux",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "kpIndex",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "protonFlux",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "magnetometer",
+            "type": "int256",
+            "internalType": "int256"
+          },
+          {
+            "name": "solarTdf",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "_resonanceProfile",
+        "type": "tuple",
+        "internalType": "struct TemporalContainerRegistry.ResonanceProfile",
+        "components": [
+          {
+            "name": "fullBox7DComposite",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "fullBox7DVerdict",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "waveProximity",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "phaseAlignment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "calibratedVortex",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "calibratedSync",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "neuralProximity",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "neuralVortex",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "gematriaResonance",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "structuralResonance",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "verdict",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "confidence",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "_moralOverlay",
+        "type": "tuple",
+        "internalType": "struct TemporalContainerRegistry.MoralOverlay",
+        "components": [
+          {
+            "name": "trinitariumMoralScore",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "virtueAlignment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "moralSafety",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "intentAlignment",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "trinitariumGematriaFusion",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "moralNumerologicalTension",
+            "type": "string",
+            "internalType": "string"
+          }
+        ]
+      },
+      {
+        "name": "_hammerReason",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_containerHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_source",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "verifyContainer",
+    "inputs": [
+      {
+        "name": "_containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_expectedHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ContainerStored",
+    "inputs": [
+      {
+        "name": "containerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "creator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "verdict",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "moralTension",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "source",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ContainerVerified",
+    "inputs": [
+      {
+        "name": "containerId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "valid",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ContainerAlreadyExists",
+    "inputs": [
+      {
+        "name": "containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ContainerLimitReached",
+    "inputs": [
+      {
+        "name": "max",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ContainerNotFound",
+    "inputs": [
+      {
+        "name": "containerId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  }
+]

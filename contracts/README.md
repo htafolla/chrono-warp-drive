@@ -1,15 +1,20 @@
 # Dynamo Temporal Containers
 
-On-chain registry for temporal resonance containers on **Base** (v0.1).
+On-chain registry for temporal resonance containers on **Base** (v5.2).
 
 ## Contract
 
 `TemporalContainerRegistry` — stores a canonical, verifiable unit for each temporal resonance event:
+
 - **SHA-256** container identity
 - **Solar snapshot** (timestamp, activity level, NOAA metrics, solar TDF)
-- **6D resonance profile** (proximity, phase, vortex, sync, neuralProx, neuralVortex)
-- **Proposal hash** + verdict + confidence
+- **7D resonance profile** (waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance + fullBox7DComposite)
+- **Moral overlay** (trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion, moralNumerologicalTension)
+- **Proposal hash** + verdict + confidence + hammerReason
+- **Chain linking** via `previousContainerHash` — each container references the previous, forming a temporal chain
+- **Source tracking** — `"human" | "agent" | "ambient"`
 - **Cryptographic integrity hash** for verification
+- **Ancestor traversal** — `getAncestors()` for temporal manifold navigation
 
 ## Deploy
 
@@ -42,26 +47,36 @@ DEPLOYER_PRIVATE_KEY=your_key
 
 ## Gas
 
-~180k–220k gas per `storeContainer` call (~$0.001–0.005 on Base at current prices).
-
-## Schema
-
-Full container JSON (off-chain, IPFS-referenced) mirrors the on-chain struct plus proposal text and metadata. See `docs/temporal-container-schema.md` for the complete JSON schema.
+~200k–280k gas per `storeContainer` call (~$0.001–0.005 on Base at current prices).
 
 ## Architecture
 
 ```
 Off-chain (Dynamo API)                          On-chain (Base)
 ───────────────────────────────                  ────────────────
-/govern_with_solar → full 6D                     TemporalContainerRegistry
-  resonance profile                                ├─ storeContainer()
-    ↓                                              ├─ getContainer()
-  compute containerHash (SHA-256)                  ├─ verifyContainer()
-  upload full JSON to IPFS                         └─ listContainers()
-  call storeContainer(hash, ...)
+/govern_with_solar?persistToChain                TemporalContainerRegistry
+  → full 7D resonance + TMO                       ├─ storeContainer()
+  → governanceToContainer()                        ├─ getContainer()
+  → chain-link to latest                          ├─ verifyContainer()
+  → store in memory container store                ├─ containerCount()
+  → return containerId + hash                      ├─ listContainers()
+                                                    ├─ getPreviousContainer()
+GET /containers                                    ├─ getAncestors()
+GET /containers/:id                                └─ latestContainerHash()
+
+Ambient daemon (background):
+  → field momentum tracking
+  → self-adjusting sampling rate
+  → GET /ambient/status (momentum, density, vortices)
 ```
+
+## Chain Linking
+
+Each container stores the `containerHash` of the previous one via `previousContainerHash`.
+The contract tracks `latestContainerHash` so new containers are automatically chained.
+This creates an immutable temporal chain: `container[0] → container[1] → ... → container[N]`.
 
 ## Migration Path
 
-- **v0.1 (Base)**: Fast iteration, low cost, real usage data
+- **v5.2 (Base)**: TMO fields, chain linking, source tracking, momentum-driven ambient sampling
 - **v0.2+ (Multi-chain)**: IPFS + on-chain hash pattern enables portability to Arbitrum, Optimism, or sovereign chain

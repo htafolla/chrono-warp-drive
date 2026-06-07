@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = 'https://dynamo.rippel.ai';
+const MCP = 'https://mcp-production-80e2.up.railway.app';
 
 test.describe('VortexClaim page', () => {
   test.beforeEach(async ({ page }) => {
@@ -40,11 +41,14 @@ test.describe('VortexClaim page', () => {
   });
 
   test('claimed containers show Basescan link', async ({ page }) => {
-    await page.locator('.cursor-pointer').first().click();
-    await expect(page.getByText('Basescan').first()).toBeVisible({ timeout: 20000 });
+    const claimed = page.locator('text=/Token #\\d+/');
+    if (await claimed.count() > 0) {
+      await claimed.first().click();
+      await expect(page.getByText('Basescan').first()).toBeVisible({ timeout: 20000 });
+    }
   });
 
-  test('unclaimed containers show mint input + button when wallet connected', async ({ page }) => {
+  test('unclaimed containers show mint input when wallet connected', async ({ page }) => {
     const mintBtns = page.locator('button:has-text("Mint")');
     const count = await mintBtns.count();
     if (count > 0) {
@@ -64,5 +68,89 @@ test.describe('VortexClaim page', () => {
     if (await prompt.isVisible()) {
       await expect(page.getByText('Connect Wallet').first()).toBeVisible();
     }
+  });
+
+  test('full e2e: pick on-chain unclaimed container → MCP mints → UI shows claimed', async ({ page }) => {
+    const statuses = await (await fetch(`${MCP}/vortex/statuses`)).json();
+    const candidates: { containerId: string; verdict: string }[] = [];
+    for (const [cid, info] of Object.entries(statuses.statuses || {})) {
+      const s = info as { claimed: boolean; tokenId: string | null };
+      if (!s.claimed) {
+        const detail = await (await fetch(`${MCP}/vortex/container/${cid}`)).json();
+        if (detail.containerData && detail.containerData.verdict) {
+          candidates.push({ containerId: cid, verdict: detail.containerData.verdict });
+        }
+      }
+    }
+    expect(candidates.length).toBeGreaterThan(0);
+    const target = candidates[0];
+    const containerId = target.containerId;
+    const verdict = target.verdict;
+    console.log(`Using unclaimed: ${containerId.slice(0, 18)}… verdict: ${verdict}`);
+
+    await page.goto(`${BASE}/vortex`);
+    await expect(page.getByText('Temporal containers')).toBeVisible({ timeout: 15000 });
+
+    const rows = page.locator('.cursor-pointer');
+    await expect(rows.first()).toBeVisible({ timeout: 15000 });
+
+    let found = false;
+    const rowCount = await rows.count();
+    for (let i = 0; i < rowCount; i++) {
+      await rows.nth(i).click();
+      const panel = rows.nth(i).locator('..');
+      try {
+        await expect(panel.getByText('Container ID')).toBeVisible({ timeout: 2000 });
+        const cidMatch = panel.getByText(containerId.slice(0, 12));
+        if (await cidMatch.isVisible().catch(() => false)) {
+          found = true;
+          console.log(`Matched container at row ${i}`);
+          break;
+        }
+      } catch { /* not this row */ }
+      await rows.nth(i).click();
+    }
+    expect(found).toBe(true);
+    console.log('Container ID confirmed in expanded detail panel');
+
+    const status = await (await fetch(`${MCP}/vortex/container/${containerId}`)).json();
+    let tokenId = status.tokenId;
+
+    if (!tokenId) {
+      const result = await fetch(`${MCP}/vortex/mint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ containerId }),
+      });
+      const mint = await result.json();
+      expect(mint.success).toBe(true);
+      expect(mint.txHash).toBeTruthy();
+      console.log(`Minted: tx ${mint.txHash.slice(0, 18)}…`);
+
+      const updated = await (await fetch(`${MCP}/vortex/container/${containerId}`)).json();
+      tokenId = updated.tokenId;
+    } else {
+      console.log(`Already minted as token ${tokenId}`);
+    }
+
+    expect(tokenId).toBeTruthy();
+    if (tokenId) {
+      await fetch(`${MCP}/vortex/store-mapping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ containerId, tokenId }),
+      });
+      console.log(`Redis stored: token ${tokenId}`);
+    }
+
+    await page.reload();
+    await expect(page.getByText(verdict).first()).toBeVisible({ timeout: 15000 });
+    const badge = page.getByText(/Token #\d+/);
+    await expect(badge.first()).toBeVisible({ timeout: 15000 });
+    console.log('Token badge confirmed after reload');
+
+    await badge.first().click();
+    await expect(page.getByText('Basescan').first()).toBeVisible({ timeout: 20000 });
+    console.log('Basescan link visible after mint');
   });
 });

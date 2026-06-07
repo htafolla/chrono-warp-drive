@@ -44,6 +44,7 @@ export interface ContainerVortex {
   resonanceProfile: ContainerResonanceProfile
   moralOverlay: ContainerMoralOverlay
   hammerReason: string
+  vortexMessage?: string
   previousContainerHash: string
   containerHash: string
   source: 'human' | 'agent' | 'ambient'
@@ -133,6 +134,7 @@ export function governanceToContainer(
     resonanceProfile,
     moralOverlay,
     hammerReason: decision.hammerReason ?? '',
+    vortexMessage: decision.vortexMessage,
     previousContainerHash: previousHash ?? '0x' + '0'.repeat(64),
     containerHash,
     source,
