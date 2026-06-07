@@ -2271,10 +2271,10 @@ function vortexPct(val: bigint): string {
   return Math.min(pct, 100).toString() + '%'
 }
 function vortexSvg(tokenId: string, containerData: any): string {
-  const verdict = containerData[2] || ''
-  const tmoScore = containerData[4] ? BigInt(containerData[4].toString()) : 0n
-  const composite = containerData[3] ? BigInt(containerData[3].toString()) : 0n
-  const tension = containerData[6] || ''
+  const verdict = containerData.verdict || ''
+  const tmoScore = containerData.trinitariumMoralScore ? BigInt(containerData.trinitariumMoralScore.toString()) : 0n
+  const composite = containerData.fullBox7DComposite ? BigInt(containerData.fullBox7DComposite.toString()) : 0n
+  const tension = containerData.moralTension || ''
   const vc = vortexSvgColor(verdict)
   const tc = vortexTensionColor(tension)
   const p1 = vortexPct(composite)

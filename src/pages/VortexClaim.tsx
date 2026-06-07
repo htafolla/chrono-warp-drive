@@ -484,12 +484,12 @@ export default function VortexClaim() {
 
                           {onChain ? (
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                              <Metric label="7D Composite" value={onChainPct(onChain[3] as bigint)} bar cls={onChainColor(onChain[3] as bigint)} />
-                              <Metric label="TMO Score" value={onChainPct(onChain[4] as bigint)} bar cls={onChainColor(onChain[4] as bigint)} />
-                              <Metric label="Verdict" value={onChain[2] as string} cls={verdictColor(onChain[2] as string)} />
-                              <Metric label="Tension" value={onChain[6] as string} cls={tensionColor(onChain[6] as string)} />
-                              <Metric label="Virtue" value={onChainPct(onChain[10] as bigint)} bar cls={onChainColor(onChain[10] as bigint)} />
-                              <Metric label="Safety" value={onChainPct(onChain[11] as bigint)} bar cls={onChainColor(onChain[11] as bigint)} />
+                              <Metric label="7D Composite" value={onChainPct(onChain.fullBox7DComposite as bigint)} bar cls={onChainColor(onChain.fullBox7DComposite as bigint)} />
+                              <Metric label="TMO Score" value={onChainPct(onChain.trinitariumMoralScore as bigint)} bar cls={onChainColor(onChain.trinitariumMoralScore as bigint)} />
+                              <Metric label="Verdict" value={onChain.verdict as string} cls={verdictColor(onChain.verdict as string)} />
+                              <Metric label="Tension" value={onChain.moralTension as string} cls={tensionColor(onChain.moralTension as string)} />
+                              <Metric label="Virtue" value={onChainPct(onChain.virtueAlignment as bigint)} bar cls={onChainColor(onChain.virtueAlignment as bigint)} />
+                              <Metric label="Safety" value={onChainPct(onChain.moralSafety as bigint)} bar cls={onChainColor(onChain.moralSafety as bigint)} />
                             </div>
                           ) : (
                             <div className="text-xs text-zinc-600 mt-1">Loading on-chain data...</div>
