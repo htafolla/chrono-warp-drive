@@ -49,6 +49,24 @@ function tensionColor(t: string | null | undefined): string {
   return 'text-white/50'
 }
 
+function sourceBadge(src: string) {
+  const m: Record<string, { color: string; label: string }> = {
+    human: { color: 'bg-cyan-500/20 text-cyan-400', label: 'human' },
+    agent: { color: 'bg-violet-500/20 text-violet-400', label: 'agent' },
+    ambient: { color: 'bg-amber-500/20 text-amber-400', label: 'ambient' },
+    system: { color: 'bg-zinc-500/20 text-zinc-400', label: 'system' },
+  }
+  const c = m[src] || m.system
+  return <span className={`text-[9px] px-1.5 py-px rounded font-medium ${c.color}`}>{c.label}</span>
+}
+
+function feedRarity(v: number) {
+  if (v >= 0.95) return { label: 'Celestial', cls: 'text-fuchsia-400 bg-fuchsia-500/20' }
+  if (v >= 0.78) return { label: 'Resonant', cls: 'text-emerald-400 bg-emerald-500/20' }
+  if (v >= 0.50) return { label: 'Unstable', cls: 'text-amber-400 bg-amber-500/20' }
+  return { label: 'Dissonant', cls: 'text-red-400 bg-red-500/20' }
+}
+
 function Row({ label, v, color, plain, bold }: { label: string; v: any; color?: string; plain?: boolean; bold?: boolean }) {
   return (
     <div className="flex items-center justify-between">
@@ -459,7 +477,7 @@ export default function DynamoDeploy() {
   const pipelineTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [feed, setFeed] = useState<Array<{
     proposal: string; resonanceScore: number; recommendation: string;
-    activityLevel: string; timestamp: string; response?: any;
+    activityLevel: string; timestamp: string; source: string; response?: any;
   }>>([]);
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
   const [manifoldStatus, setManifoldStatus] = useState<any | null>(null);
@@ -505,6 +523,7 @@ export default function DynamoDeploy() {
             recommendation: e.response.recommendation ?? 'NEEDS_REVISION',
             activityLevel: e.response.solarContext?.solarActivityLevel ?? 'moderate',
             timestamp: e.timestamp,
+            source: e.proposal?.toLowerCase().startsWith('ambient') ? 'ambient' : 'human',
             response: e.response,
           })));
         }
@@ -1131,11 +1150,15 @@ export default function DynamoDeploy() {
                   onClick={() => setSelectedEntry(entry)}
                   className="px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.04] transition-colors"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white/60 truncate">{entry.proposal}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      <span className="text-[10px] text-white/30">{formatTime(entry.timestamp)}</span>
-                      <Tooltip><TooltipTrigger asChild><span className={`text-[9px] px-1.5 py-px rounded font-medium ${
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white/60 truncate">{entry.proposal}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-[10px] text-white/30">{formatTime(entry.timestamp)}</span>
+                        {sourceBadge(entry.source)}
+                        {(() => { const r = feedRarity(entry.resonanceScore); return (
+                          <span className={`text-[9px] px-1.5 py-px rounded font-medium ${r.cls}`}>{r.label}</span>
+                        )})()}
+                        <Tooltip><TooltipTrigger asChild><span className={`text-[9px] px-1.5 py-px rounded font-medium ${
                         entry.activityLevel === 'storm' ? 'bg-red-500/20 text-red-400' :
                         entry.activityLevel === 'active' ? 'bg-orange-500/20 text-orange-400' :
                         entry.activityLevel === 'moderate' ? 'bg-amber-500/20 text-amber-400' :
@@ -1153,11 +1176,6 @@ export default function DynamoDeploy() {
                         }`}>
                           {entry.response.moralNumerologicalTension}
                         </span></TooltipTrigger><TooltipContent>Moral-Numerological Tension — alignment between moral score and numerological resonance</TooltipContent></Tooltip>
-                      )}
-                      {entry.proposal?.toLowerCase().startsWith('ambient') && (
-                        <Tooltip><TooltipTrigger asChild><span className="text-[9px] px-1.5 py-px rounded font-medium bg-violet-500/20 text-violet-400">
-                          🤖 ambient
-                        </span></TooltipTrigger><TooltipContent>Auto-generated solar waypoint from the Ambient Resonance daemon</TooltipContent></Tooltip>
                       )}
                     </div>
                   </div>

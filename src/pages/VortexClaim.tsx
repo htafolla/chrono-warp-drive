@@ -163,6 +163,17 @@ function rarityTier(val: number) {
   return TIERS.find(t => val >= t.min) || TIERS[TIERS.length - 1]
 }
 
+function sourceChip(src: string) {
+  const colors: Record<string, string> = {
+    human: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+    agent: 'text-violet-400 bg-violet-500/10 border-violet-500/30',
+    ambient: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+    system: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/30',
+  }
+  const cls = colors[src] || colors.system
+  return <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${cls}`}>{src}</span>
+}
+
 function tensionColor(t: string) {
   if (t === 'Aligned') return 'text-emerald-400'
   if (t === 'Mild') return 'text-amber-400'
@@ -500,6 +511,7 @@ export default function VortexClaim() {
                         <span className={`text-xs px-1.5 py-0.5 rounded ${verdictColor(c.resonanceProfile.verdict)} bg-opacity-20`}>
                           {c.resonanceProfile.verdict}
                         </span>
+                        {sourceChip(c.source)}
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${rarityTier(c.resonanceProfile.fullBox7DComposite).bg} ${rarityTier(c.resonanceProfile.fullBox7DComposite).color} ${rarityTier(c.resonanceProfile.fullBox7DComposite).border} border`}>
                           {rarityTier(c.resonanceProfile.fullBox7DComposite).label}
                         </span>
