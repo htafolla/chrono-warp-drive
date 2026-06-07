@@ -420,6 +420,16 @@ export default function VortexClaim() {
         )}
 
         {!loading && containers.length > 0 && (
+          <>
+          <div className="rounded-xl bg-zinc-900/40 border border-zinc-800/50 p-3 mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+            <div className="text-zinc-500 font-medium w-full mb-0.5">Rarity — what the score means</div>
+            <span><span className="text-fuchsia-400">Peak Resonance</span> <span className="text-zinc-600">≥ 95%</span> <span className="text-zinc-500">— extraordinary harmony, rare</span></span>
+            <span><span className="text-emerald-400">Resonant</span> <span className="text-zinc-600">≥ 78%</span> <span className="text-zinc-500">— strong alignment, common for PASS</span></span>
+            <span><span className="text-amber-400">Unstable</span> <span className="text-zinc-600">≥ 50%</span> <span className="text-zinc-500">— mixed signals, needs work</span></span>
+            <span><span className="text-red-400">Dissonant</span> <span className="text-zinc-600">&lt; 50%</span> <span className="text-zinc-500">— poor alignment</span></span>
+            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-500">Auto-save to chain requires <span className="text-emerald-400">≥ 88% resonance</span> + <span className="text-emerald-400">≥ 55% moral score</span></span>
+          </div>
           <div className="flex items-center justify-between mb-4">
             <div className="flex gap-1">
               {(['all', 'claimed', 'unclaimed'] as const).map(m => (
@@ -443,6 +453,7 @@ export default function VortexClaim() {
               {sortAsc ? '↑ Oldest' : '↓ Newest'}
             </button>
           </div>
+          </>
         )}
 
         {loading ? (
