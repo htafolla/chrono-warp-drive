@@ -11,7 +11,14 @@ const RPC_URLS = [
 ].filter(Boolean) as string[]
 
 export function buildFallbackTransport() {
-  return fallback(RPC_URLS.map(url => http(url)))
+  return fallback(
+    RPC_URLS.map(url => http(url, { timeout: 5000 })),
+    { rank: false }
+  )
+}
+
+export function buildReadTransport() {
+  return http(RPC_URLS[0], { timeout: 10000 })
 }
 
 export const baseMainnet = defineChain({
@@ -32,17 +39,16 @@ export function getPrivateKey(): `0x${string}` {
 
 function getContractClient() {
   const account = privateKeyToAccount(getPrivateKey())
-  const transport = buildFallbackTransport()
 
   const walletClient = createWalletClient({
     account,
     chain: baseMainnet,
-    transport,
+    transport: buildFallbackTransport(),
   })
 
   const publicClient = createPublicClient({
     chain: baseMainnet,
-    transport,
+    transport: buildReadTransport(),
   })
 
   return { walletClient, publicClient, account }
