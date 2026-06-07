@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi'
 import { WalletConnectButton } from '@/components/WalletConnectButton'
 import { Link } from 'react-router-dom'
+import { fetchEthPrice } from '@/services/coingeckoApi'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app'
@@ -151,7 +153,7 @@ function verdictColor(verdict: string) {
 }
 
 const TIERS = [
-  { label: 'Peak Resonance', min: 0.95, color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/20', border: 'border-fuchsia-500/30', glow: 'shadow-fuchsia-500/20' },
+  { label: 'Celestial', min: 0.95, color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/20', border: 'border-fuchsia-500/30', glow: 'shadow-fuchsia-500/20' },
   { label: 'Resonant', min: 0.78, color: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/30', glow: '' },
   { label: 'Unstable', min: 0.50, color: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/30', glow: '' },
   { label: 'Dissonant', min: 0, color: 'text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/30', glow: '' },
@@ -190,6 +192,13 @@ export default function VortexClaim() {
   const [ethBalance, setEthBalance] = useState<bigint | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'claimed' | 'unclaimed'>('all')
   const [sortAsc, setSortAsc] = useState(false)
+
+  const { data: ethPrice } = useQuery({
+    queryKey: ['ethPrice'],
+    queryFn: fetchEthPrice,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  })
 
   useEffect(() => {
     fetch(`${MCP_URL}/vortex/info`)
@@ -422,13 +431,13 @@ export default function VortexClaim() {
         {!loading && containers.length > 0 && (
           <>
           <div className="rounded-xl bg-zinc-900/40 border border-zinc-800/50 p-3 mb-4 flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
-            <div className="text-zinc-500 font-medium w-full mb-0.5">Rarity — what the score means</div>
-            <span><span className="text-fuchsia-400">Peak Resonance</span> <span className="text-zinc-600">≥ 95%</span> <span className="text-zinc-500">— extraordinary harmony, rare</span></span>
-            <span><span className="text-emerald-400">Resonant</span> <span className="text-zinc-600">≥ 78%</span> <span className="text-zinc-500">— strong alignment, common for PASS</span></span>
-            <span><span className="text-amber-400">Unstable</span> <span className="text-zinc-600">≥ 50%</span> <span className="text-zinc-500">— mixed signals, needs work</span></span>
-            <span><span className="text-red-400">Dissonant</span> <span className="text-zinc-600">&lt; 50%</span> <span className="text-zinc-500">— poor alignment</span></span>
-            <span className="text-zinc-600">·</span>
-            <span className="text-zinc-500">Auto-save to chain requires <span className="text-emerald-400">≥ 88% resonance</span> + <span className="text-emerald-400">≥ 55% moral score</span></span>
+            <div className="text-zinc-300 font-medium w-full mb-1">Vortex Rarity Tiers</div>
+            <span><span className="text-fuchsia-400">🌟 Celestial</span> <span className="text-zinc-600">≥ 95%</span> <span className="text-zinc-500">— extra­ordinary harmony with the Sun — incredibly rare</span></span>
+            <span><span className="text-emerald-400">✨ Resonant</span> <span className="text-zinc-600">≥ 78%</span> <span className="text-zinc-500">— strong, clear alignment — the sweet spot for most great ideas</span></span>
+            <span><span className="text-amber-400">⚠️ Unstable</span> <span className="text-zinc-600">≥ 50%</span> <span className="text-zinc-500">— mixed signals — has potential but needs refinement</span></span>
+            <span><span className="text-red-400">🌑 Dissonant</span> <span className="text-zinc-600">&lt; 50%</span> <span className="text-zinc-500">— poor alignment with the current solar moment</span></span>
+            <span className="text-zinc-600 w-full hidden sm:block">·</span>
+            <span className="text-zinc-500 w-full"><span className="text-emerald-400">Auto-save to Base:</span> needs ≥ 88% Resonance <span className="text-zinc-600">+</span> ≥ 55% Moral Score</span>
           </div>
           <div className="flex items-center justify-between mb-4">
             <div className="flex gap-1">
@@ -544,6 +553,11 @@ export default function VortexClaim() {
                             className="w-16 px-2 py-1 text-xs rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
                             placeholder="ETH"
                           />
+                          {ethPrice && (
+                            <span className="text-[10px] text-zinc-500 w-12 text-right shrink-0">
+                              ~${(parseFloat(donationAmt || '0.001') * ethPrice).toFixed(2)}
+                            </span>
+                          )}
                           <button
                             onClick={() => handleMint(c.containerId)}
                             disabled={isMinting || insufficientBalance}
