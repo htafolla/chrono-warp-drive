@@ -2248,6 +2248,79 @@ app.get('/vortex/statuses', async (c: Context) => {
   }
 })
 
+// Generate SVG image for a vortex token
+const VORTEX_SVG_COLORS: Record<string, string> = {
+  'PASS': '#10b981',
+  'NEEDS_REVISION': '#f59e0b',
+  'FAIL': '#ef4444',
+}
+const VORTEX_TENSION_COLORS: Record<string, string> = {
+  'Aligned': '#10b981',
+  'Mild': '#f59e0b',
+  'Significant': '#f97316',
+}
+function vortexSvgColor(verdict: string): string { return VORTEX_SVG_COLORS[verdict] || '#ef4444' }
+function vortexTensionColor(tension: string): string { return VORTEX_TENSION_COLORS[tension] || '#ef4444' }
+function vortexScoreColor(val: bigint): string {
+  if (val >= 780000000000000000n) return '#10b981'
+  if (val >= 500000000000000000n) return '#f59e0b'
+  return '#ef4444'
+}
+function vortexPct(val: bigint): string {
+  const pct = Number(val / 10n ** 16n)
+  return Math.min(pct, 100).toString() + '%'
+}
+function vortexSvg(tokenId: string, containerData: any): string {
+  const verdict = containerData[2] || ''
+  const tmoScore = containerData[4] ? BigInt(containerData[4].toString()) : 0n
+  const composite = containerData[3] ? BigInt(containerData[3].toString()) : 0n
+  const tension = containerData[6] || ''
+  const vc = vortexSvgColor(verdict)
+  const tc = vortexTensionColor(tension)
+  const p1 = vortexPct(composite)
+  const s1 = vortexScoreColor(composite)
+  const p2 = vortexPct(tmoScore)
+  const s2 = vortexScoreColor(tmoScore)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="350" height="350" viewBox="0 0 350 350">
+<rect width="350" height="350" fill="#1a1a2e"/>
+<circle cx="175" cy="130" r="100" fill="none" stroke="${vc}" stroke-width="1" opacity="0.3"/>
+<circle cx="175" cy="130" r="65" fill="none" stroke="${vc}" stroke-width="1" opacity="0.2"/>
+<circle cx="175" cy="130" r="30" fill="none" stroke="${vc}" stroke-width="1" opacity="0.15"/>
+<circle cx="175" cy="130" r="6" fill="${vc}" opacity="0.6"/>
+<rect x="125" y="185" width="100" height="20" rx="10" fill="${vc}" opacity="0.2"/>
+<text x="175" y="199" text-anchor="middle" font-family="monospace" font-size="9" fill="${vc}">${verdict}</text>
+<text x="25" y="240" font-family="monospace" font-size="9" fill="#666">7D</text>
+<rect x="50" y="233" width="275" height="8" rx="4" fill="rgba(255,255,255,0.06)"/>
+<rect x="50" y="233" width="${p1}" height="8" rx="4" fill="${s1}"/>
+<text x="25" y="265" font-family="monospace" font-size="9" fill="#666">TMO</text>
+<rect x="50" y="258" width="275" height="8" rx="4" fill="rgba(255,255,255,0.06)"/>
+<rect x="50" y="258" width="${p2}" height="8" rx="4" fill="${s2}"/>
+<text x="25" y="290" font-family="monospace" font-size="9" fill="#666">TENSION</text>
+<text x="175" y="290" text-anchor="middle" font-family="monospace" font-size="9" fill="${tc}">${tension}</text>
+<text x="175" y="325" text-anchor="middle" font-family="monospace" font-size="10" fill="#444">VORTEX #${tokenId}</text>
+</svg>`
+}
+
+app.get('/vortex/token-image/:tokenId', async (c: Context) => {
+  try {
+    const tokenId = c.req.param('tokenId')
+    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const { publicClient } = getVortexTokenClient()
+    const data = await publicClient.readContract({
+      address: VORTEX_TOKEN_ADDRESS,
+      abi,
+      functionName: 'getContainerData',
+      args: [BigInt(tokenId)],
+    })
+    const svg = vortexSvg(tokenId, data)
+    c.header('Content-Type', 'image/svg+xml')
+    c.header('Cache-Control', 'public, max-age=86400')
+    return c.body(svg)
+  } catch (err: any) {
+    return c.body(`<svg xmlns="http://www.w3.org/2000/svg" width="350" height="350"><rect width="350" height="350" fill="#1a1a2e"/><text x="175" y="180" text-anchor="middle" font-family="monospace" font-size="10" fill="#555">Token not found</text></svg>`, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=60' })
+  }
+})
+
 async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
   try {
     const client = await getRedisClient()

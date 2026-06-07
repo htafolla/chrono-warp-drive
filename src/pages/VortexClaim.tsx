@@ -459,18 +459,27 @@ export default function VortexClaim() {
                       {/* On-chain metadata */}
                       {status?.hasToken && status.tokenId && (
                         <div className="pt-2 border-t border-zinc-800/40">
-                          <div className="text-[10px] text-emerald-500 uppercase tracking-wide mb-2">On-Chain Token</div>
-                          <div className="flex items-center gap-3 text-xs">
-                            <span className="text-zinc-400">Token ID:</span>
-                            <span className="text-zinc-200 font-mono">#{status.tokenId}</span>
-                            <a
-                              href={`https://basescan.org/token/${VORTEX_TOKEN_ADDRESS}?a=${status.tokenId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-emerald-500 hover:text-emerald-400 underline"
-                            >
-                              Basescan
-                            </a>
+                          <div className="flex items-start gap-4 mb-3">
+                            <img
+                              src={`${MCP_URL}/vortex/token-image/${status.tokenId}`}
+                              alt={`Vortex #${status.tokenId}`}
+                              className="w-24 h-24 rounded-lg border border-zinc-700/50 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="text-[10px] text-emerald-500 uppercase tracking-wide mb-2">On-Chain Token</div>
+                              <div className="flex items-center gap-3 text-xs">
+                                <span className="text-zinc-400">Token ID:</span>
+                                <span className="text-zinc-200 font-mono">#{status.tokenId}</span>
+                                <a
+                                  href={`https://basescan.org/token/${VORTEX_TOKEN_ADDRESS}?a=${status.tokenId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-500 hover:text-emerald-400 underline"
+                                >
+                                  Basescan
+                                </a>
+                              </div>
+                            </div>
                           </div>
 
                           {onChain ? (
