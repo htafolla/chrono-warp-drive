@@ -242,6 +242,7 @@ export default function VortexClaim() {
       setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: '...' } }))
       setExpanded(containerId)
 
+      console.log('[vortex] fetching on-chain data for', containerId.slice(0, 18))
       const cres = await fetch(`${MCP_URL}/vortex/container/${cid}`)
       const data = await cres.json()
       if (data.success) {
@@ -362,7 +363,12 @@ export default function VortexClaim() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
+                      {mintResult && (
+                        <a href={`https://basescan.org/tx/${mintResult}`} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600/30 transition-colors no-underline">
+                          ✓ Minted
+                        </a>
+                      )}
                       {!status?.hasToken && !statusLoading && isConnected && (
                         <div onClick={e => e.stopPropagation()} className="flex items-center gap-1.5">
                           <input
