@@ -665,15 +665,16 @@ npx strray-ai --version
 
 ## Project Contracts
 
-### VortexToken (Base Mainnet)
+### VortexToken v2 (with SVG image) — Base Mainnet
 | Field | Value |
 |-------|-------|
-| **Token** | `0xDD84C180F5E54c79f66160583D9e85fBA7F933C5` |
+| **Token** | `0x6C61feb8389c99EBf00576E7A110140866C5D9fF` |
+| **Token (v1, no image)** | `0xDD84C180F5E54c79f66160583D9e85fBA7F933C5` (tokens 1-7, deprecated) |
 | **Registry** | `0xCB418F081D4fDAD6B2b17027294865B26cb26855` |
 | **Treasury** | `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43` |
 | **MCP** | `https://mcp-production-80e2.up.railway.app` |
 | **Frontend** | `https://dynamo.rippel.ai/vortex` |
-| **Basescan** | `https://basescan.org/address/0xDD84C180F5E54c79f66160583D9e85fBA7F933C5` |
+| **Basescan (v2)** | `https://basescan.org/address/0x6C61feb8389c99EBf00576E7A110140866C5D9fF` |
 
 ### Vortex Endpoints
 | Endpoint | Method | Description |
@@ -682,6 +683,7 @@ npx strray-ai --version
 | `/vortex/container/:containerId` | GET | token status + container data from registry |
 | `/vortex/statuses` | GET | batch claimed/unclaimed for all on-chain containers |
 | `/vortex/mint` | POST | retro-mint via deployer key (mintForDonation, 0 ETH) |
+| `/vortex/token-image/:tokenId` | GET | returns SVG with verdict-colored rings, score bars, tension |
 
 ### VortexToken Functions
 | Function | Description |
@@ -689,6 +691,7 @@ npx strray-ai --version
 | `mintForDonation(bytes32 containerId)` | payable — mints token to `msg.sender`, records donation |
 | `tokenByContainerId(bytes32) → uint256` | returns token ID or reverts |
 | `getContainerData(uint256 tokenId)` | returns full 7D profile + TMO from registry |
+| `tokenURI(uint256 tokenId)` | returns metadata with `image` field pointing to MCP SVG |
 | `totalSupply() → uint256` | total minted tokens |
 | `totalDonations() → uint256` | total ETH donated (wei) |
 

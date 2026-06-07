@@ -2200,6 +2200,18 @@ app.post('/vortex/mint', async (c: Context) => {
   }
 })
 
+// Store a container→token mapping in Redis (for pre-minted tokens)
+app.post('/vortex/store-mapping', async (c: Context) => {
+  try {
+    const { containerId, tokenId } = await c.req.json()
+    if (!containerId || !tokenId) return c.json({ success: false, error: 'containerId and tokenId required' }, 400)
+    await storeVortexStatusInRedis(containerId, tokenId.toString())
+    return c.json({ success: true, containerId, tokenId })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
 // Batch vortex statuses — uses Redis cache with on-chain fallback
 app.get('/vortex/statuses', async (c: Context) => {
   try {
@@ -2210,7 +2222,7 @@ app.get('/vortex/statuses', async (c: Context) => {
     const containersResult = await publicClient.readContract({
       address: CONTRACT_ADDRESS, abi: registryAbi,
       functionName: 'listContainers',
-      args: [0n, 10n],
+      args: [0n, 20n],
     }) as [string[], bigint]
 
     const containerIds = containersResult[0] as `0x${string}`[]
