@@ -3,16 +3,9 @@ import { useAccount, usePublicClient, useWriteContract } from 'wagmi'
 import { WalletConnectButton } from '@/components/WalletConnectButton'
 import { Link } from 'react-router-dom'
 
-const VORTEX_TOKEN_ADDRESS = '0x6C61feb8389c99EBf00576E7A110140866C5D9fF'
+const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app'
 const VORTEX_ABI = [
-  {
-    inputs: [{ internalType: 'bytes32', name: 'containerId', type: 'bytes32' }],
-    name: 'mintForDonation',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'payable',
-    type: 'function',
-  },
   {
     inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
     name: 'tokenURI',
@@ -43,6 +36,8 @@ const VORTEX_ABI = [
       { internalType: 'uint256', name: 'intentAlignment', type: 'uint256' },
       { internalType: 'string', name: 'source', type: 'string' },
       { internalType: 'bytes32', name: 'containerHash', type: 'bytes32' },
+      { internalType: 'string', name: 'hammerReason', type: 'string' },
+      { internalType: 'string', name: 'proposalText', type: 'string' },
     ],
     stateMutability: 'view',
     type: 'function',
@@ -50,6 +45,23 @@ const VORTEX_ABI = [
   {
     inputs: [{ internalType: 'bytes32', name: 'containerId', type: 'bytes32' }],
     name: 'tokenByContainerId',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'owner', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'owner', type: 'address' },
+      { internalType: 'uint256', name: 'index', type: 'uint256' },
+    ],
+    name: 'tokenOfOwnerByIndex',
     outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function',
@@ -62,6 +74,7 @@ interface ContainerItem {
   containerHash: string
   source: string
   proposalHash: string
+  proposalText?: string
   resonanceProfile: {
     fullBox7DComposite: number
     fullBox7DVerdict: string
@@ -92,6 +105,7 @@ interface ContainerItem {
     solarTdf: number
   }
   hammerReason: string
+  vortexMessage?: string
 }
 
 function scaleDisplay(val: number) {
@@ -160,6 +174,11 @@ export default function VortexClaim() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [onChainMetadata, setOnChainMetadata] = useState<Record<string, any>>({})
   const [stats, setStats] = useState<{ totalSupply: string; totalDonations: string } | null>(null)
+  const [myTokens, setMyTokens] = useState<{ tokenId: string; containerData: any }[]>([])
+  const [myTokensLoading, setMyTokensLoading] = useState(false)
+  const [ethBalance, setEthBalance] = useState<bigint | null>(null)
+  const [filterMode, setFilterMode] = useState<'all' | 'claimed' | 'unclaimed'>('all')
+  const [sortAsc, setSortAsc] = useState(false)
 
   useEffect(() => {
     fetch(`${MCP_URL}/vortex/info`)
@@ -171,6 +190,16 @@ export default function VortexClaim() {
   useEffect(() => {
     loadContainers()
   }, [])
+
+  useEffect(() => {
+    if (!isConnected || !address || !publicClient) {
+      setMyTokens([])
+      setEthBalance(null)
+      return
+    }
+    publicClient.getBalance({ address }).then(b => setEthBalance(b)).catch(() => {})
+    loadMyTokens()
+  }, [address, isConnected])
 
   async function loadContainers() {
     setLoading(true)
@@ -188,6 +217,40 @@ export default function VortexClaim() {
       console.error('[vortex] Failed to load containers', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadMyTokens() {
+    if (!publicClient || !address) return
+    setMyTokensLoading(true)
+    try {
+      const balance = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS,
+        abi: VORTEX_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+      })
+      const tokens: { tokenId: string; containerData: any }[] = []
+      for (let i = 0; i < Number(balance); i++) {
+        const tid = await publicClient.readContract({
+          address: VORTEX_TOKEN_ADDRESS,
+          abi: VORTEX_ABI,
+          functionName: 'tokenOfOwnerByIndex',
+          args: [address, BigInt(i)],
+        })
+        const data = await publicClient.readContract({
+          address: VORTEX_TOKEN_ADDRESS,
+          abi: VORTEX_ABI,
+          functionName: 'getContainerData',
+          args: [tid],
+        })
+        tokens.push({ tokenId: tid.toString(), containerData: data })
+      }
+      setMyTokens(tokens)
+    } catch (err) {
+      console.warn('[vortex] failed to load my tokens', err)
+    } finally {
+      setMyTokensLoading(false)
     }
   }
 
@@ -211,8 +274,8 @@ export default function VortexClaim() {
   }
 
   async function handleMint(containerId: string) {
-    if (!isConnected || !writeContractAsync || !publicClient) {
-      console.warn('[vortex] mint blocked: not connected', { isConnected, hasWriteContractAsync: !!writeContractAsync, hasPublic: !!publicClient })
+    if (!isConnected || !address) {
+      console.warn('[vortex] mint blocked: not connected')
       return
     }
     setMinting(containerId)
@@ -220,32 +283,25 @@ export default function VortexClaim() {
 
     try {
       const cid = containerId as `0x${string}`
-      const amount = donationAmounts[containerId] || '0.001'
-      const value = BigInt(Math.floor(parseFloat(amount) * 1e18))
-      console.log('[vortex] mint sending:', { amount, value: value.toString(), containerId: cid.slice(0, 18) })
-
-      const txHash = await writeContractAsync({
-        address: VORTEX_TOKEN_ADDRESS,
-        abi: VORTEX_ABI,
-        functionName: 'mintForDonation',
-        args: [cid],
-        value,
+      const res = await fetch(`${MCP_URL}/vortex/mint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ containerId: cid, to: address }),
       })
-      console.log('[vortex] mint tx sent:', txHash)
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Mint failed')
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-      console.log('[vortex] mint confirmed:', receipt.transactionHash)
-      setMintResults(prev => ({ ...prev, [containerId]: receipt.transactionHash }))
+      setMintResults(prev => ({ ...prev, [containerId]: data.txHash }))
       setMintErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
       setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: '...' } }))
       setExpanded(containerId)
 
       console.log('[vortex] fetching on-chain data for', containerId.slice(0, 18))
       const cres = await fetch(`${MCP_URL}/vortex/container/${cid}`)
-      const data = await cres.json()
-      if (data.success) {
-        setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: data.tokenId } }))
-        loadOnChainMetadata(data.tokenId, containerId)
+      const d = await cres.json()
+      if (d.success) {
+        setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: d.tokenId } }))
+        loadOnChainMetadata(d.tokenId, containerId)
       }
     } catch (err: any) {
       setMintErrors(prev => ({ ...prev, [containerId]: err.message?.slice(0, 150) || 'Failed' }))
@@ -279,6 +335,17 @@ export default function VortexClaim() {
     }
   }
 
+  const filteredContainers = (() => {
+    let list = [...containers]
+    if (filterMode === 'claimed') {
+      list = list.filter(c => tokenStatus[c.containerId]?.hasToken)
+    } else if (filterMode === 'unclaimed') {
+      list = list.filter(c => !tokenStatus[c.containerId]?.hasToken)
+    }
+    list.sort((a, b) => sortAsc ? a.timestamp - b.timestamp : b.timestamp - a.timestamp)
+    return list
+  })()
+
   return (
     <div className="min-h-screen bg-black text-zinc-100">
       <header className="border-b border-zinc-800">
@@ -303,13 +370,74 @@ export default function VortexClaim() {
           </p>
         </div>
 
+        {isConnected && myTokens.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-lg font-semibold text-emerald-400 mb-3">My Vortex</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {myTokens.map((t) => (
+                <div key={t.tokenId} className="rounded-xl bg-zinc-900/50 border border-zinc-800/60 overflow-hidden">
+                  <img
+                    src={`${MCP_URL}/vortex/token-image/${t.tokenId}`}
+                    alt={`Vortex #${t.tokenId}`}
+                    className="w-full aspect-square"
+                  />
+                  <div className="p-2.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-zinc-200">#{t.tokenId}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${t.containerData ? verdictColor(t.containerData.verdict as string) : ''}`}>
+                        {t.containerData?.verdict as string || '...'}
+                      </span>
+                    </div>
+                    <a
+                      href={`https://basescan.org/token/${VORTEX_TOKEN_ADDRESS}?a=${t.tokenId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-zinc-500 hover:text-emerald-400 underline"
+                    >
+                      Basescan ↗
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && containers.length > 0 && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-1">
+              {(['all', 'claimed', 'unclaimed'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setFilterMode(m)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                    filterMode === m
+                      ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-600/30'
+                      : 'text-zinc-400 border border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  {m === 'all' ? 'All' : m === 'claimed' ? 'Claimed' : 'Unclaimed'}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setSortAsc(!sortAsc)}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-800 text-zinc-400 hover:border-zinc-700 transition-colors"
+            >
+              {sortAsc ? '↑ Oldest' : '↓ Newest'}
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-16 text-zinc-500 text-sm">Loading containers...</div>
-        ) : containers.length === 0 ? (
-          <div className="text-center py-16 text-zinc-500 text-sm">No containers yet.</div>
+        ) : filteredContainers.length === 0 ? (
+          <div className="text-center py-16 text-zinc-500 text-sm">
+            {filterMode === 'claimed' ? 'No claimed containers yet.' : filterMode === 'unclaimed' ? 'All containers have been claimed.' : 'No containers yet.'}
+          </div>
         ) : (
           <div className="space-y-2">
-            {containers.map((c) => {
+            {filteredContainers.map((c) => {
               const status = tokenStatus[c.containerId]
               const isMinting = minting === c.containerId
               const mintResult = mintResults[c.containerId]
@@ -317,7 +445,10 @@ export default function VortexClaim() {
               const donationAmt = donationAmounts[c.containerId] || '0.001'
               const isOpen = expanded === c.containerId
               const onChain = onChainMetadata[c.containerId]
-              const showMint = !status?.hasToken && !statusLoading && isConnected
+                  const mintAmount = parseFloat(donationAmounts[c.containerId] || '0.001')
+                  const mintValue = BigInt(Math.floor(mintAmount * 1e18))
+                  const insufficientBalance = ethBalance !== null && ethBalance < mintValue + BigInt(1e15)
+                  const showMint = !status?.hasToken && !statusLoading && isConnected
               if (showMint) console.log('[vortex] show mint btn for', c.containerId.slice(0, 18))
 
               return (
@@ -369,6 +500,11 @@ export default function VortexClaim() {
                       )}
                       {!status?.hasToken && !statusLoading && isConnected && (
                         <div onClick={e => e.stopPropagation()} className="flex items-center gap-1.5">
+                          {insufficientBalance && ethBalance !== null && (
+                            <span className="text-[10px] text-red-400 whitespace-nowrap">
+                              Balance low
+                            </span>
+                          )}
                           <input
                             type="number"
                             value={donationAmt}
@@ -380,12 +516,21 @@ export default function VortexClaim() {
                           />
                           <button
                             onClick={() => handleMint(c.containerId)}
-                            disabled={isMinting}
-                            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-colors"
+                            disabled={isMinting || insufficientBalance}
+                            className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors text-white ${
+                              insufficientBalance
+                                ? 'bg-red-600/50 cursor-not-allowed'
+                                : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500'
+                            }`}
                           >
-                            {isMinting ? '...' : 'Mint'}
+                            {isMinting ? '...' : insufficientBalance ? 'Low Bal' : 'Mint'}
                           </button>
                         </div>
+                      )}
+                      {mintError && !isOpen && (
+                        <span className="text-[10px] text-red-400 max-w-[120px] truncate" title={mintError}>
+                          {mintError}
+                        </span>
                       )}
                       <span className="text-zinc-600 text-xs">{isOpen ? '▾' : '▸'}</span>
                     </div>
@@ -394,6 +539,14 @@ export default function VortexClaim() {
                   {/* Expanded detail panel */}
                   {isOpen && (
                     <div className="border-t border-zinc-800/60 px-4 py-4 space-y-4 bg-zinc-900/30">
+                      {/* Proposal */}
+                      {c.proposalText && (
+                        <div>
+                          <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1">Proposal</div>
+                          <div className="text-sm text-zinc-200 leading-relaxed">{c.proposalText}</div>
+                        </div>
+                      )}
+
                       {/* Container info */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <div>
@@ -448,11 +601,11 @@ export default function VortexClaim() {
                         </div>
                       </div>
 
-                      {/* Hammer reason */}
-                      {c.hammerReason && (
+                      {/* Vortex Message */}
+                      {(c.vortexMessage || c.hammerReason) && (
                         <div>
-                          <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1">Hammer Reason</div>
-                          <div className="text-xs text-zinc-300 italic">{c.hammerReason}</div>
+                          <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1">Vortex Message</div>
+                          <div className="text-sm text-zinc-300 italic">{c.vortexMessage || c.hammerReason}</div>
                         </div>
                       )}
 

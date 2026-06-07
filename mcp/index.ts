@@ -1635,6 +1635,11 @@ app.post('/govern_with_solar', async (c: Context) => {
       })
     }
 
+    // Auto-mint vortex token on v4 (fire-and-forget)
+    ;(async () => {
+      await autoMintVortex(container, proposalText)
+    })()
+
     return c.json({
       success: true,
       ...result,
@@ -1671,11 +1676,27 @@ app.get('/public_feed', (c: Context) => {
   return c.json({ success: true, entries: getPublicFeed() })
 })
 
-app.get('/containers', (c: Context) => {
+app.get('/containers', async (c: Context) => {
   const offset = parseInt(c.req.query('offset') || '0', 10)
   const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100)
   const page = containerStore.slice(offset, offset + limit)
-  return c.json({ success: true, containers: page, total: containerStore.length, offset, limit })
+
+  // Fetch proposal text from Temporal Manifold
+  const points = temporalManifold.getAllPoints()
+  const proposalMap = new Map<string, string>()
+  for (const point of points) {
+    if (point.proposalHash && point.summary) {
+      proposalMap.set(point.proposalHash, point.summary)
+    }
+  }
+
+  // Add proposalText to containers
+  const containersWithText = page.map(container => ({
+    ...container,
+    proposalText: proposalMap.get(container.proposalHash) || undefined
+  }))
+
+  return c.json({ success: true, containers: containersWithText, total: containerStore.length, offset, limit })
 })
 
 app.get('/containers/:id', (c: Context) => {
@@ -2052,7 +2073,8 @@ app.post('/messages', async (c: Context) => {
 
 // ---------- Vortex Token endpoints ----------
 
-const VORTEX_TOKEN_ADDRESS = '0x6C61feb8389c99EBf00576E7A110140866C5D9fF'
+const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
+const VORTEX_TREASURY = '0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43'
 
 function getVortexTokenClient() {
   const account = privateKeyToAccount(getPrivateKey())
@@ -2070,7 +2092,7 @@ function getVortexTokenClient() {
 
 app.get('/vortex/info', async (c: Context) => {
   try {
-    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
     const [totalSupply, totalDonations, treasury] = await Promise.all([
       publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }) as Promise<bigint>,
@@ -2094,7 +2116,7 @@ app.get('/vortex/info', async (c: Context) => {
 app.get('/vortex/container/:containerId', async (c: Context) => {
   try {
     const containerId = c.req.param('containerId') as `0x${string}`
-    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
 
@@ -2157,21 +2179,57 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
   }
 })
 
-// Retro-mint a token for an existing registered container via mintForDonation (0 ETH)
+// Retro-mint a token for an existing registered container via v4 mint()
 app.post('/vortex/mint', async (c: Context) => {
   try {
-    const { containerId } = await c.req.json()
+    const { containerId, to } = await c.req.json()
     if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
+    if (!to) return c.json({ success: false, error: 'recipient address (to) required' }, 400)
 
-    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
+    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
     const { walletClient, publicClient } = getVortexTokenClient()
+
+    // Read container data from registry
+    const container = await publicClient.readContract({
+      address: CONTRACT_ADDRESS, abi: registryAbi,
+      functionName: 'getContainer',
+      args: [containerId as `0x${string}`],
+    }) as any
+
+    const mintArgs = [
+      to as `0x${string}`,
+      containerId as `0x${string}`,
+      {
+        containerId: containerId as `0x${string}`,
+        timestamp: container.timestamp,
+        verdict: container.resonanceProfile.verdict,
+        fullBox7DComposite: container.resonanceProfile.fullBox7DComposite,
+        trinitariumMoralScore: container.moralOverlay.trinitariumMoralScore,
+        trinitariumGematriaFusion: container.moralOverlay.trinitariumGematriaFusion,
+        moralTension: container.moralOverlay.moralNumerologicalTension,
+        waveProximity: container.resonanceProfile.waveProximity,
+        phaseAlignment: container.resonanceProfile.phaseAlignment,
+        calibratedVortex: container.resonanceProfile.calibratedVortex,
+        calibratedSync: container.resonanceProfile.calibratedSync,
+        neuralProximity: container.resonanceProfile.neuralProximity,
+        neuralVortex: container.resonanceProfile.neuralVortex,
+        gematriaResonance: container.resonanceProfile.gematriaResonance,
+        virtueAlignment: container.moralOverlay.virtueAlignment,
+        moralSafety: container.moralOverlay.moralSafety,
+        intentAlignment: container.moralOverlay.intentAlignment,
+        source: container.source,
+        containerHash: container.containerHash,
+        hammerReason: container.hammerReason || '',
+        proposalText: '',
+      },
+    ]
 
     const txHash = await walletClient.writeContract({
       address: VORTEX_TOKEN_ADDRESS,
       abi,
-      functionName: 'mintForDonation',
-      args: [containerId as `0x${string}`],
-      value: 0n,
+      functionName: 'mint',
+      args: mintArgs,
     })
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
@@ -2192,6 +2250,7 @@ app.post('/vortex/mint', async (c: Context) => {
       success: true,
       tokenAddress: VORTEX_TOKEN_ADDRESS,
       containerId,
+      to,
       txHash: receipt.transactionHash,
       explorerUrl: `https://basescan.org/tx/${receipt.transactionHash}`,
     })
@@ -2215,7 +2274,7 @@ app.post('/vortex/store-mapping', async (c: Context) => {
 // Batch vortex statuses — uses Redis cache with on-chain fallback
 app.get('/vortex/statuses', async (c: Context) => {
   try {
-    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
 
@@ -2282,41 +2341,107 @@ function vortexPct(val: bigint): string {
   const pct = Number(val / 10n ** 16n)
   return Math.min(pct, 100).toString() + '%'
 }
+function vortexPctNum(val: bigint): number {
+  return Math.min(Number(val / 10n ** 16n), 100)
+}
+function vortexShortId(cid: string): string {
+  return (cid.startsWith('0x') ? cid.slice(2, 10) : cid.slice(0, 8)).toLowerCase()
+}
+
 function vortexSvg(tokenId: string, containerData: any): string {
+  const parseBig = (v: any): bigint => v ? BigInt(v.toString()) : 0n
   const verdict = containerData.verdict || ''
-  const tmoScore = containerData.trinitariumMoralScore ? BigInt(containerData.trinitariumMoralScore.toString()) : 0n
-  const composite = containerData.fullBox7DComposite ? BigInt(containerData.fullBox7DComposite.toString()) : 0n
   const tension = containerData.moralTension || ''
   const vc = vortexSvgColor(verdict)
   const tc = vortexTensionColor(tension)
-  const p1 = vortexPct(composite)
-  const s1 = vortexScoreColor(composite)
-  const p2 = vortexPct(tmoScore)
-  const s2 = vortexScoreColor(tmoScore)
+  const source = containerData.source || ''
+  const cid = containerData.containerId || ''
+  const ts = containerData.timestamp ? Number(containerData.timestamp) * 1000 : 0
+  const hammerReason = containerData.hammerReason || ''
+  const sourceColor = source === 'ai' ? '#8b5cf6' : '#06b6d4'
+  const sourceLabel = source === 'ai' ? 'AI' : 'Human'
+  const badgeW = sourceLabel === 'AI' ? 36 : 52
+  const dateStr = ts ? new Date(ts).toISOString().slice(0, 10) : ''
+
+  const compositeVal = parseBig(containerData.fullBox7DComposite)
+  const compositePct = Math.min(Number(compositeVal) / 1e16, 100)
+  const compositeFmt = compositePct.toFixed(1)
+
+  const tmoVal = parseBig(containerData.trinitariumMoralScore)
+  const tmoPct = Math.min(Number(tmoVal) / 1e16, 100)
+  const tmoFmt = tmoPct.toFixed(1)
+
+  const ringR = 54
+  const circ = 2 * Math.PI * ringR
+  const dashOff = circ * (1 - compositePct / 100)
+
+  const wrap = (text: string, max: number): string[] => {
+    const words = text.split(' ')
+    const lines: string[] = []
+    let cur = ''
+    for (const w of words) {
+      const next = (cur + ' ' + w).trim()
+      if (next.length > max && cur.length > 0) {
+        lines.push(cur.trim())
+        cur = w
+      } else {
+        cur = next
+      }
+    }
+    if (cur.trim()) lines.push(cur.trim())
+    return lines.slice(0, 3)
+  }
+  const msgLines = hammerReason ? wrap(hammerReason, 22) : []
+
+  // Cosmic particles from tokenId
+  const particles = Array.from({ length: 6 }, (_, i) => {
+    const seed = (parseInt(tokenId) * (i + 1) * 7) % 360
+    const angle = (seed * Math.PI) / 180
+    const r = 40 + (seed % 141)
+    const px = 175 + Math.cos(angle) * r
+    const py = 175 + Math.sin(angle) * r
+    const sz = 1 + (seed % 3)
+    const op = (0.05 + (seed % 5) * 0.025).toFixed(2)
+    return `<circle cx="${px.toFixed(0)}" cy="${py.toFixed(0)}" r="${sz}" fill="#fff" opacity="${op}"/>`
+  }).join('')
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="350" height="350" viewBox="0 0 350 350">
-<rect width="350" height="350" fill="#1a1a2e"/>
-<circle cx="175" cy="130" r="100" fill="none" stroke="${vc}" stroke-width="1" opacity="0.3"/>
-<circle cx="175" cy="130" r="65" fill="none" stroke="${vc}" stroke-width="1" opacity="0.2"/>
-<circle cx="175" cy="130" r="30" fill="none" stroke="${vc}" stroke-width="1" opacity="0.15"/>
-<circle cx="175" cy="130" r="6" fill="${vc}" opacity="0.6"/>
-<rect x="125" y="185" width="100" height="20" rx="10" fill="${vc}" opacity="0.2"/>
-<text x="175" y="199" text-anchor="middle" font-family="monospace" font-size="9" fill="${vc}">${verdict}</text>
-<text x="25" y="240" font-family="monospace" font-size="9" fill="#666">7D</text>
-<rect x="50" y="233" width="275" height="8" rx="4" fill="rgba(255,255,255,0.06)"/>
-<rect x="50" y="233" width="${p1}" height="8" rx="4" fill="${s1}"/>
-<text x="25" y="265" font-family="monospace" font-size="9" fill="#666">TMO</text>
-<rect x="50" y="258" width="275" height="8" rx="4" fill="rgba(255,255,255,0.06)"/>
-<rect x="50" y="258" width="${p2}" height="8" rx="4" fill="${s2}"/>
-<text x="25" y="290" font-family="monospace" font-size="9" fill="#666">TENSION</text>
-<text x="175" y="290" text-anchor="middle" font-family="monospace" font-size="9" fill="${tc}">${tension}</text>
-<text x="175" y="325" text-anchor="middle" font-family="monospace" font-size="10" fill="#444">VORTEX #${tokenId}</text>
+<defs><radialGradient id="g"><stop offset="0%" stop-color="${vc}" stop-opacity=".08"/><stop offset="100%" stop-color="${vc}" stop-opacity="0"/></radialGradient></defs>
+<rect width="350" height="350" fill="#16162a"/>
+<circle cx="175" cy="185" r="115" fill="url(#g)"/>
+${particles}
+<circle cx="310" cy="35" r="18" fill="none" stroke="#f59e0b" stroke-width=".5" opacity=".08"/>
+<line x1="310" y1="10" x2="310" y2="8" stroke="#f59e0b" stroke-width="1" opacity=".1"/>
+<line x1="310" y1="60" x2="310" y2="62" stroke="#f59e0b" stroke-width="1" opacity=".1"/>
+<line x1="285" y1="35" x2="283" y2="35" stroke="#f59e0b" stroke-width="1" opacity=".1"/>
+<line x1="335" y1="35" x2="337" y2="35" stroke="#f59e0b" stroke-width="1" opacity=".1"/>
+<line x1="292" y1="17" x2="290" y2="15" stroke="#f59e0b" stroke-width="1" opacity=".08"/>
+<line x1="328" y1="53" x2="330" y2="55" stroke="#f59e0b" stroke-width="1" opacity=".08"/>
+<line x1="292" y1="53" x2="290" y2="55" stroke="#f59e0b" stroke-width="1" opacity=".08"/>
+<line x1="328" y1="17" x2="330" y2="15" stroke="#f59e0b" stroke-width="1" opacity=".08"/>
+<text x="25" y="24" font-family="DejaVu Sans Mono, monospace" font-size="10" fill="#555" font-weight="bold">VORTEX #${tokenId} · ${dateStr}</text>
+<rect x="${350 - badgeW - 16}" y="12" width="${badgeW}" height="16" rx="8" fill="${sourceColor}" opacity=".2"/>
+<text x="${350 - badgeW / 2 - 16}" y="24" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="8" fill="${sourceColor}">${sourceLabel}</text>
+${msgLines.map((l, i) => `<text x="175" y="${58 + i * 23}" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="bold" fill="${vc}" opacity=".95">${l}</text>`).join('')}
+<circle cx="175" cy="${msgLines.length ? 190 : 175}" r="${ringR + 6}" fill="none" stroke="${vc}" stroke-width="3" opacity=".08"/>
+<circle cx="175" cy="${msgLines.length ? 190 : 175}" r="${ringR}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="7"/>
+<circle cx="175" cy="${msgLines.length ? 190 : 175}" r="${ringR}" fill="none" stroke="${vc}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${dashOff}" transform="rotate(-90 175 ${msgLines.length ? 190 : 175})"/>
+<text x="175" y="${(msgLines.length ? 190 : 175) + 2}" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="34" font-weight="bold" fill="#eee">${compositeFmt}%</text>
+<text x="175" y="${(msgLines.length ? 190 : 175) + 22}" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="8" fill="#555">7D COMPOSITE</text>
+<text x="175" y="${(msgLines.length ? 190 : 175) + 38}" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="8" fill="#444">TMO ${tmoFmt}%</text>
+<rect x="22" y="278" width="130" height="28" rx="14" fill="${vc}" opacity=".32"/>
+<text x="87" y="296" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="11" font-weight="bold" fill="${vc}">${verdict}</text>
+<rect x="198" y="278" width="130" height="28" rx="14" fill="${tc}" opacity=".12"/>
+<text x="263" y="296" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="11" fill="${tc}">${tension}</text>
+<text x="175" y="335" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="8" fill="#2a2a40">Anchored on Base</text>
 </svg>`
 }
 
 app.get('/vortex/token-image/:tokenId', async (c: Context) => {
   try {
     const tokenId = c.req.param('tokenId')
-    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const format = c.req.query('format') || 'png'
+    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
     const data = await publicClient.readContract({
       address: VORTEX_TOKEN_ADDRESS,
@@ -2325,11 +2450,18 @@ app.get('/vortex/token-image/:tokenId', async (c: Context) => {
       args: [BigInt(tokenId)],
     })
     const svg = vortexSvg(tokenId, data)
+    if (format === 'png') {
+      const sharp = (await import('sharp')).default
+      const png = await sharp(Buffer.from(svg)).resize(350, 350).png().toBuffer()
+      c.header('Content-Type', 'image/png')
+      c.header('Cache-Control', 'public, max-age=86400')
+      return c.body(png)
+    }
     c.header('Content-Type', 'image/svg+xml')
     c.header('Cache-Control', 'public, max-age=86400')
     return c.body(svg)
   } catch (err: any) {
-    return c.body(`<svg xmlns="http://www.w3.org/2000/svg" width="350" height="350"><rect width="350" height="350" fill="#1a1a2e"/><text x="175" y="180" text-anchor="middle" font-family="monospace" font-size="10" fill="#555">Token not found</text></svg>`, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=60' })
+    return c.body(`<svg xmlns="http://www.w3.org/2000/svg" width="350" height="350"><rect width="350" height="350" fill="#1a1a2e"/><text x="175" y="180" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="10" fill="#555">Token not found</text></svg>`, 200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=60' })
   }
 })
 
@@ -2340,18 +2472,47 @@ async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
   } catch { /* Redis optional */ }
 }
 
-// Auto-mint token for newly governed containers
-async function autoMintVortex(container: any) {
+// Auto-mint token for newly governed containers (v4)
+async function autoMintVortex(container: any, proposalText: string) {
   try {
-    const abi = (await import('./lib/abi/VortexToken.json', { with: { type: 'json' } })).default as any[]
+    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const { walletClient, publicClient } = getVortexTokenClient()
+    const truncated = proposalText.slice(0, 140)
+
+    const SCALE_1E18 = 1e18
+    const s = (v: number) => BigInt(Math.round(v * SCALE_1E18))
 
     const txHash = await walletClient.writeContract({
       address: VORTEX_TOKEN_ADDRESS,
       abi,
-      functionName: 'mintForDonation',
-      args: [container.containerHash as `0x${string}`],
-      value: 0n,
+      functionName: 'mint',
+      args: [
+        VORTEX_TREASURY,
+        container.containerHash as `0x${string}`,
+        {
+          containerId: container.containerId,
+          timestamp: BigInt(container.timestamp),
+          verdict: container.resonanceProfile.verdict,
+          fullBox7DComposite: s(container.resonanceProfile.fullBox7DComposite),
+          trinitariumMoralScore: s(container.moralOverlay.trinitariumMoralScore),
+          trinitariumGematriaFusion: s(container.moralOverlay.trinitariumGematriaFusion),
+          moralTension: container.moralOverlay.moralNumerologicalTension,
+          waveProximity: s(container.resonanceProfile.waveProximity),
+          phaseAlignment: s(container.resonanceProfile.phaseAlignment),
+          calibratedVortex: s(container.resonanceProfile.calibratedVortex),
+          calibratedSync: s(container.resonanceProfile.calibratedSync),
+          neuralProximity: s(container.resonanceProfile.neuralProximity),
+          neuralVortex: s(container.resonanceProfile.neuralVortex),
+          gematriaResonance: s(container.resonanceProfile.gematriaResonance),
+          virtueAlignment: s(container.moralOverlay.virtueAlignment),
+          moralSafety: s(container.moralOverlay.moralSafety),
+          intentAlignment: s(container.moralOverlay.intentAlignment),
+          source: container.source,
+          containerHash: container.containerHash,
+          hammerReason: container.hammerReason || '',
+          proposalText: truncated,
+        },
+      ],
     })
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
@@ -2368,7 +2529,7 @@ async function autoMintVortex(container: any) {
       } catch { /* Redis optional */ }
     })()
 
-    console.log(`[vortex] Auto-minted token for container ${container.containerHash.slice(0, 18)}… tx: ${receipt.transactionHash}`)
+    console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${receipt.transactionHash}`)
     return receipt.transactionHash
   } catch (err: any) {
     console.log(`[vortex] Auto-mint skipped: ${err.message}`)

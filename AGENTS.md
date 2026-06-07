@@ -665,16 +665,19 @@ npx strray-ai --version
 
 ## Project Contracts
 
-### VortexToken v2 (with SVG image) — Base Mainnet
+### VortexToken v4 (ERC721Enumerable + contractURI) — Base Mainnet
 | Field | Value |
 |-------|-------|
-| **Token** | `0x6C61feb8389c99EBf00576E7A110140866C5D9fF` |
-| **Token (v1, no image)** | `0xDD84C180F5E54c79f66160583D9e85fBA7F933C5` (tokens 1-7, deprecated) |
+| **Token** | `0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9` |
+| **Token (v4, deprecated)** | `0x16f6E7E21ADd5EdF37c4a3f2f1898e8FB66c2328` |
+| **Token (v3, deprecated)** | `0x8FF068b7f8A275F8D01F3dEb24c34407412871BF` |
+| **Token (v2, deprecated)** | `0x6C61feb8389c99EBf00576E7A110140866C5D9fF` (no image) |
+| **Token (v1, deprecated)** | `0xDD84C180F5E54c79f66160583D9e85fBA7F933C5` (no image) |
 | **Registry** | `0xCB418F081D4fDAD6B2b17027294865B26cb26855` |
 | **Treasury** | `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43` |
 | **MCP** | `https://mcp-production-80e2.up.railway.app` |
 | **Frontend** | `https://dynamo.rippel.ai/vortex` |
-| **Basescan (v2)** | `https://basescan.org/address/0x6C61feb8389c99EBf00576E7A110140866C5D9fF` |
+| **Basescan** | `https://basescan.org/address/0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9` |
 
 ### Vortex Endpoints
 | Endpoint | Method | Description |
