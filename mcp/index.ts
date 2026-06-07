@@ -4,7 +4,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
-import { http, createWalletClient, createPublicClient } from 'viem'
+import { createWalletClient, createPublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { publish, subscribe, getRedisClient } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
@@ -13,7 +13,7 @@ import { isStructuredProposal, extractProposalText } from './lib/structuredPropo
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
-import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS } from './lib/contractClient.js'
+import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
@@ -2078,14 +2078,15 @@ const VORTEX_TREASURY = '0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43'
 
 function getVortexTokenClient() {
   const account = privateKeyToAccount(getPrivateKey())
+  const transport = buildFallbackTransport()
   const walletClient = createWalletClient({
     account,
     chain: baseMainnet,
-    transport: http(),
+    transport,
   })
   const publicClient = createPublicClient({
     chain: baseMainnet,
-    transport: http(),
+    transport,
   })
   return { walletClient, publicClient, account }
 }
@@ -2147,7 +2148,7 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
     // Always fetch container data from registry (needed for UI even if token exists)
     let containerData: Record<string, any> | null = null
     try {
-      const registryClient = createPublicClient({ chain: baseMainnet, transport: http() })
+      const registryClient = createPublicClient({ chain: baseMainnet, transport: buildFallbackTransport() })
       const container = await registryClient.readContract({
         address: CONTRACT_ADDRESS, abi: registryAbi,
         functionName: 'getContainer',

@@ -1,14 +1,25 @@
-import { http, createWalletClient, createPublicClient, defineChain } from 'viem'
+import { http, createWalletClient, createPublicClient, defineChain, fallback } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { ContainerVortex } from './temporalContainer.js'
 import { containerToContractParams } from './temporalContainer.js'
+
+const RPC_URLS = [
+  process.env.BASE_RPC_URL,
+  'https://base.llamarpc.com',
+  'https://base-rpc.publicnode.com',
+  'https://mainnet.base.org',
+].filter(Boolean) as string[]
+
+export function buildFallbackTransport() {
+  return fallback(RPC_URLS.map(url => http(url)))
+}
 
 export const baseMainnet = defineChain({
   id: 8453,
   name: 'Base',
   network: 'base',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://mainnet.base.org'] } },
+  rpcUrls: { default: { http: RPC_URLS } },
 })
 
 export const CONTRACT_ADDRESS = '0xCB418F081D4fDAD6B2b17027294865B26cb26855'
@@ -21,16 +32,17 @@ export function getPrivateKey(): `0x${string}` {
 
 function getContractClient() {
   const account = privateKeyToAccount(getPrivateKey())
+  const transport = buildFallbackTransport()
 
   const walletClient = createWalletClient({
     account,
     chain: baseMainnet,
-    transport: http(),
+    transport,
   })
 
   const publicClient = createPublicClient({
     chain: baseMainnet,
-    transport: http(),
+    transport,
   })
 
   return { walletClient, publicClient, account }
