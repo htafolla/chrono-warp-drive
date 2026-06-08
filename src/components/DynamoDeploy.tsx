@@ -713,19 +713,20 @@ export default function DynamoDeploy() {
               </label>
             </div>
           </div>
-          {showExamples && <div className="flex flex-wrap gap-2">
-            {EXAMPLE_PROPOSALS.map(p => (
-              <button
-                key={p}
-                onClick={() => run(p)}
-                disabled={loading}
-                className="text-xs bg-white/[0.06] hover:bg-white/[0.12] text-white/60 hover:text-white/90 border border-white/[0.10] rounded-full px-3 py-1.5 transition-all disabled:opacity-30"
-              >
-                {p}
-              </button>
-            ))}
-          </div>}
-          </div>
+          {showExamples && (
+            <div className="flex flex-wrap gap-2">
+              {EXAMPLE_PROPOSALS.map(p => (
+                <button
+                  key={p}
+                  onClick={() => run(p)}
+                  disabled={loading}
+                  className="text-xs bg-white/[0.06] hover:bg-white/[0.12] text-white/60 hover:text-white/90 border border-white/[0.10] rounded-full px-3 py-1.5 transition-all disabled:opacity-30"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Pipeline visualization during loading */}
           {loading && (
