@@ -53,7 +53,7 @@ const STAGES: Stage[] = [
   },
 ]
 
-const STAGE_DURATIONS = [800, 700, 900, 700, 600]
+const STAGE_DURATIONS = [1500, 1800, 2000, 1500, 1200]
 
 interface TransportPipelineProps {
   isActive: boolean

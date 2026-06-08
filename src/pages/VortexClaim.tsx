@@ -5,6 +5,7 @@ import { WalletConnectButton } from '@/components/WalletConnectButton'
 import { Link } from 'react-router-dom'
 import { fetchEthPrice } from '@/services/coingeckoApi'
 
+
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const MCP_URL = 'https://mcp-production-80e2.up.railway.app'
 const VORTEX_ABI = [

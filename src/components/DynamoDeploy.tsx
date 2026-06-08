@@ -504,7 +504,7 @@ export default function DynamoDeploy() {
   const advancePipeline = useCallback(() => {
     setPipelineStageIdx(0);
     clearPipelineTimers();
-    const durations = [600, 500, 600, 500];
+    const durations = [1400, 1800, 1600, 1400];
     durations.forEach((ms, i) => {
       const timer = setTimeout(() => setPipelineStageIdx(i + 1), ms);
       pipelineTimersRef.current.push(timer);
