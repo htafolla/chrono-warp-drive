@@ -470,7 +470,7 @@ export default function DynamoDeploy() {
   const [proposal, setProposal] = useState('');
   const [result, setResult] = useState<GovernanceResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showExamples, setShowExamples] = useState(false);
+  const [showExamples, setShowExamples] = useState(true);
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
   const [persistToChain, setPersistToChain] = useState(false);
