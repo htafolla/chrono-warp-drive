@@ -2232,6 +2232,36 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
 })
 
 // Retro-mint a token for an existing registered container via v4 mint()
+// Serializes all wallet write operations (mint + auto-register) so concurrent
+// requests don't clash on nonce or RPC rate limits.
+let writeLock: Promise<void> = Promise.resolve()
+async function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
+  let release: () => void
+  const prev = writeLock
+  writeLock = new Promise<void>(resolve => { release = resolve })
+  await prev
+  try {
+    return await fn()
+  } finally {
+    release!()
+  }
+}
+
+const friendlyMintError = (err: any): string => {
+  const msg = err?.message || err?.cause?.message || ''
+  if (msg.includes('replacement transaction underpriced'))
+    return 'Already processing a mint — please wait a moment and try again.'
+  if (msg.includes('nonce too low') || msg.includes('Nonce too low'))
+    return 'Nonce conflict — please try again.'
+  if (msg.includes('insufficient funds'))
+    return 'MCP wallet gas funds depleted — contact admin.'
+  if (msg.includes('execution reverted'))
+    return 'Contract rejected the transaction (may already be minted).'
+  if (msg.includes('SocketError') || msg.includes('other side closed') || msg.includes('fetch failed'))
+    return 'Connection interrupted — please try again.'
+  return msg
+}
+
 app.post('/vortex/mint', async (c: Context) => {
   try {
     let { containerId, to } = await c.req.json() as { containerId: string; to: string }
@@ -2265,51 +2295,53 @@ app.post('/vortex/mint', async (c: Context) => {
       if (stored) {
         try {
           const params = containerToContractParams(stored)
-          const regNonce = await nextNonce()
-          const regTx = await walletClient.writeContract({
-            address: CONTRACT_ADDRESS,
-            abi: registryAbi,
-            functionName: 'storeContainer',
-            nonce: regNonce,
-            args: [
-              params.containerId as `0x${string}`,
-              params.timestamp,
-              params.proposalHash as `0x${string}`,
-              {
-                timestamp: params.solarSnapshot.timestamp,
-                activityLevel: params.solarSnapshot.activityLevel,
-                xrayFlux: params.solarSnapshot.xrayFlux,
-                kpIndex: params.solarSnapshot.kpIndex,
-                protonFlux: params.solarSnapshot.protonFlux,
-                magnetometer: params.solarSnapshot.magnetometer,
-                solarTdf: params.solarSnapshot.solarTdf,
-              },
-              {
-                fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
-                fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
-                waveProximity: params.resonanceProfile.waveProximity,
-                phaseAlignment: params.resonanceProfile.phaseAlignment,
-                calibratedVortex: params.resonanceProfile.calibratedVortex,
-                calibratedSync: params.resonanceProfile.calibratedSync,
-                neuralProximity: params.resonanceProfile.neuralProximity,
-                neuralVortex: params.resonanceProfile.neuralVortex,
-                gematriaResonance: params.resonanceProfile.gematriaResonance,
-                structuralResonance: params.resonanceProfile.structuralResonance,
-                verdict: params.resonanceProfile.verdict,
-                confidence: params.resonanceProfile.confidence,
-              },
-              {
-                trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
-                virtueAlignment: params.moralOverlay.virtueAlignment,
-                moralSafety: params.moralOverlay.moralSafety,
-                intentAlignment: params.moralOverlay.intentAlignment,
-                trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
-                moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
-              },
-              params.hammerReason,
-              params.containerHash as `0x${string}`,
-              params.source,
-            ],
+          const regTx = await withWriteLock(async () => {
+            const regNonce = await nextNonce()
+            return walletClient.writeContract({
+              address: CONTRACT_ADDRESS,
+              abi: registryAbi,
+              functionName: 'storeContainer',
+              nonce: regNonce,
+              args: [
+                params.containerId as `0x${string}`,
+                params.timestamp,
+                params.proposalHash as `0x${string}`,
+                {
+                  timestamp: params.solarSnapshot.timestamp,
+                  activityLevel: params.solarSnapshot.activityLevel,
+                  xrayFlux: params.solarSnapshot.xrayFlux,
+                  kpIndex: params.solarSnapshot.kpIndex,
+                  protonFlux: params.solarSnapshot.protonFlux,
+                  magnetometer: params.solarSnapshot.magnetometer,
+                  solarTdf: params.solarSnapshot.solarTdf,
+                },
+                {
+                  fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
+                  fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
+                  waveProximity: params.resonanceProfile.waveProximity,
+                  phaseAlignment: params.resonanceProfile.phaseAlignment,
+                  calibratedVortex: params.resonanceProfile.calibratedVortex,
+                  calibratedSync: params.resonanceProfile.calibratedSync,
+                  neuralProximity: params.resonanceProfile.neuralProximity,
+                  neuralVortex: params.resonanceProfile.neuralVortex,
+                  gematriaResonance: params.resonanceProfile.gematriaResonance,
+                  structuralResonance: params.resonanceProfile.structuralResonance,
+                  verdict: params.resonanceProfile.verdict,
+                  confidence: params.resonanceProfile.confidence,
+                },
+                {
+                  trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
+                  virtueAlignment: params.moralOverlay.virtueAlignment,
+                  moralSafety: params.moralOverlay.moralSafety,
+                  intentAlignment: params.moralOverlay.intentAlignment,
+                  trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
+                  moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
+                },
+                params.hammerReason,
+                params.containerHash as `0x${string}`,
+                params.source,
+              ],
+            })
           })
           await publicClient.waitForTransactionReceipt({ hash: regTx })
         } catch (regErr: any) {
@@ -2418,13 +2450,15 @@ app.post('/vortex/mint', async (c: Context) => {
       },
     ]
 
-    const mintNonce = await nextNonce()
-    const txHash = await walletClient.writeContract({
-      address: VORTEX_TOKEN_ADDRESS,
-      abi,
-      functionName: 'mint',
-      nonce: mintNonce,
-      args: mintArgs,
+    const txHash = await withWriteLock(async () => {
+      const mintNonce = await nextNonce()
+      return walletClient.writeContract({
+        address: VORTEX_TOKEN_ADDRESS,
+        abi,
+        functionName: 'mint',
+        nonce: mintNonce,
+        args: mintArgs,
+      })
     })
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
@@ -2453,8 +2487,9 @@ app.post('/vortex/mint', async (c: Context) => {
       explorerUrl: `https://basescan.org/tx/${receipt.transactionHash}`,
     })
   } catch (err: any) {
+    const msg = friendlyMintError(err)
     console.error(`[mint] ${err.message}`)
-    return c.json({ success: false, error: err.message }, 500)
+    return c.json({ success: false, error: msg }, 500)
   }
 })
 
