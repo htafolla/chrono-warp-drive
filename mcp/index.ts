@@ -40,12 +40,11 @@ const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
         }
       } catch { /* skip corrupt */ }
     }
-    // Restore Manifold points from Redis (survives restarts)
-    await temporalManifold.loadFromRedis()
-    console.log(`[bootstrap] Manifold restored ${temporalManifold.getPointCount()} points from Redis`)
+    // Rebuild Manifold from persisted containers
+    temporalManifold.populateFromContainers(containerStore)
+    console.log(`[bootstrap] Manifold populated with ${temporalManifold.getPointCount()} points from ${containerStore.length} containers`)
 
-    // Start ambient field AFTER restoring Manifold history, so no points
-    // are added before loadFromRedis() completes
+    // Start ambient field AFTER restoring Manifold history
     ambientField.start()
     console.log('[bootstrap] Ambient Resonance Field started')
     // Sync mint mappings to Redis if hash is empty (first-time setup)
