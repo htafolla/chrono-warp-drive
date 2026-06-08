@@ -2033,10 +2033,7 @@ app.get('/debug-govern', async (c: Context) => {
   }
 })
 
-// TEMPORARY: one-shot container backup endpoint — remove after backup is saved
-app.get('/admin/backup-containers', (c: Context) => {
-  return c.json({ success: true, count: containerStore.length, timestamp: Date.now(), containers: containerStore })
-})
+
 
 async function handleMCPMessage(sessionId: string, msg: any): Promise<any> {
   const { jsonrpc, id, method, params } = msg || {}
