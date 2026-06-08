@@ -2470,35 +2470,14 @@ app.post('/vortex/store-mapping', async (c: Context) => {
   }
 })
 
-// Batch vortex statuses — uses Redis cache with on-chain fallback
+// Batch vortex statuses — Redis-only, no on-chain fallback (all claimed containers
+// are recorded in dynamo:vortex:mint hash at mint time and on startup sync).
+// Any container NOT in the hash is necessarily unclaimed.
 app.get('/vortex/statuses', async (c: Context) => {
   try {
-    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
-    const { publicClient } = getVortexTokenClient()
-
-    // Collect container IDs from the MCP store, plus any on-chain registry IDs
-    // that don't share a prefix with a store container (they're different containers)
-    const storeIds = containerStore.map(c => c.containerId) as string[]
-    const allIds = [...storeIds]
-    const storePrefixes = new Set(storeIds.map(id => id.toLowerCase().slice(0, 18)))
-    try {
-      const [ids] = await publicClient.readContract({
-        address: CONTRACT_ADDRESS, abi: registryAbi,
-        functionName: 'listContainers',
-        args: [0n, 100n],
-      }) as [string[], bigint]
-      for (const id of ids as string[]) {
-        if (!storePrefixes.has(id.toLowerCase().slice(0, 18))) {
-          allIds.push(id)
-        }
-      }
-    } catch { /* registry unavailable */ }
-
-    const containerIds = allIds as `0x${string}`[]
+    const containerIds = containerStore.map(c => c.containerId) as string[]
     const statuses: Record<string, { claimed: boolean; tokenId: string | null }> = {}
 
-    // Try Redis batch
     let redisMap: Record<string, string> | null = null
     try {
       const client = await getRedisClient()
@@ -2509,19 +2488,10 @@ app.get('/vortex/statuses', async (c: Context) => {
     } catch { /* Redis optional */ }
 
     for (const cid of containerIds) {
-      const cidStr = cid.toLowerCase()
-      if (redisMap?.[cidStr]) {
-        statuses[cid] = { claimed: true, tokenId: redisMap[cidStr] }
-      } else {
-        const tid = await publicClient.readContract({
-          address: VORTEX_TOKEN_ADDRESS, abi,
-          functionName: 'tokenByContainerId',
-          args: [cid],
-        }).catch(() => 0n)
-        statuses[cid] = tid !== 0n
-          ? { claimed: true, tokenId: tid.toString() }
-          : { claimed: false, tokenId: null }
-      }
+      const tid = redisMap?.[cid.toLowerCase()]
+      statuses[cid] = tid
+        ? { claimed: true, tokenId: tid }
+        : { claimed: false, tokenId: null }
     }
 
     return c.json({ success: true, statuses })
