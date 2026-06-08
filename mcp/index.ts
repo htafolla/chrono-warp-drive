@@ -2029,8 +2029,13 @@ app.get('/debug-govern', async (c: Context) => {
     const result = await handler({ proposal: 'Debug test', baseVoteWeight: 1.0 })
     return c.json({ success: true, result, handlerType: typeof handler })
   } catch (err: any) {
-    return c.json({ error: err.message, stack: err.stack })
+    return c.json({ success: false, error: err.message }, 500)
   }
+})
+
+// TEMPORARY: one-shot container backup endpoint — remove after backup is saved
+app.get('/admin/backup-containers', (c: Context) => {
+  return c.json({ success: true, count: containerStore.length, timestamp: Date.now(), containers: containerStore })
 })
 
 async function handleMCPMessage(sessionId: string, msg: any): Promise<any> {
