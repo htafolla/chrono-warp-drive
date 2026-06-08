@@ -212,8 +212,13 @@ export class TemporalManifold {
       const data = await redis.get(MANIFOLD_REDIS_KEY)
       if (!data) return
       const restored = JSON.parse(data) as ManifoldPoint[]
-      if (!Array.isArray(restored)) return
-      this.points = restored
+      if (!Array.isArray(restored) || restored.length === 0) return
+      // Merge: prepend Redis points, append any added since boot
+      // (handles race where ambientField.start() fires before bootstrap IIFE completes)
+      this.points = [...restored, ...this.points]
+      if (this.points.length > MAX_POINTS) {
+        this.points = this.points.slice(-MAX_POINTS)
+      }
       this.momentumValues = []
       for (let i = 1; i < this.points.length; i++) {
         this.momentumValues.push(this.points[i].resonance7D - this.points[i - 1].resonance7D)
