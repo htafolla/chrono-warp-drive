@@ -4,7 +4,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
-import { createWalletClient, createPublicClient, nonceManager } from 'viem'
+import { createWalletClient, createPublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { publish, subscribe, getRedisClient } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
@@ -2133,7 +2133,6 @@ function getVortexTokenClient() {
     account,
     chain: baseMainnet,
     transport: buildFallbackTransport(),
-    nonceManager,
   })
   const publicClient = createPublicClient({
     chain: baseMainnet,
@@ -2241,11 +2240,16 @@ app.post('/vortex/mint', async (c: Context) => {
 
     const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
-    const { walletClient, publicClient } = getVortexTokenClient()
+    const { walletClient, publicClient, account } = getVortexTokenClient()
 
     // Read container data from registry (or MCP store for non-registered containers)
     let container: any
     let fromRegistry = false
+
+    // Helper to get the next nonce from chain
+    async function nextNonce() {
+      return publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
+    }
 
     // 1) Try reading the container from the on-chain registry directly
     try {
@@ -2261,10 +2265,12 @@ app.post('/vortex/mint', async (c: Context) => {
       if (stored) {
         try {
           const params = containerToContractParams(stored)
+          const regNonce = await nextNonce()
           const regTx = await walletClient.writeContract({
             address: CONTRACT_ADDRESS,
             abi: registryAbi,
             functionName: 'storeContainer',
+            nonce: regNonce,
             args: [
               params.containerId as `0x${string}`,
               params.timestamp,
@@ -2412,10 +2418,12 @@ app.post('/vortex/mint', async (c: Context) => {
       },
     ]
 
+    const mintNonce = await nextNonce()
     const txHash = await walletClient.writeContract({
       address: VORTEX_TOKEN_ADDRESS,
       abi,
       functionName: 'mint',
+      nonce: mintNonce,
       args: mintArgs,
     })
 
