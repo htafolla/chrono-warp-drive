@@ -40,6 +40,9 @@ const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
         }
       } catch { /* skip corrupt */ }
     }
+    // Restore Manifold points from Redis (survives restarts)
+    await temporalManifold.loadFromRedis()
+    console.log(`[bootstrap] Manifold restored ${temporalManifold.getPointCount()} points from Redis`)
     // Sync mint mappings to Redis if hash is empty (first-time setup)
     try {
       const existing = await client.hgetall(REDIS_VORTEX_KEY_MINT)

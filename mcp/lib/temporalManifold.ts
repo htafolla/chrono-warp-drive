@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { getRedisClient } from '../pubsub.js'
 
 // ── Data Types ──
 
@@ -155,6 +156,7 @@ function hashProposal(text: string): string {
 
 // ── Temporal Manifold ──
 
+const MANIFOLD_REDIS_KEY = 'dynamo:manifold:points'
 const MAX_POINTS = 5000
 const MIN_POINTS_FOR_TREND = 3
 const DEFAULT_SAMPLE_INTERVAL_MS = 20 * 60 * 1000
@@ -191,6 +193,32 @@ export class TemporalManifold {
     if (this.momentumValues.length > MOMENTUM_WINDOW) {
       this.momentumValues = this.momentumValues.slice(-MOMENTUM_WINDOW)
     }
+    this.saveToRedis()
+  }
+
+  private async saveToRedis(): Promise<void> {
+    try {
+      const redis = await getRedisClient()
+      if (redis) {
+        await redis.set(MANIFOLD_REDIS_KEY, JSON.stringify(this.points))
+      }
+    } catch { /* Redis unavailable */ }
+  }
+
+  async loadFromRedis(): Promise<void> {
+    try {
+      const redis = await getRedisClient()
+      if (!redis) return
+      const data = await redis.get(MANIFOLD_REDIS_KEY)
+      if (!data) return
+      const restored = JSON.parse(data) as ManifoldPoint[]
+      if (!Array.isArray(restored)) return
+      this.points = restored
+      this.momentumValues = []
+      for (let i = 1; i < this.points.length; i++) {
+        this.momentumValues.push(this.points[i].resonance7D - this.points[i - 1].resonance7D)
+      }
+    } catch { /* Redis unavailable or corrupt data */ }
   }
 
   addFromContainer(container: {
