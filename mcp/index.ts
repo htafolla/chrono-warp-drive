@@ -2691,7 +2691,7 @@ async function autoMintVortex(container: any, proposalText: string) {
         container.containerHash as `0x${string}`,
         {
           containerId: container.containerId,
-          timestamp: BigInt(container.timestamp),
+          timestamp: BigInt(Math.floor(container.timestamp)),
           verdict: container.resonanceProfile.verdict,
           fullBox7DComposite: s(container.resonanceProfile.fullBox7DComposite),
           trinitariumMoralScore: s(container.moralOverlay.trinitariumMoralScore),
