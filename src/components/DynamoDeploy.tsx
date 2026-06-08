@@ -758,17 +758,19 @@ export default function DynamoDeploy() {
             </div>
           )}
 
-          <button
-            onClick={() => run()}
-            disabled={loading || !proposal.trim()}
-            className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg shadow-violet-600/30"
-          >
-            {loading ? 'Analyzing...' : 'Ask Dynamo'}
-          </button>
+          {!loading && !result && (
+            <button
+              onClick={() => run()}
+              disabled={!proposal.trim()}
+              className="w-full h-12 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-40 shadow-lg shadow-violet-600/30"
+            >
+              Ask Dynamo
+            </button>
+          )}
         </div>
 
         {/* Result — every governance result is a self-authenticating temporal document */}
-        {result && (
+        {result && !loading && (
           <div className={`rounded-2xl p-5 text-center space-y-3 border shadow-xl ${
             result.answer === 'yes' ? 'bg-emerald-500/[0.07] border-emerald-500/30 shadow-emerald-500/5' :
             result.answer === 'no' ? 'bg-red-500/[0.07] border-red-500/30 shadow-red-500/5' :
@@ -1558,7 +1560,7 @@ export default function DynamoDeploy() {
         )}
 
         {/* Actions */}
-        {result && result.answer !== 'error' && (
+        {result && !loading && result.answer !== 'error' && (
           <div className="flex gap-3">
             <button
               onClick={() => { setResult(null); setProposal(''); setShowExamples(true); }}
