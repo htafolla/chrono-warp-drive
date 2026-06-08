@@ -1,0 +1,8 @@
+[phases.setup]
+nixpkgsArchive = "latest"
+
+[phases.install]
+nodeVersion = "22"
+
+[phases.build]
+nodeVersion = "22"
