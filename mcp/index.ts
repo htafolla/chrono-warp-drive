@@ -2381,27 +2381,30 @@ app.post('/vortex/mint', async (c: Context) => {
       return c.json({ success: false, error: 'Container not found in registry or MCP store. Try reloading the page to refresh container data.' }, 404)
     }
 
+    // Scale float scores to uint256 when container is from MCP store (not on-chain registry)
+    const scaleUint = (v: any) => typeof v === 'bigint' ? v : BigInt(Math.round(Number(v) * 1e18))
+    const safeTs = (v: any) => typeof v === 'bigint' ? v : BigInt(Math.floor(Number(v)))
     const mintArgs = [
       to as `0x${string}`,
       containerId as `0x${string}`,
       {
         containerId: containerId as `0x${string}`,
-        timestamp: container.timestamp,
+        timestamp: safeTs(container.timestamp),
         verdict: container.resonanceProfile.verdict,
-        fullBox7DComposite: container.resonanceProfile.fullBox7DComposite,
-        trinitariumMoralScore: container.moralOverlay.trinitariumMoralScore,
-        trinitariumGematriaFusion: container.moralOverlay.trinitariumGematriaFusion,
+        fullBox7DComposite: scaleUint(container.resonanceProfile.fullBox7DComposite),
+        trinitariumMoralScore: scaleUint(container.moralOverlay.trinitariumMoralScore),
+        trinitariumGematriaFusion: scaleUint(container.moralOverlay.trinitariumGematriaFusion),
         moralTension: container.moralOverlay.moralNumerologicalTension,
-        waveProximity: container.resonanceProfile.waveProximity,
-        phaseAlignment: container.resonanceProfile.phaseAlignment,
-        calibratedVortex: container.resonanceProfile.calibratedVortex,
-        calibratedSync: container.resonanceProfile.calibratedSync,
-        neuralProximity: container.resonanceProfile.neuralProximity,
-        neuralVortex: container.resonanceProfile.neuralVortex,
-        gematriaResonance: container.resonanceProfile.gematriaResonance,
-        virtueAlignment: container.moralOverlay.virtueAlignment,
-        moralSafety: container.moralOverlay.moralSafety,
-        intentAlignment: container.moralOverlay.intentAlignment,
+        waveProximity: scaleUint(container.resonanceProfile.waveProximity),
+        phaseAlignment: scaleUint(container.resonanceProfile.phaseAlignment),
+        calibratedVortex: scaleUint(container.resonanceProfile.calibratedVortex),
+        calibratedSync: scaleUint(container.resonanceProfile.calibratedSync),
+        neuralProximity: scaleUint(container.resonanceProfile.neuralProximity),
+        neuralVortex: scaleUint(container.resonanceProfile.neuralVortex),
+        gematriaResonance: scaleUint(container.resonanceProfile.gematriaResonance),
+        virtueAlignment: scaleUint(container.moralOverlay.virtueAlignment),
+        moralSafety: scaleUint(container.moralOverlay.moralSafety),
+        intentAlignment: scaleUint(container.moralOverlay.intentAlignment),
         source: container.source,
         containerHash: container.containerHash,
         hammerReason: container.hammerReason || '',
