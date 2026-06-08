@@ -470,6 +470,7 @@ export default function DynamoDeploy() {
   const [proposal, setProposal] = useState('');
   const [result, setResult] = useState<GovernanceResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showExamples, setShowExamples] = useState(false);
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
   const [persistToChain, setPersistToChain] = useState(false);
@@ -588,6 +589,7 @@ export default function DynamoDeploy() {
     const input = (text || proposal).trim();
     if (!input) return;
     setLoading(true);
+    setShowExamples(false);
     setResult(null);
     setLastProposal(input);
     if (text) setProposal(text);
@@ -711,7 +713,7 @@ export default function DynamoDeploy() {
               </label>
             </div>
           </div>
-          {!loading && <div className="flex flex-wrap gap-2">
+          {showExamples && <div className="flex flex-wrap gap-2">
             {EXAMPLE_PROPOSALS.map(p => (
               <button
                 key={p}
@@ -1559,7 +1561,7 @@ export default function DynamoDeploy() {
         {result && result.answer !== 'error' && (
           <div className="flex gap-3">
             <button
-              onClick={() => { setResult(null); setProposal(''); }}
+              onClick={() => { setResult(null); setProposal(''); setShowExamples(true); }}
               className="flex-1 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/70 text-sm font-medium flex items-center justify-center gap-2 transition-all"
             >
               <RotateCcw className="h-4 w-4" />
