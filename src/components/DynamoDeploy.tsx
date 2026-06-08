@@ -711,7 +711,7 @@ export default function DynamoDeploy() {
               </label>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          {!loading && <div className="flex flex-wrap gap-2">
             {EXAMPLE_PROPOSALS.map(p => (
               <button
                 key={p}
@@ -722,6 +722,7 @@ export default function DynamoDeploy() {
                 {p}
               </button>
             ))}
+          </div>}
           </div>
 
           {/* Pipeline visualization during loading */}
