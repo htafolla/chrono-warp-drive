@@ -1270,7 +1270,7 @@ export default function DynamoDeploy() {
                         backgroundColor: pt.resonance7D >= 0.78 ? '#34d399' : pt.resonance7D >= 0.64 ? '#fbbf24' : '#f87171',
                         opacity: 0.3 + (i / manifoldPointsData.length) * 0.7,
                       }}
-                      title={new Date(pt.timestamp).toLocaleString()}
+                      title={new Date(pt.timestamp * 1000).toLocaleString()}
                     />
                   ))}
                 </div>
@@ -1297,7 +1297,7 @@ export default function DynamoDeploy() {
                         <span className="text-[10px] text-white/60 truncate">
                           {p.resonance7D >= 0.86 ? 'Strong' : p.resonance7D >= 0.78 ? 'Good' : 'Weak'} · {p.source}
                         </span>
-                        <span className="text-[9px] text-white/30 shrink-0">{formatTime(new Date(p.timestamp).toISOString())}</span>
+                        <span className="text-[9px] text-white/30 shrink-0">{formatTime(new Date(p.timestamp * 1000).toISOString())}</span>
                       </div>
                       <span className="text-[10px] font-semibold text-white">{(p.resonance7D * 100).toFixed(0)}%</span>
                     </button>
