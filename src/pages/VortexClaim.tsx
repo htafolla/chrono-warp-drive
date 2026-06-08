@@ -70,7 +70,7 @@ const VORTEX_ABI = [
   },
 ] as const
 
-interface ContainerItem {
+export interface ContainerItem {
   containerId: string
   timestamp: number
   containerHash: string
