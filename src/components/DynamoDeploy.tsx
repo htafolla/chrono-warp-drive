@@ -501,7 +501,7 @@ export default function DynamoDeploy() {
     pipelineTimersRef.current = [];
   }, []);
 
-  const advancePipeline = useCallback(() => {
+  const advancePipeline = useCallback((onComplete?: () => void) => {
     setPipelineStageIdx(0);
     clearPipelineTimers();
     const durations = [1400, 1800, 1600, 1400];
@@ -509,6 +509,11 @@ export default function DynamoDeploy() {
       const timer = setTimeout(() => setPipelineStageIdx(i + 1), ms);
       pipelineTimersRef.current.push(timer);
     });
+    if (onComplete) {
+      const total = durations.reduce((a, b) => a + b, 0) + 400;
+      const timer = setTimeout(onComplete, total);
+      pipelineTimersRef.current.push(timer);
+    }
   }, [clearPipelineTimers]);
 
   const fetchFeed = useCallback(async () => {
@@ -586,13 +591,15 @@ export default function DynamoDeploy() {
     setResult(null);
     setLastProposal(input);
     if (text) setProposal(text);
-    advancePipeline();
     const r = await checkGovernance(input, sharePublicly, persistToChain);
     setResult(r);
-    setLoading(false);
-    setPipelineStageIdx(PIPELINE_STAGES.length - 1);
-    clearPipelineTimers();
     fetchFeed();
+
+    advancePipeline(() => {
+      setLoading(false);
+      setPipelineStageIdx(PIPELINE_STAGES.length - 1);
+      clearPipelineTimers();
+    });
   }, [proposal, sharePublicly, persistToChain, fetchFeed, advancePipeline, clearPipelineTimers]);
 
   const shareVerdict = useCallback(() => {
@@ -628,7 +635,7 @@ export default function DynamoDeploy() {
             <a href="https://dynamo-docs.vercel.app/about" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">About</a>
             <a href="https://github.com/htafolla/chrono-warp-drive" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">GitHub</a>
             <a href="https://x.com/blaze0x1" target="_blank" rel="noopener noreferrer" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">X / @blaze0x1</a>
-            <a href="/tptt" className="text-[10px] text-cyan-400/50 hover:text-cyan-300 transition-colors">Pipeline</a>
+
             <a href="/vortex" className="text-[10px] text-emerald-400/70 hover:text-emerald-300 transition-colors font-semibold">Vortex</a>
           </div>
           <a
