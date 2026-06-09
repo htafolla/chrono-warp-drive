@@ -198,7 +198,7 @@ export default function VortexClaim() {
   const [mintResults, setMintResults] = useState<Record<string, string>>({})
   const [mintErrors, setMintErrors] = useState<Record<string, string>>({})
   const [donationAmounts, setDonationAmounts] = useState<Record<string, string>>({})
-  const [tokenStatus, setTokenStatus] = useState<Record<string, { hasToken: boolean; tokenId: string | null }>>({})
+  const [tokenStatus, setTokenStatus] = useState<Record<string, { hasToken: boolean; tokenId: string | null; inRegistry: boolean }>>({})
   const [statusLoading, setStatusLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [onChainMetadata, setOnChainMetadata] = useState<Record<string, any>>({})
@@ -254,12 +254,10 @@ export default function VortexClaim() {
       }
       const statusData = await statusRes.json()
       if (statusData.success) {
-        const status: Record<string, { hasToken: boolean; tokenId: string | null }> = {}
+        const status: Record<string, { hasToken: boolean; tokenId: string | null; inRegistry: boolean }> = {}
         for (const [containerId, info] of Object.entries(statusData.statuses || {})) {
-          const s = info as { claimed: boolean; tokenId: string | null }
-          if (s.claimed) {
-            status[containerId] = { hasToken: true, tokenId: s.tokenId }
-          }
+          const s = info as { claimed: boolean; tokenId: string | null; inRegistry: boolean }
+          status[containerId] = { hasToken: s.claimed, tokenId: s.tokenId, inRegistry: s.inRegistry }
         }
         setTokenStatus(status)
       }
@@ -341,7 +339,7 @@ export default function VortexClaim() {
 
       setMintResults(prev => ({ ...prev, [containerId]: data.txHash }))
       setMintErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
-      setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: '...' } }))
+      setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: '...', inRegistry: prev[containerId]?.inRegistry ?? true } }))
       setExpanded(containerId)
 
       console.log('[vortex] fetching on-chain data for', containerId.slice(0, 18))
@@ -635,60 +633,78 @@ export default function VortexClaim() {
                     </div>
                   )}
 
-                  {/* Mint action for unclaimed */}
+                  {/* Action section for unclaimed */}
                   {!status?.hasToken && (
                     <div className="border-t border-zinc-800/40 pt-4">
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-3">Mint VortexToken</div>
-                      {isConnected ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="number"
-                              value={donationAmounts[c.containerId] || '0.001'}
-                              onChange={e => setDonationAmounts(prev => ({ ...prev, [c.containerId]: e.target.value }))}
-                              step="0.001"
-                              min="0"
-                              className="w-20 px-2 py-1 text-xs rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
-                              placeholder="ETH"
-                            />
-                            {ethPrice && (
-                              <span className="text-[11px] text-zinc-500">
-                                ~${(parseFloat(donationAmounts[c.containerId] || '0.001') * ethPrice).toFixed(2)}
-                              </span>
-                            )}
-                            <span className="text-[11px] text-zinc-600">
-                              Balance: {ethBalance !== null ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : '...'}
-                            </span>
-                          </div>
-                          {(() => {
-                            const mintAmt = parseFloat(donationAmounts[c.containerId] || '0.001')
-                            const mintVal = BigInt(Math.floor(mintAmt * 1e18))
-                            const insufficient = ethBalance !== null && ethBalance < mintVal + BigInt(1e15)
-                            const isMinting = minting === c.containerId
-                            return (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleMint(c.containerId)}
-                                  disabled={isMinting || insufficient}
-                                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-white ${
-                                    insufficient
-                                      ? 'bg-red-600/50 cursor-not-allowed'
-                                      : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500'
-                                  }`}
-                                >
-                                  {isMinting ? 'Minting...' : insufficient ? 'Low Balance' : 'Mint'}
-                                </button>
-                                {insufficient && (
-                                  <span className="text-[11px] text-red-400">Insufficient ETH for donation</span>
+                      {status?.inRegistry ? (
+                        <>
+                          <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-3">Mint VortexToken</div>
+                          {isConnected ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="number"
+                                  value={donationAmounts[c.containerId] || '0.001'}
+                                  onChange={e => setDonationAmounts(prev => ({ ...prev, [c.containerId]: e.target.value }))}
+                                  step="0.001"
+                                  min="0"
+                                  className="w-20 px-2 py-1 text-xs rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
+                                  placeholder="ETH"
+                                />
+                                {ethPrice && (
+                                  <span className="text-[11px] text-zinc-500">
+                                    ~${(parseFloat(donationAmounts[c.containerId] || '0.001') * ethPrice).toFixed(2)}
+                                  </span>
                                 )}
+                                <span className="text-[11px] text-zinc-600">
+                                  Balance: {ethBalance !== null ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : '...'}
+                                </span>
                               </div>
-                            )
-                          })()}
-                        </div>
+                              {(() => {
+                                const mintAmt = parseFloat(donationAmounts[c.containerId] || '0.001')
+                                const mintVal = BigInt(Math.floor(mintAmt * 1e18))
+                                const insufficient = ethBalance !== null && ethBalance < mintVal + BigInt(1e15)
+                                const isMinting = minting === c.containerId
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleMint(c.containerId)}
+                                      disabled={isMinting || insufficient}
+                                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-white ${
+                                        insufficient
+                                          ? 'bg-red-600/50 cursor-not-allowed'
+                                          : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500'
+                                      }`}
+                                    >
+                                      {isMinting ? 'Minting...' : insufficient ? 'Low Balance' : 'Mint'}
+                                    </button>
+                                    {insufficient && (
+                                      <span className="text-[11px] text-red-400">Insufficient ETH for donation</span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-zinc-500">
+                              Connect your wallet to mint this container as a VortexToken
+                            </div>
+                          )}
+                        </>
                       ) : (
-                        <div className="text-xs text-zinc-500">
-                          Connect your wallet to mint this container as a VortexToken
-                        </div>
+                        <>
+                          <div className="text-[10px] text-amber-400 uppercase tracking-wide mb-1">Offchain — Not Registered</div>
+                          <p className="text-xs text-zinc-400 mb-3">
+                            This container exists in the temporal field but hasn't been saved to the on-chain registry yet. Saving re-runs the pipeline, which may change the resonance profile (isotope).
+                          </p>
+                          <button
+                            disabled
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                            title="Coming soon"
+                          >
+                            Save to Chain & Mint
+                          </button>
+                        </>
                       )}
                     </div>
                   )}

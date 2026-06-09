@@ -24,6 +24,7 @@ let latestContainerHash = '0x' + '0'.repeat(64)
 const REDIS_CONTAINER_KEY = 'dynamo:containers'
 const MAX_REDIS_CONTAINERS = 1000
 const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
+const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
 
 // Bootstrap: load containers from Redis on module init
 ;(async () => {
@@ -80,6 +81,21 @@ const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
         }
         console.log(`[bootstrap] Synced ${synced} missing mint entries to Redis (totalSupply=${onChainSupply})`)
       }
+      // Sync registered container IDs to Redis set
+      try {
+        const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+        const existingReg = await client.scard(REDIS_VORTEX_KEY_REGISTERED).catch(() => 0)
+        const [chainIds, regTotal] = await publicClient.readContract({
+          address: CONTRACT_ADDRESS, abi: registryAbi,
+          functionName: 'listContainers',
+          args: [0n, 500n],
+        }) as [string[], bigint]
+        if (chainIds.length > 0 && Number(regTotal) !== existingReg) {
+          await client.del(REDIS_VORTEX_KEY_REGISTERED)
+          await client.sadd(REDIS_VORTEX_KEY_REGISTERED, ...chainIds.map((id: string) => id.toLowerCase()))
+          console.log(`[bootstrap] Registered ${chainIds.length} containers to Redis set`)
+        }
+      } catch { /* registry sync failed */ }
     } catch { /* sync failed */ }
   } catch { /* Redis unavailable */ }
 })()
@@ -2529,22 +2545,28 @@ app.post('/vortex/store-mapping', async (c: Context) => {
 app.get('/vortex/statuses', async (c: Context) => {
   try {
     const containerIds = containerStore.map(c => c.containerId) as string[]
-    const statuses: Record<string, { claimed: boolean; tokenId: string | null }> = {}
+    const statuses: Record<string, { claimed: boolean; tokenId: string | null; inRegistry: boolean }> = {}
 
     let redisMap: Record<string, string> | null = null
+    let registered: Set<string> | null = null
     try {
       const client = await getRedisClient()
       if (client) {
-        const entries = await client.hgetall(REDIS_VORTEX_KEY_MINT).catch(() => null) as Record<string, string> | null
+        const [entries, regIds] = await Promise.all([
+          client.hgetall(REDIS_VORTEX_KEY_MINT).catch(() => null) as Promise<Record<string, string> | null>,
+          client.smembers(REDIS_VORTEX_KEY_REGISTERED).catch(() => [] as string[]) as Promise<string[]>,
+        ])
         if (entries) redisMap = entries
+        if (regIds.length > 0) registered = new Set(regIds)
       }
     } catch { /* Redis optional */ }
 
     for (const cid of containerIds) {
       const tid = redisMap?.[cid.toLowerCase()]
+      const inRegistry = registered?.has(cid.toLowerCase()) ?? false
       statuses[cid] = tid
-        ? { claimed: true, tokenId: tid }
-        : { claimed: false, tokenId: null }
+        ? { claimed: true, tokenId: tid, inRegistry }
+        : { claimed: false, tokenId: null, inRegistry }
     }
 
     return c.json({ success: true, statuses })

@@ -4,7 +4,7 @@ import type { ContainerItem } from '@/pages/VortexClaim'
 
 interface VortexCardGridProps {
   containers: ContainerItem[]
-  tokenStatus: Record<string, { hasToken: boolean; tokenId: string | null }>
+  tokenStatus: Record<string, { hasToken: boolean; tokenId: string | null; inRegistry?: boolean }>
   minting: string | null
   mintErrors: Record<string, string>
   onClaim: (containerId: string) => void
@@ -113,6 +113,7 @@ export function VortexCardGrid({
               container={c}
               hasToken={tokenStatus[c.containerId]?.hasToken ?? false}
               tokenId={tokenStatus[c.containerId]?.tokenId ?? null}
+              inRegistry={tokenStatus[c.containerId]?.inRegistry ?? false}
               isMinting={minting === c.containerId}
               mintError={mintErrors[c.containerId]}
               onClaim={onClaim}

@@ -60,6 +60,7 @@ interface VortexCardProps {
   container: ContainerItem
   hasToken: boolean
   tokenId: string | null
+  inRegistry: boolean
   isMinting: boolean
   mintError?: string
   onClaim: (containerId: string) => void
@@ -70,6 +71,7 @@ export function VortexCard({
   container,
   hasToken,
   tokenId,
+  inRegistry,
   isMinting,
   mintError,
   onClaim,
@@ -158,18 +160,26 @@ export function VortexCard({
             <Badge variant="secondary" className="text-[11px]">
               Minted ✓ {tokenId ? `#${tokenId}` : ''}
             </Badge>
-          ) : (
+          ) : inRegistry ? (
             <button
-              onClick={(e) => { e.stopPropagation(); onClaim(container.containerId) }}
-              disabled={isMinting}
+              onClick={(e) => { e.stopPropagation(); onViewDetails(container) }}
               className={cn(
                 'flex-1 text-xs font-medium py-1.5 px-3 rounded-lg transition-all',
                 'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500',
-                'text-white shadow-lg shadow-fuchsia-600/20',
-                'disabled:opacity-50 disabled:cursor-not-allowed'
+                'text-white shadow-lg shadow-fuchsia-600/20'
               )}
             >
-              {isMinting ? 'Claiming...' : 'Claim'}
+              Mint
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewDetails(container) }}
+              className={cn(
+                'flex-1 text-xs font-medium py-1.5 px-3 rounded-lg transition-all',
+                'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-zinc-300'
+              )}
+            >
+              Offchain
             </button>
           )}
           <button
