@@ -95,7 +95,7 @@ export function VortexCard({
 }: VortexCardProps) {
   const composite = container.resonanceProfile.fullBox7DComposite ?? 0
   const tier = rarityTier(composite)
-  const message = container.vortexMessage || container.hammerReason || 'Temporal resonance artifact'
+  const proposal = container.proposalText || container.vortexMessage || container.hammerReason || ''
   const [imgError, setImgError] = useState(false)
 
   return (
@@ -130,9 +130,9 @@ export function VortexCard({
           </div>
         </div>
 
-        {message && (
+        {proposal && (
           <p className="text-xs text-zinc-400 line-clamp-2 mb-2 leading-relaxed">
-            {message}
+            {proposal}
           </p>
         )}
 
