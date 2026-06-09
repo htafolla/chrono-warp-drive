@@ -618,6 +618,64 @@ export default function VortexClaim() {
                     </div>
                   )}
 
+                  {/* Mint action for unclaimed */}
+                  {!status?.hasToken && (
+                    <div className="border-t border-zinc-800/40 pt-4">
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-3">Mint VortexToken</div>
+                      {isConnected ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              value={donationAmounts[c.containerId] || '0.001'}
+                              onChange={e => setDonationAmounts(prev => ({ ...prev, [c.containerId]: e.target.value }))}
+                              step="0.001"
+                              min="0"
+                              className="w-20 px-2 py-1 text-xs rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
+                              placeholder="ETH"
+                            />
+                            {ethPrice && (
+                              <span className="text-[11px] text-zinc-500">
+                                ~${(parseFloat(donationAmounts[c.containerId] || '0.001') * ethPrice).toFixed(2)}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-zinc-600">
+                              Balance: {ethBalance !== null ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : '...'}
+                            </span>
+                          </div>
+                          {(() => {
+                            const mintAmt = parseFloat(donationAmounts[c.containerId] || '0.001')
+                            const mintVal = BigInt(Math.floor(mintAmt * 1e18))
+                            const insufficient = ethBalance !== null && ethBalance < mintVal + BigInt(1e15)
+                            const isMinting = minting === c.containerId
+                            return (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleMint(c.containerId)}
+                                  disabled={isMinting || insufficient}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-white ${
+                                    insufficient
+                                      ? 'bg-red-600/50 cursor-not-allowed'
+                                      : 'bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500'
+                                  }`}
+                                >
+                                  {isMinting ? 'Minting...' : insufficient ? 'Low Balance' : 'Mint'}
+                                </button>
+                                {insufficient && (
+                                  <span className="text-[11px] text-red-400">Insufficient ETH for donation</span>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-zinc-500">
+                          Connect your wallet to mint this container as a VortexToken
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {status?.hasToken && status.tokenId && (
                     <div className="pt-2 border-t border-zinc-800/40">
                       <div className="flex items-start gap-4 mb-3">
