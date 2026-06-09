@@ -195,8 +195,10 @@ export default function VortexClaim() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [minting, setMinting] = useState<string | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
   const [mintResults, setMintResults] = useState<Record<string, string>>({})
   const [mintErrors, setMintErrors] = useState<Record<string, string>>({})
+  const [saveErrors, setSaveErrors] = useState<Record<string, string>>({})
   const [donationAmounts, setDonationAmounts] = useState<Record<string, string>>({})
   const [tokenStatus, setTokenStatus] = useState<Record<string, { hasToken: boolean; tokenId: string | null; inRegistry: boolean }>>({})
   const [statusLoading, setStatusLoading] = useState(true)
@@ -356,6 +358,25 @@ export default function VortexClaim() {
     }
   }
 
+  async function handleSaveToChain(containerId: string) {
+    setSaving(containerId)
+    setSaveErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
+    try {
+      const res = await fetch(`${MCP_URL}/vortex/persist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ containerId }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Save failed')
+      setTokenStatus(prev => ({ ...prev, [containerId]: { ...prev[containerId], inRegistry: true } }))
+    } catch (err: any) {
+      setSaveErrors(prev => ({ ...prev, [containerId]: err.message?.slice(0, 150) || 'Save failed' }))
+    } finally {
+      setSaving(null)
+    }
+  }
+
   async function loadOnChainMetadata(tokenId: string, containerId: string) {
     if (!publicClient) return
     try {
@@ -468,6 +489,14 @@ export default function VortexClaim() {
               hasMore={hasMore}
               loadingMore={loadingMore}
               onLoadMore={loadMore}
+              donationAmounts={donationAmounts}
+              onDonationChange={(id, val) => setDonationAmounts(prev => ({ ...prev, [id]: val }))}
+              ethBalance={ethBalance}
+              ethPrice={ethPrice ?? 0}
+              isConnected={isConnected}
+              saving={saving}
+              saveErrors={saveErrors}
+              onSaveToChain={handleSaveToChain}
             />
           </>
         )}

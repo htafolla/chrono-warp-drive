@@ -2296,6 +2296,34 @@ const friendlyMintError = (err: any): string => {
   return msg
 }
 
+app.post('/vortex/persist', async (c: Context) => {
+  return withWriteLock(async () => {
+    try {
+      const { containerId } = await c.req.json() as { containerId: string }
+      if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
+
+      const container = containerStore.find(c => c.containerId.toLowerCase() === containerId.toLowerCase())
+      if (!container) return c.json({ success: false, error: 'Container not found' }, 404)
+
+      const result = await persistContainerToChain(container)
+
+      // Add to Redis registered set
+      try {
+        const client = await getRedisClient()
+        if (client) await client.sadd(REDIS_VORTEX_KEY_REGISTERED, containerId.toLowerCase())
+      } catch { /* best effort */ }
+
+      return c.json({
+        success: true,
+        txHash: result.txHash,
+        explorerUrl: `https://basescan.org/tx/${result.txHash}`,
+      })
+    } catch (err: any) {
+      return c.json({ success: false, error: friendlyMintError(err.message || String(err)) }, 500)
+    }
+  })
+})
+
 app.post('/vortex/mint', async (c: Context) => {
   try {
     let { containerId, to } = await c.req.json() as { containerId: string; to: string }

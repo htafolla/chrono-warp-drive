@@ -65,6 +65,14 @@ interface VortexCardProps {
   mintError?: string
   onClaim: (containerId: string) => void
   onViewDetails: (container: ContainerItem) => void
+  donationAmount: string
+  onDonationChange: (value: string) => void
+  ethBalance: bigint | null
+  ethPrice: number
+  isConnected: boolean
+  isSaving: boolean
+  saveError?: string
+  onSaveToChain: () => void
 }
 
 export function VortexCard({
@@ -76,6 +84,14 @@ export function VortexCard({
   mintError,
   onClaim,
   onViewDetails,
+  donationAmount,
+  onDonationChange,
+  ethBalance,
+  ethPrice,
+  isConnected,
+  isSaving,
+  saveError,
+  onSaveToChain,
 }: VortexCardProps) {
   const composite = container.resonanceProfile.fullBox7DComposite ?? 0
   const tier = rarityTier(composite)
@@ -161,34 +177,64 @@ export function VortexCard({
               Minted ✓ {tokenId ? `#${tokenId}` : ''}
             </Badge>
           ) : inRegistry ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onViewDetails(container) }}
-              className={cn(
-                'flex-1 text-xs font-medium py-1.5 px-3 rounded-lg transition-all',
-                'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500',
-                'text-white shadow-lg shadow-fuchsia-600/20'
+            <div className="flex-1 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+              <input
+                type="number"
+                value={donationAmount}
+                onChange={e => onDonationChange(e.target.value)}
+                step="0.001"
+                min="0"
+                className="w-16 px-1.5 py-1 text-[10px] rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
+                placeholder="ETH"
+              />
+              {isConnected ? (
+                <button
+                  onClick={() => onClaim(container.containerId)}
+                  disabled={isMinting || (ethBalance !== null && ethBalance < BigInt(Math.floor(parseFloat(donationAmount || '0.001') * 1e18)) + BigInt(1e15))}
+                  className={cn(
+                    'text-[11px] font-medium py-1 px-2.5 rounded-lg transition-all',
+                    'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500',
+                    'text-white shadow-lg shadow-fuchsia-600/20',
+                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                  )}
+                >
+                  {isMinting ? '...' : 'Mint'}
+                </button>
+              ) : (
+                <span className="text-[10px] text-zinc-500">Connect wallet</span>
               )}
-            >
-              Mint
-            </button>
+            </div>
           ) : (
-            <button
-              onClick={(e) => { e.stopPropagation(); onViewDetails(container) }}
-              className={cn(
-                'flex-1 text-xs font-medium py-1.5 px-3 rounded-lg transition-all',
-                'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-zinc-300'
+            <div className="flex-1 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+              {isConnected ? (
+                <button
+                  onClick={onSaveToChain}
+                  disabled={isSaving}
+                  className={cn(
+                    'flex-1 text-[11px] font-medium py-1 px-2.5 rounded-lg transition-all',
+                    'bg-amber-600/80 hover:bg-amber-500/80 text-white',
+                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                  )}
+                >
+                  {isSaving ? 'Saving...' : 'Save to Chain'}
+                </button>
+              ) : (
+                <span className="text-[10px] text-zinc-500">Connect wallet</span>
               )}
-            >
-              Offchain
-            </button>
+            </div>
           )}
           <button
             onClick={() => onViewDetails(container)}
-            className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1"
+            className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 shrink-0"
           >
             Details
           </button>
         </div>
+        {saveError && (
+          <div className="text-[10px] text-red-400 mt-1 truncate" title={saveError}>
+            {saveError}
+          </div>
+        )}
       </div>
     </div>
   )

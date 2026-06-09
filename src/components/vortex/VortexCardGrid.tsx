@@ -16,6 +16,14 @@ interface VortexCardGridProps {
   hasMore: boolean
   loadingMore: boolean
   onLoadMore: () => void
+  donationAmounts: Record<string, string>
+  onDonationChange: (containerId: string, value: string) => void
+  ethBalance: bigint | null
+  ethPrice: number
+  isConnected: boolean
+  saving: string | null
+  saveErrors: Record<string, string>
+  onSaveToChain: (containerId: string) => void
 }
 
 export function VortexCardGrid({
@@ -32,6 +40,14 @@ export function VortexCardGrid({
   hasMore,
   loadingMore,
   onLoadMore,
+  donationAmounts,
+  onDonationChange,
+  ethBalance,
+  ethPrice,
+  isConnected,
+  saving,
+  saveErrors,
+  onSaveToChain,
 }: VortexCardGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -118,6 +134,14 @@ export function VortexCardGrid({
               mintError={mintErrors[c.containerId]}
               onClaim={onClaim}
               onViewDetails={onViewDetails}
+              donationAmount={donationAmounts[c.containerId] || '0.001'}
+              onDonationChange={(v) => onDonationChange(c.containerId, v)}
+              ethBalance={ethBalance}
+              ethPrice={ethPrice}
+              isConnected={isConnected}
+              isSaving={saving === c.containerId}
+              saveError={saveErrors[c.containerId]}
+              onSaveToChain={() => onSaveToChain(c.containerId)}
             />
           ))}
         </div>
