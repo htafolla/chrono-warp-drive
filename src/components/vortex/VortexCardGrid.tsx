@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { VortexCard } from './VortexCard'
 import type { ContainerItem } from '@/pages/VortexClaim'
 
@@ -13,6 +13,9 @@ interface VortexCardGridProps {
   sortAsc: boolean
   onFilterChange: (mode: 'all' | 'claimed' | 'unclaimed') => void
   onSortToggle: () => void
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: () => void
 }
 
 export function VortexCardGrid({
@@ -26,7 +29,24 @@ export function VortexCardGrid({
   sortAsc,
   onFilterChange,
   onSortToggle,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: VortexCardGridProps) {
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasMore) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore) onLoadMore()
+      },
+      { rootMargin: '400px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, onLoadMore])
   const filtered = useMemo(() => {
     let list = containers
     if (filterMode === 'claimed') {
@@ -100,6 +120,19 @@ export function VortexCardGrid({
             />
           ))}
         </div>
+      )}
+
+      {loadingMore && (
+        <div className="flex justify-center py-8">
+          <div className="flex items-center gap-2 text-zinc-500 text-sm">
+            <span className="w-4 h-4 rounded-full border-2 border-zinc-600 border-t-zinc-300 animate-spin" />
+            Loading more...
+          </div>
+        </div>
+      )}
+
+      {hasMore && (
+        <div ref={sentinelRef} className="h-4" />
       )}
     </div>
   )

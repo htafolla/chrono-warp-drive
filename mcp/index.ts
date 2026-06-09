@@ -47,36 +47,38 @@ const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
     // Start ambient field AFTER restoring Manifold history
     ambientField.start()
     console.log('[bootstrap] Ambient Resonance Field started')
-    // Sync mint mappings to Redis if hash is empty (first-time setup)
+    // Sync mint mappings to Redis — runs if Redis count < on-chain totalSupply
     try {
       const existing = await client.hgetall(REDIS_VORTEX_KEY_MINT)
-      if (!existing || Object.keys(existing).length === 0) {
-        const { publicClient } = getVortexTokenClient()
-        const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-        const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
-        const ids = containerStore.map(c => c.containerId)
-        try {
-          const [chainIds] = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: registryAbi,
-            functionName: 'listContainers',
-            args: [0n, 100n],
-          }) as [string[], bigint]
-          for (const id of chainIds as string[]) {
-            if (!ids.includes(id)) ids.push(id)
-          }
-        } catch { /* registry unavailable */ }
-        for (const id of ids) {
+      const redisCount = existing ? Object.keys(existing).length : 0
+      const { publicClient } = getVortexTokenClient()
+      const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
+      const onChainSupply = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS, abi,
+        functionName: 'totalSupply',
+      }).catch(() => 0n) as bigint
+      if (redisCount < Number(onChainSupply)) {
+        let synced = 0
+        for (let i = 0n; i < onChainSupply; i++) {
           try {
-            const tid = await publicClient.readContract({
+            const tokenId = await publicClient.readContract({
               address: VORTEX_TOKEN_ADDRESS, abi,
-              functionName: 'tokenByContainerId',
-              args: [id as `0x${string}`],
+              functionName: 'tokenByIndex',
+              args: [i],
             }) as bigint
-            if (tid > 0n) {
-              await client.hset(REDIS_VORTEX_KEY_MINT, id.toLowerCase(), tid.toString())
+            const data = await publicClient.readContract({
+              address: VORTEX_TOKEN_ADDRESS, abi,
+              functionName: 'getContainerData',
+              args: [tokenId],
+            }) as any
+            const containerId = (data.containerId ?? data[0]) as string
+            if (!existing?.[containerId.toLowerCase()]) {
+              await client.hset(REDIS_VORTEX_KEY_MINT, containerId.toLowerCase(), tokenId.toString())
+              synced++
             }
-          } catch { /* no token */ }
+          } catch { /* skipped */ }
         }
+        console.log(`[bootstrap] Synced ${synced} missing mint entries to Redis (totalSupply=${onChainSupply})`)
       }
     } catch { /* sync failed */ }
   } catch { /* Redis unavailable */ }
@@ -2203,6 +2205,13 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
       }).catch(() => 0n) as bigint
       hasToken = tid !== 0n
       tokenId = hasToken ? tid : null
+      // Write back to Redis so /vortex/statuses stays in sync
+      if (hasToken) {
+        try {
+          const client = await getRedisClient()
+          if (client) await client.hset(REDIS_VORTEX_KEY_MINT, containerId.toLowerCase(), tid.toString())
+        } catch { /* best effort */ }
+      }
     }
 
     // Always fetch container data from registry (needed for UI even if token exists)

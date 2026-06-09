@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi'
 import { WalletConnectButton } from '@/components/WalletConnectButton'
@@ -191,7 +191,9 @@ export default function VortexClaim() {
   console.log('[vortex] render wallet:', { address: address?.slice(0, 10), isConnected, hasWriteContract: !!writeContractAsync, hasPublicClient: !!publicClient })
 
   const [containers, setContainers] = useState<ContainerItem[]>([])
+  const [totalContainers, setTotalContainers] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [minting, setMinting] = useState<string | null>(null)
   const [mintResults, setMintResults] = useState<Record<string, string>>({})
   const [mintErrors, setMintErrors] = useState<Record<string, string>>({})
@@ -206,6 +208,7 @@ export default function VortexClaim() {
   const [ethBalance, setEthBalance] = useState<bigint | null>(null)
   const [filterMode, setFilterMode] = useState<'all' | 'claimed' | 'unclaimed'>('all')
   const [sortAsc, setSortAsc] = useState(false)
+  const hasMore = containers.length < totalContainers
 
   const { data: ethPrice } = useQuery({
     queryKey: ['ethPrice'],
@@ -239,20 +242,50 @@ export default function VortexClaim() {
     setLoading(true)
     setStatusLoading(true)
     try {
-      const res = await fetch(`${MCP_URL}/containers?limit=50`)
-      const data = await res.json()
-      console.log('[vortex] containers loaded:', data.containers?.length, 'total:', data.total)
-      if (data.success) {
-        const sorted = (data.containers as ContainerItem[]).sort((a, b) => b.timestamp - a.timestamp)
-        setContainers(sorted)
-        checkTokenStatus(sorted)
+      const [containerRes, statusRes] = await Promise.all([
+        fetch(`${MCP_URL}/containers?offset=0&limit=50`),
+        fetch(`${MCP_URL}/vortex/statuses`),
+      ])
+      const containerData = await containerRes.json()
+      console.log('[vortex] containers loaded:', containerData.containers?.length, 'total:', containerData.total)
+      if (containerData.success) {
+        setContainers(containerData.containers)
+        setTotalContainers(containerData.total)
+      }
+      const statusData = await statusRes.json()
+      if (statusData.success) {
+        const status: Record<string, { hasToken: boolean; tokenId: string | null }> = {}
+        for (const [containerId, info] of Object.entries(statusData.statuses || {})) {
+          const s = info as { claimed: boolean; tokenId: string | null }
+          if (s.claimed) {
+            status[containerId] = { hasToken: true, tokenId: s.tokenId }
+          }
+        }
+        setTokenStatus(status)
       }
     } catch (err) {
       console.error('[vortex] Failed to load containers', err)
     } finally {
       setLoading(false)
+      setStatusLoading(false)
     }
   }
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const res = await fetch(`${MCP_URL}/containers?offset=${containers.length}&limit=50`)
+      const data = await res.json()
+      if (data.success) {
+        setContainers(prev => [...prev, ...data.containers])
+      }
+    } catch (err) {
+      console.error('[vortex] Failed to load more containers', err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMore, containers.length])
 
   async function loadMyTokens() {
     if (!publicClient || !address) return
@@ -286,25 +319,6 @@ export default function VortexClaim() {
     } finally {
       setMyTokensLoading(false)
     }
-  }
-
-  async function checkTokenStatus(list: ContainerItem[]) {
-    const status: Record<string, { hasToken: boolean; tokenId: string | null }> = {}
-    await Promise.all(list.map(async (c) => {
-      try {
-        const res = await fetch(`${MCP_URL}/vortex/container/${c.containerId}`)
-        const d = await res.json()
-        console.log('[vortex] status for', c.containerId.slice(0, 18), ':', d.hasToken, d.tokenId)
-        if (d.success) {
-          status[c.containerId] = { hasToken: d.hasToken, tokenId: d.tokenId }
-        }
-      } catch (err) {
-        console.warn('[vortex] status fetch failed for', c.containerId.slice(0, 18), err)
-      }
-    }))
-    setTokenStatus(prev => ({ ...prev, ...status }))
-    console.log('[vortex] all statuses:', Object.keys(status).length, 'total')
-    setStatusLoading(false)
   }
 
   async function handleMint(containerId: string) {
@@ -453,6 +467,9 @@ export default function VortexClaim() {
               sortAsc={sortAsc}
               onFilterChange={setFilterMode}
               onSortToggle={() => setSortAsc(s => !s)}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMore}
             />
           </>
         )}
