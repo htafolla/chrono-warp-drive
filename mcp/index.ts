@@ -81,19 +81,30 @@ const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
         }
         console.log(`[bootstrap] Synced ${synced} missing mint entries to Redis (totalSupply=${onChainSupply})`)
       }
-      // Sync registered container IDs to Redis set
+      // Sync registered container IDs to Redis set via paginated listContainers
       try {
         const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
         const existingReg = await client.scard(REDIS_VORTEX_KEY_REGISTERED).catch(() => 0)
-        const [chainIds, regTotal] = await publicClient.readContract({
+        const [firstPage, regTotal] = await publicClient.readContract({
           address: CONTRACT_ADDRESS, abi: registryAbi,
           functionName: 'listContainers',
           args: [0n, 500n],
         }) as [string[], bigint]
-        if (chainIds.length > 0 && Number(regTotal) !== existingReg) {
+        if (firstPage.length > 0 && Number(regTotal) !== existingReg) {
+          const allIds = [...firstPage]
+          let offset = BigInt(firstPage.length)
+          while (allIds.length < Number(regTotal)) {
+            const [page] = await publicClient.readContract({
+              address: CONTRACT_ADDRESS, abi: registryAbi,
+              functionName: 'listContainers',
+              args: [offset, 500n],
+            }) as [string[], bigint]
+            allIds.push(...page)
+            offset += BigInt(page.length)
+          }
           await client.del(REDIS_VORTEX_KEY_REGISTERED)
-          await client.sadd(REDIS_VORTEX_KEY_REGISTERED, ...chainIds.map((id: string) => id.toLowerCase()))
-          console.log(`[bootstrap] Registered ${chainIds.length} containers to Redis set`)
+          await client.sadd(REDIS_VORTEX_KEY_REGISTERED, ...allIds.map((id: string) => id.toLowerCase()))
+          console.log(`[bootstrap] Registered ${allIds.length} containers to Redis set`)
         }
       } catch { /* registry sync failed */ }
     } catch { /* sync failed */ }
