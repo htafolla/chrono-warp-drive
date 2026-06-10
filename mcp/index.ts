@@ -2297,31 +2297,83 @@ const friendlyMintError = (err: any): string => {
 }
 
 app.post('/vortex/persist', async (c: Context) => {
-  return withWriteLock(async () => {
-    try {
-      const { containerId } = await c.req.json() as { containerId: string }
-      if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
+  try {
+    const { containerId } = await c.req.json() as { containerId: string }
+    if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
 
-      const container = containerStore.find(c => c.containerId.toLowerCase() === containerId.toLowerCase())
-      if (!container) return c.json({ success: false, error: 'Container not found' }, 404)
+    const stored = containerStore.find(c => c.containerId.toLowerCase() === containerId.toLowerCase())
+    if (!stored) return c.json({ success: false, error: 'Container not found in MCP store' }, 404)
 
-      const result = await persistContainerToChain(container)
+    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+    const { walletClient, publicClient, account } = getVortexTokenClient()
+    const params = containerToContractParams(stored)
 
-      // Add to Redis registered set
-      try {
-        const client = await getRedisClient()
-        if (client) await client.sadd(REDIS_VORTEX_KEY_REGISTERED, containerId.toLowerCase())
-      } catch { /* best effort */ }
-
-      return c.json({
-        success: true,
-        txHash: result.txHash,
-        explorerUrl: `https://basescan.org/tx/${result.txHash}`,
+    const regNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
+    const txHash = await withWriteLock(async () => {
+      return walletClient.writeContract({
+        address: CONTRACT_ADDRESS,
+        abi: registryAbi,
+        functionName: 'storeContainer',
+        nonce: regNonce,
+        args: [
+          params.containerId as `0x${string}`,
+          params.timestamp,
+          params.proposalHash as `0x${string}`,
+          {
+            timestamp: params.solarSnapshot.timestamp,
+            activityLevel: params.solarSnapshot.activityLevel,
+            xrayFlux: params.solarSnapshot.xrayFlux,
+            kpIndex: params.solarSnapshot.kpIndex,
+            protonFlux: params.solarSnapshot.protonFlux,
+            magnetometer: params.solarSnapshot.magnetometer,
+            solarTdf: params.solarSnapshot.solarTdf,
+          },
+          {
+            fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
+            fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
+            waveProximity: params.resonanceProfile.waveProximity,
+            phaseAlignment: params.resonanceProfile.phaseAlignment,
+            calibratedVortex: params.resonanceProfile.calibratedVortex,
+            calibratedSync: params.resonanceProfile.calibratedSync,
+            neuralProximity: params.resonanceProfile.neuralProximity,
+            neuralVortex: params.resonanceProfile.neuralVortex,
+            gematriaResonance: params.resonanceProfile.gematriaResonance,
+            structuralResonance: params.resonanceProfile.structuralResonance,
+            verdict: params.resonanceProfile.verdict,
+            confidence: params.resonanceProfile.confidence,
+          },
+          {
+            trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
+            virtueAlignment: params.moralOverlay.virtueAlignment,
+            moralSafety: params.moralOverlay.moralSafety,
+            intentAlignment: params.moralOverlay.intentAlignment,
+            trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
+            moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
+          },
+          params.hammerReason || '',
+          params.containerHash as `0x${string}`,
+          params.source || 'ambient',
+        ],
       })
-    } catch (err: any) {
-      return c.json({ success: false, error: friendlyMintError(err.message || String(err)) }, 500)
-    }
-  })
+    })
+    await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+    // Add to Redis registered set
+    try {
+      const client = await getRedisClient()
+      if (client) await client.sadd(REDIS_VORTEX_KEY_REGISTERED, containerId.toLowerCase())
+    } catch { /* best effort */ }
+
+    return c.json({
+      success: true,
+      txHash,
+      explorerUrl: `https://basescan.org/tx/${txHash}`,
+    })
+  } catch (err: any) {
+    const msg = friendlyMintError(err)
+    console.error('[vortex][persist] error:', err?.message || err?.cause?.message || err)
+    return c.json({ success: false, error: msg || 'Persist failed' }, 500)
+  }
 })
 
 app.post('/vortex/mint', async (c: Context) => {
