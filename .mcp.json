@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "dynamo": {
+      "type": "http",
+      "url": "https://mcp-production-80e2.up.railway.app",
+      "description": "Governance oracle with 20 MCP tools: solar ingestion, TDF computation, Kuramoto coupling, wave propagation, verdict anchoring, vortex minting, and temporal field analysis."
+    },
+    "dynamo-neural": {
+      "type": "http",
+      "url": "https://neural-fusion-backend-production.up.railway.app",
+      "description": "Neural fusion pipeline — MiniLM embeddings, PCA reduction, metamorphosis scoring, spectral quality analysis."
+    }
+  }
+}

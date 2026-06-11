@@ -1,0 +1,22 @@
+{
+  "commands": [
+    {
+      "name": "/dynamo:govern",
+      "description": "Submit a proposal to Dynamo for governance verdict",
+      "args": ["<proposal text>"],
+      "example": "/dynamo:govern Should we deploy to production?"
+    },
+    {
+      "name": "/dynamo:vortex",
+      "description": "Query Vortex status — supply, containers, or specific token",
+      "args": ["info|statuses|container <id>|mint <id>"],
+      "example": "/dynamo:vortex info"
+    },
+    {
+      "name": "/dynamo:explain",
+      "description": "Explain a governance output or temporal term",
+      "args": ["<term or output hash>"],
+      "example": "/dynamo:explain TDF"
+    }
+  ]
+}

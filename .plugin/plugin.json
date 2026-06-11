@@ -1,0 +1,20 @@
+{
+  "id": "dynamo",
+  "name": "Dynamo Governance",
+  "version": "4.8.3",
+  "description": "Governance oracle with solar ingestion, neural resonance, temporal vortex anchoring, and 20 MCP tools. Ask Dynamo any proposal and receive a verdict informed by solar activity, neural embeddings, and the temporal field.",
+  "author": "Rippel AI",
+  "homepage": "https://dynamo.rippel.ai",
+  "components": {
+    "mcpServers": [".mcp.json"],
+    "skills": ["skills/"],
+    "commands": ["commands/"]
+  },
+  "capabilities": {
+    "tools": [
+      "governance", "govern_with_solar", "list_isotopes", "compute_tdf",
+      "kuramoto_sync", "wave_function", "explain_governance_output",
+      "vortex_statuses", "vortex_container", "vortex_mint", "vortex_persist"
+    ]
+  }
+}
