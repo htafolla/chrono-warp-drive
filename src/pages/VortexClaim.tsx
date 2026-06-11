@@ -8,6 +8,7 @@ import { RarityLegend } from '@/components/vortex/RarityLegend'
 import { VortexCardGrid } from '@/components/vortex/VortexCardGrid'
 import { VortexDetailModal } from '@/components/vortex/VortexDetailModal'
 import { MyVortices } from '@/components/vortex/MyVortices'
+import { ClaimModal } from '@/components/vortex/ClaimModal'
 
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
@@ -212,6 +213,8 @@ export default function VortexClaim() {
   const [filterMode, setFilterMode] = useState<'all' | 'claimed' | 'unclaimed'>('all')
   const [sortAsc, setSortAsc] = useState(false)
   const [detailContainer, setDetailContainer] = useState<ContainerItem | null>(null)
+  const [claimModalContainer, setClaimModalContainer] = useState<ContainerItem | null>(null)
+  const [claimResult, setClaimResult] = useState<{ txHash: string; tokenId: string } | null>(null)
   const hasMore = containers.length < totalContainers
 
   const { data: ethPrice } = useQuery({
@@ -408,6 +411,40 @@ export default function VortexClaim() {
     }
   }
 
+  function handleOpenClaimModal(containerId: string) {
+    const c = containers.find(cc => cc.containerId === containerId)
+    if (c) {
+      setClaimResult(null)
+      setClaimModalContainer(c)
+    }
+  }
+
+  async function handleMintWithResult(containerId: string): Promise<{ txHash: string; tokenId: string }> {
+    if (!isConnected || !address) throw new Error('Wallet not connected')
+    const cid = containerId as `0x${string}`
+    const res = await fetch(`${MCP_URL}/vortex/mint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ containerId: cid, to: address }),
+    })
+    const data = await res.json()
+    if (!data.success) throw new Error(data.error || 'Mint failed')
+
+    setMintResults(prev => ({ ...prev, [containerId]: data.txHash }))
+    setMintErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
+    setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: '...', inRegistry: prev[containerId]?.inRegistry ?? true } }))
+
+    const cres = await fetch(`${MCP_URL}/vortex/container/${cid}`)
+    const d = await cres.json()
+    let tokenId = ''
+    if (d.success) {
+      tokenId = d.tokenId
+      setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: d.tokenId } }))
+      loadOnChainMetadata(d.tokenId, containerId)
+    }
+    return { txHash: data.txHash, tokenId }
+  }
+
   return (
     <div className="min-h-screen bg-black text-zinc-100">
       <header className="border-b border-zinc-800">
@@ -451,7 +488,7 @@ export default function VortexClaim() {
               tokenStatus={tokenStatus}
               minting={minting}
               mintErrors={mintErrors}
-              onClaim={handleMint}
+              onClaim={handleOpenClaimModal}
               onViewDetails={handleViewDetails}
               filterMode={filterMode}
               sortAsc={sortAsc}
@@ -492,6 +529,25 @@ export default function VortexClaim() {
             isSaving={saving === detailContainer.containerId}
             onSaveToChain={() => handleSaveToChain(detailContainer.containerId)}
             saveError={saveErrors[detailContainer.containerId]}
+          />
+        )}
+
+        {claimModalContainer && (
+          <ClaimModal
+            open={!!claimModalContainer}
+            onOpenChange={(open) => { if (!open) setClaimModalContainer(null) }}
+            containerId={claimModalContainer.containerId}
+            onConfirm={() => handleMintWithResult(claimModalContainer.containerId).then(r => { setClaimResult(r); return r }).then(() => {})}
+            isMinting={minting === claimModalContainer.containerId}
+            mintResult={claimResult}
+            mintError={mintErrors[claimModalContainer.containerId] || null}
+            donationAmount={donationAmounts[claimModalContainer.containerId] || '0.001'}
+            onDonationChange={(val) => setDonationAmounts(prev => ({ ...prev, [claimModalContainer.containerId]: val }))}
+            ethPrice={ethPrice ?? 0}
+            ethBalance={ethBalance}
+            isConnected={isConnected}
+            composite={claimModalContainer.resonanceProfile.fullBox7DComposite}
+            verdict={claimModalContainer.resonanceProfile.verdict}
           />
         )}
 
