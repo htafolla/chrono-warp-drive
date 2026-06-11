@@ -7,6 +7,7 @@ import { fetchEthPrice } from '@/services/coingeckoApi'
 import { RarityLegend } from '@/components/vortex/RarityLegend'
 import { VortexCardGrid } from '@/components/vortex/VortexCardGrid'
 import { VortexDetailModal } from '@/components/vortex/VortexDetailModal'
+import { MyVortices } from '@/components/vortex/MyVortices'
 
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
@@ -399,6 +400,14 @@ export default function VortexClaim() {
     }
   }
 
+  function handleViewMyToken(tokenId: string) {
+    const entry = Object.entries(tokenStatus).find(([_, s]) => s.tokenId === tokenId)
+    if (entry) {
+      const c = containers.find(cc => cc.containerId === entry[0])
+      if (c) setDetailContainer(c)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-black text-zinc-100">
       <header className="border-b border-zinc-800">
@@ -423,43 +432,12 @@ export default function VortexClaim() {
           </p>
         </div>
 
-        {isConnected && myTokens.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-lg font-semibold text-emerald-400 mb-3">My Vortex</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {myTokens.map((t) => (
-                <div key={t.tokenId} className="rounded-xl bg-zinc-900/50 border border-zinc-800/60 overflow-hidden">
-                  <img
-                    src={`${MCP_URL}/vortex/token-image/${t.tokenId}`}
-                    alt={`Vortex #${t.tokenId}`}
-                    className="w-full aspect-square"
-                  />
-                    <div className="p-2.5">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-zinc-200">#{t.tokenId}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${t.containerData ? verdictColor(t.containerData.verdict as string) : ''}`}>
-                          {t.containerData?.verdict as string || '...'}
-                        </span>
-                      </div>
-                      {t.containerData && (
-                        <div className={`text-[10px] px-1.5 py-0.5 rounded-full border text-center mb-1 ${rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).bg} ${rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).color} ${rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).border}`}>
-                          {rarityTier(Number(t.containerData.fullBox7DComposite as bigint) / 1e18).label}
-                        </div>
-                      )}
-                      <a
-                      href={`https://basescan.org/token/${VORTEX_TOKEN_ADDRESS}?a=${t.tokenId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-zinc-500 hover:text-emerald-400 underline"
-                    >
-                      Basescan ↗
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <MyVortices
+          myTokens={myTokens}
+          loading={myTokensLoading}
+          isConnected={isConnected}
+          onViewDetail={handleViewMyToken}
+        />
 
         {loading ? (
           <div className="text-center py-16 text-zinc-500 text-sm">Loading containers...</div>
