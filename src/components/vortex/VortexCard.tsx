@@ -187,20 +187,30 @@ export function VortexCard({
                 className="w-16 px-1.5 py-1 text-[10px] rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
                 placeholder="ETH"
               />
-              {isConnected ? (
-                <button
-                  onClick={() => onClaim(container.containerId)}
-                  disabled={isMinting || (ethBalance !== null && ethBalance < BigInt(Math.floor(parseFloat(donationAmount || '0.001') * 1e18)) + BigInt(1e15))}
-                  className={cn(
-                    'text-[11px] font-medium py-1 px-2.5 rounded-lg transition-all',
-                    'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500',
-                    'text-white shadow-lg shadow-fuchsia-600/20',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
-                >
-                  {isMinting ? '...' : 'Mint'}
-                </button>
-              ) : (
+              {isConnected ? (() => {
+                const mintAmt = parseFloat(donationAmount || '0.001')
+                const mintVal = BigInt(Math.floor(mintAmt * 1e18))
+                const insufficient = ethBalance !== null && ethBalance < mintVal + BigInt(1e15)
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => onClaim(container.containerId)}
+                      disabled={isMinting || insufficient}
+                      className={cn(
+                        'text-[11px] font-medium py-1 px-2.5 rounded-lg transition-all',
+                        'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500',
+                        'text-white shadow-lg shadow-fuchsia-600/20',
+                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                      )}
+                    >
+                      {isMinting ? '...' : 'Mint'}
+                    </button>
+                    {insufficient && (
+                      <span className="text-[10px] text-red-400 whitespace-nowrap">Low balance</span>
+                    )}
+                  </div>
+                )
+              })() : (
                 <span className="text-[10px] text-zinc-500">Connect wallet</span>
               )}
             </div>
