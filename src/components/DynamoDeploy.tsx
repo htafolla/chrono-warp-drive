@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Radio, Activity, Brain, RotateCcw, Share2, BarChart3, Hash, Waves, Orbit } from 'lucide-react';
+import { XCircle, Loader2, RefreshCw, Sun, Zap, Shield, Activity, Brain, RotateCcw, Share2, BarChart3 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { TransportPipeline } from '@/components/vortex/TransportPipeline';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
 
@@ -474,8 +475,7 @@ export default function DynamoDeploy() {
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
   const [persistToChain, setPersistToChain] = useState(false);
-  const [pipelineStageIdx, setPipelineStageIdx] = useState(-1);
-  const pipelineTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [pipelineComplete, setPipelineComplete] = useState(false);
   const [feed, setFeed] = useState<Array<{
     proposal: string; resonanceScore: number; recommendation: string;
     activityLevel: string; timestamp: string; source: string; response?: any;
@@ -488,34 +488,6 @@ export default function DynamoDeploy() {
   const [manifoldAxioms, setManifoldAxioms] = useState<any[]>([]);
   const [manifoldResonanceAt, setManifoldResonanceAt] = useState<any | null>(null);
   const [manifoldAmbientActivity, setManifoldAmbientActivity] = useState<any[]>([]);
-
-  const PIPELINE_STAGES = [
-    { id: 'ingestion', label: 'Solar Ingestion', icon: <Radio className="h-3.5 w-3.5" /> },
-    { id: 'tdf', label: 'TDF Computation', icon: <Hash className="h-3.5 w-3.5" /> },
-    { id: 'kuramoto', label: 'Kuramoto Coupling', icon: <Waves className="h-3.5 w-3.5" /> },
-    { id: 'wave', label: 'Wave Propagation', icon: <Orbit className="h-3.5 w-3.5" /> },
-    { id: 'verdict', label: 'Governance Verdict', icon: <Shield className="h-3.5 w-3.5" /> },
-  ];
-
-  const clearPipelineTimers = useCallback(() => {
-    pipelineTimersRef.current.forEach(clearTimeout);
-    pipelineTimersRef.current = [];
-  }, []);
-
-  const advancePipeline = useCallback((onComplete?: () => void) => {
-    setPipelineStageIdx(0);
-    clearPipelineTimers();
-    const durations = [1400, 1800, 1600, 1400];
-    durations.forEach((ms, i) => {
-      const timer = setTimeout(() => setPipelineStageIdx(i + 1), ms);
-      pipelineTimersRef.current.push(timer);
-    });
-    if (onComplete) {
-      const total = durations.reduce((a, b) => a + b, 0) + 400;
-      const timer = setTimeout(onComplete, total);
-      pipelineTimersRef.current.push(timer);
-    }
-  }, [clearPipelineTimers]);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -596,13 +568,14 @@ export default function DynamoDeploy() {
     const r = await checkGovernance(input, sharePublicly, persistToChain);
     setResult(r);
     fetchFeed();
+  }, [proposal, sharePublicly, persistToChain, fetchFeed]);
 
-    advancePipeline(() => {
+  useEffect(() => {
+    if (pipelineComplete) {
       setLoading(false);
-      setPipelineStageIdx(PIPELINE_STAGES.length - 1);
-      clearPipelineTimers();
-    });
-  }, [proposal, sharePublicly, persistToChain, fetchFeed, advancePipeline, clearPipelineTimers]);
+      setPipelineComplete(false);
+    }
+  }, [pipelineComplete]);
 
   const shareVerdict = useCallback(() => {
     if (!result) return;
@@ -730,33 +703,10 @@ export default function DynamoDeploy() {
 
           {/* Pipeline visualization during loading */}
           {loading && (
-            <div className="rounded-lg border bg-white/[0.03] border-white/[0.06] p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                {PIPELINE_STAGES.map((stage, i) => (
-                  <div key={stage.id} className="flex-1 flex flex-col items-center relative">
-                    {i > 0 && (
-                      <div className={`absolute top-[11px] right-1/2 w-full h-[2px] transition-colors duration-500 ${
-                        i <= pipelineStageIdx ? 'bg-cyan-500/40' : 'bg-white/10'
-                      }`} />
-                    )}
-                    <div className={`relative z-10 flex items-center justify-center w-[22px] h-[22px] rounded-full border transition-all duration-500 ${
-                      i < pipelineStageIdx
-                        ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
-                        : i === pipelineStageIdx
-                        ? 'bg-cyan-500/30 border-cyan-400 text-cyan-300 animate-pulse'
-                        : 'bg-white/[0.04] border-white/20 text-white/40'
-                    }`}>
-                      {i < pipelineStageIdx ? <CheckCircle2 className="h-3 w-3" /> : stage.icon}
-                    </div>
-                    <span className={`mt-1 text-[8px] text-center leading-tight transition-colors duration-500 ${
-                      i <= pipelineStageIdx ? 'text-white/60' : 'text-white/20'
-                    }`}>
-                      {stage.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <TransportPipeline
+              isActive={true}
+              onComplete={() => setPipelineComplete(true)}
+            />
           )}
 
           {!loading && !result && (
