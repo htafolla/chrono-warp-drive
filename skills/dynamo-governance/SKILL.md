@@ -1,3 +1,11 @@
+---
+description: >-
+  Use Dynamo to get AI-powered governance verdicts on proposals, informed by
+  real-time solar activity, neural resonance analysis, Kuramoto coupling,
+  and temporal vortex anchoring. Includes 20 MCP tools and VortexToken NFT
+  minting on Base.
+---
+
 # Dynamo Governance
 
 Use Dynamo to get AI-powered governance verdicts on proposals, informed by real-time solar activity, neural resonance analysis, and temporal field computation.
