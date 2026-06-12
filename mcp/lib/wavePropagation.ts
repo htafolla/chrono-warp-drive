@@ -116,6 +116,97 @@ export function textToEmbedding16(text: string): number[] {
   return emb
 }
 
+// Lazy-loaded sentence transformer pipeline for semantic embeddings.
+// Model: MiniLM-L6-v2 (384-dim) → random projection to 16-dim.
+// Falls back to textToEmbedding16 when transformer is unavailable.
+let transformerPipe: any = null
+let transformerLoading: boolean = false
+let transformerPromise: Promise<any> | null = null
+
+const PROJECTION_16: Float32Array | null = null
+
+function seededRandom(seed: number): () => number {
+  let s = seed
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff
+    return (s >>> 0) / 0x100000000
+  }
+}
+
+function buildProjectionMatrix(dimIn: number, dimOut: number, seed: number): Float32Array {
+  const rng = seededRandom(seed)
+  const mat = new Float32Array(dimIn * dimOut)
+  for (let i = 0; i < mat.length; i++) {
+    // Sparse random projection: +1 with p=0.5, -1 with p=0.5
+    mat[i] = rng() > 0.5 ? 1 / Math.sqrt(dimOut) : -1 / Math.sqrt(dimOut)
+  }
+  return mat
+}
+
+let projectionCache: { dimIn: number; dimOut: number; mat: Float32Array } | null = null
+
+function project16(vec: number[] | Float32Array): number[] {
+  const dimIn = vec.length
+  if (!projectionCache || projectionCache.dimIn !== dimIn) {
+    projectionCache = {
+      dimIn,
+      dimOut: 16,
+      mat: buildProjectionMatrix(dimIn, 16, 42),
+    }
+  }
+  const { mat } = projectionCache
+  const out = new Array(16).fill(0)
+  for (let d = 0; d < 16; d++) {
+    let sum = 0
+    for (let i = 0; i < dimIn; i++) {
+      sum += vec[i] * mat[i * 16 + d]
+    }
+    // Normalize to [0, 1] via sigmoid
+    out[d] = 1 / (1 + Math.exp(-sum))
+  }
+  return out
+}
+
+async function initTransformer(): Promise<any> {
+  if (transformerPipe) return transformerPipe
+  if (transformerLoading && transformerPromise) return transformerPromise
+  transformerLoading = true
+  transformerPromise = (async () => {
+    try {
+      const { pipeline } = await import(/* @vite-ignore */ '@xenova/transformers')
+      transformerPipe = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+        quantized: true,
+      })
+      return transformerPipe
+    } catch (e) {
+      console.warn('[sentenceToEmbedding16] Transformer init failed, using FNV fallback:', e)
+      transformerPipe = null
+      return null
+    } finally {
+      transformerLoading = false
+    }
+  })()
+  return transformerPromise
+}
+
+/** Derive a 16-dim semantic embedding from proposal text using MiniLM sentence-transformer.
+ *  Falls back to textToEmbedding16 when the model is unavailable or on first-load latency. */
+export async function sentenceToEmbedding16(text: string): Promise<number[]> {
+  const cleaned = text.toLowerCase().replace(/[^\w\s]/g, ' ').trim()
+  if (!cleaned) return new Array(16).fill(0)
+
+  try {
+    const pipe = await initTransformer()
+    if (!pipe) return textToEmbedding16(text)
+
+    const result = await pipe(cleaned, { pooling: 'mean', normalize: true })
+    const embedding = result.data as Float32Array
+    return project16(embedding)
+  } catch {
+    return textToEmbedding16(text)
+  }
+}
+
 const NEURAL_DIMS = 16
 
 /** Modulated amplitude for a neural embedding dimension at a given phase angle. */

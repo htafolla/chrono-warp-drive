@@ -8,7 +8,7 @@ import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataF
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
 import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
-import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16 } from './wavePropagation.js'
+import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16, sentenceToEmbedding16 } from './wavePropagation.js'
 import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine.js'
 import { computeTrinitariumOverlay, computeTrinitariumGematriaFusion } from './trinitariumMoralOverlay.js'
 
@@ -288,8 +288,9 @@ export class SolarGovernanceIntegration {
       // static phaseCoherence difference, and content-hash cascade indices.
       const kuramoto = runKuramotoCoupling(proposalTdf, solarRefTdf, solarData.activityLevel)
 
-      // Phase 2: Derive proposal neural embedding from proposal text (richer, semantic)
-      const proposalEmbedding = textToEmbedding16(proposal)
+      // Phase 2: Derive proposal neural embedding from proposal text (MiniLM semantic)
+      // Falls back to FNV hashing when transformer unavailable
+      const proposalEmbedding = await sentenceToEmbedding16(proposal)
 
       // Phase 2 wave propagation (A/B alongside current TDF formulas)
       // Neural embedding from NeuralFusion becomes 16 virtual spectrum bands inside the box

@@ -25,6 +25,8 @@ const REDIS_CONTAINER_KEY = 'dynamo:containers'
 const MAX_REDIS_CONTAINERS = 1000
 const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
 const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
+const REDIS_VORTEX_TOKEN_IMAGE = 'dynamo:vortex:token-image'
+const TOKEN_IMAGE_TTL = 86400
 
 // Bootstrap: load containers from Redis on module init
 ;(async () => {
@@ -2788,14 +2790,31 @@ app.get('/vortex/token-image/:tokenId', async (c: Context) => {
   try {
     const tokenId = c.req.param('tokenId')
     const format = c.req.query('format') || 'png'
-    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-    const { publicClient } = getVortexTokenClient()
-    const data = await publicClient.readContract({
-      address: VORTEX_TOKEN_ADDRESS,
-      abi,
-      functionName: 'getContainerData',
-      args: [BigInt(tokenId)],
-    })
+    const cacheKey = `${REDIS_VORTEX_TOKEN_IMAGE}:${tokenId}`
+
+    const client = await getRedisClient()
+    let data: any = null
+    if (client) {
+      const cached = await client.get(cacheKey)
+      if (cached) {
+        try { data = JSON.parse(cached) } catch { /* fall through */ }
+      }
+    }
+
+    if (!data) {
+      const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
+      const { publicClient } = getVortexTokenClient()
+      data = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS,
+        abi,
+        functionName: 'getContainerData',
+        args: [BigInt(tokenId)],
+      })
+      if (client) {
+        await client.set(cacheKey, JSON.stringify(data), 'EX', TOKEN_IMAGE_TTL)
+      }
+    }
+
     const svg = vortexSvg(tokenId, data)
     if (format === 'png') {
       const sharp = (await import('sharp')).default

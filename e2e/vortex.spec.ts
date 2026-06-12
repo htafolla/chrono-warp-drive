@@ -67,6 +67,64 @@ test.describe('VortexClaim page', () => {
     await expect(page).toHaveURL(BASE + '/');
   });
 
+  test('clicking Details opens VortexDetailModal with container info', async ({ page }) => {
+    const detailsBtn = page.locator('button:has-text("Details")').first();
+    await expect(detailsBtn).toBeVisible({ timeout: 15000 });
+    await detailsBtn.click();
+    // Modal should show container info
+    await expect(page.getByText('Container ID')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('7D Profile')).toBeVisible();
+    await expect(page.getByText('TMO Overlay')).toBeVisible();
+    await expect(page.getByText('Share on Twitter')).toBeVisible();
+    // Close via Escape
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Container ID')).not.toBeVisible();
+  });
+
+  test('VortexDetailModal shows mint section for unclaimed containers', async ({ page }) => {
+    const detailsBtn = page.locator('button:has-text("Details")').first();
+    await expect(detailsBtn).toBeVisible({ timeout: 15000 });
+    await detailsBtn.click();
+    // Check if this container is claimed or unclaimed
+    const basescanLink = page.getByText('View on Basescan');
+    const mintSection = page.getByText('Mint VortexToken');
+    const offchain = page.getByText('Offchain');
+    if (await basescanLink.isVisible().catch(() => false)) {
+      // Claimed container — verify token image loads
+      await expect(page.locator('img[alt*="Vortex"]').first()).toBeVisible({ timeout: 5000 });
+    } else if (await mintSection.isVisible().catch(() => false)) {
+      // Unclaimed container in registry — check donation input exists
+      await expect(page.locator('input[type="number"]').first()).toBeVisible();
+      const mintBtn = page.getByText('Mint').or(page.getByText('Connect your wallet'));
+      await expect(mintBtn.first()).toBeVisible();
+    } else if (await offchain.isVisible().catch(() => false)) {
+      // Offchain container — check Save to Chain button
+      const saveBtn = page.getByText('Save to Chain').or(page.getByText('Connect your wallet'));
+      await expect(saveBtn.first()).toBeVisible();
+    }
+    await page.keyboard.press('Escape');
+  });
+
+  test('clicking Mint opens ClaimModal with ceremony flow', async ({ page }) => {
+    const mintBtn = page.locator('button:has-text("Mint")').first();
+    const count = await mintBtn.count();
+    if (count === 0) {
+      console.log('No unclaimed containers — skipping ClaimModal test');
+      return;
+    }
+    await expect(mintBtn).toBeVisible({ timeout: 15000 });
+    await mintBtn.click();
+    // ClaimModal idle state
+    await expect(page.getByText('Claim Vortex')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Composite Score')).toBeVisible();
+    await expect(page.getByText('Verdict')).toBeVisible();
+    await expect(page.getByText('Donation')).toBeVisible();
+    await expect(page.getByText('Begin Ceremony')).toBeVisible();
+    // Close without starting ceremony
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Claim Vortex')).not.toBeVisible();
+  });
+
   test('scrolling to bottom shows connect prompt when disconnected', async ({ page }) => {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     const prompt = page.getByText('Connect your wallet to mint');
