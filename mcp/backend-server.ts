@@ -77,7 +77,13 @@ app.post('/govern-with-solar', async (req, res) => {
     if (!rawProposal) {
       return res.status(400).json({ error: 'proposal or structuredProposal is required' })
     }
-    const proposalText = extractProposalText(isStructuredProposal(rawProposal) ? rawProposal : String(rawProposal))
+    const structuredInput = isStructuredProposal(rawProposal) ? rawProposal : null
+    if (structuredInput && !structuredInput.source) {
+      return res.status(400).json({
+        error: 'All proposals must identify their source. Set structuredProposal.source to "human", "agent", "ambient", or "system". Agents must declare themselves.',
+      })
+    }
+    const proposalText = extractProposalText(structuredInput || String(rawProposal))
 
     const baseVoteWeight = req.body.baseVoteWeight ?? 1.0
     const sharePublicly = req.body.sharePublicly === true

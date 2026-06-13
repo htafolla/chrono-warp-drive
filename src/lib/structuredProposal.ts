@@ -15,7 +15,7 @@ export interface StructuredDerivativeProposal {
   tags?: string[]
   riskLevel?: 'low' | 'medium' | 'high'
   scope?: 'ui' | 'infra' | 'protocol' | 'agent' | 'memory' | 'other'
-  source?: 'human' | 'agent' | 'ambient' | 'system'
+  source: 'human' | 'agent' | 'ambient' | 'system'
   confidence?: number
 }
 
@@ -39,13 +39,16 @@ export function normalizeProposalForStorage(input: ProposalInput): {
   if (typeof input === 'string') {
     return { proposalText: input }
   }
+  if (!input.source) {
+    throw new Error('All proposals must identify their source. Set source to "human", "agent", "ambient", or "system". Agents must declare themselves.')
+  }
   return {
     proposalText: input.summary,
     structuredProposal: {
       ...input,
       id: input.id || `sdp-${Date.now()}`,
       timestamp: input.timestamp || new Date().toISOString(),
-      source: input.source || 'human',
+      source: input.source,
     },
   }
 }

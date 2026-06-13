@@ -1419,9 +1419,12 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const rawProposal = args?.proposal ?? args?.structuredProposal
     if (!rawProposal) return { error: 'Either proposal (string) or structuredProposal (object with summary) is required.' }
 
-    const proposalText = extractProposalText(
-      isStructuredProposal(rawProposal) ? rawProposal : String(rawProposal)
-    )
+    const structuredInput = isStructuredProposal(rawProposal) ? rawProposal : null
+    if (structuredInput && !structuredInput.source) {
+      return { error: 'All proposals must identify their source. Set structuredProposal.source to "human", "agent", "ambient", or "system". Agents must declare themselves.' }
+    }
+
+    const proposalText = extractProposalText(structuredInput || String(rawProposal))
     if (!proposalText || proposalText.length < 10) return { error: 'Proposal text must be at least 10 characters.' }
 
     const baseVoteWeight = Math.max(0.5, Math.min(1.5, Number(args?.baseVoteWeight ?? 1)))
@@ -1644,7 +1647,17 @@ app.post('/govern_with_solar', async (c: Context) => {
   if (!rawProposal || (typeof rawProposal === 'string' && !rawProposal.trim())) {
     return c.json({ success: false, error: 'proposal or structuredProposal required' }, 400)
   }
-  const proposalText = extractProposalText(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
+
+  // Source identification: agents MUST declare themselves via structuredProposal.source
+  const structuredInput = isStructuredProposal(body.structuredProposal) ? body.structuredProposal : null
+  if (typeof rawProposal !== 'string' && structuredInput && !structuredInput.source) {
+    return c.json({
+      success: false,
+      error: 'All proposals must identify their source. Set structuredProposal.source to "human", "agent", "ambient", or "system". Agents must declare themselves.',
+    }, 400)
+  }
+
+  const proposalText = extractProposalText(structuredInput || String(rawProposal))
   if (!proposalText || !proposalText.trim()) {
     return c.json({ success: false, error: 'proposal text cannot be empty' }, 400)
   }
@@ -1738,10 +1751,11 @@ app.post('/govern_with_solar', async (c: Context) => {
   }
 
   // Feed non-persisted governance result into Temporal Manifold
+  const proposalSource = structuredInput?.source || 'human'
   temporalManifold.addPoint({
     timestamp: Date.now(),
     proposalHash: temporalManifoldProposalHash(proposalText),
-    source: 'human',
+    source: proposalSource,
     solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
     resonance7D: result.fullBox7DComposite ?? 0.5,
     phaseAlignment: result.phaseAlignment ?? 0.5,

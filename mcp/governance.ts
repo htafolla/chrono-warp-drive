@@ -17,6 +17,7 @@ export const GovernanceSchema = z.object({
   codeDiff: z.string().optional(),
   agentReviews: z.array(z.string()).min(1),
   historicalSignalIds: z.array(z.string()).optional(),
+  source: z.enum(['human', 'agent', 'ambient', 'system']).optional(),
 })
 
 // Refined Blurrn-Native Decision Matrix (v4.8.5)
@@ -189,8 +190,14 @@ export function createGovernanceRouter(handlers: Record<string, (args: any) => a
     if (!parsed.success) {
       return c.json({ success: false, error: parsed.error.issues.map((i: any) => i.message).join('; ') }, 400)
     }
+    if (!parsed.data.source) {
+      return c.json({
+        success: false,
+        error: 'All proposals must identify their source. Set source to "human", "agent", "ambient", or "system". Agents must declare themselves.',
+      }, 400)
+    }
     const result = await evaluateGovernance(handlers, parsed.data)
-    return c.json({ success: true, ...result })
+    return c.json({ success: true, source: parsed.data.source, ...result })
   })
 
   return gov

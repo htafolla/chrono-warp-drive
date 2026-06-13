@@ -187,5 +187,9 @@ export function determineSource(
   input: string | StructuredDerivativeProposal,
 ): 'human' | 'agent' | 'ambient' {
   if (typeof input === 'string') return 'human'
-  return (input.source ?? 'human') as 'human' | 'agent' | 'ambient'
+  if (!input.source) {
+    console.warn('[determineSource] Proposal missing source field — treating as human')
+    return 'human'
+  }
+  return input.source as 'human' | 'agent' | 'ambient'
 }

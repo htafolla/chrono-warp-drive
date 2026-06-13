@@ -10,6 +10,19 @@ description: >-
 
 Use Dynamo to get AI-powered governance verdicts on proposals, informed by real-time solar activity, neural resonance analysis, and temporal field computation.
 
+## `source` — All Callers Must Identify Themselves
+
+Every proposal submitted to Dynamo governance must declare its origin. Set `source` to one of:
+
+| Source | When to Use |
+|--------|-------------|
+| `"human"` | A person submitted this proposal |
+| `"agent"` | An AI agent submitted this proposal (always declare `"agent"` — never default to `"human"`) |
+| `"ambient"` | The temporal field generated this autonomously |
+| `"system"` | Infrastructure or governance system submitted this |
+
+**Agents must set `structuredProposal.source` to `"agent"`.** Proposals without a source will be rejected with a 400 error.
+
 ## Tools
 
 ### `governance`
@@ -19,20 +32,35 @@ Analyze a proposal and return a verdict (PASS / NEEDS_REVISION / FAIL) with reso
 {
   "proposalId": "ui-1712345678",
   "proposalText": "Should we deploy to production?",
-  "agentReviews": ["UI submission"]
+  "agentReviews": ["UI submission"],
+  "source": "human"
 }
 ```
 
 ### `govern_with_solar`
 Same as `governance`, but includes solar activity modulation (TDF, Kp index, x-ray flux) for solar-aware verdicts.
 
+**Simple (string proposal, implicitly human):**
 ```json
 {
   "proposal": "Should we deploy to production?",
   "baseVoteWeight": 1,
   "sharePublicly": true,
-  "persistToChain": false,
-  "spectralQuality": null
+  "persistToChain": false
+}
+```
+
+**Structured (must include `source`):**
+```json
+{
+  "structuredProposal": {
+    "summary": "Should we deploy to production?",
+    "source": "agent",
+    "intent": "Release v3.2 to mainnet",
+    "tags": ["deploy", "mainnet"]
+  },
+  "baseVoteWeight": 1,
+  "sharePublicly": true
 }
 ```
 
