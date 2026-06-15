@@ -213,13 +213,16 @@ export async function getHistoryStats(): Promise<{ total: number; passing: numbe
   try {
     const client = await getRedisClient()
     if (!client) return { total: 0, passing: 0, rejected: 0 }
-    const total = await client.get(REDIS_COUNTER_TOTAL)
-    if (total !== null) {
-      const passing = await client.get(REDIS_COUNTER_PASSING)
-      const rejected = await client.get(REDIS_COUNTER_REJECTED)
-      return { total: Number(total), passing: Number(passing ?? 0), rejected: Number(rejected ?? 0) }
+    const totalStr = await client.get(REDIS_COUNTER_TOTAL)
+    if (totalStr !== null) {
+      const listLen = await client.llen(REDIS_HISTORY_KEY)
+      if (Number(totalStr) >= listLen) {
+        const passing = await client.get(REDIS_COUNTER_PASSING)
+        const rejected = await client.get(REDIS_COUNTER_REJECTED)
+        return { total: Number(totalStr), passing: Number(passing ?? 0), rejected: Number(rejected ?? 0) }
+      }
     }
-    // Seed counters from existing list on first request
+    // Seed/reconcile counters by scanning the full list
     const entries = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
     let t = 0, p = 0, r = 0
     for (const raw of entries) {
