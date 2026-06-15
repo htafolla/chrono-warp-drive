@@ -13,6 +13,7 @@ const REDIS_FEED_KEY = 'dynamo:feed'
 const REDIS_COUNTER_TOTAL = 'dynamo:history:total'
 const REDIS_COUNTER_PASSING = 'dynamo:history:passing'
 const REDIS_COUNTER_REJECTED = 'dynamo:history:rejected'
+const REDIS_COUNTER_REVISION = 'dynamo:history:revision'
 const MAX_REDIS_ENTRIES = 10000
 const MAX_FEED_REDIS_ENTRIES = 500
 
@@ -144,6 +145,7 @@ async function storeInRedis(entry: HistoryEntry): Promise<void> {
       .incr(REDIS_COUNTER_TOTAL)
     if (rec === 'PASS') cmds.incr(REDIS_COUNTER_PASSING)
     else if (rec === 'REJECT') cmds.incr(REDIS_COUNTER_REJECTED)
+    else cmds.incr(REDIS_COUNTER_REVISION)
     await cmds.exec()
   } catch {
     // Redis unavailable — silently degrade
@@ -211,36 +213,39 @@ export function getResonanceHistory(key: string): Array<{ score: number; timesta
  * Return the N most recent full history entries from Redis.
  * Falls back to in-memory publicFeed if Redis unavailable.
  */
-export async function getHistoryStats(): Promise<{ total: number; passing: number; rejected: number }> {
+export async function getHistoryStats(): Promise<{ total: number; passing: number; rejected: number; revision: number }> {
   try {
     const client = await getRedisClient()
-    if (!client) return { total: 0, passing: 0, rejected: 0 }
+    if (!client) return { total: 0, passing: 0, rejected: 0, revision: 0 }
     const totalStr = await client.get(REDIS_COUNTER_TOTAL)
     if (totalStr !== null) {
       const listLen = await client.llen(REDIS_HISTORY_KEY)
-      if (Number(totalStr) >= listLen) {
-        const passing = await client.get(REDIS_COUNTER_PASSING)
-        const rejected = await client.get(REDIS_COUNTER_REJECTED)
-        return { total: Number(totalStr), passing: Number(passing ?? 0), rejected: Number(rejected ?? 0) }
+      const passing = Number(await client.get(REDIS_COUNTER_PASSING) ?? 0)
+      const rejected = Number(await client.get(REDIS_COUNTER_REJECTED) ?? 0)
+      const revision = Number(await client.get(REDIS_COUNTER_REVISION) ?? 0)
+      if (Number(totalStr) >= listLen && passing + rejected + revision === Number(totalStr)) {
+        return { total: Number(totalStr), passing, rejected, revision }
       }
     }
     // Seed/reconcile counters by scanning the full list
     const entries = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
-    let t = 0, p = 0, r = 0
+    let t = 0, p = 0, r = 0, rev = 0
     for (const raw of entries) {
       try {
         const entry = JSON.parse(raw) as HistoryEntry
         t++
         if (entry.response.recommendation === 'PASS') p++
         else if (entry.response.recommendation === 'REJECT') r++
+        else rev++
       } catch {}
     }
     await client.set(REDIS_COUNTER_TOTAL, t)
     await client.set(REDIS_COUNTER_PASSING, p)
     await client.set(REDIS_COUNTER_REJECTED, r)
-    return { total: t, passing: p, rejected: r }
+    await client.set(REDIS_COUNTER_REVISION, rev)
+    return { total: t, passing: p, rejected: r, revision: rev }
   } catch {
-    return { total: publicFeed.length, passing: publicFeed.filter(e => e.recommendation === 'PASS').length, rejected: publicFeed.filter(e => e.recommendation === 'REJECT').length }
+    return { total: publicFeed.length, passing: publicFeed.filter(e => e.recommendation === 'PASS').length, rejected: publicFeed.filter(e => e.recommendation === 'REJECT').length, revision: publicFeed.filter(e => e.recommendation !== 'PASS' && e.recommendation !== 'REJECT').length }
   }
 }
 

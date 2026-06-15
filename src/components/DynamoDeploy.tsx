@@ -481,7 +481,7 @@ export default function DynamoDeploy() {
     activityLevel: string; timestamp: string; source: string; response?: any;
   }>>([]);
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
-  const [feedStats, setFeedStats] = useState<{ total: number; passing: number; rejected: number } | null>(null);
+  const [feedStats, setFeedStats] = useState<{ total: number; passing: number; rejected: number; revision: number } | null>(null);
   const [manifoldStatus, setManifoldStatus] = useState<any | null>(null);
   const [manifoldTrend, setManifoldTrend] = useState<any | null>(null);
   const [manifoldPointsData, setManifoldPointsData] = useState<Array<{timestamp: number; resonance7D: number}>>([]);
@@ -515,7 +515,7 @@ export default function DynamoDeploy() {
       const res = await fetch(`${MCP_URL}/history/stats`, { signal: AbortSignal.timeout(5000) });
       if (res.ok) {
         const data = await res.json();
-        if (data.success) setFeedStats({ total: data.total, passing: data.passing, rejected: data.rejected });
+        if (data.success) setFeedStats({ total: data.total, passing: data.passing, rejected: data.rejected, revision: data.revision });
       }
     } catch {}
   }, []);
@@ -1120,7 +1120,8 @@ export default function DynamoDeploy() {
               {feedStats && (
                 <div className="flex items-center gap-3 mt-1.5">
                   <span className="text-[11px] text-white/50">{feedStats.total} proposals</span>
-                  <span className="text-[11px] text-emerald-400/60">{feedStats.passing} passing</span>
+                  <span className="text-[11px] text-emerald-400/60">{feedStats.passing} passed</span>
+                  <span className="text-[11px] text-amber-400/60">{feedStats.revision} needs revision</span>
                   <span className="text-[11px] text-red-400/60">{feedStats.rejected} rejected</span>
                 </div>
               )}
