@@ -10,10 +10,8 @@ import type { GematriaDecomposition } from './temporalManifold.js'
 const REDIS_HISTORY_KEY = 'dynamo:history'
 export const REDIS_HISTORY_PERMANENT_KEY = 'dynamo:history:permanent'
 const REDIS_FEED_KEY = 'dynamo:feed'
-const REDIS_COUNTER_TOTAL = 'dynamo:history:total'
 const REDIS_COUNTER_PASSING = 'dynamo:history:passing'
 const REDIS_COUNTER_REJECTED = 'dynamo:history:rejected'
-const REDIS_COUNTER_REVISION = 'dynamo:history:revision'
 const REDIS_COUNTERS_SEEDED = 'dynamo:history:counters:seeded'
 const MAX_REDIS_ENTRIES = 10000
 const MAX_FEED_REDIS_ENTRIES = 500
@@ -143,10 +141,8 @@ async function storeInRedis(entry: HistoryEntry): Promise<void> {
       .lpush(REDIS_HISTORY_KEY, raw)
       .ltrim(REDIS_HISTORY_KEY, 0, MAX_REDIS_ENTRIES - 1)
       .rpush(REDIS_HISTORY_PERMANENT_KEY, raw)
-      .incr(REDIS_COUNTER_TOTAL)
     if (rec === 'PASS') cmds.incr(REDIS_COUNTER_PASSING)
     else if (rec === 'REJECT') cmds.incr(REDIS_COUNTER_REJECTED)
-    else cmds.incr(REDIS_COUNTER_REVISION)
     await cmds.exec()
   } catch {
     // Redis unavailable — silently degrade
@@ -219,29 +215,36 @@ export async function getHistoryStats(): Promise<{ total: number; passing: numbe
     const client = await getRedisClient()
     if (!client) return { total: 0, passing: 0, rejected: 0, revision: 0 }
 
+    // Counters exist? Seed them from the permanent list.
     const seeded = await client.get(REDIS_COUNTERS_SEEDED)
     if (seeded !== '1') {
-      // One-time seed: scan the capped list for initial counts
-      const entries = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
+      // One-time migration: if permanent is empty but capped has data, copy over
+      const pLen = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
+      if (pLen === 0) {
+        const capped = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
+        if (capped.length > 0) {
+          await client.rpush(REDIS_HISTORY_PERMANENT_KEY, ...capped)
+        }
+      }
+      // Seed counters from the permanent list
+      const all = await client.lrange(REDIS_HISTORY_PERMANENT_KEY, 0, -1)
       let p = 0, r = 0
-      for (const raw of entries) {
+      for (const raw of all) {
         try {
           const entry = JSON.parse(raw) as HistoryEntry
           if (entry.response.recommendation === 'PASS') p++
           else if (entry.response.recommendation === 'REJECT') r++
         } catch {}
       }
-      const t = entries.length
-      await client.set(REDIS_COUNTER_TOTAL, t)
       await client.set(REDIS_COUNTER_PASSING, p)
       await client.set(REDIS_COUNTER_REJECTED, r)
-      await client.set(REDIS_COUNTER_REVISION, t - p - r)
       await client.set(REDIS_COUNTERS_SEEDED, '1')
+      const t = all.length
       return { total: t, passing: p, rejected: r, revision: t - p - r }
     }
 
-    // Counters are source of truth — never overwritten, only INCR'd
-    const total = Number(await client.get(REDIS_COUNTER_TOTAL) ?? 0)
+    // Total = exact count of the never-trimmed permanent list
+    const total = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
     const passing = Number(await client.get(REDIS_COUNTER_PASSING) ?? 0)
     const rejected = Number(await client.get(REDIS_COUNTER_REJECTED) ?? 0)
     const revision = total - passing - rejected
