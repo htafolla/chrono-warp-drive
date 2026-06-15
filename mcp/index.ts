@@ -1753,7 +1753,6 @@ app.post('/govern_with_solar', async (c: Context) => {
   }
 
   // Feed non-persisted governance result into Temporal Manifold
-  const proposalSource = structuredInput?.source || 'human'
   temporalManifold.addPoint({
     timestamp: Date.now(),
     proposalHash: temporalManifoldProposalHash(proposalText),
