@@ -8,7 +8,7 @@ import { createWalletClient, createPublicClient } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { publish, subscribe, getRedisClient } from './pubsub'
 import { createGovernanceRouter, evaluateGovernance } from './governance'
-import { dynamoSolarGovernance, getPublicFeed, getHistory, getHistoryStats } from './lib/dynamoSolarGovernance.js'
+import { dynamoSolarGovernance, getPublicFeed, getHistory, getHistoryStats, REDIS_HISTORY_PERMANENT_KEY } from './lib/dynamoSolarGovernance.js'
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
@@ -1879,6 +1879,19 @@ app.get('/history', async (c: Context) => {
 app.get('/history/stats', async (c: Context) => {
   const stats = await getHistoryStats()
   return c.json({ success: true, ...stats })
+})
+
+app.get('/history/backup', async (c: Context) => {
+  const client = await getRedisClient()
+  if (!client) return c.json({ success: false, error: 'Redis unavailable' }, 503)
+  const entries = await client.lrange(REDIS_HISTORY_PERMANENT_KEY, 0, -1)
+  const stats = await getHistoryStats()
+  return c.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    entries: entries.map(e => { try { return JSON.parse(e) } catch { return null } }).filter(Boolean),
+    ...stats,
+  })
 })
 
 app.get('/call_connected_tool', (c: Context) => {

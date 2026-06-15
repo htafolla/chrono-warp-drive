@@ -8,6 +8,7 @@ import { generateVortexMessage } from './vortexMessage.js'
 import type { GematriaDecomposition } from './temporalManifold.js'
 
 const REDIS_HISTORY_KEY = 'dynamo:history'
+export const REDIS_HISTORY_PERMANENT_KEY = 'dynamo:history:permanent'
 const REDIS_FEED_KEY = 'dynamo:feed'
 const REDIS_COUNTER_TOTAL = 'dynamo:history:total'
 const REDIS_COUNTER_PASSING = 'dynamo:history:passing'
@@ -139,6 +140,7 @@ async function storeInRedis(entry: HistoryEntry): Promise<void> {
     const cmds = client.multi()
       .lpush(REDIS_HISTORY_KEY, raw)
       .ltrim(REDIS_HISTORY_KEY, 0, MAX_REDIS_ENTRIES - 1)
+      .rpush(REDIS_HISTORY_PERMANENT_KEY, raw)
       .incr(REDIS_COUNTER_TOTAL)
     if (rec === 'PASS') cmds.incr(REDIS_COUNTER_PASSING)
     else if (rec === 'REJECT') cmds.incr(REDIS_COUNTER_REJECTED)
