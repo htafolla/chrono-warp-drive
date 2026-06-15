@@ -215,18 +215,29 @@ export async function getHistoryStats(): Promise<{ total: number; passing: numbe
     const client = await getRedisClient()
     if (!client) return { total: 0, passing: 0, rejected: 0, revision: 0 }
 
-    // Counters exist? Seed them from the permanent list.
-    const seeded = await client.get(REDIS_COUNTERS_SEEDED)
-    if (seeded !== '1') {
-      // One-time migration: if permanent is empty but capped has data, copy over
-      const pLen = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
-      if (pLen === 0) {
-        const capped = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
-        if (capped.length > 0) {
-          await client.rpush(REDIS_HISTORY_PERMANENT_KEY, ...capped)
+    const pLen = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
+    const cLen = await client.llen(REDIS_HISTORY_KEY)
+
+    // Migrate capped → permanent if permanent is missing entries
+    if (pLen < cLen) {
+      const capped = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
+      if (capped.length > 0) {
+        const existing = new Set<string>()
+        if (pLen > 0) {
+          const perm = await client.lrange(REDIS_HISTORY_PERMANENT_KEY, 0, -1)
+          for (const e of perm) existing.add(e)
+        }
+        const toAdd = capped.filter(e => !existing.has(e))
+        if (toAdd.length > 0) {
+          await client.rpush(REDIS_HISTORY_PERMANENT_KEY, ...toAdd)
+          await client.del(REDIS_COUNTERS_SEEDED) // force re-seed
         }
       }
-      // Seed counters from the permanent list
+    }
+
+    // Seed counters from full permanent list (if stale)
+    const seeded = await client.get(REDIS_COUNTERS_SEEDED)
+    if (seeded !== '1') {
       const all = await client.lrange(REDIS_HISTORY_PERMANENT_KEY, 0, -1)
       let p = 0, r = 0
       for (const raw of all) {
