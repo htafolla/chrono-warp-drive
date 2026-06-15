@@ -214,10 +214,8 @@ export async function getHistoryStats(): Promise<{ total: number; passing: numbe
     const client = await getRedisClient()
     if (!client) return { total: 0, passing: 0, rejected: 0, revision: 0 }
 
-    // Total = whichever list has more entries (capped caps at 10K, permanent grows unbounded)
-    const pLen = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
-    const cLen = await client.llen(REDIS_HISTORY_KEY)
-    const total = pLen > cLen ? pLen : cLen
+    // Total = exact count of the never-trimmed permanent list
+    const total = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
 
     // Counters were seeded from the capped list; incr'd on each new proposal
     const passing = Number(await client.get(REDIS_COUNTER_PASSING) ?? 0)
