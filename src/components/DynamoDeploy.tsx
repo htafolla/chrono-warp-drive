@@ -1105,6 +1105,11 @@ export default function DynamoDeploy() {
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
             <div className="px-4 py-2 border-b border-white/[0.04]">
               <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Live feed</p>
+              <div className="flex items-center gap-3 mt-1.5">
+                <span className="text-[11px] text-white/50">{feed.length} proposals</span>
+                <span className="text-[11px] text-emerald-400/60">{feed.filter(e => e.recommendation === 'PASS').length} passing</span>
+                <span className="text-[11px] text-red-400/60">{feed.filter(e => e.recommendation === 'REJECT').length} rejected</span>
+              </div>
             </div>
             <div className="divide-y divide-white/[0.03] max-h-64 overflow-y-auto">
               {feed.slice(0, 50).map((entry, i) => (
