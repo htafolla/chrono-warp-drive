@@ -481,6 +481,7 @@ export default function DynamoDeploy() {
     activityLevel: string; timestamp: string; source: string; response?: any;
   }>>([]);
   const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
+  const [feedStats, setFeedStats] = useState<{ total: number; passing: number; rejected: number } | null>(null);
   const [manifoldStatus, setManifoldStatus] = useState<any | null>(null);
   const [manifoldTrend, setManifoldTrend] = useState<any | null>(null);
   const [manifoldPointsData, setManifoldPointsData] = useState<Array<{timestamp: number; resonance7D: number}>>([]);
@@ -505,6 +506,16 @@ export default function DynamoDeploy() {
             response: e.response,
           })));
         }
+      }
+    } catch {}
+  }, []);
+
+  const fetchFeedStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${MCP_URL}/history/stats`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setFeedStats({ total: data.total, passing: data.passing, rejected: data.rejected });
       }
     } catch {}
   }, []);
@@ -545,9 +556,10 @@ export default function DynamoDeploy() {
 
   useEffect(() => {
     fetchFeed()
-    const interval = setInterval(fetchFeed, 30000)
+    fetchFeedStats()
+    const interval = setInterval(() => { fetchFeed(); fetchFeedStats() }, 30000)
     return () => clearInterval(interval)
-  }, [fetchFeed])
+  }, [fetchFeed, fetchFeedStats])
 
   const lookupResonanceAt = useCallback(async (timestamp: number) => {
     try {
@@ -1105,11 +1117,13 @@ export default function DynamoDeploy() {
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
             <div className="px-4 py-2 border-b border-white/[0.04]">
               <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Live feed</p>
-              <div className="flex items-center gap-3 mt-1.5">
-                <span className="text-[11px] text-white/50">{feed.length} proposals</span>
-                <span className="text-[11px] text-emerald-400/60">{feed.filter(e => e.recommendation === 'PASS').length} passing</span>
-                <span className="text-[11px] text-red-400/60">{feed.filter(e => e.recommendation === 'REJECT').length} rejected</span>
-              </div>
+              {feedStats && (
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className="text-[11px] text-white/50">{feedStats.total} proposals</span>
+                  <span className="text-[11px] text-emerald-400/60">{feedStats.passing} passing</span>
+                  <span className="text-[11px] text-red-400/60">{feedStats.rejected} rejected</span>
+                </div>
+              )}
             </div>
             <div className="divide-y divide-white/[0.03] max-h-64 overflow-y-auto">
               {feed.slice(0, 50).map((entry, i) => (

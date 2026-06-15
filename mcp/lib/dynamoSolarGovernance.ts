@@ -107,6 +107,7 @@ export interface PublicFeedEntry {
   recommendation: string
   activityLevel: string
   timestamp: string
+  source: string
 }
 
 export interface HistoryEntry {
@@ -201,6 +202,26 @@ export function getResonanceHistory(key: string): Array<{ score: number; timesta
  * Return the N most recent full history entries from Redis.
  * Falls back to in-memory publicFeed if Redis unavailable.
  */
+export async function getHistoryStats(): Promise<{ total: number; passing: number; rejected: number }> {
+  try {
+    const client = await getRedisClient()
+    if (!client) return { total: 0, passing: 0, rejected: 0 }
+    const entries = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
+    let total = 0, passing = 0, rejected = 0
+    for (const raw of entries) {
+      try {
+        const entry = JSON.parse(raw) as HistoryEntry
+        total++
+        if (entry.response.recommendation === 'PASS') passing++
+        else if (entry.response.recommendation === 'REJECT') rejected++
+      } catch {}
+    }
+    return { total, passing, rejected }
+  } catch {
+    return { total: publicFeed.length, passing: publicFeed.filter(e => e.recommendation === 'PASS').length, rejected: publicFeed.filter(e => e.recommendation === 'REJECT').length }
+  }
+}
+
 export async function getHistory(n: number = 100): Promise<HistoryEntry[]> {
   const redis = await loadHistoryFromRedis()
   if (redis.length > 0) return redis.slice(0, n)
@@ -230,6 +251,7 @@ export class DynamoSolarGovernance {
     sharePublicly: boolean = false,
     spectralQuality?: number,
     sunNeuralEmbedding?: number[],
+    source: string = 'human',
   ): Promise<EnhancedGovernanceDecision> {
     const solarContext = await solarGovernance.getSolarContextForGovernance()
 
@@ -378,6 +400,7 @@ export class DynamoSolarGovernance {
         recommendation: finalRec,
         activityLevel: solarContext.solarActivityLevel,
         timestamp: now.toISOString(),
+        source,
       }
       publicFeed.unshift(feedEntry)
       if (publicFeed.length > MAX_FEED_ENTRIES) publicFeed.pop()

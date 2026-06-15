@@ -1427,12 +1427,13 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const proposalText = extractProposalText(structuredInput || String(rawProposal))
     if (!proposalText || proposalText.length < 10) return { error: 'Proposal text must be at least 10 characters.' }
 
+    const proposalSource = structuredInput?.source || 'human'
     const baseVoteWeight = Math.max(0.5, Math.min(1.5, Number(args?.baseVoteWeight ?? 1)))
     const sharePublicly = args?.sharePublicly === true
     const spectralQuality = args?.spectralQuality !== undefined ? Number(args.spectralQuality) : undefined
     const sunNeuralEmbedding = args?.sunNeuralEmbedding !== undefined ? args.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
 
-    return dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding)
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding, proposalSource)
   },
   call_connected_tool: async (args: any) => {
     const toolName = args?.tool_name
@@ -1661,9 +1662,10 @@ app.post('/govern_with_solar', async (c: Context) => {
   if (!proposalText || !proposalText.trim()) {
     return c.json({ success: false, error: 'proposal text cannot be empty' }, 400)
   }
+  const proposalSource = structuredInput?.source || 'human'
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
-  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding)
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding, proposalSource)
 
   const persistToChain = body.persistToChain === true
   if (persistToChain) {
@@ -1873,6 +1875,11 @@ app.get('/history', async (c: Context) => {
   const n = Math.min(parseInt(c.req.query('n') || '100', 10) || 100, 1000)
   const entries = await getHistory(n)
   return c.json({ success: true, entries, count: entries.length })
+})
+
+app.get('/history/stats', async (c: Context) => {
+  const stats = await getHistoryStats()
+  return c.json({ success: true, ...stats })
 })
 
 app.get('/call_connected_tool', (c: Context) => {
