@@ -12,7 +12,6 @@ export const REDIS_HISTORY_PERMANENT_KEY = 'dynamo:history:permanent'
 const REDIS_FEED_KEY = 'dynamo:feed'
 const REDIS_COUNTER_PASSING = 'dynamo:history:passing'
 const REDIS_COUNTER_REJECTED = 'dynamo:history:rejected'
-const REDIS_COUNTERS_SEEDED = 'dynamo:history:counters:seeded'
 const MAX_REDIS_ENTRIES = 10000
 const MAX_FEED_REDIS_ENTRIES = 500
 
@@ -215,47 +214,12 @@ export async function getHistoryStats(): Promise<{ total: number; passing: numbe
     const client = await getRedisClient()
     if (!client) return { total: 0, passing: 0, rejected: 0, revision: 0 }
 
+    // Total = whichever list has more entries (capped caps at 10K, permanent grows unbounded)
     const pLen = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
     const cLen = await client.llen(REDIS_HISTORY_KEY)
+    const total = pLen > cLen ? pLen : cLen
 
-    // Migrate capped → permanent if permanent is missing entries
-    if (pLen < cLen) {
-      const capped = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
-      if (capped.length > 0) {
-        const existing = new Set<string>()
-        if (pLen > 0) {
-          const perm = await client.lrange(REDIS_HISTORY_PERMANENT_KEY, 0, -1)
-          for (const e of perm) existing.add(e)
-        }
-        const toAdd = capped.filter(e => !existing.has(e))
-        if (toAdd.length > 0) {
-          await client.rpush(REDIS_HISTORY_PERMANENT_KEY, ...toAdd)
-          await client.del(REDIS_COUNTERS_SEEDED) // force re-seed
-        }
-      }
-    }
-
-    // Seed counters from full permanent list (if stale)
-    const seeded = await client.get(REDIS_COUNTERS_SEEDED)
-    if (seeded !== '1') {
-      const all = await client.lrange(REDIS_HISTORY_PERMANENT_KEY, 0, -1)
-      let p = 0, r = 0
-      for (const raw of all) {
-        try {
-          const entry = JSON.parse(raw) as HistoryEntry
-          if (entry.response.recommendation === 'PASS') p++
-          else if (entry.response.recommendation === 'REJECT') r++
-        } catch {}
-      }
-      await client.set(REDIS_COUNTER_PASSING, p)
-      await client.set(REDIS_COUNTER_REJECTED, r)
-      await client.set(REDIS_COUNTERS_SEEDED, '1')
-      const t = all.length
-      return { total: t, passing: p, rejected: r, revision: t - p - r }
-    }
-
-    // Total = exact count of the never-trimmed permanent list
-    const total = await client.llen(REDIS_HISTORY_PERMANENT_KEY)
+    // Counters were seeded from the capped list; incr'd on each new proposal
     const passing = Number(await client.get(REDIS_COUNTER_PASSING) ?? 0)
     const rejected = Number(await client.get(REDIS_COUNTER_REJECTED) ?? 0)
     const revision = total - passing - rejected
