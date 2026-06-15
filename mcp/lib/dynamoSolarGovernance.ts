@@ -9,6 +9,9 @@ import type { GematriaDecomposition } from './temporalManifold.js'
 
 const REDIS_HISTORY_KEY = 'dynamo:history'
 const REDIS_FEED_KEY = 'dynamo:feed'
+const REDIS_COUNTER_TOTAL = 'dynamo:history:total'
+const REDIS_COUNTER_PASSING = 'dynamo:history:passing'
+const REDIS_COUNTER_REJECTED = 'dynamo:history:rejected'
 const MAX_REDIS_ENTRIES = 10000
 const MAX_FEED_REDIS_ENTRIES = 500
 
@@ -132,10 +135,14 @@ async function storeInRedis(entry: HistoryEntry): Promise<void> {
     const client = await getRedisClient()
     if (!client) return
     const raw = JSON.stringify(entry)
-    await client.multi()
+    const rec = entry.response.recommendation
+    const cmds = client.multi()
       .lpush(REDIS_HISTORY_KEY, raw)
       .ltrim(REDIS_HISTORY_KEY, 0, MAX_REDIS_ENTRIES - 1)
-      .exec()
+      .incr(REDIS_COUNTER_TOTAL)
+    if (rec === 'PASS') cmds.incr(REDIS_COUNTER_PASSING)
+    else if (rec === 'REJECT') cmds.incr(REDIS_COUNTER_REJECTED)
+    await cmds.exec()
   } catch {
     // Redis unavailable — silently degrade
   }
@@ -206,17 +213,27 @@ export async function getHistoryStats(): Promise<{ total: number; passing: numbe
   try {
     const client = await getRedisClient()
     if (!client) return { total: 0, passing: 0, rejected: 0 }
+    const total = await client.get(REDIS_COUNTER_TOTAL)
+    if (total !== null) {
+      const passing = await client.get(REDIS_COUNTER_PASSING)
+      const rejected = await client.get(REDIS_COUNTER_REJECTED)
+      return { total: Number(total), passing: Number(passing ?? 0), rejected: Number(rejected ?? 0) }
+    }
+    // Seed counters from existing list on first request
     const entries = await client.lrange(REDIS_HISTORY_KEY, 0, -1)
-    let total = 0, passing = 0, rejected = 0
+    let t = 0, p = 0, r = 0
     for (const raw of entries) {
       try {
         const entry = JSON.parse(raw) as HistoryEntry
-        total++
-        if (entry.response.recommendation === 'PASS') passing++
-        else if (entry.response.recommendation === 'REJECT') rejected++
+        t++
+        if (entry.response.recommendation === 'PASS') p++
+        else if (entry.response.recommendation === 'REJECT') r++
       } catch {}
     }
-    return { total, passing, rejected }
+    await client.set(REDIS_COUNTER_TOTAL, t)
+    await client.set(REDIS_COUNTER_PASSING, p)
+    await client.set(REDIS_COUNTER_REJECTED, r)
+    return { total: t, passing: p, rejected: r }
   } catch {
     return { total: publicFeed.length, passing: publicFeed.filter(e => e.recommendation === 'PASS').length, rejected: publicFeed.filter(e => e.recommendation === 'REJECT').length }
   }
