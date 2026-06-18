@@ -8,7 +8,7 @@ import {
 import type { ContainerItem } from '@/pages/VortexClaim'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
-const MCP_URL = 'https://mcp-production-80e2.up.railway.app'
+import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
 
 const TIERS = [
   { label: 'Celestial', min: 0.95, text: 'text-fuchsia-400', bg: 'bg-fuchsia-500/20', border: 'border-fuchsia-500/30', header: 'from-fuchsia-900/60 to-purple-900/30', heroBg: '#a21caf', heroFrom: '#d946ef', heroTo: '#c026d3' },

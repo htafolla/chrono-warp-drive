@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Rocket, Sun, Waves, Hash, AlertCircle, CheckCircle2, XCircle, Shield, Orbit, Radio, Loader2 } from 'lucide-react';
 
-const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
+import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env';
 
 interface TransportControlProps {
   simple?: boolean;

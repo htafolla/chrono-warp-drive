@@ -18,7 +18,7 @@ function verdictColor(verdict: string) {
   return 'text-red-400'
 }
 
-const MCP_URL = 'https://mcp-production-80e2.up.railway.app'
+import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
 
 interface MyVortexMiniProps {
   tokenId: string

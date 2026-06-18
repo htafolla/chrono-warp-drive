@@ -3,12 +3,78 @@
     "dynamo": {
       "type": "http",
       "url": "https://mcp-production-80e2.up.railway.app",
-      "description": "Governance oracle with 20 MCP tools: solar ingestion, TDF computation, Kuramoto coupling, wave propagation, verdict anchoring, vortex minting, and temporal field analysis."
+      "description": "Governance oracle with 20 MCP tools: solar ingestion, TDF computation, Kuramoto coupling, wave propagation, verdict anchoring, vortex minting, and temporal field analysis. Align url with DYNAMO_MCP_URL in .env.example (P0.4 install-time expansion)."
     },
     "dynamo-neural": {
       "type": "http",
       "url": "https://neural-fusion-backend-production.up.railway.app",
       "description": "Neural fusion pipeline — MiniLM embeddings, PCA reduction, metamorphosis scoring, spectral quality analysis."
+    },
+    "xray-governance": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "0xray",
+        "mcp",
+        "governance"
+      ],
+      "env": {
+        "XRAY_FORCE_MCP_GOVERNANCE": "true"
+      }
+    },
+    "xray-skills": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "0xray",
+        "mcp",
+        "skills"
+      ]
+    },
+    "xray-orchestrator": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "0xray",
+        "mcp",
+        "orchestrator"
+      ]
+    },
+    "xray-enforcer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "0xray",
+        "mcp",
+        "enforcer"
+      ]
+    },
+    "xray-researcher": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "0xray",
+        "mcp",
+        "researcher"
+      ]
+    },
+    "xray-code-review": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "0xray",
+        "mcp",
+        "code-review"
+      ]
+    },
+    "xray-architect-tools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "0xray",
+        "mcp",
+        "architect-tools"
+      ]
     }
   }
 }

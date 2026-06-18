@@ -9,10 +9,9 @@ import { VortexCardGrid } from '@/components/vortex/VortexCardGrid'
 import { VortexDetailModal } from '@/components/vortex/VortexDetailModal'
 import { MyVortices } from '@/components/vortex/MyVortices'
 import { ClaimModal } from '@/components/vortex/ClaimModal'
-
+import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
-const MCP_URL = 'https://mcp-production-80e2.up.railway.app'
 const VORTEX_ABI = [
   {
     inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],

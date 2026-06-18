@@ -8,9 +8,11 @@ import { TransportPipeline } from '@/components/vortex/TransportPipeline';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
 
-const MCP_URL = 'https://mcp-production-80e2.up.railway.app';
-const STELLAR_URL = 'https://stellar-mcp-production.up.railway.app';
-const NEURAL_URL = 'https://neural-fusion-backend-production.up.railway.app';
+import {
+  DYNAMO_MCP_URL as MCP_URL,
+  NEURAL_FUSION_URL as NEURAL_URL,
+  STELLAR_MCP_URL as STELLAR_URL,
+} from '@/config/platform-env';
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
