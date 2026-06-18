@@ -2,7 +2,7 @@
 source: framework
 name: testing-best-practices
 description: Testing best practices and quality assurance
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [testing, testing, best, practices]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   testing-best-practices:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/knowledge-skills/testing-best-practices.server.js]
+    args: [node_modules/0xray/dist/mcps/knowledge-skills/testing-best-practices.server.js]
 ---
 
 # Testing Best Practices Skill

@@ -2,7 +2,7 @@
 source: framework
 name: bug-triage
 description: Bug triage, debugging analysis, and issue prioritization
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [debugging, bug-fix, triage, error-analysis]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   bug-triage-specialist:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/knowledge-skills/bug-triage-specialist.server.js]
+    args: [node_modules/0xray/dist/mcps/knowledge-skills/bug-triage-specialist.server.js]
 ---
 
 # Bug Triage Skill

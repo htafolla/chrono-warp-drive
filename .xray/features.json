@@ -1,6 +1,6 @@
 {
   "$schema": "./features.schema.json",
-  "version": "3.4.2",
+  "version": "3.4.4",
   "description": "0xRay Framework - Chrono Warp Drive (temporal / Dynamo UI)",
   "token_optimization": {
     "enabled": true,

@@ -2,7 +2,7 @@
 source: framework
 name: model-health-check
 description: AI model health monitoring and diagnostics
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [monitoring, model, health, check]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   model-health-check:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/model-health-check.server.js]
+    args: [node_modules/0xray/dist/mcps/model-health-check.server.js]
 ---
 
 # Model Health Check Skill

@@ -2,7 +2,7 @@
 source: framework
 name: auto-format
 description: Automated code formatting and style consistency
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [formatting, auto, format]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   auto-format:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/auto-format.server.js]
+    args: [node_modules/0xray/dist/mcps/auto-format.server.js]
 ---
 
 # Auto Format Skill

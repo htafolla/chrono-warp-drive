@@ -2,7 +2,7 @@
 source: framework
 name: session-management
 description: Manage user sessions and persistent state
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [infrastructure, session, management]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   session-management:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/state-manager.server.js]
+    args: [node_modules/0xray/dist/mcps/state-manager.server.js]
 ---
 
 # Session Management Skill

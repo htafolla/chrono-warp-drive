@@ -2,7 +2,7 @@
 source: framework
 name: architecture-patterns
 description: Software architecture patterns and best practices
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [design, architecture, patterns]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   architecture-patterns:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/knowledge-skills/architecture-patterns.server.js]
+    args: [node_modules/0xray/dist/mcps/knowledge-skills/architecture-patterns.server.js]
 ---
 
 # Architecture Patterns Skill

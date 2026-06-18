@@ -2,7 +2,7 @@
 source: framework
 name: code-review
 description: Perform comprehensive code quality assessment and provide improvement suggestions
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [review, quality, assessment, improvement]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   code-review:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/knowledge-skills/code-review.server.js]
+    args: [node_modules/0xray/dist/mcps/knowledge-skills/code-review.server.js]
   tools:
     - analyze_code_quality
     - review_pull_request

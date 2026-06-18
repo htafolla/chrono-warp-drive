@@ -2,7 +2,7 @@
 source: framework
 name: refactoring-strategies
 description: Code refactoring techniques and strategies
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [refactoring, refactoring, strategies]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   refactoring-strategies:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/knowledge-skills/refactoring-strategies.server.js]
+    args: [node_modules/0xray/dist/mcps/knowledge-skills/refactoring-strategies.server.js]
 ---
 
 # Refactoring Strategies Skill

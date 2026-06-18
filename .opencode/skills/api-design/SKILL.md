@@ -2,7 +2,7 @@
 source: framework
 name: api-design
 description: RESTful API design and validation
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [design, api, design]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   api-design:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/knowledge-skills/api-design.server.js]
+    args: [node_modules/0xray/dist/mcps/knowledge-skills/api-design.server.js]
 ---
 
 # Api Design Skill

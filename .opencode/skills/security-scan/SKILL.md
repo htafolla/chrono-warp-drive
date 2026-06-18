@@ -2,7 +2,7 @@
 source: framework
 name: security-scan
 description: Security vulnerability scanning and assessment
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [security, security, scan]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   security-scan:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/security-scan.server.js]
+    args: [node_modules/0xray/dist/mcps/security-scan.server.js]
 ---
 
 # Security Scan Skill

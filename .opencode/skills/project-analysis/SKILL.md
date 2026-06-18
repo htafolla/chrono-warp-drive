@@ -2,7 +2,7 @@
 source: framework
 name: project-analysis
 description: Analyze project structure, complexity, and health metrics
-author: StrRay Framework
+author: Xray Framework
 version: 1.0.0
 schema_version: "1.0"
 tags: [analysis, project, complexity, health]
@@ -15,7 +15,7 @@ dependencies: []
 mcp:
   project-analysis:
     command: node
-    args: [node_modules/strray-ai/dist/mcps/knowledge-skills/project-analysis.server.js]
+    args: [node_modules/0xray/dist/mcps/knowledge-skills/project-analysis.server.js]
 ---
 
 # Project Analysis Skill
