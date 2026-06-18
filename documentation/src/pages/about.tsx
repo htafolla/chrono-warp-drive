@@ -44,7 +44,7 @@ export default function About(): ReactNode {
           <h2>0xRay Integration</h2>
           <p>
             Dynamo is the solar governance signal layer for{' '}
-            <a href="https://www.npmjs.com/package/strray-ai"><strong>0xRay</strong></a>
+            <a href="https://www.npmjs.com/package/0xray"><strong>0xRay</strong></a>
             {' '}(formerly StringRay), a multi-agent orchestration framework. 0xRay
             provides a 3-agent voting committee that uses Dynamo's solar resonance
             scores as an external governance boundary — ensuring no AI agent vote
@@ -56,10 +56,9 @@ export default function About(): ReactNode {
             physics, and either passed or flagged for revision.
           </p>
           <p>
-            <a href="https://www.npmjs.com/package/strray-ai">0xRay on npm</a>
+            <a href="https://www.npmjs.com/package/0xray">0xRay on npm</a>
             {' · '}
-            <a href="https://github.com/htafolla/stringray">GitHub</a>
-            {' '}<em>(moving to 0xRay org)</em>
+            <a href="https://github.com/0xRayAI/xray">GitHub</a>
           </p>
 
           <h2>Open Source</h2>

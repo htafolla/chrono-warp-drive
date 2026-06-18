@@ -145,7 +145,7 @@ The gematria engine treats language as a numeric field against solar constants. 
 
 ## 0xRay Governance Boundary
 
-[0xRay](https://www.npmjs.com/package/strray-ai) (formerly StringRay) is a multi-agent orchestration framework that uses Dynamo as its solar governance boundary. It provides:
+[0xRay](https://www.npmjs.com/package/0xray) (formerly StringRay) is a multi-agent orchestration framework that uses Dynamo as its solar governance boundary. It provides:
 
 - **3-agent voting committee** — agents deliberate and cast weighted votes on proposals
 - **Governance boundary enforcement** — 0xRay routes proposals through Dynamo's solar resonance check before final decisions
@@ -155,7 +155,7 @@ The gematria engine treats language as a numeric field against solar constants. 
 
 Dynamo serves as the external, ungamable signal layer. 0xRay consumes that signal to inform agent voting behavior, creating a self-healing governance loop where the Sun is the ultimate arbiter.
 
-> Package: [`strray-ai` on npm](https://www.npmjs.com/package/strray-ai) · GitHub: [htafolla/stringray](https://github.com/htafolla/stringray) *(moving to 0xRay org)*
+> Package: [`0xray` on npm](https://www.npmjs.com/package/0xray) · GitHub: [0xRayAI/xray](https://github.com/0xRayAI/xray)
 
 ## Wave Propagation Layer (Phase 2 Prototype)
 

@@ -24,7 +24,8 @@ dist-ssr
 *.sw?
 .vercel
 .env
-.strray/state/state.json
+.strray/
+.opencode/strray/
 
 # Playwright
 test-results/
