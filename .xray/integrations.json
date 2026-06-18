@@ -1,23 +1,38 @@
 {
-  "version": "1.0",
+  "version": "3.4.1",
   "integrations": {
+    "dynamo": {
+      "enabled": true,
+      "type": "governance-ssot",
+      "version": "4.8.6",
+      "config": {
+        "mcpUrl": "https://mcp-production-80e2.up.railway.app",
+        "governanceEndpoint": "/governance",
+        "solarEndpoint": "/govern_with_solar"
+      }
+    },
     "openclaw": {
       "enabled": false,
       "type": "external-service",
-      "version": "3.0.10",
+      "version": "3.4.1",
       "config": {}
     },
     "python-bridge": {
-      "enabled": false,
+      "enabled": true,
       "type": "protocol-bridge",
-      "version": "3.0.10",
-      "config": {}
+      "version": "3.4.1",
+      "config": {
+        "clientPath": "clients/python/mcp_client.py"
+      }
     },
     "react": {
-      "enabled": false,
+      "enabled": true,
       "type": "framework-adapter",
-      "version": "3.0.10",
-      "config": {}
+      "version": "3.4.1",
+      "config": {
+        "vite": true,
+        "governanceUi": "src/components/DynamoDeploy.tsx"
+      }
     }
   }
 }

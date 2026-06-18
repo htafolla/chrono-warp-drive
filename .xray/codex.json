@@ -1,6 +1,6 @@
 {
   "version": "3.0.10",
-  "lastUpdated": "2026-06-05",
+  "lastUpdated": "2026-06-18",
   "errorPreventionTarget": 0.998,
   "terms": {
     "1": {
@@ -593,6 +593,6 @@
   },
   "frameworkAlignment": {
     "OpenCode": "v1.1.1",
-    "0xRay": "v2.0.0"
+    "0xRay": "v3.4.1"
   }
 }

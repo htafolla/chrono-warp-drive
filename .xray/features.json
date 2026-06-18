@@ -146,12 +146,13 @@
     }
   },
   "memory_routing": {
-    "enabled": false,
+    "enabled": true,
     "provider": "repertoire",
     "module_path": "../repertoire/dist/provider/memory-routing-provider.js",
     "config": {
       "dataDir": "../repertoire/data",
       "signalsPath": "../repertoire/data/curated_signals.json",
+      "statePath": "../repertoire/data/inference-state.json",
       "logDir": "../repertoire/logs/chrono-inference"
     }
   }
