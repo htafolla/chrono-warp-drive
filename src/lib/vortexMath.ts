@@ -1,10 +1,10 @@
 // src/lib/vortexMath.ts
 // Canonical vortex TDF math for the solar isotopic hammer (frontend mirror).
 
-const PHI = 1.666;
+import { L, PHI } from './tlmConstants';
+
 const TAU = 0.865;
 const C = 3e8;
-const L = 3;
 
 export interface VortexTdfParams {
   T_c: number;

@@ -1,9 +1,8 @@
 // src/lib/temporalBlurrnSignal.ts
 import { IsotopicSignal, CorrelationResult, TriangulationResult, FusedSignal } from './isotopicSignal';
+import { PHI } from './tlmConstants';
 
 export { FusedSignal };
-
-const PHI = 1.666;
 const TAU = 0.865;
 
 export class TemporalBlurrnSignal extends IsotopicSignal {

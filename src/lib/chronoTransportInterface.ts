@@ -26,10 +26,8 @@ export const DEFAULT_V47_CONFIG: BlurrnV47Config = {
   voids: 7
 };
 
-/**
- * PHI constant for v4.7 (1.666, not golden ratio)
- */
-const PHI_V47 = 1.666;
+/** PHI for v4.7 — same Trinitarium temple measure (5/3), not classical golden ratio */
+const PHI_V47 = PHI;
 
 /**
  * Compute cascade index for CTI calculation

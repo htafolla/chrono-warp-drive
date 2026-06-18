@@ -4,13 +4,14 @@
 // neuralOutput here.
 import { SpectrumData, TPTTv4Result } from '@/types/sdss';
 import { PHI, FREQ, C, DELTA_T } from './temporalCalculator';
+import { L as TLM_L } from './tlmConstants';
 
 export class TemporalCalculatorV4 {
   private inputData: SpectrumData | null = null;
 
   // v4.5 Constants
-  private readonly L = 3; // Trinity constant
-  private readonly phi = PHI; // 1.666 Trinitarium ratio
+  private readonly L = TLM_L; // Trinity constant (tlmConstants)
+  private readonly phi = PHI; // Trinitarium temple measure (5/3)
   private readonly c = C; // Speed of light
   private readonly delta_t = DELTA_T; // Time step
 

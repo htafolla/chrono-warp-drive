@@ -1,11 +1,11 @@
 // mcp/lib/vortexMath.ts
 // Canonical vortex TDF math for the solar isotopic hammer.
-// This is the single source of truth for computing rich TDFs from parameters.
+// TLM constants (L, PHI) mirror trinitarium SSOT via src/lib/tlmConstants.ts.
 
-const PHI = 1.666;
+import { L, PHI } from '../../src/lib/tlmConstants.ts';
+
 const TAU = 0.865;
 const C = 3e8;
-const L = 3;
 
 export interface VortexTdfParams {
   T_c: number;

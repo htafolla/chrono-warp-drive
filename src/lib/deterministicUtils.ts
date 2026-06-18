@@ -1,7 +1,9 @@
 // Deterministic Utils for BLURRN v4.6
 // Replaces Math.random() with deterministic pseudo-random functions
 
-export const PHI = 1.666; // TLM alignment factor
+import { PHI } from './tlmConstants';
+
+export { PHI };
 
 /**
  * Deterministic seed function using sine-based pseudo-random generation

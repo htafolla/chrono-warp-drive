@@ -1,9 +1,9 @@
 import { describe, test, expect } from 'vitest';
 import { TemporalBlurrnSignal, FusedSignal } from './temporalBlurrnSignal';
 import { IsotopicSignal } from './isotopicSignal';
+import { PHI } from './tlmConstants';
 
 describe('Blurrn v4.8 Isotopic Temporal Vortex Engine', () => {
-  const PHI = 1.666;
   const TAU = 0.865;
 
   test('TemporalBlurrnSignal creates valid isotopic fingerprint', () => {
@@ -24,8 +24,9 @@ describe('Blurrn v4.8 Isotopic Temporal Vortex Engine', () => {
   });
 
   test('Cross-correlation returns symbiotic strength', () => {
-    const signal1 = new TemporalBlurrnSignal({ id: 's1' }, 5.781e12, 42);
-    const signal2 = new TemporalBlurrnSignal({ id: 's2' }, 5.782e12, 43);
+    // TDF scale chosen for high phase alignment under canonical PHI (5/3)
+    const signal1 = new TemporalBlurrnSignal({ id: 's1' }, 1151, 42);
+    const signal2 = new TemporalBlurrnSignal({ id: 's2' }, 1152, 43);
 
     const corr = signal1.crossCorrelate(signal2);
     expect(corr.strength).toBeGreaterThan(0.9);

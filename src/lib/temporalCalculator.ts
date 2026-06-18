@@ -1,13 +1,12 @@
 // Temporal Photonic Transpondent Transporter Calculator
 // Based on Codex v3.6 by @blaze0x1
 
-// Core Constants from TLM
-export const PHI = 1.666; // Trinitarium ratio
+// Core Constants from TLM (L, PHI sourced from tlmConstants → trinitarium SSOT)
+export { L, PHI } from './tlmConstants';
 export const FREQ = 528; // Hz harmonic frequency  
 export const C = 3e8; // Speed of light (m/s)
 export const DELTA_T = 1e-6; // Time step
 export const PHASE_UPDATE_FACTOR = 0.016;
-export const L = 3; // Trinity constant
 export const K = 0.5; // Kuramoto coupling
 export const N = 3; // Phase count
 export const G = 1.0; // Wave amplitude
@@ -71,9 +70,8 @@ export function kuramoto(
     
     // Return frequency update for the specific oscillator
     return omega[oscillatorIndex] + (K / Math.max(N - 1, 1)) * sum;
-  } catch (error) {
-    console.error("Kuramoto error:", error);
-    return omega[oscillatorIndex] || omega[0]; // Fallback
+  } catch {
+    return omega[oscillatorIndex] || omega[0]; // Fallback on Kuramoto error
   }
 }
 

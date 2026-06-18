@@ -2,8 +2,7 @@
 // Phase 2 prototype — frontend mirror of mcp/lib/wavePropagation.ts
 
 import { KuramotoResult, PhaseType, Isotope, ISOTOPES } from './kuramotoOscillators'
-
-const PHI = 1.666
+import { PHI } from './tlmConstants'
 const FREQ = 528
 const G = 1.0
 
