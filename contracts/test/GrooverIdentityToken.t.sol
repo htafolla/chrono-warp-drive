@@ -105,8 +105,9 @@ contract GrooverIdentityTokenTest is Test {
     }
 
     function test_mint_long_wrong_prefix_reverts() public {
-        string memory badPrefix = "did:other:00000000000000001";
-        assertTrue(bytes(badPrefix).length >= 25);
+        // 28 bytes so this hits the prefix check, not the length check
+        string memory badPrefix = "did:xxxxxxxx0000000000000000";
+        assertEq(bytes(badPrefix).length, 28);
         vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
         token.mint(alice, badPrefix, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
     }

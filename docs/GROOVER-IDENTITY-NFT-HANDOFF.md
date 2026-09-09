@@ -15,7 +15,7 @@ MAX_VARIANT:      16
 identityKey:      keccak256(abi.encode(did, dna))
 imageBase:        https://registry-production-e2c4.up.railway.app/identity/token-image/
 explorer:         https://sepolia.basescan.org/address/0xFc644D08cd98f11BB952a4E9b04f5Ad0b312D683
-abi:              contracts/out/GrooverIdentityToken.sol/GrooverIdentityToken.json
+abi:              contracts/abi/GrooverIdentityToken.json
 tx deploy:        0xd724d2c2d49798bb579cb0df952ee4534d4309288f61fa52c0923ca308d23d7d
 forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base_sepolia --broadcast --verify
 ```
@@ -27,6 +27,7 @@ forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base
 | `contracts/GrooverIdentityToken.sol` | The contract (ERC721Enumerable + AccessControl) |
 | `contracts/script/DeployGrooverIdentity.s.sol` | Deploy script (admin = deployer EOA, minter = `GROOVER_MINTER`) |
 | `contracts/test/GrooverIdentityToken.t.sol` | 24 tests (reentrancy, escaping, DID/key rules) |
+| `contracts/abi/GrooverIdentityToken.json` | Committed ABI (`out/` is gitignored) |
 
 ## Sepolia verification (done)
 
@@ -95,4 +96,5 @@ not `encodePacked`, per review decision (Groover off-chain code must use the sam
 - `to` = the holder address; `dynamoCitation = bytes32(0)` if none.
 - Pack whitelist stays application-side (contract accepts any non-empty pack ≤ 64 bytes, no control bytes).
 - Image compositor will serve `{tokenId}` under the Groover Railway image route.
-- ABI copied to `packages/identity/abi/GrooverIdentityToken.json` in the groover repo.
+- ABI is `contracts/abi/GrooverIdentityToken.json` in this repo (`out/` is gitignored). Copy into groover at `packages/identity/abi/GrooverIdentityToken.json`.
+- Round-2 check: local runtime bytecode matches Sepolia `0xFc644D…` **except** the solc metadata hash (CBOR tail). Opcodes identical; no redeploy needed for this commit.
