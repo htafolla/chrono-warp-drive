@@ -12,7 +12,7 @@ address:          0x68e4E58f66bF332ce5aF704D16B97BAA3c26e8E5
 admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
 minter:           0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43   # GROOVER_MINTER (Sepolia = deployer)
 MAX_VARIANT:      16
-identityKey:      keccak256(abi.encodePacked(did, dna))
+identityKey:      keccak256(abi.encode(did, dna))   # v2 source; Sepolia 0x68e4 is v1 encodePacked
 imageBase:        https://registry-production-e2c4.up.railway.app/identity/token-image/
 explorer:         https://sepolia.basescan.org/address/0x68e4E58f66bF332ce5aF704D16B97BAA3c26e8E5
 abi:              contracts/out/GrooverIdentityToken.sol/GrooverIdentityToken.json
@@ -50,13 +50,29 @@ forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base
 > `_safeMint` so a malicious receiver cannot re-enter and double-mint). The address
 > above is the redeploy with the fix; repo source == deployed source == verified source.
 
-## ⚠️ Spec deviation worth noting (DID length)
+## Review follow-up (v2 source — not yet redeployed)
 
-The spec's acceptance criterion (9.4) says mint with `did:groover:test`. That DID is
-16 bytes and **reverts `InvalidDid`** because the contract enforces `len >= 25` AND prefix
-`did:groover:`. Note `"did:groover:"` is **12 bytes, not 13** (the spec comment miscounted;
-a 13-byte comparison caused an array-OOB bug during dev, fixed to 12). Canonical DID
-`did:groover:<16 hex>` = 28 bytes. Use pad-short test DIDs to ≥ 25 bytes, or full `did:groover:` + 16 hex.
+Deep review of PR #3 (reviewer `did:groover:93c6e9ee38baa90c`, Groover PoA 4-turn) tightened
+the on-chain identity before Groover wires mint:
+
+1. **`identityKey` is `keccak256(abi.encode(did, dna))`**, not `encodePacked`. Packed
+   concatenation of a variable-length string and `bytes32` can collide. Sepolia **v1**
+   at `0x68e4E58f…` used packed and minted token #1 with DID `did:groover:test0000000001`
+   (26 bytes). **Do not mint further on v1. Redeploy Sepolia after this commit** so
+   repo source == deployed source.
+2. **DID must be exactly 28 bytes**: `did:groover:` + 16 hex (`[0-9a-fA-F]`). Matches
+   Groover `didFromEd25519PublicKey`. `"did:groover:"` is 12 bytes.
+3. **CEI:** effects + `IdentityMinted` happen before `_safeMint`. Reentrancy test
+   covers a minter-role receiver.
+4. **CI:** `contracts` job runs `forge test` via `foundry-toolchain`. Existing npm
+   `test` / `mcp-test` / `mcp-typecheck` failures (`ioredis`, missing `mcp/tsconfig.json`)
+   are **pre-existing on main**, not this collection.
+
+## ⚠️ Spec notes
+
+The original spec's acceptance mint `did:groover:test` is 16 bytes and **reverts**.
+Canonical Groover DID is 28 bytes. Spec comment that the prefix is 13 bytes was wrong
+(it is 12); a 13-byte loop OOBs.
 
 ## Before Base mainnet
 

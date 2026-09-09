@@ -27,8 +27,8 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     string public constant IMAGE_BASE =
         "https://registry-production-e2c4.up.railway.app/identity/token-image/";
 
-    uint256 private constant _DID_PREFIX_LEN = 12; // "did:groover:" is 12 bytes
-    uint256 private constant _DID_MIN_LEN = 25;
+    uint256 private constant _DID_PREFIX_LEN = 12; // "did:groover:"
+    uint256 private constant _DID_LEN = 28;        // prefix + 16 hex (Groover canonical)
 
     struct TokenData {
         string did;             // did:groover:<16 hex>
@@ -65,8 +65,10 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         _grantRole(MINTER_ROLE, minter);
     }
 
+    /// @dev `abi.encode` (not `encodePacked`) so variable-length `did` cannot
+    ///      collide with a different (did, dna) pair.
     function identityKey(string calldata did, bytes32 dna) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(did, dna));
+        return keccak256(abi.encode(did, dna));
     }
 
     function mint(
@@ -99,10 +101,9 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         });
 
         _idToToken[key] = tokenId;
+        emit IdentityMinted(tokenId, key, to, did, pack, variant);
 
         _safeMint(to, tokenId);
-
-        emit IdentityMinted(tokenId, key, to, did, pack, variant);
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
@@ -160,11 +161,17 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
 
     function _hasValidDid(string calldata did) internal pure returns (bool) {
         bytes memory b = bytes(did);
-        if (b.length < _DID_MIN_LEN) return false;
+        if (b.length != _DID_LEN) return false;
         bytes memory prefix = "did:groover:";
         for (uint256 i = 0; i < _DID_PREFIX_LEN; i++) {
-            if (i >= b.length) return false;
             if (b[i] != prefix[i]) return false;
+        }
+        for (uint256 i = _DID_PREFIX_LEN; i < _DID_LEN; i++) {
+            uint8 c = uint8(b[i]);
+            bool hexDigit = (c >= 0x30 && c <= 0x39)
+                || (c >= 0x61 && c <= 0x66)
+                || (c >= 0x41 && c <= 0x46);
+            if (!hexDigit) return false;
         }
         return true;
     }
