@@ -1,0 +1,228 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "forge-std/Test.sol";
+import "../GrooverIdentityToken.sol";
+import "@openzeppelin/contracts/access/IAccessControl.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+
+contract GrooverIdentityTokenTest is Test {
+    GrooverIdentityToken token;
+
+    address alice = vm.addr(0x1001);
+    address bob = vm.addr(0x1002);
+    address attacker = vm.addr(0xBEEF);
+
+    bytes32 constant SAMPLE_DNA = keccak256("sample-agent-dna");
+    bytes32 constant OTHER_DNA = keccak256("other-agent-dna");
+
+    function setUp() public {
+        token = new GrooverIdentityToken(address(this), address(this));
+    }
+
+    function _did(string memory suffix) internal pure returns (string memory) {
+        return string.concat("did:groover:", suffix);
+    }
+
+    function test_mint_assigns_token_and_emits() public {
+        string memory did = _did("0000000000000001");
+        bytes32 key = token.identityKey(did, SAMPLE_DNA);
+
+        vm.expectEmit(true, true, true, true, address(token));
+        emit GrooverIdentityToken.IdentityMinted(1, key, alice, did, "0xray-suit", 3);
+
+        uint256 tokenId = token.mint(alice, did, SAMPLE_DNA, "0xray-suit", 3, bytes32(0));
+
+        assertEq(tokenId, 1);
+        assertEq(token.ownerOf(1), alice);
+        assertEq(token.balanceOf(alice), 1);
+        assertTrue(token.minted(did, SAMPLE_DNA));
+        assertEq(token.tokenByIdentity(did, SAMPLE_DNA), 1);
+    }
+
+    function test_mint_same_did_dna_reverts() public {
+        string memory did = _did("0000000000000001");
+        token.mint(alice, did, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+
+        bytes32 key = token.identityKey(did, SAMPLE_DNA);
+        vm.expectRevert(abi.encodeWithSelector(GrooverIdentityToken.AlreadyMinted.selector, key));
+        token.mint(bob, did, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+    }
+
+    function test_mint_same_dna_different_did_ok() public {
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+        uint256 second = token.mint(bob, _did("0000000000000002"), SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+        assertEq(second, 2);
+        assertEq(token.totalSupply(), 2);
+    }
+
+    function test_mint_same_did_different_dna_ok() public {
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+        uint256 second = token.mint(bob, _did("0000000000000001"), OTHER_DNA, "groover-identity", 0, bytes32(0));
+        assertEq(second, 2);
+        assertEq(token.totalSupply(), 2);
+    }
+
+    function test_mint_variant_16_reverts() public {
+        vm.expectRevert(abi.encodeWithSelector(GrooverIdentityToken.InvalidVariant.selector, uint8(16)));
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 16, bytes32(0));
+    }
+
+    function test_mint_variant_15_ok() public {
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 15, bytes32(0));
+        assertEq(token.getTokenData(1).variant, 15);
+        assertEq(token.getTokenData(1).mintedAt, block.timestamp);
+    }
+
+    function test_mint_bad_did_reverts() public {
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, "", SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, "not-a-did-at-all", SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+
+        string memory tooShort = "did:groover:0000";
+        assertTrue(bytes(tooShort).length < 25);
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, tooShort, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+    }
+
+    function test_mint_empty_pack_reverts() public {
+        vm.expectRevert(GrooverIdentityToken.InvalidPack.selector);
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "", 0, bytes32(0));
+    }
+
+    function test_mint_non_minter_reverts() public {
+        string memory did = _did("0000000000000001");
+        assertFalse(token.hasRole(token.MINTER_ROLE(), attacker));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                attacker,
+                token.MINTER_ROLE()
+            )
+        );
+        vm.prank(attacker);
+        token.mint(alice, did, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+    }
+
+    function test_tokenURI_contains_did_pack_image_host() public {
+        string memory did = _did("0000000000000001");
+        token.mint(alice, did, SAMPLE_DNA, "0xray-suit", 5, bytes32(0));
+
+        string memory uri = token.tokenURI(1);
+        assertTrue(_startsWith(uri, "data:application/json;base64,"));
+
+        bytes memory json = _base64Decode(_stripPrefix(uri));
+        assertTrue(_contains(json, "did:groover:"));
+        assertTrue(_contains(json, "0xray-suit"));
+        assertTrue(_contains(
+            json,
+            "https://registry-production-e2c4.up.railway.app/identity/token-image/"
+        ));
+        assertTrue(_contains(json, '"trait_type":"DID","value":"did:groover:0000000000000001"'));
+        assertTrue(_contains(json, '"trait_type":"Dynamo citation","value":"none"'));
+    }
+
+    function test_tokenByIdentity_roundtrip() public {
+        string memory did = _did("0000000000000001");
+        bytes32 key = token.identityKey(did, SAMPLE_DNA);
+        token.mint(alice, did, SAMPLE_DNA, "groover-identity", 2, SAMPLE_DNA);
+
+        assertEq(token.tokenByIdentity(did, SAMPLE_DNA), 1);
+        assertEq(token.tokenByIndex(0), 1);
+
+        GrooverIdentityToken.TokenData memory data = token.getTokenData(1);
+        assertEq(data.did, did);
+        assertEq(data.dna, SAMPLE_DNA);
+        assertEq(data.pack, "groover-identity");
+        assertEq(data.variant, 2);
+        assertEq(data.dynamoCitation, SAMPLE_DNA);
+        assertEq(data.mintedAt, block.timestamp);
+    }
+
+    function test_supportsInterface_erc721() public {
+        assertTrue(token.supportsInterface(type(IERC721).interfaceId));
+        assertTrue(token.supportsInterface(type(IERC721Enumerable).interfaceId));
+        assertTrue(token.supportsInterface(type(IERC721Metadata).interfaceId));
+        assertTrue(token.supportsInterface(type(IAccessControl).interfaceId));
+        assertTrue(token.supportsInterface(type(IERC165).interfaceId));
+        assertFalse(token.supportsInterface(0xffffffff));
+    }
+
+    function test_getTokenData_unknown_token_reverts() public {
+        vm.expectRevert(GrooverIdentityToken.TokenDoesNotExist.selector);
+        token.getTokenData(999);
+    }
+
+    function _startsWith(string memory s, string memory prefix) internal pure returns (bool) {
+        bytes memory b = bytes(s);
+        bytes memory p = bytes(prefix);
+        if (b.length < p.length) return false;
+        for (uint256 i = 0; i < p.length; i++) {
+            if (b[i] != p[i]) return false;
+        }
+        return true;
+    }
+
+    function _stripPrefix(string memory s) internal pure returns (bytes memory) {
+        bytes memory b = bytes(s);
+        bytes memory prefix = bytes("data:application/json;base64,");
+        bytes memory out = new bytes(b.length - prefix.length);
+        for (uint256 i = 0; i < out.length; i++) out[i] = b[i + prefix.length];
+        return out;
+    }
+
+    function _base64Decode(bytes memory data) internal pure returns (bytes memory) {
+        if (data.length == 0) return new bytes(0);
+        uint256 n = data.length;
+        uint256 pad = 0;
+        if (n % 4 == 0) {
+            if (data[n - 1] == "=") pad++;
+            if (n >= 2 && data[n - 2] == "=") pad++;
+        }
+        uint256 outLen = (n / 4) * 3 - pad;
+        bytes memory out = new bytes(outLen);
+        uint256 o = 0;
+        for (uint256 i = 0; i + 3 < n; i += 4) {
+            uint32 triple = (uint32(_b64v(data[i])) << 18)
+                | (uint32(_b64v(data[i + 1])) << 12)
+                | (uint32(_b64v(data[i + 2])) << 6)
+                | uint32(_b64v(data[i + 3]));
+            out[o++] = bytes1(uint8(triple >> 16));
+            if (data[i + 2] != "=") out[o++] = bytes1(uint8((triple >> 8) & 0xff));
+            if (data[i + 3] != "=") out[o++] = bytes1(uint8(triple & 0xff));
+        }
+        return out;
+    }
+
+    function _b64v(bytes1 c) internal pure returns (uint256) {
+        uint8 u = uint8(c);
+        if (u >= uint8(bytes1('A')) && u <= uint8(bytes1('Z'))) return u - uint8(bytes1('A'));
+        if (u >= uint8(bytes1('a')) && u <= uint8(bytes1('z'))) return u - uint8(bytes1('a')) + 26;
+        if (u >= uint8(bytes1('0')) && u <= uint8(bytes1('9'))) return u - uint8(bytes1('0')) + 52;
+        if (c == '+') return 62;
+        if (c == '/') return 63;
+        return 65;
+    }
+
+    function _contains(bytes memory haystack, string memory needle) internal pure returns (bool) {
+        bytes memory n = bytes(needle);
+        if (n.length == 0) return true;
+        if (n.length > haystack.length) return false;
+        for (uint256 i = 0; i + n.length <= haystack.length; i++) {
+            bool isMatch = true;
+            for (uint256 j = 0; j < n.length; j++) {
+                if (haystack[i + j] != n[j]) {
+                    isMatch = false;
+                    break;
+                }
+            }
+            if (isMatch) return true;
+        }
+        return false;
+    }
+}
