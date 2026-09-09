@@ -19,8 +19,8 @@ import "@openzeppelin/contracts/utils/Base64.sol";
 ///                              canonical foundry-inventory.json WITHOUT mintedAt.
 ///      The contract accepts any non-empty pack of <= 64 bytes; the Groover
 ///      MCP is responsible for whitelisting packs at the application layer.
-///      Control bytes (< 0x20) are rejected in did and pack so the on-chain
-///      tokenURI JSON stays valid.
+///      Control bytes (< 0x20) are rejected in pack so the on-chain
+///      tokenURI JSON stays valid; did is exactly 28 bytes of prefix + hex.
 contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     using Strings for uint256;
 
@@ -29,8 +29,8 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     string public constant IMAGE_BASE =
         "https://registry-production-e2c4.up.railway.app/identity/token-image/";
 
-    uint256 private constant _DID_PREFIX_LEN = 12; // "did:groover:" is 12 bytes
-    uint256 private constant _DID_MIN_LEN = 25;
+    uint256 private constant _DID_PREFIX_LEN = 12; // "did:groover:"
+    uint256 private constant _DID_LEN = 28;        // prefix + 16 hex (Groover canonical)
 
     struct TokenData {
         string did;             // did:groover:<16 hex>
@@ -67,8 +67,10 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         _grantRole(MINTER_ROLE, minter);
     }
 
+    /// @dev `abi.encode` (not `encodePacked`) so variable-length `did` cannot
+    ///      collide with a different (did, dna) pair.
     function identityKey(string calldata did, bytes32 dna) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(did, dna));
+        return keccak256(abi.encode(did, dna));
     }
 
     function mint(
@@ -83,9 +85,9 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         if (!_hasValidDid(did)) revert InvalidDid();
         if (bytes(pack).length == 0 || bytes(pack).length > 64) revert InvalidPack();
         if (variant >= MAX_VARIANT) revert InvalidVariant(variant);
-        // tokenURI embeds did/pack raw into on-chain JSON: reject control bytes
+        // tokenURI embeds pack raw into on-chain JSON: reject control bytes
         // (< 0x20) that would produce invalid JSON. _escape only handles " and \.
-        if (_hasControlChars(did)) revert InvalidDid();
+        // (did needs no such check: exact-28 + hex validation admits no control bytes.)
         if (_hasControlChars(pack)) revert InvalidPack();
 
         bytes32 key = identityKey(did, dna);
@@ -105,10 +107,9 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         });
 
         _idToToken[key] = tokenId;
+        emit IdentityMinted(tokenId, key, to, did, pack, variant);
 
         _safeMint(to, tokenId);
-
-        emit IdentityMinted(tokenId, key, to, did, pack, variant);
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
@@ -167,10 +168,17 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
 
     function _hasValidDid(string calldata did) internal pure returns (bool) {
         bytes memory b = bytes(did);
-        if (b.length < _DID_MIN_LEN || b.length > 128) return false;
+        if (b.length != _DID_LEN) return false;
         bytes memory prefix = "did:groover:";
         for (uint256 i = 0; i < _DID_PREFIX_LEN; i++) {
             if (b[i] != prefix[i]) return false;
+        }
+        for (uint256 i = _DID_PREFIX_LEN; i < _DID_LEN; i++) {
+            uint8 c = uint8(b[i]);
+            bool hexDigit = (c >= 0x30 && c <= 0x39)
+                || (c >= 0x61 && c <= 0x66)
+                || (c >= 0x41 && c <= 0x46);
+            if (!hexDigit) return false;
         }
         return true;
     }

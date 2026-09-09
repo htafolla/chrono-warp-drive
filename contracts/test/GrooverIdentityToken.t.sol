@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../GrooverIdentityToken.sol";
 import "@openzeppelin/contracts/access/IAccessControl.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -88,6 +89,14 @@ contract GrooverIdentityTokenTest is Test {
         assertTrue(bytes(tooShort).length < 25);
         vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
         token.mint(alice, tooShort, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+
+        // 26-byte pad used on Sepolia v1 — no longer valid (canonical is 28 hex-suffix bytes)
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, "did:groover:test0000000001", SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+
+        // 28 bytes, prefix ok, non-hex suffix
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, "did:groover:zzzzzzzzzzzzzzzz", SAMPLE_DNA, "groover-identity", 0, bytes32(0));
     }
 
     function test_mint_empty_pack_reverts() public {
@@ -135,6 +144,39 @@ contract GrooverIdentityTokenTest is Test {
         assertFalse(token.minted(_did("0000000000000001"), SAMPLE_DNA));
     }
 
+    function test_mint_pack_too_long_reverts() public {
+        string memory tooLong = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789xxxx"; // 66
+        assertTrue(bytes(tooLong).length > 64);
+        vm.expectRevert(GrooverIdentityToken.InvalidPack.selector);
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, tooLong, 0, bytes32(0));
+    }
+
+    function test_identityKey_uses_abi_encode_not_packed() public {
+        string memory did = _did("0000000000000001");
+        bytes32 encoded = keccak256(abi.encode(did, SAMPLE_DNA));
+        bytes32 packed = keccak256(abi.encodePacked(did, SAMPLE_DNA));
+        assertEq(token.identityKey(did, SAMPLE_DNA), encoded);
+        assertTrue(encoded != packed);
+    }
+
+    function test_tokenURI_escapes_quotes_in_pack() public {
+        string memory did = _did("0000000000000001");
+        token.mint(alice, did, SAMPLE_DNA, "job\"helm", 0, bytes32(0));
+        bytes memory json = _base64Decode(_stripPrefix(token.tokenURI(1)));
+        assertTrue(_contains(json, "job\\\"helm"));
+    }
+
+    function test_mint_reentering_receiver_cannot_double_mint() public {
+        ReenteringReceiver rx = new ReenteringReceiver(token);
+        token.grantRole(token.MINTER_ROLE(), address(rx));
+        string memory did = _did("0000000000000001");
+        uint256 tokenId = token.mint(address(rx), did, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+        assertEq(tokenId, 1);
+        assertEq(token.ownerOf(1), address(rx));
+        assertTrue(rx.sawAlreadyMinted());
+        assertEq(token.totalSupply(), 1);
+    }
+
     function test_mint_non_minter_reverts() public {
         string memory did = _did("0000000000000001");
         assertFalse(token.hasRole(token.MINTER_ROLE(), attacker));
@@ -169,7 +211,6 @@ contract GrooverIdentityTokenTest is Test {
 
     function test_tokenByIdentity_roundtrip() public {
         string memory did = _did("0000000000000001");
-        bytes32 key = token.identityKey(did, SAMPLE_DNA);
         token.mint(alice, did, SAMPLE_DNA, "groover-identity", 2, SAMPLE_DNA);
 
         assertEq(token.tokenByIdentity(did, SAMPLE_DNA), 1);
@@ -264,5 +305,43 @@ contract GrooverIdentityTokenTest is Test {
             if (isMatch) return true;
         }
         return false;
+    }
+}
+
+contract ReenteringReceiver is IERC721Receiver {
+    GrooverIdentityToken public immutable token;
+    bool public sawAlreadyMinted;
+
+    constructor(GrooverIdentityToken t) {
+        token = t;
+    }
+
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external override returns (bytes4) {
+        try token.mint(
+            address(this),
+            "did:groover:0000000000000001",
+            keccak256("sample-agent-dna"),
+            "groover-identity",
+            1,
+            bytes32(0)
+        ) {
+            // unexpected success — leave sawAlreadyMinted false
+        } catch (bytes memory err) {
+            if (err.length >= 4) {
+                bytes4 sel;
+                assembly {
+                    sel := mload(add(err, 32))
+                }
+                if (sel == GrooverIdentityToken.AlreadyMinted.selector) {
+                    sawAlreadyMinted = true;
+                }
+            }
+        }
+        return this.onERC721Received.selector;
     }
 }
