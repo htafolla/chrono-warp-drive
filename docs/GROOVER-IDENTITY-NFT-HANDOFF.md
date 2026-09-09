@@ -3,6 +3,32 @@
 Deployed by the chrono-warp-drive (Dynamo) contract agent from the tech spec at
 `groover/docs/GROOVER-IDENTITY-NFT-TECH-SPEC.md`.
 
+## Base mainnet (8453) — LIVE
+
+```text
+network:          base
+chainId:          8453
+contract:         GrooverIdentityToken
+name / symbol:    Groover Identity / GRVR
+address:          0x0abcd80C929Ff2f6c308958B112b7925801750D7
+admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
+minter:           0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7   # Groover Railway GRVR_PRIVATE_KEY signer
+MAX_VARIANT:      16
+identityKey:      keccak256(abi.encode(did, dna))
+imageBase:        https://registry-production-e2c4.up.railway.app/identity/token-image/
+explorer:         https://basescan.org/address/0x0abcd80C929Ff2f6c308958B112b7925801750D7
+abi:              contracts/abi/GrooverIdentityToken.json
+tx deploy:        0x24d7874b3ae2f499484fda8740b49ffbe8d76ed35678f63985a8849b8bfd600a
+forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
+```
+
+Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅ · No test mint
+on mainnet — Groover MCP mints the first real DID. Railway vars:
+`GRVR_CONTRACT=0x0abcd80C929Ff2f6c308958B112b7925801750D7`, `GRVR_CHAIN_ID=8453`,
+`GRVR_RPC_URL=https://mainnet.base.org`.
+
+## Base Sepolia (84532) — history
+
 ```text
 network:          base-sepolia
 chainId:          84532
