@@ -10,7 +10,8 @@ contract:         GrooverIdentityToken
 name / symbol:    Groover Identity / GRVR
 address:          0xFc644D08cd98f11BB952a4E9b04f5Ad0b312D683
 admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
-minter:           0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43   # GROOVER_MINTER (Sepolia = deployer)
+minter:           0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43   # deployer (Sepolia admin+minter)
+railway minter:   0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7   # granted MINTER_ROLE, tx 0x6a45bf…0e2057
 MAX_VARIANT:      16
 identityKey:      keccak256(abi.encode(did, dna))
 imageBase:        https://registry-production-e2c4.up.railway.app/identity/token-image/
