@@ -19,6 +19,8 @@ import "@openzeppelin/contracts/utils/Base64.sol";
 ///                              canonical foundry-inventory.json WITHOUT mintedAt.
 ///      The contract accepts any non-empty pack of <= 64 bytes; the Groover
 ///      MCP is responsible for whitelisting packs at the application layer.
+///      Control bytes (< 0x20) are rejected in did and pack so the on-chain
+///      tokenURI JSON stays valid.
 contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     using Strings for uint256;
 
@@ -81,6 +83,10 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         if (!_hasValidDid(did)) revert InvalidDid();
         if (bytes(pack).length == 0 || bytes(pack).length > 64) revert InvalidPack();
         if (variant >= MAX_VARIANT) revert InvalidVariant(variant);
+        // tokenURI embeds did/pack raw into on-chain JSON: reject control bytes
+        // (< 0x20) that would produce invalid JSON. _escape only handles " and \.
+        if (_hasControlChars(did)) revert InvalidDid();
+        if (_hasControlChars(pack)) revert InvalidPack();
 
         bytes32 key = identityKey(did, dna);
         if (_idToToken[key] != 0) revert AlreadyMinted(key);
@@ -151,6 +157,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     }
 
     function tokenByIdentity(string calldata did, bytes32 dna) external view returns (uint256) {
+        // Returns 0 when no token exists for the key; use minted() for existence checks.
         return _idToToken[identityKey(did, dna)];
     }
 
@@ -160,13 +167,20 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
 
     function _hasValidDid(string calldata did) internal pure returns (bool) {
         bytes memory b = bytes(did);
-        if (b.length < _DID_MIN_LEN) return false;
+        if (b.length < _DID_MIN_LEN || b.length > 128) return false;
         bytes memory prefix = "did:groover:";
         for (uint256 i = 0; i < _DID_PREFIX_LEN; i++) {
-            if (i >= b.length) return false;
             if (b[i] != prefix[i]) return false;
         }
         return true;
+    }
+
+    function _hasControlChars(string memory s) internal pure returns (bool) {
+        bytes memory b = bytes(s);
+        for (uint256 i = 0; i < b.length; i++) {
+            if (uint8(b[i]) < 0x20) return true;
+        }
+        return false;
     }
 
     function _escape(string memory s) internal pure returns (string memory) {

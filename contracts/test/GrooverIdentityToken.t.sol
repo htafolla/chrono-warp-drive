@@ -95,6 +95,46 @@ contract GrooverIdentityTokenTest is Test {
         token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "", 0, bytes32(0));
     }
 
+    function test_mint_long_wrong_prefix_reverts() public {
+        string memory badPrefix = "did:other:00000000000000001";
+        assertTrue(bytes(badPrefix).length >= 25);
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, badPrefix, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+    }
+
+    function test_mint_control_char_did_reverts() public {
+        string memory badDid = "did:groover:0000000000000001\n";
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, badDid, SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+    }
+
+    function test_mint_control_char_pack_reverts() public {
+        vm.expectRevert(GrooverIdentityToken.InvalidPack.selector);
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover\tidentity", 0, bytes32(0));
+    }
+
+    function test_mint_long_pack_reverts() public {
+        bytes memory longPack = new bytes(65);
+        for (uint256 i = 0; i < 65; i++) longPack[i] = "a";
+        vm.expectRevert(GrooverIdentityToken.InvalidPack.selector);
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, string(longPack), 0, bytes32(0));
+    }
+
+    function test_mint_zero_address_reverts() public {
+        vm.expectRevert(GrooverIdentityToken.ZeroAddress.selector);
+        token.mint(address(0), _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0));
+    }
+
+    function test_tokenURI_unknown_reverts() public {
+        vm.expectRevert(GrooverIdentityToken.TokenDoesNotExist.selector);
+        token.tokenURI(999);
+    }
+
+    function test_tokenByIdentity_unknown_returns_zero() public {
+        assertEq(token.tokenByIdentity(_did("0000000000000001"), SAMPLE_DNA), 0);
+        assertFalse(token.minted(_did("0000000000000001"), SAMPLE_DNA));
+    }
+
     function test_mint_non_minter_reverts() public {
         string memory did = _did("0000000000000001");
         assertFalse(token.hasRole(token.MINTER_ROLE(), attacker));
