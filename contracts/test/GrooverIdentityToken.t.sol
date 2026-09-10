@@ -207,34 +207,39 @@ contract GrooverIdentityTokenTest is Test {
             "https://registry-production-e2c4.up.railway.app/identity/token-image/"
         ));
         assertTrue(_contains(json, '"trait_type":"DID","value":"did:groover:0000000000000001"'));
-        assertTrue(_contains(json, '"trait_type":"Level","value":"Dissonant"'));
+        assertTrue(_contains(json, '"trait_type":"Level","value":"Unknown"'));
         assertTrue(_contains(json, '"trait_type":"Dynamo citation","value":"none"'));
     }
 
-    function test_mint_level_4_reverts() public {
-        vm.expectRevert(abi.encodeWithSelector(GrooverIdentityToken.InvalidLevel.selector, uint8(4)));
-        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 4);
+    function test_mint_level_5_reverts() public {
+        vm.expectRevert(abi.encodeWithSelector(GrooverIdentityToken.InvalidLevel.selector, uint8(5)));
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 5);
     }
 
     function test_tokenURI_level_names() public {
-        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 3);
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 4);
         bytes memory celestial = _base64Decode(_stripPrefix(token.tokenURI(1)));
         assertTrue(_contains(celestial, '"trait_type":"Level","value":"Celestial"'));
 
-        token.mint(bob, _did("0000000000000002"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 2);
+        token.mint(bob, _did("0000000000000002"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 3);
         bytes memory resonant = _base64Decode(_stripPrefix(token.tokenURI(2)));
         assertTrue(_contains(resonant, '"trait_type":"Level","value":"Resonant"'));
 
-        token.mint(alice, _did("0000000000000003"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 1);
+        token.mint(alice, _did("0000000000000003"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 2);
         bytes memory unstable = _base64Decode(_stripPrefix(token.tokenURI(3)));
         assertTrue(_contains(unstable, '"trait_type":"Level","value":"Unstable"'));
+
+        token.mint(alice, _did("0000000000000004"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 1);
+        bytes memory dissonant = _base64Decode(_stripPrefix(token.tokenURI(4)));
+        assertTrue(_contains(dissonant, '"trait_type":"Level","value":"Dissonant"'));
     }
 
     function test_levelName() public view {
-        assertEq(token.levelName(0), "Dissonant");
-        assertEq(token.levelName(1), "Unstable");
-        assertEq(token.levelName(2), "Resonant");
-        assertEq(token.levelName(3), "Celestial");
+        assertEq(token.levelName(0), "Unknown");
+        assertEq(token.levelName(1), "Dissonant");
+        assertEq(token.levelName(2), "Unstable");
+        assertEq(token.levelName(3), "Resonant");
+        assertEq(token.levelName(4), "Celestial");
     }
 
     function test_tokenByIdentity_roundtrip() public {

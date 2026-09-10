@@ -26,9 +26,9 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     uint8 public constant MAX_VARIANT = 16;
-    /// @dev 0 Dissonant, 1 Unstable, 2 Resonant, 3 Celestial. From Dynamo 7D:
-    ///      ≥0.95 Celestial, ≥0.78 Resonant, ≥0.50 Unstable, else Dissonant.
-    uint8 public constant MAX_LEVEL = 4;
+    /// @dev 0 Unknown (no Dynamo), 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celestial.
+    ///      From Dynamo 7D: ≥0.95 Celestial, ≥0.78 Resonant, ≥0.50 Unstable, else Dissonant.
+    uint8 public constant MAX_LEVEL = 5;
     string public constant IMAGE_BASE =
         "https://registry-production-e2c4.up.railway.app/identity/token-image/";
 
@@ -199,10 +199,11 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     }
 
     function _levelName(uint8 level) internal pure returns (string memory) {
-        if (level == 3) return "Celestial";
-        if (level == 2) return "Resonant";
-        if (level == 1) return "Unstable";
-        return "Dissonant";
+        if (level == 4) return "Celestial";
+        if (level == 3) return "Resonant";
+        if (level == 2) return "Unstable";
+        if (level == 1) return "Dissonant";
+        return "Unknown";
     }
 
     function _hasControlChars(string memory s) internal pure returns (bool) {
