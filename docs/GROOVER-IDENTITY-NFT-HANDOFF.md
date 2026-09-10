@@ -3,18 +3,47 @@
 Deployed by the chrono-warp-drive (Dynamo) contract agent from the tech spec at
 `groover/docs/GROOVER-IDENTITY-NFT-TECH-SPEC.md`.
 
-## Base mainnet (8453) — v4 pending (image traits)
-
-`tokenURI` attributes are what the picture shows: **Visor, Colorway, Chassis, Mark, Level**.
-DID / pack / variant / DNA / Dynamo citation / minted stay in **description** metadata.
-
-Mint ABI is unchanged (8-arg `imageSvg`). New deploy required — `tokenURI()` is bytecode, not a setter.
-Do **not** mint GRVR token 2 on live v3 `0x6F955cA0…` (OpenSea traits would still be DID/DNA).
+## Base mainnet (8453) — LIVE v4 (picture-matched traits)
 
 ```text
-forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
-# then Railway GRVR_CONTRACT=<new address>
+network:          base
+chainId:          8453
+contract:         GrooverIdentityToken (+Level + imageSvg + trait mirror, PR #6)
+name / symbol:    Groover Identity / GRVR
+address:          0xD892D6836ab138a5aE4365dcb05Adb296607d6f9
+admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
+minter:           0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7   # Groover Railway GRVR_PRIVATE_KEY signer
+MAX_VARIANT:      16
+MAX_LEVEL:        5   # 0 Unknown, 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celestial
+traits:           Visor / Colorway / Chassis / Mark / Level (match the picture;
+                  DID, pack, variant, DNA, citation, minted live in description)
+identityKey:      keccak256(abi.encode(did, dna))
+image:            data:image/svg+xml;base64,… (stored per token, 8th mint arg)
+external_url:     https://registry-production-e2c4.up.railway.app/identity/token-image/{id}
+explorer:         https://basescan.org/address/0xD892D6836ab138a5aE4365dcb05Adb296607d6f9
+abi:              contracts/abi/GrooverIdentityToken.json
+tx deploy:        0x146291163b41e0bcedf4772368c5ede9463e29e92425ef686cfbb5b68e49b995
+forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
 ```
+
+Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅ · `totalSupply == 0`
+(no test mint on mainnet). **Railway: set `GRVR_CONTRACT` to the address above.**
+`mint_suit` sends 8-arg mint `(…, level, imageSvg)` — unchanged from v3. Previous v3
+mainnet `0x6F955cA0…` superseded — do not mint there.
+
+## Base Sepolia (84532) — v4 history (picture-matched traits)
+
+```text
+address:          0x341861C956b89Fa12D0E7Ce6C20898a5716302bB
+explorer:         https://sepolia.basescan.org/address/0x341861C956b89Fa12D0E7Ce6C20898a5716302bB
+tx deploy:        0x215d54e4757460ef395836266a3c38b8ecf77cd9c484207cf4978b890f5c1f33
+mint test tx:     0xbcd701c01a04e0977990145e27555d98b3c0e715fdeece5747b011c7ea74c04b  (token #1 ONLY, level 2 = Unstable)
+```
+
+Acceptance: traits exactly `[Visor: constitution-visor, Colorway: overlay-steel,
+Chassis: ribbed, Mark: CONSTITUTION, Level: Unstable]` ✅; description carries DNA /
+Dynamo / Minted ✅; on-chain image + Railway external_url ✅; deployer temp-grant
+revoked (minter = Railway only) ✅; supply stays 1 (no token 2) ✅.
 
 ## Base mainnet (8453) — LIVE v3 (on-chain SVG image)
 
