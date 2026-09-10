@@ -3,7 +3,46 @@
 Deployed by the chrono-warp-drive (Dynamo) contract agent from the tech spec at
 `groover/docs/GROOVER-IDENTITY-NFT-TECH-SPEC.md`.
 
-## Base mainnet (8453) — LIVE v2 (Level trait)
+## Base mainnet (8453) — LIVE v3 (on-chain SVG image)
+
+```text
+network:          base
+chainId:          8453
+contract:         GrooverIdentityToken (+Level + imageSvg, PR #5)
+name / symbol:    Groover Identity / GRVR
+address:          0x6F955cA006E2FE951750cac25372e098D6E89743
+admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
+minter:           0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7   # Groover Railway GRVR_PRIVATE_KEY signer
+MAX_VARIANT:      16
+MAX_LEVEL:        5   # 0 Unknown, 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celestial
+identityKey:      keccak256(abi.encode(did, dna))
+image:            data:image/svg+xml;base64,… (stored per token, 8th mint arg)
+external_url:     https://registry-production-e2c4.up.railway.app/identity/token-image/{id}
+explorer:         https://basescan.org/address/0x6F955cA006E2FE951750cac25372e098D6E89743
+abi:              contracts/abi/GrooverIdentityToken.json
+tx deploy:        0x9a5e1eb6bdaa1cd43a0181e27e59c5f0e1a820952508e6f77d1a5a8f1d6d47cf
+forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
+```
+
+Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅ · `totalSupply == 0`
+(no test mint on mainnet). **Railway: set `GRVR_CONTRACT` to the address above.**
+`mint_suit` must send 8-arg mint `(…, level, imageSvg)` — old 6/7-arg calldata
+reverts on v3. Previous v2 mainnet `0x7b184bf7…` superseded — do not mint there.
+
+## Base Sepolia (84532) — v3 history (on-chain SVG image)
+
+```text
+address:          0x0CEb73b07E1fdF3305cE4d3f6AC3BC28F8Ff8670
+explorer:         https://sepolia.basescan.org/address/0x0CEb73b07E1fdF3305cE4d3f6AC3BC28F8Ff8670
+tx deploy:        0x12a9613d4a6fb4a2b7b32eeb76c44626f5a1eea106dc521ee016537b9cab17fd
+mint test tx:     0xed578152ea65bda755fac8d5da4da31a92dec6fca15bfe42c3cb1e5858e03ffc  (level 3 = Resonant, live Railway SVG inlined)
+```
+
+Acceptance: `tokenURI(1)` inlines `data:image/svg+xml;base64,…` (2.4KB SVG) ✅;
+`external_url` = Railway token-image/1 ✅; Level Resonant ✅; deployer temp-grant
+revoked (minter = Railway only) ✅; no Unknown mints; existing tokens untouched.
+
+## Base mainnet (8453) — v2 history (superseded)
 
 ```text
 network:          base
