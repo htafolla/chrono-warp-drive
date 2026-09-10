@@ -207,9 +207,28 @@ contract GrooverIdentityTokenTest is Test {
             json,
             "https://registry-production-e2c4.up.railway.app/identity/token-image/"
         ));
-        assertTrue(_contains(json, '"trait_type":"DID","value":"did:groover:0000000000000001"'));
+        assertTrue(_contains(json, '"trait_type":"Visor","value":"constitution-visor"'));
+        assertTrue(_contains(json, '"trait_type":"Colorway","value":"inspect-amber"'));
+        assertTrue(_contains(json, '"trait_type":"Chassis","value":"ribbed"'));
+        assertTrue(_contains(json, '"trait_type":"Mark","value":"CONSTITUTION"'));
         assertTrue(_contains(json, '"trait_type":"Level","value":"Unknown"'));
-        assertTrue(_contains(json, '"trait_type":"Dynamo citation","value":"none"'));
+        assertTrue(_contains(json, "DNA 0x"));
+        assertTrue(_contains(json, "Dynamo none"));
+        assertFalse(_contains(json, '"trait_type":"DID"'));
+        assertFalse(_contains(json, '"trait_type":"DNA"'));
+        assertFalse(_contains(json, '"trait_type":"Dynamo citation"'));
+        assertFalse(_contains(json, '"trait_type":"Pack"'));
+        assertFalse(_contains(json, '"trait_type":"Variant"'));
+    }
+
+    function test_tokenURI_image_traits_identity_pack() public {
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 9, bytes32(0), 3, SAMPLE_SVG);
+        bytes memory json = _base64Decode(_stripPrefix(token.tokenURI(1)));
+        assertTrue(_contains(json, '"trait_type":"Visor","value":"job-helm"'));
+        assertTrue(_contains(json, '"trait_type":"Colorway","value":"inspect-amber"'));
+        assertTrue(_contains(json, '"trait_type":"Chassis","value":"hex-gem"'));
+        assertTrue(_contains(json, '"trait_type":"Mark","value":"JOB"'));
+        assertTrue(_contains(json, '"trait_type":"Level","value":"Resonant"'));
     }
 
     function test_mint_level_5_reverts() public {
