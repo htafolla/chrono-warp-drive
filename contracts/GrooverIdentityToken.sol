@@ -42,6 +42,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         uint8 variant;          // 0 .. MAX_VARIANT-1
         bytes32 dynamoCitation; // optional; bytes32(0) if none
         uint8 level;            // 0 .. MAX_LEVEL-1 (OpenSea "Level")
+        string imageSvg;        // compositor SVG; tokenURI inlines as data URI
         uint256 mintedAt;
     }
 
@@ -63,6 +64,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     error InvalidPack();
     error InvalidVariant(uint8 variant);
     error InvalidLevel(uint8 level);
+    error InvalidImage();
     error ZeroAddress();
     error TokenDoesNotExist();
 
@@ -85,17 +87,20 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         string calldata pack,
         uint8 variant,
         bytes32 dynamoCitation,
-        uint8 level
+        uint8 level,
+        string calldata imageSvg
     ) external onlyRole(MINTER_ROLE) returns (uint256 tokenId) {
         if (to == address(0)) revert ZeroAddress();
         if (!_hasValidDid(did)) revert InvalidDid();
         if (bytes(pack).length == 0 || bytes(pack).length > 64) revert InvalidPack();
         if (variant >= MAX_VARIANT) revert InvalidVariant(variant);
         if (level >= MAX_LEVEL) revert InvalidLevel(level);
-        // tokenURI embeds pack raw into on-chain JSON: reject control bytes
+        if (bytes(imageSvg).length < 32 || bytes(imageSvg).length > 16384) revert InvalidImage();
+        // tokenURI embeds pack/svg into on-chain JSON: reject control bytes
         // (< 0x20) that would produce invalid JSON. _escape only handles " and \.
         // (did needs no such check: exact-28 + hex validation admits no control bytes.)
         if (_hasControlChars(pack)) revert InvalidPack();
+        if (_hasControlChars(imageSvg)) revert InvalidImage();
 
         bytes32 key = identityKey(did, dna);
         if (_idToToken[key] != 0) revert AlreadyMinted(key);
@@ -111,6 +116,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
             variant: variant,
             dynamoCitation: dynamoCitation,
             level: level,
+            imageSvg: imageSvg,
             mintedAt: block.timestamp
         });
 
@@ -130,12 +136,18 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
             ? "none"
             : Strings.toHexString(uint256(d.dynamoCitation), 32);
 
+        string memory image = string.concat(
+            "data:image/svg+xml;base64,",
+            Base64.encode(bytes(d.imageSvg))
+        );
+
         string memory head = string.concat(
             '{"name":"Groover Identity #', tokenId.toString(),
             '","description":"1/1 identity mark for ', didEsc,
             '. Pack ', packEsc, ', variant ', uint256(d.variant).toString(),
-            '","image":"', IMAGE_BASE, tokenId.toString(),
-            '","external_url":"https://registry-production-e2c4.up.railway.app","attributes":['
+            '","image":"', image,
+            '","external_url":"', IMAGE_BASE, tokenId.toString(),
+            '","attributes":['
         );
 
         string memory traits1 = string.concat(
