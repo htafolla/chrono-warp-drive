@@ -119,8 +119,9 @@ not `encodePacked`, per review decision (Groover off-chain code must use the sam
 
 ## Groover-side integration (not in this repo)
 
-- Call `mint(address to, string did, bytes32 dna, string pack, uint8 variant, bytes32 dynamoCitation)` as the `GROOVER_MINTER` key.
+- Call `mint(address to, string did, bytes32 dna, string pack, uint8 variant, bytes32 dynamoCitation, uint8 level)` as the `GROOVER_MINTER` key.
 - `to` = the holder address; `dynamoCitation = bytes32(0)` if none.
+- `level`: 0 Dissonant, 1 Unstable, 2 Resonant, 3 Celestial (OpenSea trait `Level`). From Dynamo 7D: ≥0.95 / ≥0.78 / ≥0.50 / else. This is a **new deploy**; Sepolia `0xFc644D…` and mainnet `0x0abcd80C…` do not have `level`.
 - Pack whitelist stays application-side (contract accepts any non-empty pack ≤ 64 bytes, no control bytes).
 - Image compositor will serve `{tokenId}` under the Groover Railway image route.
 - ABI is `contracts/abi/GrooverIdentityToken.json` in this repo (`out/` is gitignored). Copy into groover at `packages/identity/abi/GrooverIdentityToken.json`.

@@ -26,6 +26,9 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     uint8 public constant MAX_VARIANT = 16;
+    /// @dev 0 Dissonant, 1 Unstable, 2 Resonant, 3 Celestial. From Dynamo 7D:
+    ///      ≥0.95 Celestial, ≥0.78 Resonant, ≥0.50 Unstable, else Dissonant.
+    uint8 public constant MAX_LEVEL = 4;
     string public constant IMAGE_BASE =
         "https://registry-production-e2c4.up.railway.app/identity/token-image/";
 
@@ -38,6 +41,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         string pack;            // "0xray-suit" | "groover-identity" | future
         uint8 variant;          // 0 .. MAX_VARIANT-1
         bytes32 dynamoCitation; // optional; bytes32(0) if none
+        uint8 level;            // 0 .. MAX_LEVEL-1 (OpenSea "Level")
         uint256 mintedAt;
     }
 
@@ -58,6 +62,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     error InvalidDid();
     error InvalidPack();
     error InvalidVariant(uint8 variant);
+    error InvalidLevel(uint8 level);
     error ZeroAddress();
     error TokenDoesNotExist();
 
@@ -79,12 +84,14 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         bytes32 dna,
         string calldata pack,
         uint8 variant,
-        bytes32 dynamoCitation
+        bytes32 dynamoCitation,
+        uint8 level
     ) external onlyRole(MINTER_ROLE) returns (uint256 tokenId) {
         if (to == address(0)) revert ZeroAddress();
         if (!_hasValidDid(did)) revert InvalidDid();
         if (bytes(pack).length == 0 || bytes(pack).length > 64) revert InvalidPack();
         if (variant >= MAX_VARIANT) revert InvalidVariant(variant);
+        if (level >= MAX_LEVEL) revert InvalidLevel(level);
         // tokenURI embeds pack raw into on-chain JSON: reject control bytes
         // (< 0x20) that would produce invalid JSON. _escape only handles " and \.
         // (did needs no such check: exact-28 + hex validation admits no control bytes.)
@@ -103,6 +110,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
             pack: pack,
             variant: variant,
             dynamoCitation: dynamoCitation,
+            level: level,
             mintedAt: block.timestamp
         });
 
@@ -133,7 +141,8 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         string memory traits1 = string.concat(
             '{"trait_type":"DID","value":"', didEsc, '"},',
             '{"trait_type":"Pack","value":"', packEsc, '"},',
-            '{"trait_type":"Variant","value":"', uint256(d.variant).toString(), '"},'
+            '{"trait_type":"Variant","value":"', uint256(d.variant).toString(), '"},',
+            '{"trait_type":"Level","value":"', _levelName(d.level), '"},'
         );
 
         string memory traits2 = string.concat(
@@ -166,6 +175,12 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         return _idToToken[identityKey(did, dna)] != 0;
     }
 
+    /// @notice OpenSea Level label for a stored level id.
+    function levelName(uint8 level) public pure returns (string memory) {
+        if (level >= MAX_LEVEL) revert InvalidLevel(level);
+        return _levelName(level);
+    }
+
     function _hasValidDid(string calldata did) internal pure returns (bool) {
         bytes memory b = bytes(did);
         if (b.length != _DID_LEN) return false;
@@ -181,6 +196,13 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
             if (!hexDigit) return false;
         }
         return true;
+    }
+
+    function _levelName(uint8 level) internal pure returns (string memory) {
+        if (level == 3) return "Celestial";
+        if (level == 2) return "Resonant";
+        if (level == 1) return "Unstable";
+        return "Dissonant";
     }
 
     function _hasControlChars(string memory s) internal pure returns (bool) {
