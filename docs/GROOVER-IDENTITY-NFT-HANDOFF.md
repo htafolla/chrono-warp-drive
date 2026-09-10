@@ -3,6 +3,19 @@
 Deployed by the chrono-warp-drive (Dynamo) contract agent from the tech spec at
 `groover/docs/GROOVER-IDENTITY-NFT-TECH-SPEC.md`.
 
+## Base mainnet (8453) — v4 pending (image traits)
+
+`tokenURI` attributes are what the picture shows: **Visor, Colorway, Chassis, Mark, Level**.
+DID / pack / variant / DNA / Dynamo citation / minted stay in **description** metadata.
+
+Mint ABI is unchanged (8-arg `imageSvg`). New deploy required — `tokenURI()` is bytecode, not a setter.
+Do **not** mint GRVR token 2 on live v3 `0x6F955cA0…` (OpenSea traits would still be DID/DNA).
+
+```text
+forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
+# then Railway GRVR_CONTRACT=<new address>
+```
+
 ## Base mainnet (8453) — LIVE v3 (on-chain SVG image)
 
 ```text

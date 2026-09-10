@@ -141,31 +141,29 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
             Base64.encode(bytes(d.imageSvg))
         );
 
+        // OpenSea traits = what the picture shows. Recipe (DID, pack, variant,
+        // DNA, citation, minted) stays in description metadata.
         string memory head = string.concat(
             '{"name":"Groover Identity #', tokenId.toString(),
             '","description":"1/1 identity mark for ', didEsc,
             '. Pack ', packEsc, ', variant ', uint256(d.variant).toString(),
+            '. DNA ', Strings.toHexString(uint256(d.dna), 32),
+            '. Dynamo ', citation,
+            '. Minted ', (d.mintedAt * 1000).toString(),
             '","image":"', image,
             '","external_url":"', IMAGE_BASE, tokenId.toString(),
             '","attributes":['
         );
 
-        string memory traits1 = string.concat(
-            '{"trait_type":"DID","value":"', didEsc, '"},',
-            '{"trait_type":"Pack","value":"', packEsc, '"},',
-            '{"trait_type":"Variant","value":"', uint256(d.variant).toString(), '"},',
-            '{"trait_type":"Level","value":"', _levelName(d.level), '"},'
+        string memory traits = string.concat(
+            '{"trait_type":"Visor","value":"', _visorName(d.variant), '"},',
+            '{"trait_type":"Colorway","value":"', _colorwayName(d.variant), '"},',
+            '{"trait_type":"Chassis","value":"', _chassisName(d.pack), '"},',
+            '{"trait_type":"Mark","value":"', _markName(d.variant), '"},',
+            '{"trait_type":"Level","value":"', _levelName(d.level), '"}]}'
         );
 
-        string memory traits2 = string.concat(
-            '{"trait_type":"DNA","value":"', Strings.toHexString(uint256(d.dna), 32), '"},',
-            '{"trait_type":"Dynamo citation","value":"', citation, '"},',
-            '{"display_type":"date","trait_type":"Minted","value":',
-            (d.mintedAt * 1000).toString(),
-            '}]}'
-        );
-
-        string memory json = string.concat(head, traits1, traits2);
+        string memory json = string.concat(head, traits);
 
         return string.concat(
             "data:application/json;base64,",
@@ -216,6 +214,39 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         if (level == 2) return "Unstable";
         if (level == 1) return "Dissonant";
         return "Unknown";
+    }
+
+    /// @dev Same map as groover compositor `HATS[variant >> 2]`.
+    function _visorName(uint8 variant) internal pure returns (string memory) {
+        uint8 hat = variant >> 2;
+        if (hat == 0) return "mill-cap";
+        if (hat == 1) return "constitution-visor";
+        if (hat == 2) return "job-helm";
+        return "inspect-visor";
+    }
+
+    /// @dev Same map as groover compositor `COLORWAYS[variant & 3]`.
+    function _colorwayName(uint8 variant) internal pure returns (string memory) {
+        uint8 colorway = variant & 3;
+        if (colorway == 0) return "mill-cyan";
+        if (colorway == 1) return "inspect-amber";
+        if (colorway == 2) return "groover-violet";
+        return "overlay-steel";
+    }
+
+    /// @dev Collar transponder mark. Same as compositor `BANNERS`.
+    function _markName(uint8 variant) internal pure returns (string memory) {
+        uint8 hat = variant >> 2;
+        if (hat == 0) return "MILL";
+        if (hat == 1) return "CONSTITUTION";
+        if (hat == 2) return "JOB";
+        return "INSPECT";
+    }
+
+    /// @dev Same as compositor `armorFromPack`.
+    function _chassisName(string memory pack) internal pure returns (string memory) {
+        if (keccak256(bytes(pack)) == keccak256("0xray-suit")) return "ribbed";
+        return "hex-gem";
     }
 
     function _hasControlChars(string memory s) internal pure returns (bool) {
