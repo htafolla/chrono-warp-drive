@@ -3,7 +3,37 @@
 Deployed by the chrono-warp-drive (Dynamo) contract agent from the tech spec at
 `groover/docs/GROOVER-IDENTITY-NFT-TECH-SPEC.md`.
 
-## Base mainnet (8453) — LIVE
+## Base mainnet (8453) — LIVE v2 (Level trait)
+
+```text
+network:          base
+chainId:          8453
+contract:         GrooverIdentityToken (+OpenSea Level, PR #4)
+name / symbol:    Groover Identity / GRVR
+address:          0x7b184bf7B7054A7328a1D7851465c6001Bb2AFb3
+admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
+minter:           0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7   # Groover Railway GRVR_PRIVATE_KEY signer
+MAX_VARIANT:      16
+MAX_LEVEL:        5   # 0 Unknown, 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celestial (Dynamo 7D buckets)
+identityKey:      keccak256(abi.encode(did, dna))
+imageBase:        https://registry-production-e2c4.up.railway.app/identity/token-image/
+explorer:         https://basescan.org/address/0x7b184bf7B7054A7328a1D7851465c6001Bb2AFb3
+abi:              contracts/abi/GrooverIdentityToken.json
+tx deploy:        0x838645d2790a8f02385b07c296d17e72f00874037b8387f9ef5eeebf2bc66965
+forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
+```
+
+Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅ · `totalSupply == 0`
+(no test mint on mainnet). Railway vars point here now:
+`GRVR_CONTRACT=0x7b184bf7B7054A7328a1D7851465c6001Bb2AFb3`, `GRVR_CHAIN_ID=8453`,
+`GRVR_RPC_URL=https://mainnet.base.org`.
+
+⚠️ **Mint signature changed (v1 → v2):** `mint()` now takes 7 args —
+`(to, did, dna, pack, variant, dynamoCitation, level)`. Groover `mint_suit` MUST pass
+`level` (0–4) or all mints revert. Previous v1 mainnet contract
+`0x0abcd80C…` (6-arg mint) is superseded — do not mint there.
+
+## Base mainnet (8453) — v1 history (superseded)
 
 ```text
 network:          base
@@ -27,7 +57,20 @@ on mainnet — Groover MCP mints the first real DID. Railway vars:
 `GRVR_CONTRACT=0x0abcd80C929Ff2f6c308958B112b7925801750D7`, `GRVR_CHAIN_ID=8453`,
 `GRVR_RPC_URL=https://mainnet.base.org`.
 
-## Base Sepolia (84532) — history
+## Base Sepolia (84532) — v2 history (Level trait)
+
+```text
+address:          0x6C61feb8389c99EBf00576E7A110140866C5D9fF
+explorer:         https://sepolia.basescan.org/address/0x6C61feb8389c99EBf00576E7A110140866C5D9fF
+tx deploy:        0x1984892255034490e57778dc9fbde10f22ba01e069caf4679bfd9804fff40fd5
+mint test tx:     0x8a9ef90ada6eedd969256fc8bc98ef7800dcd370cf7f539a386f38e3041b1cfc  (level 3 = Resonant)
+```
+
+Acceptance: `tokenURI(1)` carries `{"trait_type":"Level","value":"Resonant"}` ✅;
+level 5 reverts `InvalidLevel` ✅; deployer temp-grant used for the test mint then
+revoked (final: minter = Railway only) ✅.
+
+## Base Sepolia (84532) — v1 history
 
 ```text
 network:          base-sepolia
