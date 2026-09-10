@@ -18,7 +18,7 @@ MAX_LEVEL:        5   # 0 Unknown, 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celest
 identityKey:      keccak256(abi.encode(did, dna))
 imageBase:        https://registry-production-e2c4.up.railway.app/identity/token-image/
 explorer:         https://basescan.org/address/0x7b184bf7B7054A7328a1D7851465c6001Bb2AFb3
-abi:              contracts/abi/GrooverIdentityToken.json
+abi:              contracts/abi/GrooverIdentityToken.json (this tree is v3 8-arg imageSvg; live chain is still v2 until redeploy)
 tx deploy:        0x838645d2790a8f02385b07c296d17e72f00874037b8387f9ef5eeebf2bc66965
 forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
 ```
@@ -28,10 +28,15 @@ Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅ · `to
 `GRVR_CONTRACT=0x7b184bf7B7054A7328a1D7851465c6001Bb2AFb3`, `GRVR_CHAIN_ID=8453`,
 `GRVR_RPC_URL=https://mainnet.base.org`.
 
-⚠️ **Mint signature changed (v1 → v2):** `mint()` now takes 7 args —
-`(to, did, dna, pack, variant, dynamoCitation, level)`. Groover `mint_suit` MUST pass
-`level` (0–4) or all mints revert. Previous v1 mainnet contract
-`0x0abcd80C…` (6-arg mint) is superseded — do not mint there.
+⚠️ **Mint signature (v2 live vs v3 source):** live v2 `0x7b184bf7…` is still 7-arg
+`(to, did, dna, pack, variant, dynamoCitation, level)` until the other agent deploys v3
+and Railway `GRVR_CONTRACT` flips. Source `mint()` now takes 8 args —
+`(to, did, dna, pack, variant, dynamoCitation, level, imageSvg)`. `imageSvg` is 32–16384
+bytes, no control chars `< 0x20`. `tokenURI.image` is `data:image/svg+xml;base64,...`;
+`IMAGE_BASE` stays the Railway URL and is now `external_url` — do not change that string.
+Deployer needs `DEPLOYER_PRIVATE_KEY` + `GROOVER_MINTER`. This Groover CLI cannot deploy
+(no `DEPLOYER_PRIVATE_KEY`). Previous v1 mainnet contract `0x0abcd80C…` (6-arg mint) is
+superseded — do not mint there.
 
 ## Base mainnet (8453) — v1 history (superseded)
 
@@ -96,7 +101,7 @@ forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base
 |------|---------|
 | `contracts/GrooverIdentityToken.sol` | The contract (ERC721Enumerable + AccessControl) |
 | `contracts/script/DeployGrooverIdentity.s.sol` | Deploy script (admin = deployer EOA, minter = `GROOVER_MINTER`) |
-| `contracts/test/GrooverIdentityToken.t.sol` | 24 tests (reentrancy, escaping, DID/key rules) |
+| `contracts/test/GrooverIdentityToken.t.sol` | 32 tests (reentrancy, escaping, DID/key rules, on-chain SVG) |
 | `contracts/abi/GrooverIdentityToken.json` | Committed ABI (`out/` is gitignored) |
 
 ## Sepolia verification (done)
@@ -162,10 +167,10 @@ not `encodePacked`, per review decision (Groover off-chain code must use the sam
 
 ## Groover-side integration (not in this repo)
 
-- Call `mint(address to, string did, bytes32 dna, string pack, uint8 variant, bytes32 dynamoCitation, uint8 level)` as the `GROOVER_MINTER` key.
-- `to` = the holder address; `dynamoCitation = bytes32(0)` if none.
+- Call `mint(address to, string did, bytes32 dna, string pack, uint8 variant, bytes32 dynamoCitation, uint8 level, string imageSvg)` as the `GROOVER_MINTER` key (v3). Live v2 is 7-arg until deploy + `GRVR_CONTRACT` flip.
+- `to` = the holder address; `dynamoCitation = bytes32(0)` if none. `imageSvg` is compositor SVG compacted (no chars `< 0x20`).
 - `level`: 0 Unknown (no Dynamo), 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celestial (OpenSea trait `Level`). From Dynamo 7D: ≥0.95 / ≥0.78 / ≥0.50 / scored-else Dissonant. Missing sun is Unknown, not Dissonant. This is a **new deploy**; Sepolia `0xFc644D…` and mainnet `0x0abcd80C…` do not have `level`.
 - Pack whitelist stays application-side (contract accepts any non-empty pack ≤ 64 bytes, no control bytes).
-- Image compositor will serve `{tokenId}` under the Groover Railway image route.
-- ABI is `contracts/abi/GrooverIdentityToken.json` in this repo (`out/` is gitignored). Copy into groover at `packages/identity/abi/GrooverIdentityToken.json`.
+- Image compositor still serves `{tokenId}` under the Groover Railway image route (v2 `image`; v3 `external_url`).
+- Live v2 ABI stays at groover `packages/identity/abi/GrooverIdentityToken.json`. v3 ABI is `packages/identity/abi/GrooverIdentityToken.v3.json` (from `out/GrooverIdentityToken.sol/GrooverIdentityToken.json` `.abi`). Do not overwrite the v2 ABI.
 - Round-2 check: local runtime bytecode matches Sepolia `0xFc644D…` **except** the solc metadata hash (CBOR tail). Opcodes identical; no redeploy needed for this commit.
