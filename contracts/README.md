@@ -56,6 +56,7 @@ forge script script/DeployGrooverIdentity.s.sol --rpc-url base_sepolia --broadca
 ```
 
 Env extras beyond the TemporalContainer set: `GROOVER_MINTER`.
+Live Base v5: `0x045B35480F289F8f83F53345A0f367875958957a` (8453, 16-hex + 64-hex DID).
 See `docs/GROOVER-IDENTITY-NFT-HANDOFF.md` for the address table and Railway flip.
 
 ### Environment Variables
