@@ -20,7 +20,8 @@ import "@openzeppelin/contracts/utils/Base64.sol";
 ///      The contract accepts any non-empty pack of <= 64 bytes; the Groover
 ///      MCP is responsible for whitelisting packs at the application layer.
 ///      Control bytes (< 0x20) are rejected in pack so the on-chain
-///      tokenURI JSON stays valid; did is exactly 28 bytes of prefix + hex.
+///      tokenURI JSON stays valid; did is 28 bytes (legacy 16-hex) or
+///      76 bytes (registry 64-hex) of prefix + hex.
 contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
     using Strings for uint256;
 
@@ -33,10 +34,11 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         "https://registry-production-e2c4.up.railway.app/identity/token-image/";
 
     uint256 private constant _DID_PREFIX_LEN = 12; // "did:groover:"
-    uint256 private constant _DID_LEN = 28;        // prefix + 16 hex (Groover canonical)
+    uint256 private constant _DID_LEN_LEGACY = 28;    // prefix + 16 hex (v1–v4)
+    uint256 private constant _DID_LEN_REGISTRY = 76;  // prefix + 64 hex (current Groover registry)
 
     struct TokenData {
-        string did;             // did:groover:<16 hex>
+        string did;             // did:groover:<16 hex> | did:groover:<64 hex>
         bytes32 dna;            // keccak256 of canonical pack DNA
         string pack;            // "0xray-suit" | "groover-identity" | future
         uint8 variant;          // 0 .. MAX_VARIANT-1
@@ -98,7 +100,7 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
         if (bytes(imageSvg).length < 32 || bytes(imageSvg).length > 16384) revert InvalidImage();
         // tokenURI embeds pack/svg into on-chain JSON: reject control bytes
         // (< 0x20) that would produce invalid JSON. _escape only handles " and \.
-        // (did needs no such check: exact-28 + hex validation admits no control bytes.)
+        // (did needs no such check: prefix + hex-only suffix admits no control bytes.)
         if (_hasControlChars(pack)) revert InvalidPack();
         if (_hasControlChars(imageSvg)) revert InvalidImage();
 
@@ -193,12 +195,12 @@ contract GrooverIdentityToken is ERC721Enumerable, AccessControl {
 
     function _hasValidDid(string calldata did) internal pure returns (bool) {
         bytes memory b = bytes(did);
-        if (b.length != _DID_LEN) return false;
+        if (b.length != _DID_LEN_LEGACY && b.length != _DID_LEN_REGISTRY) return false;
         bytes memory prefix = "did:groover:";
         for (uint256 i = 0; i < _DID_PREFIX_LEN; i++) {
             if (b[i] != prefix[i]) return false;
         }
-        for (uint256 i = _DID_PREFIX_LEN; i < _DID_LEN; i++) {
+        for (uint256 i = _DID_PREFIX_LEN; i < b.length; i++) {
             uint8 c = uint8(b[i]);
             bool hexDigit = (c >= 0x30 && c <= 0x39)
                 || (c >= 0x61 && c <= 0x66)

@@ -29,6 +29,11 @@ contract GrooverIdentityTokenTest is Test {
         return string.concat("did:groover:", suffix);
     }
 
+    /// @dev Current Groover registry DID: prefix + 64 hex (76 bytes).
+    function _did64() internal pure returns (string memory) {
+        return _did("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+    }
+
     function test_mint_assigns_token_and_emits() public {
         string memory did = _did("0000000000000001");
         bytes32 key = token.identityKey(did, SAMPLE_DNA);
@@ -98,6 +103,30 @@ contract GrooverIdentityTokenTest is Test {
         // 28 bytes, prefix ok, non-hex suffix
         vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
         token.mint(alice, "did:groover:zzzzzzzzzzzzzzzz", SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+
+        // 44 bytes: prefix + 32 hex — neither legacy 16 nor registry 64
+        string memory midLen = _did("0123456789abcdef0123456789abcdef");
+        assertEq(bytes(midLen).length, 44);
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, midLen, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+
+        // 75 bytes: 63 hex
+        string memory oneShort = _did("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde");
+        assertEq(bytes(oneShort).length, 75);
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, oneShort, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+
+        // 77 bytes: 65 hex
+        string memory oneLong = _did("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0");
+        assertEq(bytes(oneLong).length, 77);
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, oneLong, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+
+        // 76 bytes, prefix ok, non-hex in suffix
+        string memory badHex64 = _did("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdez");
+        assertEq(bytes(badHex64).length, 76);
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, badHex64, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
     }
 
     function test_mint_empty_pack_reverts() public {
@@ -111,6 +140,49 @@ contract GrooverIdentityTokenTest is Test {
         assertEq(bytes(badPrefix).length, 28);
         vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
         token.mint(alice, badPrefix, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+
+        // 76 bytes, wrong prefix, hex-looking tail
+        string memory badPrefix64 = string.concat(
+            "did:xxxxxxxx",
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        );
+        assertEq(bytes(badPrefix64).length, 76);
+        vm.expectRevert(GrooverIdentityToken.InvalidDid.selector);
+        token.mint(alice, badPrefix64, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+    }
+
+    function test_mint_64_hex_did_ok() public {
+        string memory did = _did64();
+        assertEq(bytes(did).length, 76);
+
+        uint256 tokenId = token.mint(alice, did, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+        assertEq(tokenId, 1);
+        assertEq(token.ownerOf(1), alice);
+        assertTrue(token.minted(did, SAMPLE_DNA));
+        assertEq(token.tokenByIdentity(did, SAMPLE_DNA), 1);
+        assertEq(token.getTokenData(1).did, did);
+    }
+
+    function test_mint_64_hex_did_uppercase_ok() public {
+        string memory did = _did("0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF");
+        assertEq(bytes(did).length, 76);
+        uint256 tokenId = token.mint(alice, did, SAMPLE_DNA, "0xray-suit", 3, bytes32(0), 4, SAMPLE_SVG);
+        assertEq(tokenId, 1);
+        assertEq(token.getTokenData(1).did, did);
+    }
+
+    function test_mint_legacy_16_and_registry_64_same_dna_ok() public {
+        token.mint(alice, _did("0000000000000001"), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+        uint256 second = token.mint(bob, _did64(), SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+        assertEq(second, 2);
+        assertEq(token.totalSupply(), 2);
+    }
+
+    function test_tokenURI_contains_64_hex_did() public {
+        string memory did = _did64();
+        token.mint(alice, did, SAMPLE_DNA, "groover-identity", 0, bytes32(0), 0, SAMPLE_SVG);
+        bytes memory json = _base64Decode(_stripPrefix(token.tokenURI(1)));
+        assertTrue(_contains(json, did));
     }
 
     function test_mint_control_char_did_reverts() public {
