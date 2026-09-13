@@ -20,42 +20,23 @@ v5 keeps the same 8-arg mint ABI. `_hasValidDid` accepts **either**:
 
 Wrong length, non-hex suffix, or bad prefix still reverts `InvalidDid`.
 
-## Operator next step (after this PR merges)
+## Operator next step (Railway — separate Groover PR)
 
-1. **Deploy Base 8453** (do not broadcast from a cloud agent unless
-   `DEPLOYER_PRIVATE_KEY` is already in the environment). From `contracts/`:
-   ```bash
-   # contracts/.env — never commit or print keys
-   # DEPLOYER_PRIVATE_KEY=<deployer EOA>
-   # GROOVER_MINTER=0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7
-   # BASE_RPC_URL=https://mainnet.base.org
-   # BASESCAN_API_KEY=<basescan>
+v5 is **live** on Base 8453. Do not redeploy.
 
-   set -a && source .env && set +a
+1. Set Railway registry `GRVR_CONTRACT=0x045B35480F289F8f83F53345A0f367875958957a`
+2. Flip `GRVR_DEFAULT_CONTRACT` in groover `packages/identity`, `GRVR-MINT.md`,
+   and website `/suit` copy
+3. Remint the full 64-hex DID (no truncation)
 
-   # dry-run / simulate (no tx)
-   forge script script/DeployGrooverIdentity.s.sol --rpc-url base
-
-   # broadcast + Basescan verify
-   forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
-   ```
-   Constructor: `admin` = deployer EOA (`0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43`
-   on prior deploys), `minter` = `GROOVER_MINTER` (Railway signer).
-2. Record the new address below. Confirm `hasRole(MINTER_ROLE, 0x77E7…)` == true.
-   Do **not** test-mint on mainnet — Groover remints the real full DID.
-3. **Railway (htafolla/groover — separate PR):** set registry service
-   `GRVR_CONTRACT` to the new address. Also flip `GRVR_DEFAULT_CONTRACT` in
-   `packages/identity`, `GRVR-MINT.md`, and website `/suit` copy. Then remint
-   with the full 64-hex DID (no truncation).
-
-## Base mainnet (8453) — v5 (16-hex + 64-hex DID) — PENDING DEPLOY
+## Base mainnet (8453) — LIVE v5 (16-hex + 64-hex DID)
 
 ```text
 network:          base
 chainId:          8453
 contract:         GrooverIdentityToken (v4 traits + dual-length DID)
 name / symbol:    Groover Identity / GRVR
-address:          <PENDING — fill after Base 8453 deploy>
+address:          0x045B35480F289F8f83F53345A0f367875958957a
 admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
 minter:           0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7   # Groover Railway GRVR_PRIVATE_KEY signer
 MAX_VARIANT:      16
@@ -66,14 +47,15 @@ traits:           Visor / Colorway / Chassis / Mark / Level (match the picture;
 identityKey:      keccak256(abi.encode(did, dna))
 image:            data:image/svg+xml;base64,… (stored per token, 8th mint arg)
 external_url:     https://registry-production-e2c4.up.railway.app/identity/token-image/{id}
-explorer:         https://basescan.org/address/<PENDING>
+explorer:         https://basescan.org/address/0x045B35480F289F8f83F53345A0f367875958957a
 abi:              contracts/abi/GrooverIdentityToken.json
-tx deploy:        <PENDING>
+tx deploy:        0x796d0f923108b60d59f5e3545360ba3c070be2c138b418f26738199cd9dbceeb
 forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
 ```
 
+Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅.
 Mint ABI unchanged from v3/v4: 8-arg `(to, did, dna, pack, variant, dynamoCitation, level, imageSvg)`.
-After deploy: **Railway `GRVR_CONTRACT` = the new address.** Previous v4 mainnet
+**Railway: set `GRVR_CONTRACT` to the address above.** Previous v4 mainnet
 `0xD892D6836ab138a5aE4365dcb05Adb296607d6f9` and v3 `0x6F955cA006E2FE951750cac25372e098D6E89743`
 are superseded — do not mint there (v4 rejects 64-hex DIDs with `InvalidDid`).
 
@@ -309,15 +291,12 @@ the prefix is 13 bytes was wrong (it is 12); a 13-byte loop OOBs. `identityKey` 
 `abi.encode`, not `encodePacked`, per review decision (Groover off-chain code must
 use the same).
 
-## Before Base mainnet (v5)
+## After Base mainnet (v5) — done
 
-- Roles are known: admin = deployer EOA `0xd45CcF…43`, minter = Railway
-  `0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7`. Same constructor as v1–v4.
-- Update `contracts/.env`: `DEPLOYER_PRIVATE_KEY` + `GROOVER_MINTER` (see operator
-  next step at the top). Dry-run first (`forge script … --rpc-url base` without
-  `--broadcast`), then broadcast + `--verify`.
-- Verify `hasRole(MINTER_ROLE, GROOVER_MINTER)` on-chain before flipping Railway.
-- Do not mint a test token on mainnet — Groover remints the full 64-hex DID.
+- Live: `0x045B35480F289F8f83F53345A0f367875958957a` (8453). Do not redeploy.
+- Roles: admin = deployer EOA `0xd45CcF…43`, minter = Railway
+  `0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7`. `hasRole(MINTER_ROLE, 0x77E7…)` == true.
+- Remaining work is Groover/Railway: flip `GRVR_CONTRACT` then remint the full 64-hex DID.
 
 ## Groover-side integration (not in this repo)
 
