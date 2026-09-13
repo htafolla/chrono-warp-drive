@@ -36,6 +36,28 @@ forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
 forge script script/Deploy.s.sol --rpc-url base --broadcast --verify
 ```
 
+## Groover Identity (GRVR)
+
+Same Foundry profile. Constructor is `(admin, minter)`: admin = deployer EOA,
+minter = `GROOVER_MINTER` (Railway signer `0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7`).
+
+```bash
+# from contracts/  — never print or commit DEPLOYER_PRIVATE_KEY
+set -a && source .env && set +a
+
+# Base 8453 dry-run (no tx)
+forge script script/DeployGrooverIdentity.s.sol --rpc-url base
+
+# Base 8453 broadcast + Basescan verify
+forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
+
+# Base Sepolia
+forge script script/DeployGrooverIdentity.s.sol --rpc-url base_sepolia --broadcast --verify
+```
+
+Env extras beyond the TemporalContainer set: `GROOVER_MINTER`.
+See `docs/GROOVER-IDENTITY-NFT-HANDOFF.md` for the address table and Railway flip.
+
 ### Environment Variables
 
 ```

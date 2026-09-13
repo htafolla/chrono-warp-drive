@@ -3,7 +3,83 @@
 Deployed by the chrono-warp-drive (Dynamo) contract agent from the tech spec at
 `groover/docs/GROOVER-IDENTITY-NFT-TECH-SPEC.md`.
 
-## Base mainnet (8453) — LIVE v4 (picture-matched traits)
+## Problem (why v5)
+
+Live Base v4 `0xD892D6836ab138a5aE4365dcb05Adb296607d6f9` still enforces
+`_DID_LEN = 28` (`did:groover:` + 16 hex). Groover registry now issues full-width
+`did:groover:` + **64 hex** (76 bytes). Mint with the full DID reverts `InvalidDid()`
+→ MCP `-32603 Tool execution failed`. Truncating the DID (token 3 workaround) is
+not acceptable.
+
+v5 keeps the same 8-arg mint ABI. `_hasValidDid` accepts **either**:
+
+| Form | Bytes | Suffix |
+|------|-------|--------|
+| Legacy (v1–v4) | 28 | `did:groover:` + 16 hex `[0-9a-fA-F]` |
+| Registry (current) | 76 | `did:groover:` + 64 hex `[0-9a-fA-F]` |
+
+Wrong length, non-hex suffix, or bad prefix still reverts `InvalidDid`.
+
+## Operator next step (after this PR merges)
+
+1. **Deploy Base 8453** (do not broadcast from a cloud agent unless
+   `DEPLOYER_PRIVATE_KEY` is already in the environment). From `contracts/`:
+   ```bash
+   # contracts/.env — never commit or print keys
+   # DEPLOYER_PRIVATE_KEY=<deployer EOA>
+   # GROOVER_MINTER=0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7
+   # BASE_RPC_URL=https://mainnet.base.org
+   # BASESCAN_API_KEY=<basescan>
+
+   set -a && source .env && set +a
+
+   # dry-run / simulate (no tx)
+   forge script script/DeployGrooverIdentity.s.sol --rpc-url base
+
+   # broadcast + Basescan verify
+   forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
+   ```
+   Constructor: `admin` = deployer EOA (`0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43`
+   on prior deploys), `minter` = `GROOVER_MINTER` (Railway signer).
+2. Record the new address below. Confirm `hasRole(MINTER_ROLE, 0x77E7…)` == true.
+   Do **not** test-mint on mainnet — Groover remints the real full DID.
+3. **Railway (htafolla/groover — separate PR):** set registry service
+   `GRVR_CONTRACT` to the new address. Also flip `GRVR_DEFAULT_CONTRACT` in
+   `packages/identity`, `GRVR-MINT.md`, and website `/suit` copy. Then remint
+   with the full 64-hex DID (no truncation).
+
+## Base mainnet (8453) — v5 (16-hex + 64-hex DID) — PENDING DEPLOY
+
+```text
+network:          base
+chainId:          8453
+contract:         GrooverIdentityToken (v4 traits + dual-length DID)
+name / symbol:    Groover Identity / GRVR
+address:          <PENDING — fill after Base 8453 deploy>
+admin:            0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43
+minter:           0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7   # Groover Railway GRVR_PRIVATE_KEY signer
+MAX_VARIANT:      16
+MAX_LEVEL:        5   # 0 Unknown, 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celestial
+did:              28 bytes (16-hex legacy) OR 76 bytes (64-hex registry)
+traits:           Visor / Colorway / Chassis / Mark / Level (match the picture;
+                  DID, pack, variant, DNA, citation, minted live in description)
+identityKey:      keccak256(abi.encode(did, dna))
+image:            data:image/svg+xml;base64,… (stored per token, 8th mint arg)
+external_url:     https://registry-production-e2c4.up.railway.app/identity/token-image/{id}
+explorer:         https://basescan.org/address/<PENDING>
+abi:              contracts/abi/GrooverIdentityToken.json
+tx deploy:        <PENDING>
+forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
+```
+
+Mint ABI unchanged from v3/v4: 8-arg `(to, did, dna, pack, variant, dynamoCitation, level, imageSvg)`.
+After deploy: **Railway `GRVR_CONTRACT` = the new address.** Previous v4 mainnet
+`0xD892D6836ab138a5aE4365dcb05Adb296607d6f9` and v3 `0x6F955cA006E2FE951750cac25372e098D6E89743`
+are superseded — do not mint there (v4 rejects 64-hex DIDs with `InvalidDid`).
+
+## Base mainnet (8453) — v4 history (picture-matched traits) — SUPERSEDED
+
+v4 `0xD892…` is **superseded**: `_DID_LEN = 28` only. Do not mint 64-hex registry DIDs there.
 
 ```text
 network:          base
@@ -26,10 +102,9 @@ tx deploy:        0x146291163b41e0bcedf4772368c5ede9463e29e92425ef686cfbb5b68e49
 forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
 ```
 
-Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅ · `totalSupply == 0`
-(no test mint on mainnet). **Railway: set `GRVR_CONTRACT` to the address above.**
-`mint_suit` sends 8-arg mint `(…, level, imageSvg)` — unchanged from v3. Previous v3
-mainnet `0x6F955cA0…` superseded — do not mint there.
+Verified on Basescan ✅ · `hasRole(MINTER_ROLE, 0x77E7…)` == true ✅. **Superseded by v5**
+(16-hex + 64-hex DID). Do not point Railway `GRVR_CONTRACT` here after v5 is live.
+`mint_suit` 8-arg mint is unchanged. Previous v3 mainnet `0x6F955cA0…` also superseded.
 
 ## Base Sepolia (84532) — v4 history (picture-matched traits)
 
@@ -182,12 +257,12 @@ forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base
 |------|---------|
 | `contracts/GrooverIdentityToken.sol` | The contract (ERC721Enumerable + AccessControl) |
 | `contracts/script/DeployGrooverIdentity.s.sol` | Deploy script (admin = deployer EOA, minter = `GROOVER_MINTER`) |
-| `contracts/test/GrooverIdentityToken.t.sol` | 32 tests (reentrancy, escaping, DID/key rules, on-chain SVG) |
+| `contracts/test/GrooverIdentityToken.t.sol` | GrooverIdentityToken tests (legacy 16-hex + registry 64-hex DID, reentrancy, escaping, on-chain SVG) |
 | `contracts/abi/GrooverIdentityToken.json` | Committed ABI (`out/` is gitignored) |
 
 ## Sepolia verification (done)
 
-1. `forge test` — full suite green (24 Groover tests + 12 TemporalContainer = 36). ✅
+1. `forge test` — full suite green (GrooverIdentityToken + TemporalContainer). ✅
 2. Verified on Sepolia Basescan. ✅
 3. `MINTER_ROLE` holds on `GROOVER_MINTER` (admin == minter == deployer on Sepolia). ✅
 4. Test mint succeeded; duplicate mint reverted `AlreadyMinted`. ✅
@@ -196,7 +271,7 @@ forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base
 
 ## Acceptance-test mint (Sepolia, token #1)
 
-- DID: `did:groover:aaaaaaaaaaaaaaaa` (canonical 28-byte hex form)
+- DID: `did:groover:aaaaaaaaaaaaaaaa` (legacy 28-byte / 16-hex form)
 - DNA: `0xe11c158aa8c88ed84cc7901ad52099ea43b67469e091d102887b27c619bf9995`
 - Pack: `groover-identity`, variant 0
 - Mint tx: `0xd41c967424fac6e5675220bc5c6547326194bf0b448c08e5e9965b14690c4a62`
@@ -205,8 +280,9 @@ forge:            forge script script/DeployGrooverIdentity.s.sol --rpc-url base
 
 > Deploy history: `0xB05227…` (v1, packed keys) → `0x68e4E5…` (CEI fix) →
 > `0x862300…` (independent-review hardening) → **`0xFc644D…` (final: merged review
-> hardening — `abi.encode` keys, exact-28 hex DIDs, control-byte pack rejection,
-> forge CI)**. Repo source == deployed source == verified source.
+> hardening — `abi.encode` keys, hex DIDs, control-byte pack rejection,
+> forge CI)**. Repo source == deployed source == verified source. v5 later
+> widened DID from exact-28 to 28-or-76.
 
 ## Review follow-up (merged + redeployed)
 
@@ -215,12 +291,12 @@ the on-chain identity before Groover wires mint, and this deployment includes it
 
 1. **`identityKey` is `keccak256(abi.encode(did, dna))`**, not `encodePacked`. Packed
    concatenation of a variable-length string and `bytes32` can collide.
-2. **DID must be exactly 28 bytes**: `did:groover:` + 16 hex (`[0-9a-fA-F]`). Matches
-   Groover `didFromEd25519PublicKey`. `"did:groover:"` is 12 bytes.
+2. **DID must be 28 or 76 bytes**: `did:groover:` + 16 hex (legacy) or + 64 hex
+   (current Groover registry). Charset `[0-9a-fA-F]`. `"did:groover:"` is 12 bytes.
 3. **CEI:** effects + `IdentityMinted` happen before `_safeMint`. Reentrancy test
    covers a minter-role receiver.
 4. **Control bytes (`< 0x20`) rejected in pack** so `tokenURI` JSON stays valid
-   (did needs no such check: exact-28 + hex admits none).
+   (did needs no such check: prefix + hex-only suffix admits none).
 5. **CI:** `contracts` job runs `forge test` via `foundry-toolchain`. Existing npm
    `test` / `mcp-test` / `mcp-typecheck` failures (`ioredis`, missing `mcp/tsconfig.json`)
    are **pre-existing on main**, not this collection.
@@ -228,27 +304,24 @@ the on-chain identity before Groover wires mint, and this deployment includes it
 ## ⚠️ Spec notes
 
 The original spec's acceptance mint `did:groover:test` is 16 bytes and **reverts**
-(expected: only canonical 28-byte hex DIDs mint). Spec comment that the prefix is
-13 bytes was wrong (it is 12); a 13-byte loop OOBs. `identityKey` is `abi.encode`,
-not `encodePacked`, per review decision (Groover off-chain code must use the same).
+(expected: only 28-byte / 16-hex or 76-byte / 64-hex DIDs mint). Spec comment that
+the prefix is 13 bytes was wrong (it is 12); a 13-byte loop OOBs. `identityKey` is
+`abi.encode`, not `encodePacked`, per review decision (Groover off-chain code must
+use the same).
 
-## Before Base mainnet
+## Before Base mainnet (v5)
 
-- **Blocked on Groover:** deployer must confirm the Groover Railway signer key IS the
-  `GROOVER_MINTER` address to grant. On Sepolia, minter == deployer EOA
-  (`0xd45CcF…43`). Do **not** run the `base` deploy until Groover supplies the real
-  Railway minter address.
-- Update `contracts/.env`: `GROOVER_MINTER=<railway signer>`, then:
-  ```bash
-  forge script script/DeployGrooverIdentity.s.sol --rpc-url base --broadcast --verify
-  ```
-- Verify `hasRole(MINTER_ROLE, GROOVER_MINTER)` on-chain before handoff if they differ.
-- Base mainnet explorer becomes `https://basescan.org/address/<addr>`; do not mint the
-  test token on mainnet — Groover's MCP mints real DIDs.
+- Roles are known: admin = deployer EOA `0xd45CcF…43`, minter = Railway
+  `0x77E7A48609e9c8A77C7639172af9EEA0e5E80DF7`. Same constructor as v1–v4.
+- Update `contracts/.env`: `DEPLOYER_PRIVATE_KEY` + `GROOVER_MINTER` (see operator
+  next step at the top). Dry-run first (`forge script … --rpc-url base` without
+  `--broadcast`), then broadcast + `--verify`.
+- Verify `hasRole(MINTER_ROLE, GROOVER_MINTER)` on-chain before flipping Railway.
+- Do not mint a test token on mainnet — Groover remints the full 64-hex DID.
 
 ## Groover-side integration (not in this repo)
 
-- Call `mint(address to, string did, bytes32 dna, string pack, uint8 variant, bytes32 dynamoCitation, uint8 level, string imageSvg)` as the `GROOVER_MINTER` key (v3). Live v2 is 7-arg until deploy + `GRVR_CONTRACT` flip.
+- Call `mint(address to, string did, bytes32 dna, string pack, uint8 variant, bytes32 dynamoCitation, uint8 level, string imageSvg)` as the `GROOVER_MINTER` key. Mint ABI is unchanged in v5. After v5 deploy, flip Railway `GRVR_CONTRACT` (and groover `GRVR_DEFAULT_CONTRACT` / `GRVR-MINT.md` / `/suit` copy) — that work is a **separate Groover PR**, not this repo.
 - `to` = the holder address; `dynamoCitation = bytes32(0)` if none. `imageSvg` is compositor SVG compacted (no chars `< 0x20`).
 - `level`: 0 Unknown (no Dynamo), 1 Dissonant, 2 Unstable, 3 Resonant, 4 Celestial (OpenSea trait `Level`). From Dynamo 7D: ≥0.95 / ≥0.78 / ≥0.50 / scored-else Dissonant. Missing sun is Unknown, not Dissonant. This is a **new deploy**; Sepolia `0xFc644D…` and mainnet `0x0abcd80C…` do not have `level`.
 - Pack whitelist stays application-side (contract accepts any non-empty pack ≤ 64 bytes, no control bytes).
