@@ -4,5 +4,5 @@ buildCommand = "npm install"
 
 [deploy]
 startCommand = "tsx ${ENTRY_POINT:-server.ts}"
-healthcheckPath = "/health"
-healthcheckTimeout = 300
+# No healthcheck: tfjs/transformers boot exceeds Railway windows and rolls back
+# listings (well-known JSON). Process bind on PORT is the ready signal.
