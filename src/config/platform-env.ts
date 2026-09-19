@@ -3,7 +3,7 @@
  * Contract: ~/dev/0x0/docs/0x0-platform-contract.md
  */
 
-const DEFAULT_DYNAMO_BASE = 'https://mcp-production-80e2.up.railway.app';
+const DEFAULT_DYNAMO_BASE = 'https://hammer.rippel.ai';
 
 function stripTrailingSlash(url: string): string {
   return url.replace(/\/$/, '');

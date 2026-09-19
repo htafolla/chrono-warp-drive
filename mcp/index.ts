@@ -1131,7 +1131,7 @@ app.get('/', (c: Context) => {
     version: '4.8.3',
     tools: 20,
     endpoints: {
-      GET: ['/', '/health', '/docs', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator', '/get_docs', '/explain_term', '/explain_governance_output', '/public_feed'],
+      GET: ['/', '/health', '/docs', '/.well-known/agent-card.json', '/.well-known/x402', '/.well-known/agent.json', '/list_isotopes', '/compute_tdf', '/compute_tptt', '/black_hole_sequence', '/validate_tlm', '/harmonic_oscillator', '/get_docs', '/explain_term', '/explain_governance_output', '/public_feed'],
       POST: ['/', '/emit_isotopic_signal', '/cross_correlate', '/compute_tdf', '/list_isotopes', '/triangulate_signals', '/fuse_symbiotic', '/optimize_cascade', '/get_phase_coherence', '/compute_tptt', '/black_hole_sequence', '/kuramoto_sync', '/wave_function', '/harmonic_oscillator', '/validate_tlm', '/governance', '/govern_with_solar', '/call_connected_tool', '/get_docs', '/explain_term', '/explain_governance_output'],
     },
   })
@@ -1157,6 +1157,66 @@ app.get('/health', (c: Context) => {
     storedSignals: signalStore.size,
   })
 })
+
+const HAMMER = 'https://hammer.rippel.ai'
+const HANGAR = 'https://clearing.rippel.ai'
+
+app.get('/.well-known/agent-card.json', (c: Context) => {
+  return c.json({
+    protocolVersion: '0.3.0',
+    name: 'Dynamo Hammer',
+    description:
+      'Governance MCP (solar, Hammer, triangulation). Not an x402 shop. Hangars live at clearing.rippel.ai.',
+    url: HAMMER,
+    provider: { organization: 'Rippel', url: 'https://rippel.ai' },
+    version: '4.8.3',
+    capabilities: { streaming: false },
+    defaultInputModes: ['application/json'],
+    defaultOutputModes: ['application/json'],
+    skills: [
+      {
+        id: 'govern_with_solar',
+        name: 'govern_with_solar',
+        description: `POST ${HAMMER}/govern_with_solar`,
+        tags: ['mcp', 'governance'],
+      },
+      {
+        id: 'hangar',
+        name: 'hangar',
+        description: `Shops: ${HANGAR}/v1/catalog — unpaid GET 402 to ping`,
+        tags: ['hangar'],
+      },
+    ],
+  })
+})
+
+app.get('/.well-known/x402', (c: Context) => {
+  return c.json({
+    x402Version: 2,
+    note: 'Dynamo is MCP governance, not a 402 shop. Hangar shops:',
+    resources: [
+      `${HANGAR}/v1/extract`,
+      `${HANGAR}/v1/skim`,
+      `${HANGAR}/v1/witness`,
+      `${HANGAR}/v1/pin`,
+      `${HANGAR}/v1/card`,
+      `${HANGAR}/v1/blip`,
+    ],
+  })
+})
+
+app.get('/.well-known/agent.json', (c: Context) => {
+  return c.json({
+    name: 'Dynamo Hammer',
+    endpoints: {
+      mcp: `${HAMMER}/`,
+      govern: `${HAMMER}/govern_with_solar`,
+      health: `${HAMMER}/health`,
+      catalog: `${HANGAR}/v1/catalog`,
+    },
+  })
+})
+
 
 // ----- GET helpers for read-only tools (sandbox-friendly) -----
 
