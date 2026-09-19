@@ -2,7 +2,7 @@
 // Canonical vortex TDF math for the solar isotopic hammer.
 // TLM constants (L, PHI) mirror trinitarium SSOT via src/lib/tlmConstants.ts.
 
-import { L, PHI } from '../../src/lib/tlmConstants.ts';
+import { L, PHI } from './tlmConstants.ts';
 
 const TAU = 0.865;
 const C = 3e8;
