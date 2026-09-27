@@ -4,7 +4,7 @@
 
 The formulas, the decision thresholds, and `cross_correlate` are unchanged. This file records what the PHI binding does to those unchanged formulas. The live deployed effect is **UNVERIFIED**. Nothing here was deployed, and this measurement does not set `persistToChain`.
 
-`cross_correlate` strength is one constant for every input: `0.9524567885544127` on `origin/main`, `0.06480165906835389` on this branch. The long table is one pinned second, `2026-09-27T21:30:00.000Z`: `evaluate_governance` is 43 PASS on main, and 34 REJECT plus 9 PASS on this branch. All 9 PASS rows pass only because the solar hammer is `>= 0.88`. Across the 10 pinned seconds below, head `evaluate_governance` ranges from 29 REJECT / 14 PASS to 36 REJECT / 7 PASS, and main PASS ranges from 41 to 43. `govern_with_solar`'s `recommendation` flips on 0 of these 43 when a sun embedding is supplied, and on 3 of 43 at that same second when the embedding is absent.
+`cross_correlate` strength is one constant for every input: `0.9524567885544127` on `origin/main`, `0.06480165906835389` on this branch. The long table is one pinned second, `2026-09-27T21:30:00.000Z`: `evaluate_governance` is 43 PASS on main, and 34 REJECT plus 9 PASS on this branch. All 9 PASS rows pass only because the solar hammer is `>= 0.88`. Across the 15 pinned seconds below, from `2026-09-27T21:30:00.000Z` through `2026-10-01T08:08:08.000Z`, head `evaluate_governance` ranges from 24 REJECT / 19 PASS to 38 REJECT / 5 PASS, and main PASS ranges from 41 to 43. The split varies across the day. Any one table is one pinned second. `govern_with_solar`'s `recommendation` flips on 0 of these 43 when a sun embedding is supplied, and on 3 of 43 at that same second when the embedding is absent.
 
 ## How this was measured
 
@@ -62,7 +62,7 @@ A hammer `<= 0.45` would also replace resonance, and that value is still REJECT 
 
 So after merge, every `/governance` call is REJECT at confidence `0.8` unless the solar hammer is high enough to take over. The strength does not depend on the proposal text. The hammer nonce is `floor(Date.now() / 1000)` (`mcp/lib/solarGovernanceIntegration.ts:53`), so the REJECT/PASS split changes with the pinned second.
 
-Pinned seconds, `PHI_SUN=present`. `evaluate_governance` does not receive a sun embedding. Head rows that differ between sun present and sun absent: 0 of 10.
+Pinned seconds, `PHI_SUN=present`. The same 15 seconds were also run with `PHI_SUN=absent`. `evaluate_governance` does not receive a sun embedding. Head rows that differ between sun present and sun absent: 0 of 15. The REJECT/PASS split varies across the day. The long table below is only `2026-09-27T21:30:00.000Z`.
 
 | pinned second | main | head |
 | --- | --- | --- |
@@ -76,8 +76,13 @@ Pinned seconds, `PHI_SUN=present`. `evaluate_governance` does not receive a sun 
 | `2026-09-27T21:30:07.000Z` | 43 PASS | 32 REJECT, 11 PASS |
 | `2026-09-27T21:30:08.000Z` | 43 PASS | 29 REJECT, 14 PASS |
 | `2026-09-27T21:31:00.000Z` | 43 PASS | 36 REJECT, 7 PASS |
+| `2026-09-27T21:45:33.000Z` | 42 PASS, 1 REJECT | 38 REJECT, 5 PASS |
+| `2026-09-27T22:38:29.000Z` | 43 PASS | 36 REJECT, 7 PASS |
+| `2026-09-28T03:12:59.000Z` | 41 PASS, 2 REJECT | 31 REJECT, 12 PASS |
+| `2026-09-28T12:00:17.000Z` | 42 PASS, 1 REJECT | 36 REJECT, 7 PASS |
+| `2026-10-01T08:08:08.000Z` | 42 PASS, 1 REJECT | 24 REJECT, 19 PASS |
 
-Head REJECT/PASS ranges from 29/14 to 36/7. Main PASS ranges from 41 to 43.
+Head REJECT/PASS ranges from 24/19 (`2026-10-01T08:08:08.000Z`) to 38/5 (`2026-09-27T21:45:33.000Z`). Main PASS ranges from 41 to 43.
 
 ## govern_with_solar recommendation
 

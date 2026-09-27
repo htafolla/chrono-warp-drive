@@ -215,6 +215,11 @@ const SWEEP_MS = [
   Date.UTC(2026, 8, 27, 21, 30, 7),
   Date.UTC(2026, 8, 27, 21, 30, 8),
   Date.UTC(2026, 8, 27, 21, 31, 0),
+  Date.UTC(2026, 8, 27, 21, 45, 33),
+  Date.UTC(2026, 8, 27, 22, 38, 29),
+  Date.UTC(2026, 8, 28, 3, 12, 59),
+  Date.UTC(2026, 8, 28, 12, 0, 17),
+  Date.UTC(2026, 9, 1, 8, 8, 8),
 ]
 const FLIP_MS = [
   Date.UTC(2026, 8, 27, 21, 30, 0),
@@ -313,6 +318,7 @@ const fewestHeadRejects = headRatios.reduce((left, right) => (left.reject <= rig
 const mostHeadRejects = headRatios.reduce((left, right) => (left.reject >= right.reject ? left : right))
 console.log(`Head REJECT/PASS ranges from ${fewestHeadRejects.reject}/${fewestHeadRejects.pass} to ${mostHeadRejects.reject}/${mostHeadRejects.pass}.`)
 console.log(`Main PASS ranges from ${Math.min(...mainPasses)} to ${Math.max(...mainPasses)}.`)
+console.log('These seconds run from 21:30 on 2026-09-27 through 08:08 on 2026-10-01. The REJECT/PASS split varies across the day. One table is one pinned second.')
 let governanceDiffers = 0
 for (const ms of SWEEP_MS) {
   const presentHead = withEmbedding.after.clocks.find((row) => row.ms === ms)
