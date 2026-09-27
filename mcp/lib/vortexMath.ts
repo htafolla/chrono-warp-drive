@@ -1,6 +1,6 @@
 // mcp/lib/vortexMath.ts
 // Canonical vortex TDF math for the solar isotopic hammer.
-// TLM constants (L, PHI) mirror trinitarium SSOT via src/lib/tlmConstants.ts.
+// TLM constants (L, PHI) come from ./tlmConstants.ts. Trinitarium has no canonical definition for L or PHI.
 
 import { L, PHI } from './tlmConstants.ts';
 

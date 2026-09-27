@@ -1,7 +1,7 @@
 // Temporal Photonic Transpondent Transporter Calculator
 // Based on Codex v3.6 by @blaze0x1
 
-// Core Constants from TLM (L, PHI sourced from tlmConstants → trinitarium SSOT)
+// Core Constants from TLM (L, PHI from tlmConstants). Trinitarium has no canonical definition for L or PHI.
 export { L, PHI } from './tlmConstants';
 export const FREQ = 528; // Hz harmonic frequency  
 export const C = 3e8; // Speed of light (m/s)

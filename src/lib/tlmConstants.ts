@@ -1,16 +1,15 @@
 /**
- * TLM constants — chrono mirror of Trinitarium canonical source.
+ * TLM constants — chrono module.
  *
- * Canonical SSOT: htafolla/trinitarium src/services/tlmService.ts
- * (sibling repo at /Users/blaze/dev/trinitarium;
- * TLM UI: src/pages/TLM.tsx, src/pages/TLMCalculator.tsx)
+ * Cite a trinitarium file only when that file defines the constant.
  *
- * Values MUST match htafolla/trinitarium src/services/tlmService.ts.
+ * Trinitarium has no canonical definition for L.
+ * Trinitarium has no canonical definition for PHI.
+ * Trinitarium has no canonical definition for F_h.
+ * Trinitarium has no canonical definition for C_h.
+ *
  * Do not hardcode 1.666 literals elsewhere;
  * import L, PHI, F_h, C_h from this module.
- *
- * @see trinitarium README.md "Core Constants"
- * @see trinitarium src/data/codexData.ts metadata.tlm_validation
  */
 
 /** Trinity (Father, Son, Holy Spirit) */
