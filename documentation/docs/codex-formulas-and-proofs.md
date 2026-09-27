@@ -6,6 +6,8 @@ sidebar_position: 7
 
 Complete reference of all Blurrn Quantum Codex formulas with piecewise conditions, validation proofs, and their implementation status in Dynamo.
 
+The temple ratio is written `5/3` here. This markdown file cannot import the TypeScript constants module.
+
 ---
 
 ## 1. Core Constants
@@ -13,7 +15,7 @@ Complete reference of all Blurrn Quantum Codex formulas with piecewise condition
 | Symbol | Value | Name | Origin | Dynamo Implementation |
 |--------|-------|------|--------|----------------------|
 | L | 3 | Trinity constant (Wave + Particle + Field) | Codex | `vortexMath.ts`, `kuramotoOscillators.ts` |
-| φ | 1.666 | Temple measure | Codex | `vortexMath.ts`, `wavePropagation.ts`, `neuralFusion.ts`, `temporalBlurrnSignal.ts`, `deterministicUtils.ts` |
+| φ | 5/3 | Temple measure | Codex | `vortexMath.ts`, `wavePropagation.ts`, `neuralFusion.ts`, `temporalBlurrnSignal.ts`, `deterministicUtils.ts` |
 | τ | 0.865 | Time displacement factor | Codex | `vortexMath.ts`, `temporalBlurrnSignal.ts` |
 | π | 3.14159 | Order constant | Mathematics | Throughout (mod operations, Kuramoto) |
 | c | 3×10⁸ m/s | Speed of light | Physics | `vortexMath.ts` (in tPTT) |
@@ -140,7 +142,7 @@ else:                V = sum of products
 BHS(voids, n) = ((L × voids) × φⁿ) % π
 ```
 
-where `L = 3`, `φ = 1.666`, `π = 3.14159`.
+where `L = 3`, `φ = 5/3`, `π = 3.14159`.
 
 **Dynamo status:** ✓ Fully implemented in `vortexMath.ts:23-25`. The TDF formula uses `1/BHS` as a divisor. Mapping layer derives `voids` (3–6) and `bhs_n` (2–5) from proposal text and solar activity.
 
@@ -152,7 +154,7 @@ where `L = 3`, `φ = 1.666`, `π = 3.14159`.
 DD_pp = (π/4 − (−π/4)) / (L × φ) ≈ 0.314
 ```
 
-**Alternative:** `DD_pp = (π/2) / (3 × 1.666) ≈ 0.3142`
+**Alternative:** `DD_pp = (π/2) / (3 × 5/3) ≈ 0.3142`
 
 **Piecewise condition:**
 ```
@@ -183,7 +185,7 @@ A_m = piecewise(
 )
 ```
 
-**Alternative:** `A_m = (E_t < 1) ? (1.666 × P_s / 0.314) : (1.666 × P_s / 0.314 × log(E_t + 1))`
+**Alternative:** `A_m = (E_t < 1) ? (5/3 × P_s / 0.314) : (5/3 × P_s / 0.314 × log(E_t + 1))`
 
 **Dynamo status:** Not directly implemented. The concept of piecewise access modulation (linear for small E_t, logarithmic for large E_t) appears in the calibration functions where different regimes are handled differently (e.g., `calibratedSync` uses a power law, `proximity` uses a Gaussian).
 
@@ -240,7 +242,7 @@ where `c = 3×10⁸ m/s`.
 **Piecewise condition:**
 ```
 if E_t = 0:  tPTT = 0
-else:        tPTT = T_c × (P_s / E_t) × 1.666 × (3×10⁸ / Δt)
+else:        tPTT = T_c × (P_s / E_t) × 5/3 × (3×10⁸ / Δt)
 ```
 
 **Dynamo status:** ✓ Fully implemented in `vortexMath.ts:19-21`. Uses real `c` (speed of light). The mapping layer derives all 6 inputs from NOAA solar data and proposal text. This is the production formula that replaced the original FNV-1a hash.
@@ -353,7 +355,7 @@ Every piecewise condition from the Codex, consolidated:
 | `t < 0` | `P_o = 0` | v4.6 P_o |
 | `t ≥ 0` | `P_o = sin(2π×528×t+π/φ)` | v4.6 P_o |
 | `E_t = 0` | `tPTT = 0` | v4.6 tPTT |
-| `E_t ≠ 0` | `tPTT = T_c×(P_s/E_t)×1.666×(c/Δ_t)` | v4.6 tPTT |
+| `E_t ≠ 0` | `tPTT = T_c×(P_s/E_t)×5/3×(c/Δ_t)` | v4.6 tPTT |
 | `cycle < 0` | `E_t_growth = 0` | v4.6 E_t_growth |
 | `cycle ≥ 0` | `E_t_growth = exp(cycle/50)×0.01` | v4.6 E_t_growth |
 
@@ -403,7 +405,7 @@ The mapping layer bridges Codex variables (L, φ, π, τ, c) to the 6 parameters
 ### Phase Coherence
 
 ```
-reducedTdf = TDF mod √φ            [φ = 1.666]
+reducedTdf = TDF mod √φ            [φ = 5/3]
 phaseCoherence = sin²(2π × τ × reducedTdf)   [τ = 0.865]
 ```
 

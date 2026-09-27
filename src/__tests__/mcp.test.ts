@@ -192,8 +192,8 @@ describe('MCP - harmonic_oscillator', () => {
 })
 
 describe('MCP - validate_tlm', () => {
-  it('validates PHI = 1.666', async () => {
-    const json: any = await post('/validate_tlm', { phi: 1.666 })
+  it('validates PHI = 5/3', async () => {
+    const json: any = await post('/validate_tlm', { phi: 5 / 3 })
     expect(json.success).toBe(true)
     expect(json.valid).toBe(true)
   })
@@ -359,7 +359,7 @@ expect(messages.length).toBe(1)
     const res = await app.request('/messages?sessionId=test-session-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'call_connected_tool', arguments: { tool_name: 'validate_tlm', params: { phi: 1.666 } } } }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'call_connected_tool', arguments: { tool_name: 'validate_tlm', params: { phi: 5 / 3 } } } }),
     })
     expect(res.status).toBe(200)
 

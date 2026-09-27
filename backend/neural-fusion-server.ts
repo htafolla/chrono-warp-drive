@@ -19,6 +19,7 @@ import { NeuralFusion } from '../mcp/lib/neuralFusion';
 import { stellarLibrary } from '../mcp/lib/stellarLibraryLoader';
 import { solarDataFetcher } from '../mcp/lib/solarDataFetcher';
 import { dynamoSolarGovernance } from '../mcp/lib/dynamoSolarGovernance';
+import { PHI } from '../mcp/lib/tlmConstants';
 
 const app = express();
 app.use(cors());
@@ -105,7 +106,7 @@ app.post('/process-current-sun', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: spectrum,
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
       solarFeatures,
     });
@@ -158,7 +159,7 @@ app.post('/process-spectrum', async (req, res) => {
         source: 'STELLAR_LIBRARY',
       },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     });
     res.json({

@@ -131,7 +131,7 @@ Each oscillator's trajectory is a light path through the box. At each point on t
 
 - **`lambda`**: Which spectrum band (250nm UV-C through 2500nm IR-B) — determines spatial frequency of the wave
 - **`t`**: Time step — the wave evolves
-- **`n`**: PHI exponent — `PHIⁿ` time dilation per iteration (PHI=1.666)
+- **`n`**: PHI exponent — `PHIⁿ` time dilation per iteration (PHI=5/3; this note cannot import the TypeScript constants module)
 - **`FREQ`**: 528 Hz — the harmonic base, the "heartbeat" of the box
 - **`phaseType`**: push or pull — determines direction of wave travel in the box
 - **`isotope.factor`**: C-12=1.0 or C-14=0.8 — modulates wave amplitude
@@ -627,7 +627,7 @@ Everything has a file. Everything has a change. The priority is clear. The physi
 
 | Constant | Value | Meaning | Source |
 |----------|-------|---------|--------|
-| PHI | 1.666 | Trinitarium ratio | temporalCalculator.ts |
+| PHI | 5/3 | Trinitarium ratio | temporalCalculator.ts |
 | FREQ | 528 | Harmonic base (Hz) | temporalCalculator.ts |
 | C | 3e8 | Speed of light (m/s) | temporalCalculator.ts |
 | DELTA_T | 1e-6 | Time step | temporalCalculator.ts |

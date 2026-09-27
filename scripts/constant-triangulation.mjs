@@ -1,11 +1,13 @@
 /**
- * Fixed-grammar candidate search. Does not change any engine value.
+ * Exploratory candidate list. Does not change any engine value.
  *
- *   node mcp/scripts/constant-triangulation.mjs
+ * Revision history, also in docs/empirical/CONSTANT-TRIANGULATION.md:
+ *   fcd4df31 searched sums as well as products. Under that grammar
+ *   voids=7 matched ((5/3)+3)*1.5 with relative error 0.
+ *   2603fef dropped addition and subtraction.
+ *   This file does not score controls and does not assign a verdict.
  *
- * Rules are duplicated in docs/empirical/CONSTANT-TRIANGULATION.md.
- * This file is the implementation of those rules. Edit the rules in both
- * places together. The search runs only after the grammar below is fixed.
+ *   node scripts/constant-triangulation.mjs
  */
 
 const ATOMS = [
@@ -24,9 +26,6 @@ const ATOMS = [
 
 const EXPONENTS = [-2, -1, 1, 2]
 const MAX_TERMS = 3
-const CONTROL_N = 200
-const CONTROL_SEED = 20260927
-const NOTABLE_PERCENTILE = 95
 
 const TARGETS = [
   ['T_c', 137],
@@ -38,21 +37,6 @@ const TARGETS = [
   ['TAU', 0.865],
   ['vortex_base', 5.781e12],
 ]
-
-function mulberry32(seed) {
-  let a = seed >>> 0
-  return function rng() {
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-function logUniform(rng, lo, hi) {
-  const u = rng()
-  return Math.exp(Math.log(lo) + u * (Math.log(hi) - Math.log(lo)))
-}
 
 function rel(expr, target) {
   return Math.abs(expr - target) / Math.abs(target)
@@ -138,66 +122,19 @@ function best(target) {
   return winner
 }
 
-function quantile(sorted, p) {
-  if (sorted.length === 0) return NaN
-  const idx = (sorted.length - 1) * p
-  const lo = Math.floor(idx)
-  const hi = Math.ceil(idx)
-  if (lo === hi) return sorted[lo]
-  return sorted[lo] * (hi - idx) + sorted[hi] * (idx - lo)
-}
+const rows = TARGETS.map(([name, target]) => ({
+  name,
+  target,
+  tried: expressions.length,
+  nonFinite,
+  closest: best(target),
+}))
 
-const rows = []
-for (let t = 0; t < TARGETS.length; t++) {
-  const [name, target] = TARGETS[t]
-  const winner = best(target)
-  const lo = target / Math.sqrt(10)
-  const hi = target * Math.sqrt(10)
-  const rng = mulberry32(CONTROL_SEED + t)
-  const controlErrors = []
-  for (let i = 0; i < CONTROL_N; i++) {
-    const control = logUniform(rng, lo, hi)
-    controlErrors.push(best(control).err)
-  }
-  controlErrors.sort((a, b) => a - b)
-  const worse = controlErrors.filter((err) => err > winner.err).length
-  const percentile = (100 * worse) / CONTROL_N
-  const verdict = percentile >= NOTABLE_PERCENTILE ? 'notable' : 'no better than chance'
-  rows.push({
-    name,
-    target,
-    tried: expressions.length,
-    nonFinite,
-    winner,
-    band: [lo, hi],
-    seed: CONTROL_SEED + t,
-    controls: CONTROL_N,
-    controlBestError: {
-      min: controlErrors[0],
-      p05: quantile(controlErrors, 0.05),
-      p25: quantile(controlErrors, 0.25),
-      p50: quantile(controlErrors, 0.50),
-      p75: quantile(controlErrors, 0.75),
-      p95: quantile(controlErrors, 0.95),
-      max: controlErrors[controlErrors.length - 1],
-    },
-    percentile,
-    verdict,
-  })
-}
-
-const report = {
-  atoms: ATOMS.map(([name, value]) => ({ name, value })),
+console.log(JSON.stringify({
+  note: 'Exploratory candidates only. No evidence of derivation. No verdict.',
   exponents: EXPONENTS,
   maxTerms: MAX_TERMS,
-  factorCount: factors.length,
   expressionsTried: expressions.length,
   nonFinite,
-  expected,
-  controlN: CONTROL_N,
-  controlSeedBase: CONTROL_SEED,
-  notablePercentile: NOTABLE_PERCENTILE,
   rows,
-}
-
-console.log(JSON.stringify(report, null, 2))
+}, null, 2))

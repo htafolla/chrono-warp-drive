@@ -1311,7 +1311,7 @@ export function TPTTApp() {
                   <div><strong>Q_ent:</strong> abs(CTI × cos(φ*n/2)/π × sin(φ*n/4) × exp(-n/20)) × (1 + δφ) × log(n+1)</div>
                   <div><strong>cascade_index:</strong> floor(π / voids) + n</div>
                   <div className="pt-2 text-xs text-muted-foreground">
-                    φ = 1.666, τ = 0.865, tPTT = 5.3e12, n = {cascadeParams.n}
+                    φ = 5/3, τ = 0.865, tPTT = 5.3e12, n = {cascadeParams.n}
                   </div>
                 </div>
               </CardContent>

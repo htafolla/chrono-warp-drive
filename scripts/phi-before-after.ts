@@ -5,13 +5,21 @@
  * is the PHI binding inside the MCP modules.
  *
  * Run from the repo root:
- *   npx tsx mcp/scripts/phi-before-after.ts
+ *   npx tsx scripts/phi-before-after.ts
+ *
+ * Refuses to start when REDIS_URL is set, so the governance history
+ * write in dynamoSolarGovernance cannot run.
  *
  * Clock sites (not changed by this script, only pinned):
  *   mcp/lib/solarGovernanceIntegration.ts temporalNonce uses Date.now
  *   mcp/stellar.ts isotopic embedding tdfValue and signalId use Date.now
  */
 import { BEFORE_PATHS, BEFORE_VALUES } from './phi-before-snapshot.ts'
+
+if (process.env.REDIS_URL) {
+  console.error('REDIS_URL is set. Refusing to run so this audit cannot write Redis history.')
+  process.exit(2)
+}
 
 const FIXED_NOW_MS = Date.UTC(2026, 8, 27, 21, 30, 0)
 
@@ -46,13 +54,13 @@ globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
   throw new Error(`blocked fetch during PHI table: ${url}`)
 }
 
-const { app } = await import('../index.ts')
-const stellarMod = await import('../stellar.ts')
+const { app } = await import('../mcp/index.ts')
+const stellarMod = await import('../mcp/stellar.ts')
 const stellarApp = stellarMod.app
-const { computeFullTDF } = await import('../lib/vortexMath.ts')
-const { deterministicRandom } = await import('../lib/deterministicUtils.ts')
-const { TemporalBlurrnSignal } = await import('../lib/temporalBlurrnSignal.ts')
-const { PHI, L } = await import('../lib/tlmConstants.ts')
+const { computeFullTDF } = await import('../mcp/lib/vortexMath.ts')
+const { deterministicRandom } = await import('../mcp/lib/deterministicUtils.ts')
+const { TemporalBlurrnSignal } = await import('../mcp/lib/temporalBlurrnSignal.ts')
+const { PHI, L } = await import('../mcp/lib/tlmConstants.ts')
 
 async function post(target: { request: (typeof app)['request'] }, path: string, body: unknown) {
   const res = await target.request(path, {
@@ -214,9 +222,63 @@ console.log('| --- | ---: | ---: |')
 for (const row of moved) {
   console.log(`| ${row.label} | ${fmt(row.before)} | ${fmt(row.after)} |`)
 }
-const govern = calls.find(c => c.tool.startsWith('POST /govern_with_solar'))
-const recommendation = (govern?.body as { body?: { finalRecommendation?: string } } | undefined)?.body?.finalRecommendation
-console.log(`| POST /govern_with_solar.finalRecommendation | PASS @ 93% | ${recommendation?.includes('92%') ? 'PASS @ 92%' : recommendation} |`)
+console.log('')
+console.log('## evaluate_governance')
+console.log('Phase coherence is `tdf % sqrt(PHI)` on a tdf near 5.781e12 (`mcp/index.ts` TemporalBlurrnSignal constructor, `mcp/lib/temporalBlurrnSignal.ts`).')
+console.log('The formula is unchanged. Changing PHI changes that remainder, so cross_correlate strength moves the way a new seed would.')
+console.log('Before column: same clock and the same fetch stubs, commit 55e934b0. Live deployed effect is unverified.')
+console.log('`govern_with_solar` prints a hammer percent tag. That tag is not this decision.')
+console.log('')
+
+const REVIEW = 'The review text is fixed and does not depend on the clock.'
+const STEM = 'Fixed phi probe proposal for the engine triangulation study'
+const governanceCases = [
+  {
+    id: 'variant-0',
+    text: `${STEM} variant 0.`,
+    beforeRecommendation: 'PASS',
+    beforeConfidence: 0.93,
+    beforeResonance: 0.9524567885544127,
+    beforeHammer: 0.6181689127184462,
+  },
+  {
+    id: 'variant-2',
+    text: `${STEM} variant 2.`,
+    beforeRecommendation: 'PASS',
+    beforeConfidence: 0.93,
+    beforeResonance: 0.9524567885544127,
+    beforeHammer: 0.8227185310590787,
+  },
+  {
+    id: 'variant-1',
+    text: `${STEM} variant 1.`,
+    beforeRecommendation: 'PASS',
+    beforeConfidence: 0.93,
+    beforeResonance: 0.9104628970007227,
+    beforeHammer: 0.9104628970007227,
+  },
+]
+
+console.log('| proposal | before verdict | before confidence | before resonance | before hammer | after verdict | after confidence | after resonance | after hammer |')
+console.log('| --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |')
+for (const item of governanceCases) {
+  const result = await post(app, '/governance', {
+    proposalId: item.id,
+    proposalText: item.text,
+    agentReviews: [REVIEW],
+    source: 'human',
+  })
+  const body = result.body as {
+    recommendation?: string
+    confidence?: number
+    resonanceScore?: number
+    solarHammerResonance?: number
+  }
+  console.log(`| ${item.id} | ${item.beforeRecommendation} | ${item.beforeConfidence} | ${item.beforeResonance} | ${item.beforeHammer} | ${body.recommendation} | ${body.confidence} | ${body.resonanceScore} | ${body.solarHammerResonance} |`)
+}
+console.log('')
+console.log('variant-0 and variant-2: hammer stays inside (0.45, 0.88), so the matrix uses cross_correlate strength. That strength is about 0.95 before and about 0.065 after, and the verdict goes from PASS 0.93 to REJECT 0.8.')
+console.log('variant-1: after hammer is at least 0.88, so evaluate_governance replaces resonance with the hammer (`mcp/governance.ts`). The verdict stays PASS only through that override. The cross_correlate strength alone would be the REJECT 0.8 path.')
 
 console.log('')
 console.log('## Unchanged highlights')

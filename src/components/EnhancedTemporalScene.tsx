@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
+import { PHI } from '@/lib/tlmConstants';
 import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager, memoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
@@ -180,7 +181,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       const geometry = geometryRef.current;
       const position = geometry.attributes.position;
       const phase = phases[index % phases.length] || 0;
-      const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
+      const phaseType = (cycle % PHI) > PHI / 2 ? "push" : "pull";
       
       // Use spectrum data if available for enhanced wave calculations
       const intensityMultiplier = spectrumData ? 

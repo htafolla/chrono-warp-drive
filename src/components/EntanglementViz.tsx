@@ -4,6 +4,7 @@ import { OrbitControls, Sphere } from '@react-three/drei';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import * as THREE from 'three';
+import { PHI } from '@/lib/tlmConstants';
 
 interface EntanglementVizProps {
   deltaPhase: number;
@@ -18,7 +19,7 @@ const EntanglementSphere = ({ deltaPhase, n, q_ent }: EntanglementVizProps) => {
   const quantumEnt = useMemo(() => {
     if (q_ent !== undefined) return q_ent;
     
-    const phi = 1.666;
+    const phi = PHI;
     const cti = 0.996; // Normalized CTI for visualization
     return Math.abs(
       cti * (Math.cos((phi * n) / 2) / Math.PI) * 

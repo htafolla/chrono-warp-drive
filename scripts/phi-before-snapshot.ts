@@ -1,4 +1,4 @@
-/** Frozen numeric leaves from mcp/scripts/phi-before-after.ts
+/** Frozen numeric leaves from scripts/phi-before-after.ts
  *  run against commit 55e934b03914a52c12c5b113d81ba45314626fdc
  *  (PHI decimal literal still in the tool handlers).
  *  Clock: Date.UTC(2026, 8, 27, 21, 30, 0).

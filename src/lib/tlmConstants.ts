@@ -4,7 +4,7 @@
  * Canonical SSOT: ../trinitarium/src/constants/tlm.ts
  * (sibling repo at /Users/blaze/dev/trinitarium)
  *
- * Values MUST match trinitarium tlm.ts. Do not hardcode 1.666 literals elsewhere;
+ * Values MUST match trinitarium tlm.ts. Do not hardcode a decimal expansion of PHI elsewhere;
  * import L, PHI, F_h, C_h from this module.
  *
  * @see trinitarium README.md "Core Constants"
@@ -14,7 +14,7 @@
 /** Trinity (Father, Son, Holy Spirit) */
 export const L = 3;
 
-/** Temple measure, divine balance (5/3 ≈ 1.666) */
+/** Temple measure, exact fraction 5/3. */
 export const PHI = 5 / 3;
 
 /** Finite grace seed (Fibonacci start) */
