@@ -1,7 +1,7 @@
 // Temporal Photonic Transpondent Transporter Calculator
 // Based on Codex v3.6 by @blaze0x1
 
-// Core Constants from TLM (L, PHI from tlmConstants). Trinitarium has no canonical definition for L or PHI.
+// Core Constants from TLM (L, PHI from tlmConstants). Canonical definitions: htafolla/trinitarium src/data/codexData.ts (TLM key_variables / symbols, @5c0294d): L = 3 line 736, phi = 1.666 line 748, F_h = [5, 3] lines 1226–1231, C_TLM = ∞ lines 1234–1237, C_h = "3 × 10^12 m/s" lines 1239–1241.
 export { L, PHI } from './tlmConstants';
 export const FREQ = 528; // Hz harmonic frequency  
 export const C = 3e8; // Speed of light (m/s)
