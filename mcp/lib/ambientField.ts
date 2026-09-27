@@ -6,7 +6,7 @@ import { governanceToContainer, type ContainerVortex } from './temporalContainer
 import { persistContainerToChain } from './contractClient.js'
 import { getRedisClient } from '../pubsub.js'
 import { containerOriginHashField } from './containerOrigin.js'
-import { pushAndTrimContainerList } from './containerList.js'
+import { CONTAINER_LIST_CAP, pushAndTrimContainerList } from './containerList.js'
 import { temporalManifold } from './temporalManifold.js'
 
 const ECHO_SUFFIX = ' [echo]'
@@ -339,7 +339,7 @@ export class AmbientField {
             const client = await getRedisClient()
             if (client) {
               const origin = containerOriginHashField(container.containerId, 'real')
-              await pushAndTrimContainerList(client.multi(), JSON.stringify(container))
+              await pushAndTrimContainerList(client.multi(), JSON.stringify(container), CONTAINER_LIST_CAP)
                 .hset(origin.key, origin.field, origin.value)
                 .exec()
             }

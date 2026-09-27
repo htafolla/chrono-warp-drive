@@ -14,7 +14,7 @@ import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
 import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
-import { pushAndTrimContainerList, REDIS_CONTAINER_KEY } from './lib/containerList.js'
+import { CONTAINER_LIST_CAP, pushAndTrimContainerList, REDIS_CONTAINER_KEY } from './lib/containerList.js'
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
@@ -1779,7 +1779,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         const client = await getRedisClient()
         if (client) {
           const origin = containerOriginHashField(container.containerId, 'real')
-          await pushAndTrimContainerList(client.multi(), JSON.stringify(container))
+          await pushAndTrimContainerList(client.multi(), JSON.stringify(container), CONTAINER_LIST_CAP)
             .hset(origin.key, origin.field, origin.value)
             .exec()
         }
@@ -3185,7 +3185,7 @@ mountDevSeedRoute(app, async (c: Context) => {
         const client = await getRedisClient()
         if (client) {
           const origin = containerOriginHashField(c.containerId, 'seed', SEED_ROUTE_SOURCE)
-          await pushAndTrimContainerList(client.multi(), JSON.stringify(c))
+          await pushAndTrimContainerList(client.multi(), JSON.stringify(c), CONTAINER_LIST_CAP)
             .hset(origin.key, origin.field, origin.value)
             .exec()
           entry.store = true

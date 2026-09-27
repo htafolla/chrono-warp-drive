@@ -19,8 +19,9 @@ export interface ContainerListPipeline<T> {
 export function pushAndTrimContainerList<T extends ContainerListPipeline<T>>(
   pipeline: T,
   serialized: string,
+  cap: number = CONTAINER_LIST_CAP,
 ): T {
   return pipeline
     .lpush(REDIS_CONTAINER_KEY, serialized)
-    .ltrim(REDIS_CONTAINER_KEY, 0, CONTAINER_LIST_CAP - 1)
+    .ltrim(REDIS_CONTAINER_KEY, 0, cap - 1)
 }

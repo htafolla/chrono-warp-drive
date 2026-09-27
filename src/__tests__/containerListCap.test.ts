@@ -86,7 +86,7 @@ const TRIM_PATHS: TrimPath[] = [
 async function pushThroughPath(redis: MockRedis, originValue: string): Promise<void> {
   for (let n = 0; n < PUSH_COUNT; n++) {
     const origin = { key: 'dynamo:containers:origin', field: `id-${n}`, value: originValue }
-    await pushAndTrimContainerList(redis.multi(), JSON.stringify({ n }))
+    await pushAndTrimContainerList(redis.multi(), JSON.stringify({ n }), CONTAINER_LIST_CAP)
       .hset(origin.key, origin.field, origin.value)
       .exec()
   }
@@ -119,11 +119,14 @@ describe('container list cap', () => {
 
     expect(indexSource.match(/pushAndTrimContainerList\(/g)).toHaveLength(2)
     expect(ambientSource.match(/pushAndTrimContainerList\(/g)).toHaveLength(1)
+    expect(indexSource).toContain('CONTAINER_LIST_CAP')
+    expect(ambientSource).toContain('CONTAINER_LIST_CAP')
     expect(indexSource).not.toContain('MAX_REDIS_CONTAINERS')
     expect(ambientSource).not.toContain('MAX_REDIS_CONTAINERS')
     expect(indexSource).not.toContain('.ltrim(')
     expect(ambientSource).not.toContain('.ltrim(')
-    expect(capSource).toContain('CONTAINER_LIST_CAP - 1')
+    expect(capSource).toContain('cap: number = CONTAINER_LIST_CAP')
+    expect(capSource).toContain('cap - 1')
     expect(capSource.match(/\.ltrim\(/g)).toHaveLength(1)
   })
 })
