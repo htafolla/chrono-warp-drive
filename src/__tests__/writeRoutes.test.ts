@@ -26,7 +26,7 @@ vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
   }
 })
 
-import { app, autoMintVortex, markMintRebuildReadyForTests, rebuildMintedSetFromChain } from '../../mcp/index'
+import { app, autoMintVortex, markMintRebuildReadyForTests, mintRebuildRetryDelayForTests, rebuildMintedSetFromChain, runScheduledMintRebuildRetryForTests } from '../../mcp/index'
 import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
 import { mintedIdsFromChainRecords, onChainMintId, setChainExecutorForTests, type ChainMintRecord } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
@@ -276,6 +276,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  markMintRebuildReadyForTests()
   setChainExecutorForTests(null)
   vi.unstubAllGlobals()
 })
@@ -738,6 +739,59 @@ describe('mint abuse limits', () => {
     expect(signed.status).toBe(503)
     expect(String(signed.json.error)).toContain('rebuild failed')
     expect(stub.mints).toHaveLength(mintsBefore)
+    expect(stub.autoMints).toEqual([])
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+  })
+
+  it('the rebuild fails once, the next retry succeeds, a mint is refused before it and allowed after it, and an old containerHash-keyed mint is still refused after it', async () => {
+    const freshId = nextId()
+    const freshHash = nextId()
+    const oldId = nextId()
+    const oldHash = nextId()
+    stub.containers.set(freshId.toLowerCase(), registryContainer(freshId, freshHash))
+    stub.containers.set(oldId.toLowerCase(), registryContainer(oldId, oldHash))
+    stub.listError = new Error('rpc down')
+    await rebuildMintedSetFromChain()
+    expect(mintRebuildRetryDelayForTests()).toBe(5_000)
+
+    const refused = await mint(signedMint(freshId, freshHash, address(4)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.54.0.1',
+    })
+    const skipped = await autoMintVortex(sampleVortex(freshId, freshHash), 'before-retry')
+    expect(refused.status).toBe(503)
+    expect(String(refused.json.error)).toContain('rebuild failed')
+    expect(skipped).toBeNull()
+    expect(stub.mints).toEqual([])
+    expect(stub.autoMints).toEqual([])
+
+    stub.listError = null
+    stub.tokenRecords = [{
+      containerId: oldId,
+      containerHash: oldHash,
+      tokenByKey: { [oldId.toLowerCase()]: null, [oldHash.toLowerCase()]: '2' },
+    }]
+    stub.mintedOnChain.set(oldHash.toLowerCase(), '2')
+    await runScheduledMintRebuildRetryForTests()
+    expect(mintRebuildRetryDelayForTests()).toBeNull()
+
+    const allowed = await mint(signedMint(freshId, freshHash, address(4)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.54.0.1',
+    })
+    expect(allowed.status).toBe(200)
+    expect(stub.mints).toEqual([freshId])
+
+    const oldMint = await mint(signedMint(oldId, oldHash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.54.0.2',
+    })
+    const oldAuto = await autoMintVortex(sampleVortex(oldId, oldHash), 'old-hash-after-retry')
+    expect(oldMint.status).toBe(409)
+    expect(String(oldMint.json.error)).toContain('already')
+    expect(oldAuto).toBeNull()
+    expect(stub.mints).toEqual([freshId])
     expect(stub.autoMints).toEqual([])
     expect(counters.deployerKeyReads).toBe(0)
     expect(counters.directChainCalls).toBe(0)
