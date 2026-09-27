@@ -15,11 +15,17 @@ if (process.env.REDIS_URL) {
 async function getRedis() {
   if (!redisClient && pubsubMode === 'redis') {
     // ioredis is an optional runtime dep installed only inside mcp/.
-    // Cast to any so the frontend tsc pass doesn't need its types.
-    const mod: any = await import(/* @vite-ignore */ 'ioredis' as any)
+    // A non-literal specifier keeps the root vitest graph from requiring it
+    // when Redis is not configured.
+    const spec = 'ioredis'
+    const mod: any = await import(/* @vite-ignore */ spec)
     const Redis = mod.Redis ?? mod.default
     redisClient = new Redis(process.env.REDIS_URL!)
     redisSubscriber = new Redis(process.env.REDIS_URL!)
+    // ioredis throws on an unhandled 'error'. Unreachable Redis must not take the process down.
+    const ignoreRedisError = () => {}
+    redisClient.on('error', ignoreRedisError)
+    redisSubscriber.on('error', ignoreRedisError)
   }
   return { client: redisClient, subscriber: redisSubscriber }
 }

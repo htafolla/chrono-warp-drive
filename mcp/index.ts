@@ -11,12 +11,27 @@ import { createGovernanceRouter, evaluateGovernance } from './governance'
 import { dynamoSolarGovernance, getPublicFeed, getHistory, getHistoryStats, REDIS_HISTORY_PERMANENT_KEY } from './lib/dynamoSolarGovernance.js'
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
 import { ambientField } from './lib/ambientField.js'
-import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
+import { governanceToContainer, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
 import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
-import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
+import { baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
+import {
+  PERSIST_COOLDOWN_MS,
+  acquirePersistCooldown,
+  authorizeWrite,
+  claimMintSlot,
+  clientRateKey,
+  commitMintSlot,
+  isAddress,
+  isBytes32,
+  readVortexSigningKey,
+  releaseMintSlot,
+  signVortex,
+  verifyVortexSignature,
+} from './lib/writeGate.js'
+import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, type RegistryContainer } from './lib/chainPort.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -123,10 +138,6 @@ const TOKEN_IMAGE_TTL = 86400
     } catch { /* sync failed */ }
   } catch { /* Redis unavailable */ }
 })()
-
-// Rate-limit for manual persistToChain: 1 per 10 seconds globally
-let lastPersistTime = 0
-const PERSIST_COOLDOWN_MS = 10_000
 
 function temporalManifoldProposalHash(text: string): string {
   return createHash('sha256').update(text).digest('hex').slice(0, 16)
@@ -1715,6 +1726,29 @@ app.get('/govern_with_solar', (c: Context) => {
 
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
+  const persistToChain = body.persistToChain === true
+  // Read-only governance (persistToChain not true) stays open. Chain writes require the API key.
+  let persistSigningKey: string | null = null
+  if (persistToChain) {
+    const auth = authorizeWrite(c.req.header('authorization'))
+    if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+    persistSigningKey = readVortexSigningKey()
+    if (!persistSigningKey) {
+      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+    }
+    // 60 second cooldown for this persist and the auto-mint it triggers.
+    // PERSIST_COOLDOWN_MS is 60_000. The previous constant was 10_000 and disagreed with this comment.
+    const cooldown = acquirePersistCooldown()
+    if (!cooldown.ok) {
+      return c.json({
+        success: true,
+        temporalContainer: {
+          onChainError: `Rate-limited. Try again in ${cooldown.retryAfterSeconds}s (${PERSIST_COOLDOWN_MS / 1000}s cooldown).`,
+        },
+      })
+    }
+  }
+
   const rawProposal = body.proposal ?? body.structuredProposal
   if (!rawProposal || (typeof rawProposal === 'string' && !rawProposal.trim())) {
     return c.json({ success: false, error: 'proposal or structuredProposal required' }, 400)
@@ -1738,21 +1772,7 @@ app.post('/govern_with_solar', async (c: Context) => {
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
   const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding, proposalSource)
 
-  const persistToChain = body.persistToChain === true
   if (persistToChain) {
-    // Rate-limit: 1 persist per 60 seconds globally
-    const now = Date.now()
-    if (now - lastPersistTime < PERSIST_COOLDOWN_MS) {
-      const remaining = Math.ceil((PERSIST_COOLDOWN_MS - (now - lastPersistTime)) / 1000)
-      return c.json({
-        success: true,
-        ...result,
-        temporalContainer: {
-          onChainError: `Rate-limited. Try again in ${remaining}s.`,
-        },
-      })
-    }
-
     // Resonance gate: only persist non-REJECT verdicts
     const verdict = result.recommendation || result.fullBox7DVerdict
     if (verdict === 'REJECT') {
@@ -1765,9 +1785,12 @@ app.post('/govern_with_solar', async (c: Context) => {
       })
     }
 
-    lastPersistTime = now
+    if (!persistSigningKey) {
+      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+    }
     const source = determineSource(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
     const container = governanceToContainer(result, proposalText, source, latestContainerHash)
+    const vortexSignature = signVortex(container.containerHash, container.containerId, persistSigningKey)
     containerStore.push(container)
     latestContainerHash = container.containerHash
 
@@ -1791,7 +1814,7 @@ app.post('/govern_with_solar', async (c: Context) => {
 
     let onChain: { txHash: string } | null = null
     try {
-      onChain = await persistContainerToChain(container)
+      onChain = await getChainExecutor().persistGovernedContainer(container)
     } catch (err: any) {
       return c.json({
         success: true,
@@ -1799,6 +1822,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         temporalContainer: {
           containerId: container.containerId,
           containerHash: container.containerHash,
+          vortexSignature,
           source: container.source,
           timestamp: container.timestamp,
         },
@@ -1806,10 +1830,9 @@ app.post('/govern_with_solar', async (c: Context) => {
       })
     }
 
-    // Auto-mint vortex token on v4 (fire-and-forget)
-    ;(async () => {
-      await autoMintVortex(container, proposalText)
-    })()
+    // Auto-mint uses the same containerId gate as POST /vortex/mint. Awaited so a
+    // failed claim cannot race a second write. The 60s cooldown above already passed.
+    await autoMintVortex(container, proposalText)
 
     return c.json({
       success: true,
@@ -1817,6 +1840,7 @@ app.post('/govern_with_solar', async (c: Context) => {
       temporalContainer: {
         containerId: container.containerId,
         containerHash: container.containerHash,
+        vortexSignature,
         source: container.source,
         timestamp: container.timestamp,
         onChainTx: onChain.txHash,
@@ -2267,9 +2291,6 @@ app.post('/messages', async (c: Context) => {
 
 // ---------- Vortex Token endpoints ----------
 
-const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
-const VORTEX_TREASURY = '0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43'
-
 let cachedVortexClient: ReturnType<typeof getVortexTokenClient> | null = null
 
 function getVortexTokenClient() {
@@ -2384,22 +2405,6 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
   }
 })
 
-// Retro-mint a token for an existing registered container via v4 mint()
-// Serializes all wallet write operations (mint + auto-register) so concurrent
-// requests don't clash on nonce or RPC rate limits.
-let writeLock: Promise<void> = Promise.resolve()
-async function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
-  let release: () => void
-  const prev = writeLock
-  writeLock = new Promise<void>(resolve => { release = resolve })
-  await prev
-  try {
-    return await fn()
-  } finally {
-    release!()
-  }
-}
-
 const friendlyMintError = (err: any): string => {
   const msg = err?.message || err?.cause?.message || ''
   if (msg.includes('replacement transaction underpriced'))
@@ -2416,68 +2421,17 @@ const friendlyMintError = (err: any): string => {
 }
 
 app.post('/vortex/persist', async (c: Context) => {
+  const auth = authorizeWrite(c.req.header('authorization'))
+  if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
   try {
     const { containerId } = await c.req.json() as { containerId: string }
     if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
 
-    const stored = containerStore.find(c => c.containerId.toLowerCase() === containerId.toLowerCase())
+    const stored = containerStore.find(entry => entry.containerId.toLowerCase() === containerId.toLowerCase())
     if (!stored) return c.json({ success: false, error: 'Container not found in MCP store' }, 404)
 
-    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
-    const { walletClient, publicClient, account } = getVortexTokenClient()
-    const params = containerToContractParams(stored)
+    const { txHash } = await getChainExecutor().persistStoredContainer(stored)
 
-    const regNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
-    const txHash = await withWriteLock(async () => {
-      return walletClient.writeContract({
-        address: CONTRACT_ADDRESS,
-        abi: registryAbi,
-        functionName: 'storeContainer',
-        nonce: regNonce,
-        args: [
-          params.containerId as `0x${string}`,
-          params.timestamp,
-          params.proposalHash as `0x${string}`,
-          {
-            timestamp: params.solarSnapshot.timestamp,
-            activityLevel: params.solarSnapshot.activityLevel,
-            xrayFlux: params.solarSnapshot.xrayFlux,
-            kpIndex: params.solarSnapshot.kpIndex,
-            protonFlux: params.solarSnapshot.protonFlux,
-            magnetometer: params.solarSnapshot.magnetometer,
-            solarTdf: params.solarSnapshot.solarTdf,
-          },
-          {
-            fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
-            fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
-            waveProximity: params.resonanceProfile.waveProximity,
-            phaseAlignment: params.resonanceProfile.phaseAlignment,
-            calibratedVortex: params.resonanceProfile.calibratedVortex,
-            calibratedSync: params.resonanceProfile.calibratedSync,
-            neuralProximity: params.resonanceProfile.neuralProximity,
-            neuralVortex: params.resonanceProfile.neuralVortex,
-            gematriaResonance: params.resonanceProfile.gematriaResonance,
-            structuralResonance: params.resonanceProfile.structuralResonance,
-            verdict: params.resonanceProfile.verdict,
-            confidence: params.resonanceProfile.confidence,
-          },
-          {
-            trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
-            virtueAlignment: params.moralOverlay.virtueAlignment,
-            moralSafety: params.moralOverlay.moralSafety,
-            intentAlignment: params.moralOverlay.intentAlignment,
-            trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
-            moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
-          },
-          params.hammerReason || '',
-          params.containerHash as `0x${string}`,
-          params.source || 'ambient',
-        ],
-      })
-    })
-    await publicClient.waitForTransactionReceipt({ hash: txHash })
-
-    // Add to Redis registered set
     try {
       const client = await getRedisClient()
       if (client) await client.sadd(REDIS_VORTEX_KEY_REGISTERED, containerId.toLowerCase())
@@ -2495,231 +2449,75 @@ app.post('/vortex/persist', async (c: Context) => {
   }
 })
 
+// Exact containerId match only. No store fallback, no listContainers scan, no prefix match.
 app.post('/vortex/mint', async (c: Context) => {
+  const auth = authorizeWrite(c.req.header('authorization'))
+  if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+  let reservedId: string | null = null
+  let reservedRecipient = ''
   try {
-    let { containerId, to } = await c.req.json() as { containerId: string; to: string }
-    if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
-    if (!to) return c.json({ success: false, error: 'recipient address (to) required' }, 400)
-
-    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-    const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
-    const { walletClient, publicClient, account } = getVortexTokenClient()
-
-    // Read container data from registry (or MCP store for non-registered containers)
-    let container: any
-    let fromRegistry = false
-
-    // Helper to get the next nonce from chain
-    async function nextNonce() {
-      return publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
+    const body = await c.req.json() as {
+      containerId?: string
+      to?: string
+      containerHash?: string
+      signature?: string
+    }
+    const containerId = body.containerId ?? ''
+    const to = body.to ?? ''
+    const containerHash = body.containerHash ?? ''
+    const signature = body.signature ?? ''
+    if (!containerId || !to || !containerHash || !signature) {
+      return c.json({ success: false, error: 'containerId, containerHash, to, and signature are required' }, 400)
+    }
+    // 18-character prefixes and any non-exact id fail here, before the chain client exists.
+    if (!isBytes32(containerId) || !isBytes32(containerHash) || !isAddress(to)) {
+      return c.json({ success: false, error: 'containerId and containerHash must be exact 32-byte hex ids; to must be an address' }, 400)
     }
 
-    // 1) Try reading the container from the on-chain registry directly
-    try {
-      container = await publicClient.readContract({
-        address: CONTRACT_ADDRESS, abi: registryAbi,
-        functionName: 'getContainer',
-        args: [containerId as `0x${string}`],
-      }) as any
-      fromRegistry = true
-    } catch {
-      // 2) Not in registry — check MCP container store and auto-register using same wallet client
-      const stored = containerStore.find(c => c.containerId === containerId)
-      if (stored) {
-        try {
-          const params = containerToContractParams(stored)
-          const regTx = await withWriteLock(async () => {
-            const regNonce = await nextNonce()
-            return walletClient.writeContract({
-              address: CONTRACT_ADDRESS,
-              abi: registryAbi,
-              functionName: 'storeContainer',
-              nonce: regNonce,
-              args: [
-                params.containerId as `0x${string}`,
-                params.timestamp,
-                params.proposalHash as `0x${string}`,
-                {
-                  timestamp: params.solarSnapshot.timestamp,
-                  activityLevel: params.solarSnapshot.activityLevel,
-                  xrayFlux: params.solarSnapshot.xrayFlux,
-                  kpIndex: params.solarSnapshot.kpIndex,
-                  protonFlux: params.solarSnapshot.protonFlux,
-                  magnetometer: params.solarSnapshot.magnetometer,
-                  solarTdf: params.solarSnapshot.solarTdf,
-                },
-                {
-                  fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
-                  fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
-                  waveProximity: params.resonanceProfile.waveProximity,
-                  phaseAlignment: params.resonanceProfile.phaseAlignment,
-                  calibratedVortex: params.resonanceProfile.calibratedVortex,
-                  calibratedSync: params.resonanceProfile.calibratedSync,
-                  neuralProximity: params.resonanceProfile.neuralProximity,
-                  neuralVortex: params.resonanceProfile.neuralVortex,
-                  gematriaResonance: params.resonanceProfile.gematriaResonance,
-                  structuralResonance: params.resonanceProfile.structuralResonance,
-                  verdict: params.resonanceProfile.verdict,
-                  confidence: params.resonanceProfile.confidence,
-                },
-                {
-                  trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
-                  virtueAlignment: params.moralOverlay.virtueAlignment,
-                  moralSafety: params.moralOverlay.moralSafety,
-                  intentAlignment: params.moralOverlay.intentAlignment,
-                  trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
-                  moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
-                },
-                params.hammerReason,
-                params.containerHash as `0x${string}`,
-                params.source,
-              ],
-            })
-          })
-          await publicClient.waitForTransactionReceipt({ hash: regTx })
-        } catch (regErr: any) {
-          console.error('[vortex] auto-register failed:', regErr.message)
-        }
-        container = await publicClient.readContract({
-          address: CONTRACT_ADDRESS, abi: registryAbi,
-          functionName: 'getContainer',
-          args: [containerId as `0x${string}`],
-        }).catch(() => stored)
-        fromRegistry = true
-      }
-    }
-
-    // 3) Last resort: iterate on-chain registry to find a matching ID
-    if (!fromRegistry) {
-      try {
-        const [ids] = await publicClient.readContract({
-          address: CONTRACT_ADDRESS, abi: registryAbi,
-          functionName: 'listContainers',
-          args: [0n, 100n],
-        }) as [string[], bigint]
-        const match = (ids as string[]).find(id => id.toLowerCase() === containerId.toLowerCase())
-        if (match) {
-          container = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: registryAbi,
-            functionName: 'getContainer',
-            args: [match as `0x${string}`],
-          }) as any
-          fromRegistry = true
-        }
-      } catch { /* registry iteration failed */ }
-    }
-
-    // 4) Fuzzy match by prefix (first 20 hex chars) — handles stale IDs
-    if (!fromRegistry) {
-      const prefix = containerId.toLowerCase().slice(0, 18) // "0x" + 16 hex chars
-      const fromStore = containerStore.find(c => c.containerId.toLowerCase().startsWith(prefix))
-      if (fromStore) {
-        containerId = fromStore.containerId
-        try {
-          container = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: registryAbi,
-            functionName: 'getContainer',
-            args: [containerId as `0x${string}`],
-          }) as any
-          fromRegistry = true
-        } catch {
-          // Store ID exists but not on-chain — use stored data
-          container = fromStore
-        }
-      } else {
-        // Check registry by prefix too
-        try {
-          const [ids] = await publicClient.readContract({
-            address: CONTRACT_ADDRESS, abi: registryAbi,
-            functionName: 'listContainers',
-            args: [0n, 100n],
-          }) as [string[], bigint]
-          const match = (ids as string[]).find(id => id.toLowerCase().startsWith(prefix))
-          if (match) {
-            containerId = match
-            container = await publicClient.readContract({
-              address: CONTRACT_ADDRESS, abi: registryAbi,
-              functionName: 'getContainer',
-              args: [match as `0x${string}`],
-            }) as any
-            fromRegistry = true
-          }
-        } catch { /* registry prefix search failed */ }
-      }
-    }
-
-    if (!fromRegistry) {
-      return c.json({ success: false, error: 'Container not found in registry or MCP store. Try reloading the page to refresh container data.' }, 404)
-    }
-
-    // Scale float scores to uint256 when container is from MCP store (not on-chain registry)
-    const scaleUint = (v: any) => typeof v === 'bigint' ? v : BigInt(Math.round(Number(v) * 1e18))
-    const safeTs = (v: any) => typeof v === 'bigint' ? v : BigInt(Math.floor(Number(v)))
-    const mintArgs = [
-      to as `0x${string}`,
-      containerId as `0x${string}`,
-      {
-        containerId: containerId as `0x${string}`,
-        timestamp: safeTs(container.timestamp),
-        verdict: container.resonanceProfile.verdict,
-        fullBox7DComposite: scaleUint(container.resonanceProfile.fullBox7DComposite),
-        trinitariumMoralScore: scaleUint(container.moralOverlay.trinitariumMoralScore),
-        trinitariumGematriaFusion: scaleUint(container.moralOverlay.trinitariumGematriaFusion),
-        moralTension: container.moralOverlay.moralNumerologicalTension,
-        waveProximity: scaleUint(container.resonanceProfile.waveProximity),
-        phaseAlignment: scaleUint(container.resonanceProfile.phaseAlignment),
-        calibratedVortex: scaleUint(container.resonanceProfile.calibratedVortex),
-        calibratedSync: scaleUint(container.resonanceProfile.calibratedSync),
-        neuralProximity: scaleUint(container.resonanceProfile.neuralProximity),
-        neuralVortex: scaleUint(container.resonanceProfile.neuralVortex),
-        gematriaResonance: scaleUint(container.resonanceProfile.gematriaResonance),
-        virtueAlignment: scaleUint(container.moralOverlay.virtueAlignment),
-        moralSafety: scaleUint(container.moralOverlay.moralSafety),
-        intentAlignment: scaleUint(container.moralOverlay.intentAlignment),
-        source: container.source,
-        containerHash: container.containerHash,
-        hammerReason: container.hammerReason || '',
-        proposalText: '',
-      },
-    ]
-
-    const txHash = await withWriteLock(async () => {
-      const mintNonce = await nextNonce()
-      return walletClient.writeContract({
-        address: VORTEX_TOKEN_ADDRESS,
-        abi,
-        functionName: 'mint',
-        nonce: mintNonce,
-        args: mintArgs,
-      })
+    const claim = claimMintSlot({
+      containerId,
+      recipient: to,
+      rateKey: clientRateKey(c.req.header('x-forwarded-for')),
     })
+    if (!claim.ok) return c.json({ success: false, error: claim.error }, claim.status)
+    reservedId = containerId
+    reservedRecipient = to
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+    const signingKey = readVortexSigningKey()
+    if (!signingKey) {
+      releaseMintSlot(containerId)
+      reservedId = null
+      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+    }
+    if (!verifyVortexSignature(containerHash, containerId, signature, signingKey)) {
+      releaseMintSlot(containerId)
+      reservedId = null
+      return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
+    }
 
-    // Cache in Redis and get tokenId from receipt
-    let tokenId: string | null = null
-    try {
-      const tid = await publicClient.readContract({
-        address: VORTEX_TOKEN_ADDRESS, abi,
-        functionName: 'tokenByContainerId',
-        args: [containerId as `0x${string}`],
-      }).catch(() => 0n)
-      if (tid !== 0n) {
-        tokenId = tid.toString()
-        await storeVortexStatusInRedis(containerId, tokenId)
-      }
-    } catch { /* Redis optional */ }
+    const container: RegistryContainer | null = await getChainExecutor().readContainerExact(containerId)
+    if (!container) {
+      releaseMintSlot(containerId)
+      reservedId = null
+      return c.json({ success: false, error: 'Container not found' }, 404)
+    }
+
+    const minted = await getChainExecutor().mintRegistered({ to, containerId, container })
+    commitMintSlot(containerId, to)
+    reservedId = null
+    if (minted.tokenId) await storeVortexStatusInRedis(containerId, minted.tokenId)
 
     return c.json({
       success: true,
       tokenAddress: VORTEX_TOKEN_ADDRESS,
       containerId,
       to,
-      tokenId,
-      txHash: receipt.transactionHash,
-      explorerUrl: `https://basescan.org/tx/${receipt.transactionHash}`,
+      tokenId: minted.tokenId,
+      txHash: minted.txHash,
+      explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
     })
   } catch (err: any) {
+    if (reservedId) commitMintSlot(reservedId, reservedRecipient)
     const msg = friendlyMintError(err)
     console.error(`[mint] ${err.message}`)
     return c.json({ success: false, error: msg }, 500)
@@ -2944,73 +2742,38 @@ async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
   } catch { /* Redis optional */ }
 }
 
-// Auto-mint token for newly governed containers (v4)
-async function autoMintVortex(container: any, proposalText: string) {
+// Auto-mint token for newly governed containers (v4).
+// Same containerId idempotency, rate limit, and per-address cap as POST /vortex/mint.
+// Runs only after the 60s persist cooldown (PERSIST_COOLDOWN_MS = 60_000).
+export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
+  const claim = claimMintSlot({
+    containerId: container.containerId,
+    recipient: VORTEX_TREASURY,
+    rateKey: 'auto-mint',
+  })
+  if (!claim.ok) {
+    console.log(`[vortex] Auto-mint skipped: ${claim.error}`)
+    return null
+  }
   try {
-    const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-    const { walletClient, publicClient } = getVortexTokenClient()
-    const truncated = proposalText.slice(0, 140)
-
-    const SCALE_1E18 = 1e18
-    const s = (v: number) => BigInt(Math.round(v * SCALE_1E18))
-
-    const txHash = await walletClient.writeContract({
-      address: VORTEX_TOKEN_ADDRESS,
-      abi,
-      functionName: 'mint',
-      args: [
-        VORTEX_TREASURY,
-        container.containerHash as `0x${string}`,
-        {
-          containerId: container.containerId,
-          timestamp: BigInt(Math.floor(container.timestamp)),
-          verdict: container.resonanceProfile.verdict,
-          fullBox7DComposite: s(container.resonanceProfile.fullBox7DComposite),
-          trinitariumMoralScore: s(container.moralOverlay.trinitariumMoralScore),
-          trinitariumGematriaFusion: s(container.moralOverlay.trinitariumGematriaFusion),
-          moralTension: container.moralOverlay.moralNumerologicalTension,
-          waveProximity: s(container.resonanceProfile.waveProximity),
-          phaseAlignment: s(container.resonanceProfile.phaseAlignment),
-          calibratedVortex: s(container.resonanceProfile.calibratedVortex),
-          calibratedSync: s(container.resonanceProfile.calibratedSync),
-          neuralProximity: s(container.resonanceProfile.neuralProximity),
-          neuralVortex: s(container.resonanceProfile.neuralVortex),
-          gematriaResonance: s(container.resonanceProfile.gematriaResonance),
-          virtueAlignment: s(container.moralOverlay.virtueAlignment),
-          moralSafety: s(container.moralOverlay.moralSafety),
-          intentAlignment: s(container.moralOverlay.intentAlignment),
-          source: container.source,
-          containerHash: container.containerHash,
-          hammerReason: container.hammerReason || '',
-          proposalText: truncated,
-        },
-      ],
-    })
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-
-    // Cache tokenId in Redis
-    ;(async () => {
-      try {
-        const tid = await publicClient.readContract({
-          address: VORTEX_TOKEN_ADDRESS, abi,
-          functionName: 'tokenByContainerId',
-          args: [container.containerHash as `0x${string}`],
-        }).catch(() => 0n)
-        if (tid !== 0n) await storeVortexStatusInRedis(container.containerHash, tid.toString())
-      } catch { /* Redis optional */ }
-    })()
-
-    console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${receipt.transactionHash}`)
-    return receipt.transactionHash
-  } catch (err: any) {
-    console.log(`[vortex] Auto-mint skipped: ${err.message}`)
+    const result = await getChainExecutor().autoMint(container, proposalText)
+    commitMintSlot(container.containerId, VORTEX_TREASURY)
+    console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`)
+    return result.txHash
+  } catch (err: unknown) {
+    commitMintSlot(container.containerId, VORTEX_TREASURY)
+    const message = err instanceof Error ? err.message : String(err)
+    console.log(`[vortex] Auto-mint skipped: ${message}`)
     return null
   }
 }
 
 // === Dev: seed test containers ===
 mountDevSeedRoute(app, async (c: Context) => {
+  const auth = authorizeWrite(c.req.header('authorization'))
+  if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+  const signingKey = readVortexSigningKey()
+  if (!signingKey) return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
   try {
     const count = Math.min(50, parseInt((c.req.query('count') || '30') as string))
     const { publicClient, walletClient, account } = getVortexTokenClient()
@@ -3129,7 +2892,12 @@ mountDevSeedRoute(app, async (c: Context) => {
     const results: { id: string; onChain: string | null; store: boolean; error?: string }[] = []
     for (let i = 0; i < containers.length; i++) {
       const c = containers[i]
-      const entry: typeof results[number] = { id: c.containerId.slice(0, 20), onChain: null, store: false }
+      const entry: typeof results[number] = {
+        id: c.containerId.slice(0, 20),
+        onChain: null,
+        store: false,
+        signature: signVortex(c.containerHash, c.containerId, signingKey),
+      }
       try {
         const params = containerToContractParams(c)
         const currentNonce = BigInt(nonce) + BigInt(i)
