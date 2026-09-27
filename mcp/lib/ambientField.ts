@@ -5,6 +5,7 @@ import { isStructuredProposal, type StructuredDerivativeProposal } from './struc
 import { governanceToContainer, type ContainerVortex } from './temporalContainer.js'
 import { persistContainerToChain } from './contractClient.js'
 import { getRedisClient } from '../pubsub.js'
+import { containerOriginHashField } from './containerOrigin.js'
 import { temporalManifold } from './temporalManifold.js'
 
 const REDIS_CONTAINER_KEY = 'dynamo:containers'
@@ -338,9 +339,11 @@ export class AmbientField {
           try {
             const client = await getRedisClient()
             if (client) {
+              const origin = containerOriginHashField(container.containerId, 'real')
               await client.multi()
                 .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
                 .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+                .hset(origin.key, origin.field, origin.value)
                 .exec()
             }
           } catch { /* Redis unavailable */ }

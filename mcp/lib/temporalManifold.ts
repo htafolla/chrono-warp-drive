@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { containerReviewFlag, isExcludedSeed, type ContainerOrigin, type RandomMetricSeedShape } from './containerOrigin.js'
 
 // ── Data Types ──
 
@@ -41,6 +42,12 @@ export interface ManifoldPoint {
   verdict: string
   gematriaDecomposition?: GematriaDecomposition
   summary?: string
+  /** Off-chain only. Copied from the Redis origin hash. Not a skip condition and not part of scoring. */
+  origin?: ContainerOrigin
+  /** Off-chain only. Used to flag evidence-list unknowns. Never part of scoring. */
+  containerId?: string
+  /** Set for an evidence-list unknown. Not read by scoring. */
+  reviewFlag?: 'unknown'
 }
 
 export interface ResonanceSnapshot {
@@ -194,17 +201,20 @@ export class TemporalManifold {
   }
 
   /** Rebuild Manifold history from persisted containers (called on startup). */
-  populateFromContainers(containers: { timestamp: number; proposalHash: string; source: string; resonanceProfile: { fullBox7DComposite: number; phaseAlignment: number; calibratedVortex: number; calibratedSync: number; gematriaResonance: number; verdict: string }; moralOverlay: { trinitariumMoralScore: number } }[], proposalTexts?: Map<string, string>): void {
+  populateFromContainers(containers: Array<RandomMetricSeedShape & { timestamp: number; proposalHash: string; source: string; containerId?: string; origin?: ContainerOrigin; resonanceProfile: { fullBox7DComposite: number; phaseAlignment: number; calibratedVortex: number; calibratedSync: number; gematriaResonance: number; verdict: string }; moralOverlay: { trinitariumMoralScore: number } }>, proposalTexts?: Map<string, string>): void {
     for (const c of containers) {
       const text = proposalTexts?.get(c.proposalHash)
+      if (isExcludedSeed({ text, containerId: c.containerId, container: c })) continue
       this.addFromContainer(c, text)
     }
   }
 
-  addFromContainer(container: {
+  addFromContainer(container: RandomMetricSeedShape & {
     timestamp: number
     proposalHash: string
     source: string
+    containerId?: string
+    origin?: ContainerOrigin
     resonanceProfile: {
       fullBox7DComposite: number
       phaseAlignment: number
@@ -217,6 +227,7 @@ export class TemporalManifold {
       trinitariumMoralScore: number
     }
   }, proposalText?: string): void {
+    if (isExcludedSeed({ text: proposalText, containerId: container.containerId, container })) return
     const point: ManifoldPoint = {
       timestamp: container.timestamp,
       proposalHash: container.proposalHash,
@@ -230,6 +241,10 @@ export class TemporalManifold {
       tmoScore: container.moralOverlay.trinitariumMoralScore,
       verdict: container.resonanceProfile.verdict,
     }
+    if (container.containerId) point.containerId = container.containerId
+    if (container.origin) point.origin = container.origin
+    const reviewFlag = containerReviewFlag(container.containerId)
+    if (reviewFlag) point.reviewFlag = reviewFlag
     this.addPoint(point, proposalText)
   }
 

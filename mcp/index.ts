@@ -13,6 +13,8 @@ import { isStructuredProposal, extractProposalText } from './lib/structuredPropo
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
+import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
+import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
 
@@ -43,8 +45,17 @@ const TOKEN_IMAGE_TTL = 86400
         }
       } catch { /* skip corrupt */ }
     }
-    // Rebuild Manifold from persisted containers
-    temporalManifold.populateFromContainers(containerStore)
+    // Rebuild Manifold from persisted containers. Skip a row only when it has
+    // no proposal text and it matches the random-metric seed shape. Unknown
+    // evidence-list ids stay and are flagged. Real containers stay.
+    let originById = new Map<string, 'seed' | 'real'>()
+    try {
+      originById = originFromRedisHash(await client.hgetall(REDIS_CONTAINER_ORIGIN_KEY))
+    } catch { /* origin tags optional */ }
+    temporalManifold.populateFromContainers(containerStore.map(c => ({
+      ...c,
+      origin: originById.get(c.containerId.toLowerCase()),
+    })))
     console.log(`[bootstrap] Manifold populated with ${temporalManifold.getPointCount()} points from ${containerStore.length} containers`)
 
     // Start ambient field AFTER restoring Manifold history
@@ -1768,9 +1779,11 @@ app.post('/govern_with_solar', async (c: Context) => {
       try {
         const client = await getRedisClient()
         if (client) {
+          const origin = containerOriginHashField(container.containerId, 'real')
           await client.multi()
             .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
             .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+            .hset(origin.key, origin.field, origin.value)
             .exec()
         }
       } catch { /* Redis unavailable */ }
@@ -2997,7 +3010,7 @@ async function autoMintVortex(container: any, proposalText: string) {
 }
 
 // === Dev: seed test containers ===
-app.post('/dev/seed-containers', async (c: Context) => {
+mountDevSeedRoute(app, async (c: Context) => {
   try {
     const count = Math.min(50, parseInt((c.req.query('count') || '30') as string))
     const { publicClient, walletClient, account } = getVortexTokenClient()
@@ -3174,9 +3187,11 @@ app.post('/dev/seed-containers', async (c: Context) => {
       try {
         const client = await getRedisClient()
         if (client) {
+          const origin = containerOriginHashField(c.containerId, 'seed', SEED_ROUTE_SOURCE)
           await client.multi()
             .lpush(REDIS_CONTAINER_KEY, JSON.stringify(c))
             .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+            .hset(origin.key, origin.field, origin.value)
             .exec()
           entry.store = true
         }
