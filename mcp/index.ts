@@ -26,6 +26,8 @@ import {
   commitMintSlot,
   isAddress,
   isBytes32,
+  isUnixSeconds,
+  MINT_SIGNATURE_TTL_SECONDS,
   readVortexSigningKey,
   releaseMintSlot,
   signVortex,
@@ -1790,7 +1792,14 @@ app.post('/govern_with_solar', async (c: Context) => {
     }
     const source = determineSource(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
     const container = governanceToContainer(result, proposalText, source, latestContainerHash)
-    const vortexSignature = signVortex(container.containerHash, container.containerId, persistSigningKey)
+    const signatureExpiresAt = Math.floor(Date.now() / 1000) + MINT_SIGNATURE_TTL_SECONDS
+    const vortexSignature = signVortex(
+      container.containerHash,
+      container.containerId,
+      VORTEX_TREASURY,
+      signatureExpiresAt,
+      persistSigningKey,
+    )
     containerStore.push(container)
     latestContainerHash = container.containerHash
 
@@ -1823,6 +1832,8 @@ app.post('/govern_with_solar', async (c: Context) => {
           containerId: container.containerId,
           containerHash: container.containerHash,
           vortexSignature,
+          signatureRecipient: VORTEX_TREASURY,
+          signatureExpiresAt,
           source: container.source,
           timestamp: container.timestamp,
         },
@@ -1841,6 +1852,8 @@ app.post('/govern_with_solar', async (c: Context) => {
         containerId: container.containerId,
         containerHash: container.containerHash,
         vortexSignature,
+        signatureRecipient: VORTEX_TREASURY,
+        signatureExpiresAt,
         source: container.source,
         timestamp: container.timestamp,
         onChainTx: onChain.txHash,
@@ -2461,18 +2474,20 @@ app.post('/vortex/mint', async (c: Context) => {
       to?: string
       containerHash?: string
       signature?: string
+      expiresAt?: unknown
     }
     const containerId = body.containerId ?? ''
     const to = body.to ?? ''
     const containerHash = body.containerHash ?? ''
     const signature = body.signature ?? ''
-    if (!containerId || !to || !containerHash || !signature) {
-      return c.json({ success: false, error: 'containerId, containerHash, to, and signature are required' }, 400)
+    if (!containerId || !to || !containerHash || !signature || body.expiresAt === undefined || body.expiresAt === null) {
+      return c.json({ success: false, error: 'containerId, containerHash, to, signature, and expiresAt are required' }, 400)
     }
     // 18-character prefixes and any non-exact id fail here, before the chain client exists.
-    if (!isBytes32(containerId) || !isBytes32(containerHash) || !isAddress(to)) {
-      return c.json({ success: false, error: 'containerId and containerHash must be exact 32-byte hex ids; to must be an address' }, 400)
+    if (!isBytes32(containerId) || !isBytes32(containerHash) || !isAddress(to) || !isUnixSeconds(body.expiresAt)) {
+      return c.json({ success: false, error: 'containerId and containerHash must be exact 32-byte hex ids; to must be an address; expiresAt must be a unix second' }, 400)
     }
+    const expiresAt = body.expiresAt
 
     const claim = claimMintSlot({
       containerId,
@@ -2489,10 +2504,12 @@ app.post('/vortex/mint', async (c: Context) => {
       reservedId = null
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
     }
-    if (!verifyVortexSignature(containerHash, containerId, signature, signingKey)) {
+    const verdict = verifyVortexSignature(containerHash, containerId, to, expiresAt, signature, signingKey)
+    if (!verdict.ok) {
       releaseMintSlot(containerId)
       reservedId = null
-      return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
+      const error = verdict.reason === 'expired' ? 'Vortex signature expired' : 'Invalid vortex signature'
+      return c.json({ success: false, error }, 401)
     }
 
     const container: RegistryContainer | null = await getChainExecutor().readContainerExact(containerId)
@@ -2743,7 +2760,7 @@ async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
 }
 
 // Auto-mint token for newly governed containers (v4).
-// Same containerId idempotency, rate limit, and per-address cap as POST /vortex/mint.
+// Same containerId idempotency, caller limit, address cap, and global mint budget as POST /vortex/mint.
 // Runs only after the 60s persist cooldown (PERSIST_COOLDOWN_MS = 60_000).
 export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
   const claim = claimMintSlot({
@@ -2889,14 +2906,25 @@ mountDevSeedRoute(app, async (c: Context) => {
       }
     })
 
-    const results: { id: string; onChain: string | null; store: boolean; error?: string }[] = []
+    const results: {
+      id: string
+      onChain: string | null
+      store: boolean
+      error?: string
+      signature: string
+      signatureRecipient: string
+      signatureExpiresAt: number
+    }[] = []
     for (let i = 0; i < containers.length; i++) {
       const c = containers[i]
+      const signatureExpiresAt = Math.floor(Date.now() / 1000) + MINT_SIGNATURE_TTL_SECONDS
       const entry: typeof results[number] = {
         id: c.containerId.slice(0, 20),
         onChain: null,
         store: false,
-        signature: signVortex(c.containerHash, c.containerId, signingKey),
+        signature: signVortex(c.containerHash, c.containerId, VORTEX_TREASURY, signatureExpiresAt, signingKey),
+        signatureRecipient: VORTEX_TREASURY,
+        signatureExpiresAt,
       }
       try {
         const params = containerToContractParams(c)

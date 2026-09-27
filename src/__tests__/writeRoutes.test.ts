@@ -30,9 +30,13 @@ import { app, autoMintVortex } from '../../mcp/index'
 import { setChainExecutorForTests } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
 import {
+  DEFAULT_MINT_GLOBAL_BUDGET,
+  DEFAULT_MINT_GLOBAL_WINDOW_MS,
   MINT_ADDRESS_CAP,
   MINT_RATE_LIMIT,
   PERSIST_COOLDOWN_MS,
+  mintGlobalBudget,
+  mintGlobalWindowMs,
   resetWriteGuardsForTests,
   signVortex,
   signingKeyReadCount,
@@ -175,6 +179,20 @@ function sampleVortex(id: string, hash: string): ContainerVortex {
   }
 }
 
+function futureExpiry(seconds = 3600): number {
+  return Math.floor(Date.now() / 1000) + seconds
+}
+
+function signedMint(id: string, hash: string, to: string, expiresAt = futureExpiry()) {
+  return {
+    containerId: id,
+    containerHash: hash,
+    to,
+    expiresAt,
+    signature: signVortex(hash, id, to, expiresAt, SIGN_KEY),
+  }
+}
+
 function authHeader(key = WRITE_KEY): Record<string, string> {
   return { authorization: `Bearer ${key}` }
 }
@@ -206,6 +224,8 @@ beforeEach(() => {
   resetWriteGuardsForTests()
   process.env.MCP_WRITE_API_KEY = WRITE_KEY
   process.env.VORTEX_SIGNING_KEY = SIGN_KEY
+  delete process.env.MINT_GLOBAL_BUDGET
+  delete process.env.MINT_GLOBAL_WINDOW_MS
   delete process.env.ALLOW_SEED_ROUTE
   delete process.env.DEPLOYER_PRIVATE_KEY
   delete process.env.REDIS_URL
@@ -230,6 +250,7 @@ describe('signed vortexes', () => {
       containerId: id,
       containerHash: hash,
       to: address(1),
+      expiresAt: futureExpiry(),
       signature: 'ab'.repeat(32),
     }, authHeader())
     expect(status).toBe(503)
@@ -250,6 +271,7 @@ describe('signed vortexes', () => {
       containerId: id,
       containerHash: hash,
       to: address(1),
+      expiresAt: futureExpiry(),
       signature: 'cd'.repeat(32),
     }, authHeader())
     expect(wrong.status).toBe(401)
@@ -257,22 +279,23 @@ describe('signed vortexes', () => {
     expect(stub.reads).toEqual([])
   })
 
-  it('accepts only an HMAC over the exact containerHash and containerId', async () => {
+  it('accepts only an HMAC over containerHash, containerId, recipient, and expiry', async () => {
     const id = nextId()
     const hash = nextId()
+    const to = address(1)
+    const expiresAt = futureExpiry()
     stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
-    const signature = signVortex(hash, id, SIGN_KEY)
-    expect(verifyVortexSignature(hash, id, signature, SIGN_KEY)).toBe(true)
-    expect(verifyVortexSignature(hash, id, signature, null)).toBe(false)
-    expect(verifyVortexSignature(hash, nextId(), signature, SIGN_KEY)).toBe(false)
-    expect(verifyVortexSignature(hash, id, 'aa', SIGN_KEY)).toBe(false)
+    const signature = signVortex(hash, id, to, expiresAt, SIGN_KEY)
+    expect(verifyVortexSignature(hash, id, to, expiresAt, signature, SIGN_KEY)).toEqual({ ok: true })
+    expect(verifyVortexSignature(hash, id, to, expiresAt, signature, null)).toEqual({ ok: false, reason: 'invalid' })
+    expect(verifyVortexSignature(hash, nextId(), to, expiresAt, signature, SIGN_KEY).reason).toBe('invalid')
+    expect(verifyVortexSignature(hash, id, address(9), expiresAt, signature, SIGN_KEY).reason).toBe('invalid')
+    expect(verifyVortexSignature(hash, id, to, expiresAt, 'aa', SIGN_KEY).reason).toBe('invalid')
+    const now = Math.floor(Date.now() / 1000)
+    const expiredSig = signVortex(hash, id, to, now, SIGN_KEY)
+    expect(verifyVortexSignature(hash, id, to, now, expiredSig, SIGN_KEY, now).reason).toBe('expired')
 
-    const { status, json } = await mint({
-      containerId: id,
-      containerHash: hash,
-      to: address(1),
-      signature,
-    }, authHeader())
+    const { status, json } = await mint(signedMint(id, hash, to, expiresAt), authHeader())
     expect(status).toBe(200)
     expect(json.success).toBe(true)
     expect(stub.reads).toEqual([id])
@@ -288,11 +311,13 @@ describe('exact mint lookup', () => {
     const hash = nextId()
     stub.containers.set(full.toLowerCase(), registryContainer(full, hash))
     const prefix = full.slice(0, 18)
+    const prefixExpiry = futureExpiry()
     const prefixRes = await mint({
       containerId: prefix,
       containerHash: hash,
       to: address(1),
-      signature: signVortex(hash, prefix, SIGN_KEY),
+      expiresAt: prefixExpiry,
+      signature: signVortex(hash, prefix, address(1), prefixExpiry, SIGN_KEY),
     }, authHeader())
     expect(prefixRes.status).toBe(400)
     expectNoChainOrKey()
@@ -301,12 +326,7 @@ describe('exact mint lookup', () => {
 
     const unknown = nextId()
     const unknownHash = nextId()
-    const miss = await mint({
-      containerId: unknown,
-      containerHash: unknownHash,
-      to: address(1),
-      signature: signVortex(unknownHash, unknown, SIGN_KEY),
-    }, authHeader())
+    const miss = await mint(signedMint(unknown, unknownHash, address(1)), authHeader())
     expect(miss.status).toBe(404)
     expect(stub.reads).toEqual([unknown])
     expect(stub.mints).toEqual([])
@@ -317,12 +337,7 @@ describe('exact mint lookup', () => {
 
     const neighbor = bytes32(0xabcdef)
     const neighborHash = nextId()
-    const near = await mint({
-      containerId: neighbor,
-      containerHash: neighborHash,
-      to: address(1),
-      signature: signVortex(neighborHash, neighbor, SIGN_KEY),
-    }, authHeader())
+    const near = await mint(signedMint(neighbor, neighborHash, address(1)), authHeader())
     expect(near.status).toBe(404)
     expect(stub.reads).toEqual([unknown, neighbor])
     expect(stub.mints).toEqual([])
@@ -338,12 +353,7 @@ describe('mint abuse limits', () => {
       const id = nextId()
       const hash = nextId()
       stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
-      const res = await mint({
-        containerId: id,
-        containerHash: hash,
-        to,
-        signature: signVortex(hash, id, SIGN_KEY),
-      }, authHeader())
+      const res = await mint(signedMint(id, hash, to), authHeader())
       expect(res.status).toBe(200)
     }
     const chainBefore = stub.chainCalls
@@ -351,12 +361,7 @@ describe('mint abuse limits', () => {
     const signingBefore = signingKeyReadCount()
     const blockedId = nextId()
     const blockedHash = nextId()
-    const blocked = await mint({
-      containerId: blockedId,
-      containerHash: blockedHash,
-      to,
-      signature: signVortex(blockedHash, blockedId, SIGN_KEY),
-    }, authHeader())
+    const blocked = await mint(signedMint(blockedId, blockedHash, to), authHeader())
     expect(blocked.status).toBe(429)
     expectNoChainOrKey(chainBefore, keyBefore)
     expect(signingKeyReadCount()).toBe(signingBefore)
@@ -369,24 +374,14 @@ describe('mint abuse limits', () => {
       const id = nextId()
       const hash = nextId()
       stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
-      const res = await mint({
-        containerId: id,
-        containerHash: hash,
-        to,
-        signature: signVortex(hash, id, SIGN_KEY),
-      }, { ...authHeader(), 'x-forwarded-for': `10.0.0.${i + 1}` })
+      const res = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-forwarded-for': `10.0.0.${i + 1}` })
       expect(res.status).toBe(200)
     }
     const chainBefore = stub.chainCalls
     const keyBefore = stub.keyReads
     const id = nextId()
     const hash = nextId()
-    const blocked = await mint({
-      containerId: id,
-      containerHash: hash,
-      to,
-      signature: signVortex(hash, id, SIGN_KEY),
-    }, { ...authHeader(), 'x-forwarded-for': '10.1.0.9' })
+    const blocked = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-forwarded-for': '10.1.0.9' })
     expect(blocked.status).toBe(429)
     expect(String(blocked.json.error)).toContain('cap')
     expectNoChainOrKey(chainBefore, keyBefore)
@@ -396,22 +391,19 @@ describe('mint abuse limits', () => {
     const id = nextId()
     const hash = nextId()
     stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
-    const first = await mint({
-      containerId: id,
-      containerHash: hash,
-      to: address(4),
-      signature: signVortex(hash, id, SIGN_KEY),
-    }, authHeader())
+    const first = await mint(signedMint(id, hash, address(4)), authHeader())
     expect(first.status).toBe(200)
     const chainBefore = stub.chainCalls
     const keyBefore = stub.keyReads
     const signingBefore = signingKeyReadCount()
 
+    const secondExpiry = futureExpiry()
     const second = await mint({
       containerId: id,
       containerHash: hash,
       to: address(5),
-      signature: signVortex(hash, id, SIGN_KEY),
+      expiresAt: secondExpiry,
+      signature: signVortex(hash, id, address(5), secondExpiry, SIGN_KEY),
     }, authHeader())
     expect(second.status).toBe(409)
     expectNoChainOrKey(chainBefore, keyBefore)
@@ -442,10 +434,186 @@ describe('mint abuse limits', () => {
       containerId: mintedId,
       containerHash: nextId(),
       to: address(6),
+      expiresAt: futureExpiry(),
       signature: 'ee'.repeat(32),
     }, authHeader())
     expect(http.status).toBe(409)
     expectNoChainOrKey(after, keys)
+  })
+
+  it('rejects a copied signature when the recipient changes, with 0 chain calls', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(11)
+    const other = address(12)
+    const expiresAt = futureExpiry()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const copied = await mint({
+      containerId: id,
+      containerHash: hash,
+      to: other,
+      expiresAt,
+      signature: signVortex(hash, id, to, expiresAt, SIGN_KEY),
+    }, authHeader())
+    expect(copied.status).toBe(401)
+    expect(String(copied.json.error)).toBe('Invalid vortex signature')
+    expectNoChainOrKey()
+    expect(stub.mints).toEqual([])
+
+    const original = await mint(signedMint(id, hash, to, expiresAt), authHeader())
+    expect(original.status).toBe(200)
+    expect(stub.mints).toEqual([id])
+  })
+
+  it('rejects a copied signature after the expiry has passed, with 0 chain calls', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(13)
+    const expiresAt = Math.floor(Date.now() / 1000) - 5
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    const copied = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt,
+      signature: signVortex(hash, id, to, expiresAt, SIGN_KEY),
+    }, authHeader())
+    expect(copied.status).toBe(401)
+    expect(String(copied.json.error)).toMatch(/expired/i)
+    expectNoChainOrKey()
+    expect(stub.mints).toEqual([])
+
+    const freshId = nextId()
+    const freshHash = nextId()
+    stub.containers.set(freshId.toLowerCase(), registryContainer(freshId, freshHash))
+    const later = await mint(signedMint(freshId, freshHash, address(14)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.13.0.2',
+    })
+    expect(later.status).toBe(200)
+    expect(stub.mints).toEqual([freshId])
+  })
+
+  it('blocks on the global mint budget before any chain call or signing-key read', async () => {
+    expect(mintGlobalBudget()).toBe(DEFAULT_MINT_GLOBAL_BUDGET)
+    expect(mintGlobalWindowMs()).toBe(DEFAULT_MINT_GLOBAL_WINDOW_MS)
+    process.env.MINT_GLOBAL_BUDGET = 'nope'
+    process.env.MINT_GLOBAL_WINDOW_MS = '0'
+    expect(mintGlobalBudget()).toBe(DEFAULT_MINT_GLOBAL_BUDGET)
+    expect(mintGlobalWindowMs()).toBe(DEFAULT_MINT_GLOBAL_WINDOW_MS)
+
+    process.env.MINT_GLOBAL_BUDGET = '2'
+    for (let i = 0; i < 2; i++) {
+      const id = nextId()
+      const hash = nextId()
+      stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+      const res = await mint(signedMint(id, hash, address(20 + i)), {
+        ...authHeader(),
+        'x-forwarded-for': `10.20.0.${i + 1}`,
+      })
+      expect(res.status).toBe(200)
+    }
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+    const blockedId = nextId()
+    const blockedHash = nextId()
+    const blocked = await mint(signedMint(blockedId, blockedHash, address(29)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.20.0.9',
+    })
+    expect(blocked.status).toBe(429)
+    expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+    expect(stub.mints).toHaveLength(2)
+    expect(stub.reads).toHaveLength(2)
+  })
+
+  it('lets the global window expire before another mint is allowed', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    process.env.MINT_GLOBAL_WINDOW_MS = '1000'
+    const now = vi.spyOn(Date, 'now')
+    try {
+      now.mockReturnValue(1_700_000_000_000)
+      const expiresAt = 1_700_003_600
+      const id = nextId()
+      const hash = nextId()
+      stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+      const first = await mint(signedMint(id, hash, address(30), expiresAt), {
+        ...authHeader(),
+        'x-forwarded-for': '10.30.0.1',
+      })
+      expect(first.status).toBe(200)
+
+      const chainBefore = stub.chainCalls
+      const keyBefore = stub.keyReads
+      const signingBefore = signingKeyReadCount()
+      const blocked = await mint(signedMint(nextId(), nextId(), address(31), expiresAt), {
+        ...authHeader(),
+        'x-forwarded-for': '10.30.0.2',
+      })
+      expect(blocked.status).toBe(429)
+      expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+      expectNoChainOrKey(chainBefore, keyBefore)
+      expect(signingKeyReadCount()).toBe(signingBefore)
+
+      now.mockReturnValue(1_700_000_000_000 + 1000)
+      const laterId = nextId()
+      const laterHash = nextId()
+      stub.containers.set(laterId.toLowerCase(), registryContainer(laterId, laterHash))
+      const later = await mint(signedMint(laterId, laterHash, address(32), expiresAt), {
+        ...authHeader(),
+        'x-forwarded-for': '10.30.0.3',
+      })
+      expect(later.status).toBe(200)
+      expect(stub.mints).toEqual([id, laterId])
+    } finally {
+      now.mockRestore()
+    }
+  })
+
+  it('counts auto-mint in the global budget and blocks the next mint before the chain', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    const tx = await autoMintVortex(sampleVortex(nextId(), nextId()), 'budget')
+    expect(tx).toBe('0x' + '22'.repeat(32))
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const blocked = await mint(signedMint(id, hash, address(40)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.40.0.1',
+    })
+    expect(blocked.status).toBe(429)
+    expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+    expect(stub.mints).toEqual([])
+  })
+
+  it('refuses a user mint after the same container was auto-minted to the treasury', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const tx = await autoMintVortex(sampleVortex(id, hash), 'treasury')
+    expect(tx).toBe('0x' + '22'.repeat(32))
+    expect(stub.autoMints).toEqual([id])
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+    const user = await mint(signedMint(id, hash, address(41)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.41.0.1',
+    })
+    expect(user.status).toBe(409)
+    expect(String(user.json.error)).toContain('already')
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+    expect(stub.mints).toEqual([])
   })
 })
 
@@ -467,6 +635,7 @@ describe('write-route auth', () => {
       containerId: nextId(),
       containerHash: nextId(),
       to: address(7),
+      expiresAt: futureExpiry(),
       signature: 'ab'.repeat(32),
     })
     expect(mintMissing.status).toBe(401)

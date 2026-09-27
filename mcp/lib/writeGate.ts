@@ -1,19 +1,29 @@
 import { createHash, createHmac, timingSafeEqual } from 'crypto'
 
 /**
- * HMAC-SHA256 over containerHash|containerId with a server-only secret, compared
- * via timingSafeEqual, so /vortex/mint never needs a wallet key.
+ * HMAC-SHA256 over containerHash|containerId|recipient|expiresAt with a server-only
+ * secret, compared via timingSafeEqual, so /vortex/mint never needs a wallet key.
  * EIP-191 would require a secp256k1 signing key (wallet-shaped); this does not.
+ * The recipient and expiry are inside the MAC, so a copied signature fails when
+ * `to` changes or when the signed expiry has passed.
  */
 export const VORTEX_SIGNING_KEY_ENV = 'VORTEX_SIGNING_KEY'
 export const MCP_WRITE_API_KEY_ENV = 'MCP_WRITE_API_KEY'
+export const MINT_GLOBAL_BUDGET_ENV = 'MINT_GLOBAL_BUDGET'
+export const MINT_GLOBAL_WINDOW_ENV = 'MINT_GLOBAL_WINDOW_MS'
 
 /** Persist + the auto-mint it triggers. Kept at 60 seconds so this constant matches the handler comment (the old 10_000 value did not). */
 export const PERSIST_COOLDOWN_MS = 60_000
 
 export const MINT_RATE_LIMIT = 5
 export const MINT_RATE_WINDOW_MS = 60_000
+/** Extra cap on the `to` address. Callers choose `to`, so this is not the wallet protection. */
 export const MINT_ADDRESS_CAP = 8
+/** How long a server-issued mint signature stays valid. */
+export const MINT_SIGNATURE_TTL_SECONDS = 600
+/** Chain-write budget across every caller. 0 blocks every mint. */
+export const DEFAULT_MINT_GLOBAL_BUDGET = 10
+export const DEFAULT_MINT_GLOBAL_WINDOW_MS = 60_000
 
 const ZERO_BYTES32 = '0x' + '00'.repeat(32)
 
@@ -23,6 +33,8 @@ const mintedContainers = new Set<string>()
 const inFlightContainers = new Set<string>()
 const addressMintCounts = new Map<string, number>()
 const rateBuckets = new Map<string, number[]>()
+const globalBudgetStamps: number[] = []
+const pendingBudget = new Map<string, number>()
 
 export function signingKeyReadCount(): number {
   return signingKeyReads
@@ -35,6 +47,26 @@ export function resetWriteGuardsForTests(): void {
   inFlightContainers.clear()
   addressMintCounts.clear()
   rateBuckets.clear()
+  globalBudgetStamps.length = 0
+  pendingBudget.clear()
+}
+
+function readNonNegativeInt(raw: string | undefined, fallback: number, allowZero: boolean): number {
+  if (raw === undefined || raw.trim() === '') return fallback
+  if (!/^\d+$/.test(raw.trim())) return fallback
+  const parsed = Number(raw.trim())
+  if (!Number.isSafeInteger(parsed)) return fallback
+  if (parsed === 0) return allowZero ? 0 : fallback
+  return parsed
+}
+
+/** Read at claim time so tests and hosts can change it without a restart of the module cache. */
+export function mintGlobalBudget(): number {
+  return readNonNegativeInt(process.env[MINT_GLOBAL_BUDGET_ENV], DEFAULT_MINT_GLOBAL_BUDGET, true)
+}
+
+export function mintGlobalWindowMs(): number {
+  return readNonNegativeInt(process.env[MINT_GLOBAL_WINDOW_ENV], DEFAULT_MINT_GLOBAL_WINDOW_MS, false)
 }
 
 function digestEqual(left: string, right: string): boolean {
@@ -74,12 +106,25 @@ export function readVortexSigningKey(): string | null {
   return raw
 }
 
-export function vortexSigningMessage(containerHash: string, containerId: string): string {
-  return `${containerHash.toLowerCase()}|${containerId.toLowerCase()}`
+export function vortexSigningMessage(
+  containerHash: string,
+  containerId: string,
+  recipient: string,
+  expiresAt: number,
+): string {
+  return `${containerHash.toLowerCase()}|${containerId.toLowerCase()}|${recipient.toLowerCase()}|${Math.trunc(expiresAt)}`
 }
 
-export function signVortex(containerHash: string, containerId: string, key: string): string {
-  return createHmac('sha256', key).update(vortexSigningMessage(containerHash, containerId), 'utf8').digest('hex')
+export function signVortex(
+  containerHash: string,
+  containerId: string,
+  recipient: string,
+  expiresAt: number,
+  key: string,
+): string {
+  return createHmac('sha256', key)
+    .update(vortexSigningMessage(containerHash, containerId, recipient, expiresAt), 'utf8')
+    .digest('hex')
 }
 
 function fixedTimeFalse(expected: Buffer): boolean {
@@ -87,20 +132,40 @@ function fixedTimeFalse(expected: Buffer): boolean {
   return false
 }
 
-/** Fail closed when key is null. Always compares 32-byte digests in constant time. */
+export type VortexSignatureVerdict =
+  | { ok: true }
+  | { ok: false; reason: 'invalid' | 'expired' }
+
+/**
+ * Fail closed when key is null. MAC is checked before expiry so a copied
+ * signature presented to a different recipient is "invalid", not "expired".
+ * A matching MAC is expired when nowSeconds >= expiresAt.
+ */
 export function verifyVortexSignature(
   containerHash: string,
   containerId: string,
+  recipient: string,
+  expiresAt: number,
   signatureHex: string,
   key: string | null,
-): boolean {
-  if (!key) return false
-  const expected = createHmac('sha256', key).update(vortexSigningMessage(containerHash, containerId), 'utf8').digest()
+  nowSeconds = Math.floor(Date.now() / 1000),
+): VortexSignatureVerdict {
+  if (!key || !Number.isInteger(expiresAt)) return { ok: false, reason: 'invalid' }
+  const expected = createHmac('sha256', key)
+    .update(vortexSigningMessage(containerHash, containerId, recipient, expiresAt), 'utf8')
+    .digest()
   const normalized = signatureHex.trim().replace(/^0x/i, '')
-  if (!/^[0-9a-fA-F]{64}$/.test(normalized)) return fixedTimeFalse(expected)
+  if (!/^[0-9a-fA-F]{64}$/.test(normalized)) {
+    fixedTimeFalse(expected)
+    return { ok: false, reason: 'invalid' }
+  }
   const provided = Buffer.from(normalized, 'hex')
-  if (provided.length !== expected.length) return fixedTimeFalse(expected)
-  return timingSafeEqual(expected, provided)
+  if (provided.length !== expected.length || !timingSafeEqual(expected, provided)) {
+    if (provided.length !== expected.length) fixedTimeFalse(expected)
+    return { ok: false, reason: 'invalid' }
+  }
+  if (nowSeconds >= expiresAt) return { ok: false, reason: 'expired' }
+  return { ok: true }
 }
 
 export function isBytes32(value: string): boolean {
@@ -109,6 +174,10 @@ export function isBytes32(value: string): boolean {
 
 export function isAddress(value: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(value)
+}
+
+export function isUnixSeconds(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
 export function clientRateKey(forwardedFor: string | undefined): string {
@@ -120,10 +189,18 @@ export type MintClaim =
   | { ok: true }
   | { ok: false; status: 409 | 429; error: string }
 
+function pruneBudget(now: number, windowMs: number): void {
+  const oldestKept = now - windowMs
+  let drop = 0
+  while (drop < globalBudgetStamps.length && globalBudgetStamps[drop] <= oldestKept) drop += 1
+  if (drop > 0) globalBudgetStamps.splice(0, drop)
+}
+
 /**
- * Idempotency, rate limit, and per-address cap. All checks are in memory and
- * finish before the caller is allowed to touch the chain. One containerId can
- * hold at most one in-flight or completed mint.
+ * Idempotency, per-caller rate limit, per-address cap, then the global mint
+ * budget. All checks are in memory and finish before the caller is allowed to
+ * touch the chain. One containerId can hold at most one in-flight or completed
+ * mint. The budget counts reserved chain writes across every caller.
  */
 export function claimMintSlot(input: {
   containerId: string
@@ -145,8 +222,15 @@ export function claimMintSlot(input: {
   if ((addressMintCounts.get(recipient) ?? 0) >= MINT_ADDRESS_CAP) {
     return { ok: false, status: 429, error: 'Per-address mint cap exceeded' }
   }
+  const windowMs = mintGlobalWindowMs()
+  pruneBudget(now, windowMs)
+  if (globalBudgetStamps.length >= mintGlobalBudget()) {
+    return { ok: false, status: 429, error: 'Mint budget exceeded' }
+  }
   bucket.push(now)
   rateBuckets.set(input.rateKey, bucket)
+  globalBudgetStamps.push(now)
+  pendingBudget.set(id, now)
   inFlightContainers.add(id)
   return { ok: true }
 }
@@ -154,13 +238,20 @@ export function claimMintSlot(input: {
 export function commitMintSlot(containerId: string, recipient: string): void {
   const id = containerId.toLowerCase()
   inFlightContainers.delete(id)
+  pendingBudget.delete(id)
   mintedContainers.add(id)
   const addr = recipient.toLowerCase()
   addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
 }
 
 export function releaseMintSlot(containerId: string): void {
-  inFlightContainers.delete(containerId.toLowerCase())
+  const id = containerId.toLowerCase()
+  inFlightContainers.delete(id)
+  const stamp = pendingBudget.get(id)
+  if (stamp === undefined) return
+  pendingBudget.delete(id)
+  const index = globalBudgetStamps.lastIndexOf(stamp)
+  if (index >= 0) globalBudgetStamps.splice(index, 1)
 }
 
 export function acquirePersistCooldown(now = Date.now()): { ok: true } | { ok: false; retryAfterSeconds: number } {
