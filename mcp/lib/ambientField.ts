@@ -6,10 +6,9 @@ import { governanceToContainer, type ContainerVortex } from './temporalContainer
 import { persistContainerToChain } from './contractClient.js'
 import { getRedisClient } from '../pubsub.js'
 import { containerOriginHashField } from './containerOrigin.js'
+import { pushAndTrimContainerList } from './containerList.js'
 import { temporalManifold } from './temporalManifold.js'
 
-const REDIS_CONTAINER_KEY = 'dynamo:containers'
-const MAX_REDIS_CONTAINERS = 1000
 const ECHO_SUFFIX = ' [echo]'
 
 export interface AmbientActivityEntry {
@@ -340,9 +339,7 @@ export class AmbientField {
             const client = await getRedisClient()
             if (client) {
               const origin = containerOriginHashField(container.containerId, 'real')
-              await client.multi()
-                .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
-                .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+              await pushAndTrimContainerList(client.multi(), JSON.stringify(container))
                 .hset(origin.key, origin.field, origin.value)
                 .exec()
             }

@@ -14,6 +14,7 @@ import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
 import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
+import { pushAndTrimContainerList, REDIS_CONTAINER_KEY } from './lib/containerList.js'
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
@@ -23,8 +24,6 @@ const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusio
 const containerStore: ContainerVortex[] = []
 let latestContainerHash = '0x' + '0'.repeat(64)
 
-const REDIS_CONTAINER_KEY = 'dynamo:containers'
-const MAX_REDIS_CONTAINERS = 1000
 const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
 const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
 const REDIS_VORTEX_TOKEN_IMAGE = 'dynamo:vortex:token-image'
@@ -1780,9 +1779,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         const client = await getRedisClient()
         if (client) {
           const origin = containerOriginHashField(container.containerId, 'real')
-          await client.multi()
-            .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
-            .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+          await pushAndTrimContainerList(client.multi(), JSON.stringify(container))
             .hset(origin.key, origin.field, origin.value)
             .exec()
         }
@@ -3188,9 +3185,7 @@ mountDevSeedRoute(app, async (c: Context) => {
         const client = await getRedisClient()
         if (client) {
           const origin = containerOriginHashField(c.containerId, 'seed', SEED_ROUTE_SOURCE)
-          await client.multi()
-            .lpush(REDIS_CONTAINER_KEY, JSON.stringify(c))
-            .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+          await pushAndTrimContainerList(client.multi(), JSON.stringify(c))
             .hset(origin.key, origin.field, origin.value)
             .exec()
           entry.store = true
