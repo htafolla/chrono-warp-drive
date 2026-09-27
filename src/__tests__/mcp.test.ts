@@ -15,8 +15,10 @@ describe('MCP - emit_isotopic_signal', () => {
     const json: any = await post('/emit_isotopic_signal', { content: 'test signal' })
     expect(json.success).toBe(true)
     expect(json.signalId).toMatch(/^blurrn-core-/)
-    expect(json.isotopicRatio).toBeGreaterThan(0)
+    expect(json.isotopicRatio).toBeUndefined()
+    expect(json.phaseCoherence).toBeGreaterThanOrEqual(0)
     expect(json.tdfValue).toBeGreaterThan(0)
+    expect(typeof json.timestampMs).toBe('number')
   })
 
   it('rejects empty content', async () => {

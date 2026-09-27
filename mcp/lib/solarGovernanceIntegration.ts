@@ -11,6 +11,7 @@ import { runKuramotoCoupling } from './kuramotoOscillators.js'
 import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16, sentenceToEmbedding16 } from './wavePropagation.js'
 import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine.js'
 import { computeTrinitariumOverlay, computeTrinitariumGematriaFusion } from './trinitariumMoralOverlay.js'
+import { resolveTimestampMs } from './signalFromText.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -39,7 +40,7 @@ function fnvHash(text: string): number {
 const MIN_FINGERPRINT_WORDS = 3;
 const ANCHOR_WORDS = ['general', 'proposal', 'matter'];
 
-function deriveProposalCodexParams(words: string[], solarData: SolarData): VortexTdfParams {
+function deriveProposalCodexParams(words: string[], solarData: SolarData, timestampMs: number): VortexTdfParams {
   const effective = words.length >= MIN_FINGERPRINT_WORDS
     ? words
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
@@ -47,10 +48,11 @@ function deriveProposalCodexParams(words: string[], solarData: SolarData): Vorte
   const combined = effective.join(' ')
   const totalChars = combined.length
   const uniqueChars = new Set(combined).size
-  // Temporal nonce: current second XORed with solar micro-variation.
-  // Ensures a different TDF fingerprint for the same text at different moments,
-  // making each vortex a unique record of "this exact instant."
-  const temporalNonce = Math.floor(Date.now() / 1000) ^ Math.floor((solarData.xray?.long ?? 0) * 1e6)
+  // Temporal nonce: the stored evaluation second XORed with solar micro-variation.
+  // The second is an explicit input (defaults to now at the call site). Passing the
+  // same timestampMs reproduces this nonce. This binding is not a Codex text→isotope
+  // formula; it is the existing clock term, now caller-supplied instead of Date.now().
+  const temporalNonce = Math.floor(timestampMs / 1000) ^ Math.floor((solarData.xray?.long ?? 0) * 1e6)
   const hashVal = fnvHash(combined + String(temporalNonce))
 
   // T_c: Word count + character diversity. Dense text = larger time constant.
@@ -99,8 +101,8 @@ function deriveSolarCodexParams(solarData: SolarData): VortexTdfParams {
   return { T_c, P_s, E_t, delta_t, voids, bhs_n }
 }
 
-function computeProposalTdf(words: string[], solarData: SolarData): number {
-  const params = deriveProposalCodexParams(words, solarData)
+function computeProposalTdf(words: string[], solarData: SolarData, timestampMs: number): number {
+  const params = deriveProposalCodexParams(words, solarData, timestampMs)
   return computeFullTDF(params).tdf
 }
 
@@ -197,6 +199,8 @@ export interface StructuralResonanceResult {
   trinitariumDetectedConcerns?: string[]
   trinitariumGematriaFusion?: number
   moralNumerologicalTension?: string
+  evaluatedAt: string
+  evaluatedAtMs: number
 }
 
 export class SolarGovernanceIntegration {
@@ -259,13 +263,14 @@ export class SolarGovernanceIntegration {
    * When provided, the 4D weights rebalance to 0.18/0.18/0.27/0.27 to make room.
    * When absent, the original 4D formula (0.20/0.20/0.30/0.30) is used.
    */
-  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[]): Promise<StructuralResonanceResult> {
+  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[], evaluatedAtMs?: number): Promise<StructuralResonanceResult> {
+    const clock = resolveTimestampMs(evaluatedAtMs)
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
 
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
-      const proposalTdf = computeProposalTdf(words, solarData)
+      const proposalTdf = computeProposalTdf(words, solarData, clock.timestampMs)
 
       const propCascade = tdfCascade(proposalTdf)
 
@@ -447,6 +452,8 @@ export class SolarGovernanceIntegration {
         trinitariumDetectedConcerns: trinitarium.details.detectedConcerns,
         trinitariumGematriaFusion,
         moralNumerologicalTension,
+        evaluatedAt: clock.timestamp,
+        evaluatedAtMs: clock.timestampMs,
       }
     } catch (error) {
       console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
@@ -513,6 +520,8 @@ export class SolarGovernanceIntegration {
         trinitariumDetectedConcerns: [],
         trinitariumGematriaFusion: 0.56,
         moralNumerologicalTension: 'Mild',
+        evaluatedAt: clock.timestamp,
+        evaluatedAtMs: clock.timestampMs,
       }
     }
   }

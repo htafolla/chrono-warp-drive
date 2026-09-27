@@ -17,6 +17,14 @@ import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
+import {
+  TextDerivedSignal,
+  crossTexts,
+  triangulateTexts,
+  fuseTexts,
+  resolveTimestampMs,
+  type ResolvedClock,
+} from './lib/signalFromText.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -368,7 +376,35 @@ function computeFullTDF(
 }
 
 // ===== Signal Store (in-memory, persists within a warm invocation) =====
-const signalStore = new Map<string, TemporalBlurrnSignal>();
+const signalStore = new Map<string, TextDerivedSignal>();
+const signalClock = new Map<string, ResolvedClock>();
+
+function readClock(input: unknown): ResolvedClock {
+  if (input === undefined || input === null) return resolveTimestampMs(undefined)
+  if (typeof input === 'number' || typeof input === 'string') return resolveTimestampMs(input)
+  throw new Error('timestamp must be a finite number of milliseconds or an ISO-8601 string')
+}
+
+function emitIsotopic(args: { content: string; tdf?: number; cascadeIndex?: number; referenceId?: string; timestamp?: number | string }) {
+  const clock = readClock(args.timestamp)
+  const signal = new TextDerivedSignal(args.content, { tdf: args.tdf, cascadeIndex: args.cascadeIndex })
+  const id = signal.getIsotopeId()
+  signalStore.set(id, signal)
+  signalClock.set(id, clock)
+  const body: Record<string, unknown> = {
+    signalId: id,
+    phaseCoherence: signal.getPhaseCoherence(),
+    tdfValue: signal.getTdfValue(),
+    cascadeIndex: signal.getCascadeIndex(),
+    timestamp: clock.timestamp,
+    timestampMs: clock.timestampMs,
+  }
+  if (args.referenceId && signalStore.has(args.referenceId)) {
+    const reference = signalStore.get(args.referenceId)
+    if (reference) body.isotopicRatio = signal.isotopicRatioWith(reference)
+  }
+  return body
+}
 
 // ===== Comprehensive Glossary for explain_term =====
 const GLOSSARY: Record<string, { term: string; short: string; long: string; formula?: string; example?: string }> = {
@@ -808,54 +844,38 @@ const EmitSchema = z.object({
   tdf: z.number().positive().optional(),
   cascadeIndex: z.number().int().min(0).optional(),
   referenceId: z.string().optional(),
+  timestamp: z.union([z.number(), z.string()]).optional(),
 })
 
 app.post('/emit_isotopic_signal', async (c: Context) => {
   const parsed = EmitSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const { content, tdf, cascadeIndex, referenceId } = parsed.data
-  const signal = new TemporalBlurrnSignal(
-    { id: `sig-${Date.now()}`, content },
-    tdf ?? 5.781e12 + content.length * 137,
-    cascadeIndex ?? 42,
-  )
-  const id = signal.getIsotopeId()
-  signalStore.set(id, signal)
-
-  let ratio = 0.85
-  if (referenceId && signalStore.has(referenceId)) {
-    ratio = signal.calculateIsotopicRatio(signalStore.get(referenceId)!)
+  try {
+    return ok(c, emitIsotopic(parsed.data))
+  } catch (err) {
+    return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
   }
-
-  return ok(c, {
-    signalId: id,
-    isotopicRatio: ratio,
-    phaseCoherence: signal.getPhaseCoherence(),
-    tdfValue: signal.getTdfValue(),
-  })
 })
 
 // Tool 2: cross_correlate
 const CrossSchema = z.object({
   contentA: z.string().min(1),
   contentB: z.string().optional(),
+  timestamp: z.union([z.number(), z.string()]).optional(),
 })
 
 app.post('/cross_correlate', async (c: Context) => {
   const parsed = CrossSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const { contentA, contentB } = parsed.data
-  const sigA = new TemporalBlurrnSignal({ content: contentA }, 5.781e12, 42)
-  const sigB = new TemporalBlurrnSignal({ content: contentB ?? 'reference-signal' }, 5.782e12, 43)
-  const result = sigA.crossCorrelate(sigB)
-  return ok(c, {
-    strength: result.strength,
-    lag: result.lag,
-    vortexVolume: result.metadata.vortexVolume,
-    isotopicRatio: sigA.calculateIsotopicRatio(sigB),
-  })
+  try {
+    const clock = readClock(parsed.data.timestamp)
+    const score = crossTexts(parsed.data.contentA, parsed.data.contentB ?? 'reference-signal')
+    return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
+  } catch (err) {
+    return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
+  }
 })
 
 // Tool 3: compute_tdf — full formula chain: TDF = tPTT * TAU * (1 / BlackHole_Seq)
@@ -902,47 +922,20 @@ const TriangulateSchema = z.object({
     content: z.string(),
     tdf: z.number().positive().optional(),
   })).min(2, 'Need at least 2 signals'),
+  timestamp: z.union([z.number(), z.string()]).optional(),
 })
 
 app.post('/triangulate_signals', async (c: Context) => {
   const parsed = TriangulateSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const sigs: TemporalBlurrnSignal[] = parsed.data.signals.map((s, i) =>
-    new TemporalBlurrnSignal({ content: s.content }, s.tdf ?? 5.781e12 + i * 137, i)
-  )
-
-  const results = sigs.map((s, i) => ({
-    index: i,
-    fingerprint: s.getIsotopicFingerprint(),
-    correlations: sigs.filter((_, j) => j !== i).map(o => s.crossCorrelate(o)),
-  }))
-
-  const strengths = sigs.flatMap((s, i) =>
-    sigs.filter((_, j) => j !== i).map(o => s.crossCorrelate(o).strength)
-  )
-
-  const coreResonance = strengths.length > 0
-    ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length
-    : 0.78
-
-  const volumes = sigs.flatMap((s, i) =>
-    sigs.filter((_, j) => j !== i).map(o => {
-      const meta = s.crossCorrelate(o).metadata
-      return meta?.vortexVolume ?? 1.0e24
-    })
-  )
-
-  const vortexVolume = volumes.length > 0
-    ? volumes.reduce((sum, v) => sum + v, 0) / volumes.length
-    : 3.0e25
-
-  return ok(c, {
-    signalCount: sigs.length,
-    results,
-    coreResonance: Math.min(0.99, Math.max(0.5, coreResonance)),
-    vortexVolume,
-  })
+  try {
+    const clock = readClock(parsed.data.timestamp)
+    const score = triangulateTexts(parsed.data.signals)
+    return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
+  } catch (err) {
+    return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
+  }
 })
 
 // Tool 6: fuse_symbiotic
@@ -954,16 +947,13 @@ app.post('/fuse_symbiotic', async (c: Context) => {
   const parsed = FuseSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const sigs: TemporalBlurrnSignal[] = parsed.data.partners.map((p, i) =>
-    new TemporalBlurrnSignal(p, 5.781e12 + i * 100, i)
-  )
-  const fused = sigs[0].fuseSymbiotically(sigs.slice(1))
+  const fused = fuseTexts(parsed.data.partners.map((partner) => partner.content))
 
   return ok(c, {
     fused: true,
     partnerCount: parsed.data.partners.length,
-    fusedEmbedding: fused.embed(),
-    fusedIsotopeId: fused.getIsotopeId(),
+    fusedEmbedding: fused.fusedEmbedding,
+    fusedIsotopeId: fused.fusedIsotopeId,
   })
 })
 
@@ -1002,11 +992,14 @@ app.post('/get_phase_coherence', async (c: Context) => {
 
   if (signalStore.has(parsed.data.signalId)) {
     const signal = signalStore.get(parsed.data.signalId)!
+    const clock = signalClock.get(parsed.data.signalId)
     return ok(c, {
       signalId: parsed.data.signalId,
       phaseCoherence: signal.getPhaseCoherence(),
       tdfValue: signal.getTdfValue(),
       cascadeIndex: signal.getCascadeIndex(),
+      timestamp: clock?.timestamp,
+      timestampMs: clock?.timestampMs,
       stored: true,
     })
   }
@@ -1291,12 +1284,12 @@ const TOOL_DEFINITIONS = [
   {
     name: 'emit_isotopic_signal',
     description: 'Emits a new isotopic signal, stores it in memory, and returns its fingerprint. Create traceable signals for later cross-correlation, triangulation, or fusion.',
-    inputSchema: { type: 'object', properties: { content: { type: 'string', description: 'Signal content' }, tdf: { type: 'number', default: 5.781e12, description: 'TDF value' }, cascadeIndex: { type: 'number', default: 42, description: 'Cascade index' }, referenceId: { type: 'string', description: 'Reference signal ID for pairwise isotopic ratio' } }, required: ['content'] },
+    inputSchema: { type: 'object', properties: { content: { type: 'string', description: 'Signal content' }, tdf: { type: 'number', description: 'Optional TDF override' }, cascadeIndex: { type: 'number', description: 'Optional cascade override' }, referenceId: { type: 'string', description: 'Reference signal ID for pairwise isotopic ratio' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now. Stored and returned with the result.' } }, required: ['content'] },
   },
   {
     name: 'cross_correlate',
     description: 'Cross-correlates two isotopic signals. Returns strength (0–1), lag, vortexVolume (W × M = V), and isotopicRatio. Measures similarity and temporal entanglement between two signals.',
-    inputSchema: { type: 'object', properties: { contentA: { type: 'string', description: 'First signal content' }, contentB: { type: 'string', description: 'Second signal content (optional)' } }, required: ['contentA'] },
+    inputSchema: { type: 'object', properties: { contentA: { type: 'string', description: 'First signal content' }, contentB: { type: 'string', description: 'Second signal content (optional)' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now. Stored and returned with the result.' } }, required: ['contentA'] },
   },
   {
     name: 'list_isotopes',
@@ -1306,7 +1299,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'triangulate_signals',
     description: 'Triangulates 2+ signals and returns isotopic fingerprints plus a full pairwise correlation matrix. Multi-signal analysis to identify the strongest relationships.',
-    inputSchema: { type: 'object', properties: { signals: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' }, tdf: { type: 'number' } } }, minItems: 2 } }, required: ['signals'] },
+    inputSchema: { type: 'object', properties: { signals: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' }, tdf: { type: 'number' } } }, minItems: 2 }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now. Stored and returned with the result.' } }, required: ['signals'] },
   },
   {
     name: 'fuse_symbiotic',
@@ -1361,7 +1354,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'govern_with_solar',
     description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Accepts a raw proposal string OR a structuredDerivativeProposal object (with summary field).',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' } }, required: [] },
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now, is returned as evaluatedAt, and is the clock mixed into the 7D TDF nonce. The same timestamp reproduces the verdict.' } }, required: [] },
   },
   {
     name: 'call_connected_tool',
@@ -1403,25 +1396,11 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     )
     return { tdfValue: tdf, S_L: s_l, tau: TAU, tPTT: tptt, BlackHole_Seq: bhs }
   },
-  emit_isotopic_signal: (args: any) => {
-    const signal = new TemporalBlurrnSignal(
-      { id: `sig-${Date.now()}`, content: args.content },
-      args.tdf ?? 5.781e12 + args.content.length * 137,
-      args.cascadeIndex ?? 42,
-    )
-    const id = signal.getIsotopeId()
-    signalStore.set(id, signal)
-    let ratio = 0.85
-    if (args.referenceId && signalStore.has(args.referenceId)) {
-      ratio = signal.calculateIsotopicRatio(signalStore.get(args.referenceId)!)
-    }
-    return { signalId: id, isotopicRatio: ratio, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue() }
-  },
+  emit_isotopic_signal: (args: any) => emitIsotopic(args),
   cross_correlate: (args: any) => {
-    const sigA = new TemporalBlurrnSignal({ content: args.contentA }, 5.781e12, 42)
-    const sigB = new TemporalBlurrnSignal({ content: args.contentB ?? 'reference-signal' }, 5.782e12, 43)
-    const result = sigA.crossCorrelate(sigB)
-    return { strength: result.strength, lag: result.lag, vortexVolume: result.metadata.vortexVolume, isotopicRatio: sigA.calculateIsotopicRatio(sigB) }
+    const clock = readClock(args.timestamp)
+    const score = crossTexts(args.contentA, args.contentB ?? 'reference-signal')
+    return { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs }
   },
   list_isotopes: () => {
     const std = ISOTOPES.map((iso, i) => ({ id: `isotope-${i}`, name: iso.type, factor: iso.factor, type: 'standard' }))
@@ -1429,20 +1408,13 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return { isotopes: [...std, ...blurrn] }
   },
   triangulate_signals: (args: any) => {
-    const sigs: TemporalBlurrnSignal[] = args.signals.map((s: any, i: number) =>
-      new TemporalBlurrnSignal({ content: s.content }, s.tdf ?? 5.781e12 + i * 137, i)
-    )
-    const results = sigs.map((s: any, i: number) => ({
-      index: i,
-      fingerprint: s.getIsotopicFingerprint(),
-      correlations: sigs.filter((_: any, j: number) => j !== i).map((o: any) => s.crossCorrelate(o)),
-    }))
-    return { signalCount: args.signals.length, results }
+    const clock = readClock(args.timestamp)
+    const score = triangulateTexts(args.signals)
+    return { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs }
   },
   fuse_symbiotic: (args: any) => {
-    const sigs: TemporalBlurrnSignal[] = args.partners.map((p: any, i: number) => new TemporalBlurrnSignal(p, 5.781e12 + i * 100, i))
-    const fused = sigs[0].fuseSymbiotically(sigs.slice(1))
-    return { fused: true, partnerCount: args.partners.length, fusedEmbedding: fused.embed(), fusedIsotopeId: fused.getIsotopeId() }
+    const fused = fuseTexts(args.partners.map((partner: { content: string }) => partner.content))
+    return { fused: true, partnerCount: args.partners.length, fusedEmbedding: fused.fusedEmbedding, fusedIsotopeId: fused.fusedIsotopeId }
   },
   optimize_cascade: (args: any) => {
     const { n, deltaPhase } = args
@@ -1454,7 +1426,8 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   get_phase_coherence: (args: any) => {
     if (signalStore.has(args.signalId)) {
       const signal = signalStore.get(args.signalId)!
-      return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue(), cascadeIndex: signal.getCascadeIndex(), stored: true }
+      const clock = signalClock.get(args.signalId)
+      return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue(), cascadeIndex: signal.getCascadeIndex(), timestamp: clock?.timestamp, timestampMs: clock?.timestampMs, stored: true }
     }
     const signal = new TemporalBlurrnSignal({ id: args.signalId }, 5.781e12, 42)
     return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), stored: false }
@@ -1504,7 +1477,8 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const spectralQuality = args?.spectralQuality !== undefined ? Number(args.spectralQuality) : undefined
     const sunNeuralEmbedding = args?.sunNeuralEmbedding !== undefined ? args.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
 
-    return dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding, proposalSource)
+    const clock = readClock(args?.timestamp)
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding, proposalSource, clock.timestampMs)
   },
   call_connected_tool: async (args: any) => {
     const toolName = args?.tool_name
@@ -1736,7 +1710,13 @@ app.post('/govern_with_solar', async (c: Context) => {
   const proposalSource = structuredInput?.source || 'human'
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
-  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding, proposalSource)
+  let clock
+  try {
+    clock = readClock(body.timestamp)
+  } catch (err) {
+    return c.json({ success: false, error: err instanceof Error ? err.message : 'invalid timestamp' }, 400)
+  }
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding, proposalSource, clock.timestampMs)
 
   const persistToChain = body.persistToChain === true
   if (persistToChain) {

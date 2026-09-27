@@ -2,6 +2,7 @@
 // Enhanced Dynamo Governance with real-time Solar Context
 
 import { solarGovernance } from './solarGovernanceIntegration.js'
+import { resolveTimestampMs } from './signalFromText.js'
 import { getRedisClient } from '../pubsub.js'
 import { computeFullGematriaDecomposition } from './temporalManifold.js'
 import { generateVortexMessage } from './vortexMessage.js'
@@ -102,6 +103,8 @@ export interface EnhancedGovernanceDecision {
   moralNumerologicalTension?: string
   gematriaDecomposition?: GematriaDecomposition
   vortexMessage?: string
+  evaluatedAt: string
+  evaluatedAtMs: number
 }
 
 export interface PublicFeedEntry {
@@ -259,10 +262,12 @@ export class DynamoSolarGovernance {
     spectralQuality?: number,
     sunNeuralEmbedding?: number[],
     source: string = 'human',
+    evaluatedAtMs?: number,
   ): Promise<EnhancedGovernanceDecision> {
+    const clock = resolveTimestampMs(evaluatedAtMs)
     const solarContext = await solarGovernance.getSolarContextForGovernance()
 
-    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation, spectralQuality, sunNeuralEmbedding)
+    const hammer = await solarGovernance.getProposalSolarIsotopicResonance(originalRecommendation, spectralQuality, sunNeuralEmbedding, clock.timestampMs)
 
     const adjustedVoteWeight = Math.max(0.5, Math.min(1.5, baseVoteWeight + solarContext.solarActivityModifier + hammer.activityModifier * 0.5))
 
@@ -322,7 +327,7 @@ export class DynamoSolarGovernance {
     }
 
     // Store resonance history keyed by normalized proposal text
-    const now = new Date()
+    const now = new Date(clock.timestampMs)
     const key = normalizeKey(originalRecommendation)
     const history = resonanceHistory.get(key) || []
     history.unshift({ score: r, timestamp: now.toISOString() })
@@ -501,6 +506,8 @@ export class DynamoSolarGovernance {
         moralNumerologicalTension: hammer.moralNumerologicalTension,
         recommendation: finalRec,
       }),
+      evaluatedAt: clock.timestamp,
+      evaluatedAtMs: clock.timestampMs,
     }
 
     // Persist every query+response to Redis for durable history

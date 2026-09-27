@@ -101,9 +101,8 @@ export async function evaluateGovernance(
 ) {
   const { proposalId, proposalText, codeDiff, agentReviews, historicalSignalIds = [] } = params
 
-  // 1. Emit the proposal as an isotopic signal
-  const proposalSignal = await handlers['emit_isotopic_signal']({ content: proposalText })
-  const isotopicRatio = proposalSignal.isotopicRatio ?? 0.85
+  // 1. Emit the proposal as an isotopic signal. A single text has no Codex isotopic ratio.
+  await handlers['emit_isotopic_signal']({ content: proposalText })
 
   // 2. Use fuse_symbiotic only to get the governance isotope ID
   const fusion = await handlers['fuse_symbiotic']({
@@ -111,9 +110,10 @@ export async function evaluateGovernance(
   })
   const governanceIsotopeId = fusion.fusedIsotopeId
 
-  // 3. Derive resonance from real cross_correlate calls (proposal ↔ each agent review)
+  // 3. Pairwise isotopic ratio and vortex volume from the documented cross_correlate formulas.
   const strengths: number[] = []
-  let vortexVolume = 3.0e25
+  const ratios: number[] = []
+  let vortexVolume = 0
 
   for (const review of agentReviews) {
     const cross = await handlers['cross_correlate']({
@@ -123,10 +123,17 @@ export async function evaluateGovernance(
     if (typeof cross.strength === 'number') {
       strengths.push(cross.strength)
     }
-    if (cross.metadata?.vortexVolume && cross.metadata.vortexVolume > 1e24) {
-      vortexVolume = cross.metadata.vortexVolume
+    if (typeof cross.isotopicRatio === 'number') {
+      ratios.push(cross.isotopicRatio)
+    }
+    if (typeof cross.vortexVolume === 'number') {
+      vortexVolume = cross.vortexVolume
     }
   }
+
+  const isotopicRatio = ratios.length > 0
+    ? ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length
+    : 0
 
   let resonance = strengths.length > 0
     ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length
