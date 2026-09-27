@@ -8,13 +8,11 @@ node mcp/scripts/audit-container-seeds.mjs
 
 Run it from the repository root after `npm install` so `viem` resolves. It calls `containerCount`, `listContainers`, and `getContainer` through public Base RPCs (`https://mainnet.base.org`, then `https://base-rpc.publicnode.com`).
 
-Optional Redis read: set `REDIS_URL`. The script then `HGETALL`s `dynamo:containers:origin` and quits. It does not call a Redis write command, and a Redis tag does not change `class`. If `REDIS_URL` is unset, Redis is not contacted. The snapshot below was classified without a Redis read.
-
 ```bash
 node mcp/scripts/audit-container-seeds.mjs --from-raw path/to/normalized.json
 ```
 
-`--from-raw` classifies a previously saved normalized payload and does not open a socket to the chain. Either mode rewrites this file and `docs/empirical/container-seed-audit.json`.
+`--from-raw` classifies a previously saved normalized payload and does not open a socket to the chain. Either mode rewrites this file, `docs/empirical/container-seed-audit.json`, and `mcp/data/container-classes.json`.
 
 ## Counts
 
@@ -29,7 +27,11 @@ Seed splits into 781 containers matching the `POST /dev/seed-containers` random-
 
 ## Checked-in data
 
-`docs/empirical/container-seed-audit.json` stores one object per container: `id`, `class`, `reason`. The previous per-container evidence paragraphs and the TypeScript id-list modules are not checked in. Unknown ids in that JSON are what the Manifold flags with `reviewFlag: unknown`. They are not dropped.
+`docs/empirical/container-seed-audit.json` is the human classification record: one object per container with `id`, `class`, and `reason`. The server does not read it.
+
+`mcp/data/container-classes.json` is the runtime list the server imports (`id` and `class` for unknown containers only). `mcp/lib/containerOrigin.ts` loads that file. Production starts with its working directory at `mcp/` (`tsx server.ts` in `mcp/railway.toml`), so the runtime data lives inside `mcp/` and does not depend on `docs/`. This script writes that file in the same run as the human summary. Re-running the script refreshes it directly.
+
+Unknown ids stay in the Manifold and are flagged `reviewFlag: unknown`. They are not dropped.
 
 ## Method
 

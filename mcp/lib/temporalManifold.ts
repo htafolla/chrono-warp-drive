@@ -42,14 +42,12 @@ export interface ManifoldPoint {
   verdict: string
   gematriaDecomposition?: GematriaDecomposition
   summary?: string
-  /** Off-chain only. Used to skip seeds. Never part of the on-chain container payload. */
+  /** Off-chain only. Copied from the Redis origin hash. Not a skip condition and not part of scoring. */
   origin?: ContainerOrigin
-  /** Off-chain only. Used to match the evidence seed list. Never part of scoring. */
+  /** Off-chain only. Used to flag evidence-list unknowns. Never part of scoring. */
   containerId?: string
   /** Set for an evidence-list unknown. Not read by scoring. */
   reviewFlag?: 'unknown'
-  /** Present only when a caller is asking the seed filter to see the container shape. */
-  seedShape?: RandomMetricSeedShape
 }
 
 export interface ResonanceSnapshot {
@@ -187,11 +185,6 @@ export class TemporalManifold {
   // ── Point Management ──
 
   addPoint(point: ManifoldPoint, proposalText?: string): void {
-    if (isExcludedSeed({
-      text: proposalText ?? point.summary,
-      containerId: point.containerId,
-      container: point.seedShape,
-    })) return
     if (proposalText) {
       point.gematriaDecomposition = computeFullGematriaDecomposition(proposalText)
       point.summary = proposalText
@@ -389,7 +382,6 @@ export class TemporalManifold {
   getSelfReflectionCandidates(windowMs: number = 72 * 60 * 60 * 1000, limit: number = 50): ManifoldPoint[] {
     const cutoff = Date.now() - windowMs
     return this.points
-      .filter(p => !isExcludedSeed({ text: p.summary, containerId: p.containerId, container: p.seedShape }))
       .filter(p => p.timestamp > cutoff && p.resonance7D >= 0.65 && p.summary)
       .sort((a, b) => b.resonance7D - a.resonance7D)
       .slice(0, limit)
@@ -410,7 +402,6 @@ export class TemporalManifold {
       proposalHashes: string[]
     }>()
     for (const p of this.points) {
-      if (isExcludedSeed({ text: p.summary, containerId: p.containerId, container: p.seedShape })) continue
       if (p.resonance7D < minResonance) continue
       const existing = grouped.get(p.proposalHash)
       if (existing) {

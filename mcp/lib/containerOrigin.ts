@@ -1,33 +1,26 @@
-import { readFileSync } from 'fs'
-import { dirname, join } from 'path'
-import { fileURLToPath } from 'url'
+import containerClasses from '../data/container-classes.json' with { type: 'json' }
 
-interface AuditContainerRow {
+interface ContainerClassRow {
   id: string
   class: string
-  reason: string
 }
 
-function loadEvidenceUnknownIds(): ReadonlySet<string> {
-  const here = dirname(fileURLToPath(import.meta.url))
-  const path = join(here, '../../docs/empirical/container-seed-audit.json')
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as { containers?: AuditContainerRow[] }
+function loadEvidenceUnknownIds(rows: readonly ContainerClassRow[]): ReadonlySet<string> {
   const ids = new Set<string>()
-  for (const row of parsed.containers ?? []) {
+  for (const row of rows) {
     if (row.class === 'unknown' && typeof row.id === 'string') ids.add(row.id.toLowerCase())
   }
   return ids
 }
 
-const EVIDENCE_UNKNOWN_IDS = loadEvidenceUnknownIds()
+const EVIDENCE_UNKNOWN_IDS = loadEvidenceUnknownIds(containerClasses)
 
 /**
  * Off-chain origin tags for temporal containers.
- *
- * Stored in the existing Redis instance under a dedicated hash.
- * Never added to ContainerVortex, containerToContractParams, or storeContainer args.
+ * Redis hash of container id -> origin JSON. Never added to ContainerVortex,
+ * containerToContractParams, or storeContainer args.
+ * A hash has no per-field TTL. EXPIRE on this key would drop every origin tag, so none is set.
  */
-
 export const REDIS_CONTAINER_ORIGIN_KEY = 'dynamo:containers:origin'
 
 /** Dev route that writes random-metric containers. */
@@ -71,10 +64,13 @@ export function containerOriginHashField(
  * Dev seed route is off unless this process is explicitly not production
  * and ALLOW_SEED_ROUTE=1. Either condition failing is a 403.
  */
-export function devSeedRouteAllowed(
-  env: { NODE_ENV?: string; ALLOW_SEED_ROUTE?: string } = process.env,
-): boolean {
-  return env.NODE_ENV !== 'production' && env.ALLOW_SEED_ROUTE === '1'
+export function devSeedRouteAllowed(env?: {
+  NODE_ENV?: string
+  ALLOW_SEED_ROUTE?: string
+}): boolean {
+  const nodeEnv = env ? env.NODE_ENV : process.env.NODE_ENV
+  const allowSeedRoute = env ? env.ALLOW_SEED_ROUTE : process.env.ALLOW_SEED_ROUTE
+  return nodeEnv !== 'production' && allowSeedRoute === '1'
 }
 
 /** Fields the dev seed route writes onto a container before Redis or the contract. */

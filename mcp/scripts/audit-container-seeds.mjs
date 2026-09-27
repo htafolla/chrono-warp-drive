@@ -1,8 +1,13 @@
 /**
  * Read-only classification of TemporalContainerRegistry containers.
  * Chain calls are eth_call (containerCount, listContainers, getContainer).
- * Redis, when REDIS_URL is set, is HGETALL only. This file never writes
- * a transaction or a Redis key.
+ * This file never sends a transaction and never writes a Redis key.
+ * It writes three local files from the classification in memory:
+ *   docs/empirical/container-seed-audit.md   human summary
+ *   docs/empirical/container-seed-audit.json human record (id, class, reason)
+ *   mcp/data/container-classes.json          runtime unknown ids the server imports
+ * The server does not read the docs files. Re-running this script refreshes
+ * mcp/data/container-classes.json directly.
  *
  *   node mcp/scripts/audit-container-seeds.mjs
  *   node mcp/scripts/audit-container-seeds.mjs --from-raw /path/to/normalized.json
@@ -12,16 +17,16 @@ import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { createPublicClient, http, fallback } from 'viem'
 import { base } from 'viem/chains'
-import { readFileSync, writeFileSync } from 'fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(scriptDir, '../..')
 const ABI = JSON.parse(readFileSync(join(scriptDir, '../lib/abi/TemporalContainerRegistry.json'), 'utf8'))
 const OUT_JSON = join(repoRoot, 'docs/empirical/container-seed-audit.json')
 const OUT_MD = join(repoRoot, 'docs/empirical/container-seed-audit.md')
+const OUT_RUNTIME = join(scriptDir, '../data/container-classes.json')
 const REGISTRY = '0xCB418F081D4fDAD6B2b17027294865B26cb26855'
 const RPCS = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com']
-const ORIGIN_KEY = 'dynamo:containers:origin'
 
 const Q = 10n ** 14n
 const FLOAT_SLOP = 64n
@@ -540,13 +545,11 @@ node mcp/scripts/audit-container-seeds.mjs
 
 Run it from the repository root after \`npm install\` so \`viem\` resolves. It calls \`containerCount\`, \`listContainers\`, and \`getContainer\` through public Base RPCs (\`https://mainnet.base.org\`, then \`https://base-rpc.publicnode.com\`).
 
-Optional Redis read: set \`REDIS_URL\`. The script then \`HGETALL\`s \`${ORIGIN_KEY}\` and quits. It does not call a Redis write command, and a Redis tag does not change \`class\`. If \`REDIS_URL\` is unset, Redis is not contacted. The snapshot below was classified without a Redis read.
-
 \`\`\`bash
 node mcp/scripts/audit-container-seeds.mjs --from-raw path/to/normalized.json
 \`\`\`
 
-\`--from-raw\` classifies a previously saved normalized payload and does not open a socket to the chain. Either mode rewrites this file and \`docs/empirical/container-seed-audit.json\`.
+\`--from-raw\` classifies a previously saved normalized payload and does not open a socket to the chain. Either mode rewrites this file, \`docs/empirical/container-seed-audit.json\`, and \`mcp/data/container-classes.json\`.
 
 ## Counts
 
@@ -561,7 +564,11 @@ Seed splits into ${seedBreakdown.devSeedRoute} containers matching the \`POST /d
 
 ## Checked-in data
 
-\`docs/empirical/container-seed-audit.json\` stores one object per container: \`id\`, \`class\`, \`reason\`. The previous per-container evidence paragraphs and the TypeScript id-list modules are not checked in. Unknown ids in that JSON are what the Manifold flags with \`reviewFlag: unknown\`. They are not dropped.
+\`docs/empirical/container-seed-audit.json\` is the human classification record: one object per container with \`id\`, \`class\`, and \`reason\`. The server does not read it.
+
+\`mcp/data/container-classes.json\` is the runtime list the server imports (\`id\` and \`class\` for unknown containers only). \`mcp/lib/containerOrigin.ts\` loads that file. Production starts with its working directory at \`mcp/\` (\`tsx server.ts\` in \`mcp/railway.toml\`), so the runtime data lives inside \`mcp/\` and does not depend on \`docs/\`. This script writes that file in the same run as the human summary. Re-running the script refreshes it directly.
+
+Unknown ids stay in the Manifold and are flagged \`reviewFlag: unknown\`. They are not dropped.
 
 ## Method
 
@@ -569,31 +576,6 @@ A container is unknown unless a code-path invariant matches the on-chain payload
 
 Registry \`${REGISTRY}\` on Base (chain id 8453). No score was changed. No contract call was a write.
 `
-}
-
-async function readRedisOrigins() {
-  if (!process.env.REDIS_URL) {
-    console.log('REDIS_URL unset; Redis not contacted')
-    return null
-  }
-  let Redis
-  try {
-    Redis = (await import('ioredis')).default
-  } catch {
-    console.log('REDIS_URL is set but ioredis is not installed; Redis not contacted. No write was attempted.')
-    return null
-  }
-  const client = new Redis(process.env.REDIS_URL, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    enableReadyCheck: false,
-  })
-  await client.connect()
-  const origins = await client.hgetall(ORIGIN_KEY)
-  await client.quit()
-  const count = origins ? Object.keys(origins).length : 0
-  console.log(`redis HGETALL ${ORIGIN_KEY} fields=${count} (not used to assign class)`)
-  return origins
 }
 
 async function loadFromChain() {
@@ -650,11 +632,17 @@ function writeReports(rows) {
     seedBreakdown,
     containers: rows,
   }
+  const runtimeRows = rows
+    .filter((row) => row.class === 'unknown')
+    .map((row) => ({ id: row.id, class: 'unknown' }))
   writeFileSync(OUT_JSON, JSON.stringify(report, null, 2) + '\n')
   writeFileSync(OUT_MD, summaryMarkdown(report))
+  mkdirSync(dirname(OUT_RUNTIME), { recursive: true })
+  writeFileSync(OUT_RUNTIME, JSON.stringify(runtimeRows, null, 2) + '\n')
   console.log(counts, seedBreakdown)
   console.log('wrote', OUT_JSON)
   console.log('wrote', OUT_MD)
+  console.log('wrote', OUT_RUNTIME)
 }
 
 const rawFlag = process.argv.indexOf('--from-raw')
@@ -667,5 +655,4 @@ if (rawFlag !== -1) {
 } else {
   containers = await loadFromChain()
 }
-await readRedisOrigins()
 writeReports(classifyAll(containers))

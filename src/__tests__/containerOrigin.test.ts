@@ -1,4 +1,6 @@
-import { readFileSync } from 'fs'
+import { spawnSync } from 'child_process'
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -397,6 +399,13 @@ describe('seed exclusion from manifold and re-score candidates', () => {
     expect(audit.containerCount).toBe(932)
     expect(audit.counts).toEqual({ seed: 786, real: 52, unknown: 94 })
     expect(audit.containers.filter((row) => row.class === 'unknown')).toHaveLength(94)
+    const runtimeClasses = JSON.parse(readFileSync(join(repoRoot, 'mcp/data/container-classes.json'), 'utf8')) as Array<{
+      id: string
+      class: string
+    }>
+    const docsUnknownIds = audit.containers.filter((row) => row.class === 'unknown').map((row) => row.id)
+    expect(runtimeClasses.map((row) => row.id)).toEqual(docsUnknownIds)
+    expect(runtimeClasses.every((row) => row.class === 'unknown')).toBe(true)
     expect(containerReviewFlag(evidenceUnknownId)).toBe('unknown')
     expect(containerReviewFlag(evidenceSeedId)).toBeUndefined()
     expect(containerReviewFlag(realContainerId)).toBeUndefined()
@@ -447,33 +456,68 @@ describe('dev seed route gate', () => {
     else process.env.ALLOW_SEED_ROUTE = previousAllow
   })
 
-  it('returns 403 in production even when ALLOW_SEED_ROUTE=1', async () => {
-    process.env.NODE_ENV = 'production'
-    process.env.ALLOW_SEED_ROUTE = '1'
-    expect(devSeedRouteAllowed()).toBe(false)
-    const app = new Hono()
-    let handlerRan = false
-    mountDevSeedRoute(app, async (c) => {
-      handlerRan = true
-      return c.json({ success: true })
-    })
-    const res = await app.request('/dev/seed-containers', { method: 'POST' })
-    expect(res.status).toBe(403)
-    const body = await res.json() as { success: boolean; error: string }
-    expect(body.success).toBe(false)
-    expect(body.error).toBe(DEV_SEED_DISABLED_ERROR)
-    expect(handlerRan).toBe(false)
-  })
+  it('returns 403 from the real handler in an mcp-only tree', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'mcp-boot-'))
+    const mcpCopy = join(tmp, 'mcp')
+    try {
+      cpSync(join(repoRoot, 'mcp'), mcpCopy, { recursive: true })
+      symlinkSync(join(repoRoot, 'node_modules'), join(mcpCopy, 'node_modules'))
+      const probe = join(mcpCopy, 'boot-probe.ts')
+      writeFileSync(probe, `import { containerReviewFlag } from './lib/containerOrigin.ts'
+import { DEV_SEED_DISABLED_ERROR } from './lib/devSeedRoute.ts'
+import app from './index.ts'
+import { readFileSync } from 'node:fs'
 
-  it('returns 403 when the dev flag is unset', async () => {
-    process.env.NODE_ENV = 'development'
-    delete process.env.ALLOW_SEED_ROUTE
-    expect(devSeedRouteAllowed()).toBe(false)
-    const app = new Hono()
-    mountDevSeedRoute(app, async (c) => c.json({ success: true }))
-    const res = await app.request('/dev/seed-containers?count=1', { method: 'POST' })
-    expect(res.status).toBe(403)
-  })
+const classes = JSON.parse(readFileSync(new URL('./data/container-classes.json', import.meta.url), 'utf8')) as Array<{ id: string; class: string }>
+const unknown = classes.find((row) => row.class === 'unknown')
+if (!unknown) {
+  console.error('runtime class list has no unknown id')
+  process.exit(1)
+}
+if (containerReviewFlag(unknown.id) !== 'unknown') {
+  console.error('unknown id was not flagged', unknown.id)
+  process.exit(1)
+}
+if (containerReviewFlag('0x' + 'ab'.repeat(32)) !== undefined) {
+  console.error('unlisted id was flagged')
+  process.exit(1)
+}
+
+async function expectDisabled(label: string): Promise<void> {
+  const res = await app.request('/dev/seed-containers', { method: 'POST' })
+  const body = await res.json() as { success?: boolean; error?: string }
+  if (res.status !== 403 || body.success !== false || body.error !== DEV_SEED_DISABLED_ERROR) {
+    console.error(label, res.status, JSON.stringify(body))
+    process.exit(2)
+  }
+}
+
+process.env.NODE_ENV = 'production'
+process.env.ALLOW_SEED_ROUTE = '1'
+await expectDisabled('production')
+process.env.NODE_ENV = 'development'
+delete process.env.ALLOW_SEED_ROUTE
+await expectDisabled('flag unset')
+console.log('boot-ok')
+`)
+      const env = { ...process.env }
+      delete env.REDIS_URL
+      delete env.ALLOW_SEED_ROUTE
+      const result = spawnSync(join(repoRoot, 'node_modules/.bin/vite-node'), [probe], {
+        cwd: mcpCopy,
+        env,
+        encoding: 'utf8',
+        timeout: 120000,
+      })
+      const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+      expect(result.status, output).toBe(0)
+      expect(output).not.toMatch(/ENOENT/)
+      expect(output).not.toMatch(/container-seed-audit\.json/)
+      expect(output).toContain('boot-ok')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  }, 180000)
 
   it('allows the route only when ALLOW_SEED_ROUTE=1 and the process is not production', async () => {
     process.env.NODE_ENV = 'development'

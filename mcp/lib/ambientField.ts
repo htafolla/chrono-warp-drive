@@ -5,7 +5,7 @@ import { isStructuredProposal, type StructuredDerivativeProposal } from './struc
 import { governanceToContainer, type ContainerVortex } from './temporalContainer.js'
 import { persistContainerToChain } from './contractClient.js'
 import { getRedisClient } from '../pubsub.js'
-import { containerOriginHashField, isExcludedSeed } from './containerOrigin.js'
+import { containerOriginHashField } from './containerOrigin.js'
 import { temporalManifold } from './temporalManifold.js'
 
 const REDIS_CONTAINER_KEY = 'dynamo:containers'
@@ -189,11 +189,7 @@ export class AmbientField {
     const candidates = temporalManifold.getSelfReflectionCandidates(
       this.config.selfReflectWindowMs,
       this.config.selfReflectCandidates,
-    ).filter(c => !isExcludedSeed({
-      text: c.summary,
-      containerId: c.containerId,
-      container: c.seedShape,
-    }))
+    )
 
     const available = candidates.filter(c => !this.recentlySampledHashes.has(c.proposalHash))
     if (available.length === 0) {
