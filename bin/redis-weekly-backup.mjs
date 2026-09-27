@@ -1,53 +1,32 @@
 #!/usr/bin/env node
 /**
- * Weekly read-only Redis export for a Railway cron service.
+ * Weekly point-in-time Redis export for a Railway cron service.
  *
- * Prefers `redis-cli --rdb` (replication stream, not BGSAVE). If Redis refuses
- * SYNC/PSYNC, falls back to SCAN + TYPE + TTL + DUMP. Gzip, sha256 sidecar,
- * upload under chrono-redis/, keep the newest 13 archives.
+ * Uses `redis-cli --rdb` only. That replication stream makes the Redis
+ * primary fork. If redis-cli or SYNC/PSYNC fails, the process exits non-zero
+ * and does not upload or prune. There is no SCAN/DUMP fallback.
  *
  * Required env (names only; values are never logged):
  *   REDIS_URL, BUCKET, ACCESS_KEY_ID, SECRET_ACCESS_KEY, ENDPOINT, REGION
  */
 
+import { AwsClient } from 'aws4fetch'
 import { spawn } from 'node:child_process'
-import { createHash, createHmac } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import net from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import tls from 'node:tls'
 import { gzipSync } from 'node:zlib'
 
 export const PREFIX = 'chrono-redis/'
 export const RETENTION_COPIES = 13
-const BACKUP_KEY_RE = /^chrono-redis\/\d{4}-\d{2}-\d{2}T\d{6}Z\.(?:rdb|json)\.gz$/
-const READ_ONLY_COMMANDS = new Set(['AUTH', 'SELECT', 'PING', 'QUIT', 'SCAN', 'TYPE', 'TTL', 'DUMP'])
+const BACKUP_KEY_RE = /^chrono-redis\/\d{4}-\d{2}-\d{2}T\d{6}Z\.rdb\.gz$/
 const REQUIRED_ENV = ['REDIS_URL', 'BUCKET', 'ACCESS_KEY_ID', 'SECRET_ACCESS_KEY', 'ENDPOINT', 'REGION']
 const RDB_MAGIC = Buffer.from('REDIS')
-const MAX_BULK_BYTES = 256 * 1024 * 1024
-
-export function assertRedisReadOnly(command) {
-  const name = String(command).toUpperCase()
-  if (!READ_ONLY_COMMANDS.has(name)) {
-    throw new Error(`refusing Redis command ${name}; backup is read-only`)
-  }
-  return name
-}
 
 export function buildRdbCliArgs(redisUrl, rdbPath) {
   return ['-u', redisUrl, '--rdb', rdbPath]
-}
-
-export function isSyncRefused(output) {
-  const text = String(output).toLowerCase()
-  const mentionsSync = /psync|replconf|\bsync\b|replication/.test(text)
-  if (/unknown command/.test(text) && mentionsSync) return true
-  if (/noperm|no permissions|permission denied|operation not permitted/.test(text) && mentionsSync) return true
-  if (/sync with master failed|failed to sync|cannot sync|can't sync|can not sync/.test(text)) return true
-  if (/replication/.test(text) && /not allowed|disabled|unsupported|refused/.test(text)) return true
-  return false
 }
 
 export function formatBackupStamp(date) {
@@ -55,9 +34,8 @@ export function formatBackupStamp(date) {
   return `${iso.slice(0, 10)}T${iso.slice(11, 19).replace(/:/g, '')}Z`
 }
 
-export function objectKeyFor(date, ext) {
-  if (ext !== 'rdb' && ext !== 'json') throw new Error('unsupported backup extension')
-  return `${PREFIX}${formatBackupStamp(date)}.${ext}.gz`
+export function objectKeyFor(date) {
+  return `${PREFIX}${formatBackupStamp(date)}.rdb.gz`
 }
 
 export function sidecarKey(backupKey) {
@@ -97,8 +75,8 @@ export function selectKeysToDelete(objects, options = {}) {
     const key = object.key
     if (!key.startsWith(PREFIX) || !key.endsWith('.sha256')) continue
     const parent = key.slice(0, -'.sha256'.length)
-    if (!BACKUP_KEY_RE.test(parent)) continue
-    if (!keepSet.has(parent)) deletions.push(key)
+    if (!BACKUP_KEY_RE.test(parent) || keepSet.has(parent)) continue
+    deletions.push(key)
   }
   return deletions
 }
@@ -120,7 +98,7 @@ export function collectSecretValues(env) {
         add(url.password)
       }
     } catch {
-      // Invalid URLs are reported by readEnv without echoing the value.
+      // readEnv reports an invalid URL without echoing the value.
     }
   }
   return values
@@ -137,10 +115,11 @@ export function redactSecrets(text, secrets) {
 }
 
 export function readEnv(env) {
-  const missing = REQUIRED_ENV.filter((name) => !env[name] || !String(env[name]).trim())
+  const source = env ?? {}
+  const missing = REQUIRED_ENV.filter((name) => !source[name] || !String(source[name]).trim())
   if (missing.length > 0) throw new Error(`missing required env: ${missing.join(', ')}`)
   const values = {}
-  for (const name of REQUIRED_ENV) values[name] = String(env[name]).trim()
+  for (const name of REQUIRED_ENV) values[name] = String(source[name]).trim()
   let parsed
   try {
     parsed = new URL(values.REDIS_URL)
@@ -153,265 +132,29 @@ export function readEnv(env) {
   return values
 }
 
-export function parseRedisUrl(redisUrl) {
-  const url = new URL(redisUrl)
-  if (url.protocol !== 'redis:' && url.protocol !== 'rediss:') {
-    throw new Error('REDIS_URL must use redis: or rediss:')
-  }
-  const dbText = url.pathname.replace(/^\//, '')
-  const db = dbText ? Number(dbText) : 0
-  if (!Number.isInteger(db) || db < 0) throw new Error('REDIS_URL database index is invalid')
-  const port = url.port ? Number(url.port) : (url.protocol === 'rediss:' ? 6380 : 6379)
-  return {
-    tls: url.protocol === 'rediss:',
-    host: url.hostname,
-    port,
-    username: decodeURIComponent(url.username || ''),
-    password: decodeURIComponent(url.password || ''),
-    db,
-  }
-}
-
-function readCrlf(buffer, offset) {
-  const idx = buffer.indexOf('\r\n', offset)
-  if (idx < 0) return null
-  return { text: buffer.toString('utf8', offset, idx), next: idx + 2 }
-}
-
-function parseAt(buffer, offset) {
-  if (offset >= buffer.length) return null
-  const type = buffer[offset]
-  if (type === 43 || type === 45 || type === 58) {
-    const line = readCrlf(buffer, offset + 1)
-    if (!line) return null
-    if (type === 45) return { next: line.next, error: line.text }
-    if (type === 58) {
-      if (!/^-?\d+$/.test(line.text)) return { next: line.next, error: 'invalid integer reply' }
-      return { next: line.next, value: Number(line.text) }
-    }
-    return { next: line.next, value: line.text }
-  }
-  if (type === 36) {
-    const line = readCrlf(buffer, offset + 1)
-    if (!line) return null
-    const length = Number(line.text)
-    if (!Number.isInteger(length)) return { next: line.next, error: 'invalid bulk length' }
-    if (length < -1) return { next: line.next, error: 'invalid bulk length' }
-    if (length === -1) return { next: line.next, value: null }
-    if (length > MAX_BULK_BYTES) return { next: line.next, error: 'Redis bulk reply is too large' }
-    const start = line.next
-    const end = start + length
-    if (buffer.length < end + 2) return null
-    if (buffer[end] !== 13 || buffer[end + 1] !== 10) {
-      return { next: end + 2, error: 'bulk reply missing CRLF' }
-    }
-    return { next: end + 2, value: Buffer.from(buffer.subarray(start, end)) }
-  }
-  if (type === 42) {
-    const line = readCrlf(buffer, offset + 1)
-    if (!line) return null
-    const count = Number(line.text)
-    if (!Number.isInteger(count)) return { next: line.next, error: 'invalid array length' }
-    if (count < 0) return { next: line.next, value: null }
-    const values = []
-    let cursor = line.next
-    for (let index = 0; index < count; index += 1) {
-      const item = parseAt(buffer, cursor)
-      if (!item) return null
-      if (item.error) return { next: item.next, error: item.error }
-      values.push(item.value)
-      cursor = item.next
-    }
-    return { next: cursor, value: values }
-  }
-  return { next: offset + 1, error: 'unknown Redis reply type' }
-}
-
-export function parseRespMessage(buffer) {
-  return parseAt(buffer, 0)
-}
-
-export function encodeCommand(args) {
-  const chunks = [Buffer.from(`*${args.length}\r\n`)]
-  for (const arg of args) {
-    const buf = Buffer.isBuffer(arg) ? arg : Buffer.from(String(arg), 'utf8')
-    chunks.push(Buffer.from(`$${buf.length}\r\n`))
-    chunks.push(buf)
-    chunks.push(Buffer.from('\r\n'))
-  }
-  return Buffer.concat(chunks)
-}
-
-function openSocket(parsed) {
-  return new Promise((resolve, reject) => {
-    const socket = parsed.tls
-      ? tls.connect({
-        host: parsed.host,
-        port: parsed.port,
-        servername: parsed.host,
-        rejectUnauthorized: true,
-      })
-      : net.connect({ host: parsed.host, port: parsed.port })
-    const onError = (error) => {
-      socket.destroy()
-      reject(error instanceof Error ? new Error('Redis connection failed') : new Error('Redis connection failed'))
-    }
-    socket.once('error', onError)
-    socket.once(parsed.tls ? 'secureConnect' : 'connect', () => {
-      socket.off('error', onError)
-      socket.setTimeout(60_000)
-      resolve(socket)
-    })
-  })
-}
-
-export async function connectReadOnlyRedis(redisUrl) {
-  const parsed = parseRedisUrl(redisUrl)
-  const socket = await openSocket(parsed)
-  let buffer = Buffer.alloc(0)
-  const waiters = []
-  let failed = null
-
-  const failAll = (error) => {
-    failed = error
-    while (waiters.length > 0) {
-      const waiter = waiters.shift()
-      waiter.reject(error)
-    }
-  }
-
-  const drain = () => {
-    while (waiters.length > 0) {
-      const parsedMessage = parseRespMessage(buffer)
-      if (!parsedMessage) return
-      buffer = buffer.subarray(parsedMessage.next)
-      const waiter = waiters.shift()
-      if (parsedMessage.error) waiter.reject(new Error(`Redis reply failed: ${parsedMessage.error}`))
-      else waiter.resolve(parsedMessage.value)
-    }
-  }
-
-  socket.on('data', (chunk) => {
-    buffer = Buffer.concat([buffer, chunk])
-    drain()
-  })
-  socket.on('error', () => failAll(new Error('Redis connection failed')))
-  socket.on('timeout', () => {
-    socket.destroy()
-    failAll(new Error('Redis connection timed out'))
-  })
-  socket.on('close', () => {
-    if (waiters.length > 0) failAll(new Error('Redis connection closed'))
-  })
-
-  const call = (args) => {
-    assertRedisReadOnly(args[0])
-    if (failed) return Promise.reject(failed)
-    return new Promise((resolve, reject) => {
-      waiters.push({ resolve, reject })
-      socket.write(encodeCommand(args))
-      drain()
-    })
-  }
-
-  if (parsed.password) {
-    const authArgs = parsed.username ? ['AUTH', parsed.username, parsed.password] : ['AUTH', parsed.password]
-    const auth = await call(authArgs)
-    if (auth !== 'OK') throw new Error('Redis AUTH failed')
-  }
-  if (parsed.db !== 0) {
-    const selected = await call(['SELECT', String(parsed.db)])
-    if (selected !== 'OK') throw new Error('Redis SELECT failed')
-  }
-
-  return {
-    call,
-    close() {
-      socket.destroy()
-    },
-  }
-}
-
-function replyText(value) {
-  if (typeof value === 'string') return value
-  if (Buffer.isBuffer(value)) {
-    const text = value.toString('utf8')
-    if (!value.equals(Buffer.from(text, 'utf8'))) {
-      throw new Error('refusing to export a Redis key that is not valid UTF-8')
-    }
-    return text
-  }
-  throw new Error('Redis reply had an unexpected type')
-}
-
-export function createRedisReader(redisUrl, deps = {}) {
-  const runCli = deps.runCli ?? defaultRunCli
-  let session = null
-
-  const sessionCall = async (args) => {
-    if (!session) session = await connectReadOnlyRedis(redisUrl)
-    return session.call(args)
-  }
-
-  return {
-    async tryRdb() {
-      return exportRdbViaCli(redisUrl, runCli)
-    },
-    async scan(cursor) {
-      const reply = await sessionCall(['SCAN', String(cursor), 'COUNT', '500'])
-      if (!Array.isArray(reply) || reply.length < 2 || !Array.isArray(reply[1])) {
-        throw new Error('Redis SCAN returned an unexpected reply')
-      }
-      const keys = []
-      for (const key of reply[1]) keys.push(replyText(key))
-      return { cursor: replyText(reply[0]), keys }
-    },
-    async type(key) {
-      return replyText(await sessionCall(['TYPE', key]))
-    },
-    async ttl(key) {
-      const value = await sessionCall(['TTL', key])
-      if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('Redis TTL returned a non-integer')
-      return value
-    },
-    async dump(key) {
-      const value = await sessionCall(['DUMP', key])
-      if (value == null) return null
-      if (!Buffer.isBuffer(value)) throw new Error('Redis DUMP returned a non-bulk reply')
-      return value
-    },
-    async close() {
-      if (!session) return
-      const current = session
-      session = null
-      try {
-        await current.call(['QUIT'])
-      } catch {
-        // The socket is closed either way.
-      }
-      current.close()
-    },
-  }
+export async function readRedisCliVersion(runCli) {
+  const result = await runCli('redis-cli', ['--version'])
+  if (result.errorCode === 'ENOENT') throw new Error('redis-cli is not installed')
+  const text = `${result.stdout || ''}\n${result.stderr || ''}`.replace(/\s+/g, ' ').trim()
+  if (result.code !== 0 || !text) throw new Error('redis-cli --version failed')
+  return text
 }
 
 export async function exportRdbViaCli(redisUrl, runCli) {
   const dir = await mkdtemp(join(tmpdir(), 'chrono-rdb-'))
   const rdbPath = join(dir, 'dump.rdb')
   try {
-    const args = buildRdbCliArgs(redisUrl, rdbPath)
-    const result = await runCli('redis-cli', args)
+    const result = await runCli('redis-cli', buildRdbCliArgs(redisUrl, rdbPath))
     if (result.errorCode === 'ENOENT') throw new Error('redis-cli is not installed')
-    const output = `${result.stderr || ''}\n${result.stdout || ''}`
-    if (result.code === 0) {
-      const rdb = await readFile(rdbPath)
-      if (rdb.length < 5 || !rdb.subarray(0, 5).equals(RDB_MAGIC)) {
-        throw new Error('redis-cli --rdb did not write a Redis RDB file')
-      }
-      return { ok: true, rdb }
+    if (result.code !== 0) {
+      const detail = `${result.stderr || ''}\n${result.stdout || ''}`.replace(/\s+/g, ' ').trim().slice(0, 300)
+      throw new Error(`redis-cli --rdb failed (${result.code ?? 'unknown'}): ${detail}`)
     }
-    if (isSyncRefused(output)) return { ok: false, syncRefused: true }
-    const detail = output.replace(/\s+/g, ' ').trim().slice(0, 300)
-    throw new Error(`redis-cli --rdb failed (${result.code ?? 'unknown'}): ${detail}`)
+    const rdb = await readFile(rdbPath)
+    if (rdb.length < 5 || !rdb.subarray(0, 5).equals(RDB_MAGIC)) {
+      throw new Error('redis-cli --rdb did not write a Redis RDB file')
+    }
+    return rdb
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
@@ -441,107 +184,6 @@ function defaultRunCli(command, args) {
   })
 }
 
-export async function collectScanDump(redis, options = {}) {
-  const maxScanRounds = options.maxScanRounds ?? 100_000
-  const keys = []
-  let skipped = 0
-  let cursor = '0'
-  let rounds = 0
-  do {
-    rounds += 1
-    if (rounds > maxScanRounds) throw new Error('Redis SCAN did not finish')
-    const page = await redis.scan(cursor)
-    cursor = String(page.cursor)
-    for (const key of page.keys) {
-      const type = await redis.type(key)
-      if (type === 'none') {
-        skipped += 1
-        continue
-      }
-      const ttl = await redis.ttl(key)
-      const dump = await redis.dump(key)
-      if (dump == null) {
-        skipped += 1
-        continue
-      }
-      keys.push({
-        key,
-        type,
-        ttl,
-        dump: dump.toString('base64'),
-      })
-    }
-  } while (cursor !== '0')
-  return { keys, skipped }
-}
-
-export function awsUriEncode(value) {
-  return encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
-}
-
-export function canonicalQueryString(pairs) {
-  return pairs
-    .map(([key, value]) => [awsUriEncode(key), awsUriEncode(value)])
-    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
-    .map(([key, value]) => `${key}=${value}`)
-    .join('&')
-}
-
-function sha256Hex(data) {
-  return createHash('sha256').update(data).digest('hex')
-}
-
-function hmac(key, data) {
-  return createHmac('sha256', key).update(data).digest()
-}
-
-export function authorizeSigV4({
-  method,
-  canonicalUri,
-  canonicalQuery,
-  headers,
-  payloadHash,
-  region,
-  service = 's3',
-  accessKeyId,
-  secretAccessKey,
-  amzDate,
-}) {
-  const names = Object.keys(headers).map((name) => name.toLowerCase()).sort()
-  const canonicalHeaders = names
-    .map((name) => `${name}:${String(headers[name]).trim().replace(/[ \t]+/g, ' ')}\n`)
-    .join('')
-  const signedHeaders = names.join(';')
-  const canonicalRequest = [
-    method,
-    canonicalUri,
-    canonicalQuery,
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash,
-  ].join('\n')
-  const dateStamp = amzDate.slice(0, 8)
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
-  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, sha256Hex(canonicalRequest)].join('\n')
-  let signingKey = hmac(`AWS4${secretAccessKey}`, dateStamp)
-  signingKey = hmac(signingKey, region)
-  signingKey = hmac(signingKey, service)
-  signingKey = hmac(signingKey, 'aws4_request')
-  const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex')
-  const authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
-  return { authorization, signature, signedHeaders, canonicalRequest }
-}
-
-export function formatAmzDate(date) {
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
-}
-
-function virtualHost(endpoint, bucket) {
-  const base = new URL(endpoint)
-  const host = base.hostname.startsWith(`${bucket}.`) ? base.host : `${bucket}.${base.host}`
-  return host
-}
-
 export function decodeXml(text) {
   return text
     .replace(/&lt;/g, '<')
@@ -556,8 +198,7 @@ export function parseListObjectsV2(xml) {
   const truncated = /<IsTruncated>([^<]*)<\/IsTruncated>/.exec(xml)?.[1] === 'true'
   const token = /<NextContinuationToken>([^<]*)<\/NextContinuationToken>/.exec(xml)?.[1]
   const objects = []
-  const blocks = xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)
-  for (const block of blocks) {
+  for (const block of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
     const key = /<Key>([\s\S]*?)<\/Key>/.exec(block[1])?.[1]
     const lastModified = /<LastModified>([^<]*)<\/LastModified>/.exec(block[1])?.[1] ?? ''
     if (!key) throw new Error('list objects response missing key')
@@ -570,48 +211,40 @@ export function parseListObjectsV2(xml) {
   }
 }
 
+function virtualHost(endpoint, bucket) {
+  const base = new URL(endpoint)
+  return base.hostname.startsWith(`${bucket}.`) ? base.host : `${bucket}.${base.host}`
+}
+
+function objectUrl(env, key, queryPairs) {
+  const host = virtualHost(env.ENDPOINT, env.BUCKET)
+  const path = key ? `/${key.split('/').map((part) => encodeURIComponent(part)).join('/')}` : '/'
+  const url = new URL(`https://${host}${path}`)
+  for (const [name, value] of queryPairs) url.searchParams.set(name, value)
+  return url
+}
+
 export function createS3Client(env, deps = {}) {
-  const fetchImpl = deps.fetchImpl ?? globalThis.fetch
-  const now = deps.now ?? (() => new Date())
+  const Client = deps.AwsClient ?? AwsClient
+  const aws = new Client({
+    accessKeyId: env.ACCESS_KEY_ID,
+    secretAccessKey: env.SECRET_ACCESS_KEY,
+    region: env.REGION,
+    service: 's3',
+    retries: 2,
+  })
+
+  const expectBucket = (bucket) => {
+    if (bucket !== env.BUCKET) throw new Error('refusing to use an unexpected bucket')
+  }
 
   const request = async (method, key, queryPairs, body, contentType) => {
-    const host = virtualHost(env.ENDPOINT, env.BUCKET)
-    const canonicalUri = key ? `/${key.split('/').map((part) => awsUriEncode(part)).join('/')}` : '/'
-    const canonicalQuery = canonicalQueryString(queryPairs)
-    const payload = body ?? Buffer.alloc(0)
-    const payloadHash = sha256Hex(payload)
-    const amzDate = formatAmzDate(now())
-    const headers = {
-      host,
-      'x-amz-content-sha256': payloadHash,
-      'x-amz-date': amzDate,
-    }
+    const headers = {}
     if (contentType) headers['content-type'] = contentType
-    const signed = authorizeSigV4({
+    const response = await aws.fetch(objectUrl(env, key, queryPairs), {
       method,
-      canonicalUri,
-      canonicalQuery,
       headers,
-      payloadHash,
-      region: env.REGION,
-      accessKeyId: env.ACCESS_KEY_ID,
-      secretAccessKey: env.SECRET_ACCESS_KEY,
-      amzDate,
-    })
-    const outbound = {
-      'content-type': contentType,
-      'x-amz-content-sha256': payloadHash,
-      'x-amz-date': amzDate,
-      authorization: signed.authorization,
-    }
-    if (!contentType) delete outbound['content-type']
-    const url = canonicalQuery
-      ? `https://${host}${canonicalUri}?${canonicalQuery}`
-      : `https://${host}${canonicalUri}`
-    const response = await fetchImpl(url, {
-      method,
-      headers: outbound,
-      body: body ? payload : undefined,
+      body: body ?? undefined,
       redirect: 'manual',
       signal: AbortSignal.timeout(120_000),
     })
@@ -625,10 +258,6 @@ export function createS3Client(env, deps = {}) {
     }
     if (method === 'GET') return response.text()
     return ''
-  }
-
-  const expectBucket = (bucket) => {
-    if (bucket !== env.BUCKET) throw new Error('refusing to use an unexpected bucket')
   }
 
   return {
@@ -694,42 +323,22 @@ function wrapLogger(logger, secrets) {
   }
 }
 
-async function exportSnapshot(redis, when, logger) {
-  const rdb = await redis.tryRdb()
-  if (rdb && rdb.ok) return { ext: 'rdb', body: rdb.rdb, keyCount: null }
-  if (!rdb || !rdb.syncRefused) throw new Error('redis-cli --rdb failed')
-  logger.info('redis-cli --rdb refused SYNC; using SCAN, TYPE, TTL, and DUMP')
-  const collected = await collectScanDump(redis)
-  const payload = {
-    format: 'chrono-redis-scan-dump-v1',
-    exportedAt: when.toISOString(),
-    keyCount: collected.keys.length,
-    skipped: collected.skipped,
-    keys: collected.keys,
-  }
-  return {
-    ext: 'json',
-    body: Buffer.from(JSON.stringify(payload), 'utf8'),
-    keyCount: collected.keys.length,
-  }
-}
-
 export async function runBackup(options) {
   const secrets = collectSecretValues(options.env ?? {})
   const logger = wrapLogger(options.logger ?? defaultLogger(), secrets)
-  let redis
+  const runCli = options.redisDeps?.runCli ?? defaultRunCli
   try {
     const env = readEnv(options.env)
-    redis = options.redis ?? createRedisReader(env.REDIS_URL, options.redisDeps)
-    const s3 = options.s3 ?? createS3Client(env, { fetchImpl: options.fetchImpl, now: options.now })
-    const now = options.now ?? (() => new Date())
-    const when = now()
+    const version = await readRedisCliVersion(runCli)
+    logger.info(version)
+    const rdb = await exportRdbViaCli(env.REDIS_URL, runCli)
+    const when = (options.now ?? (() => new Date()))()
     if (!(when instanceof Date) || Number.isNaN(when.getTime())) throw new Error('backup clock is invalid')
-    const exported = await exportSnapshot(redis, when, logger)
-    const gzipped = gzipSync(exported.body)
-    const key = objectKeyFor(when, exported.ext)
-    const digest = sha256Hex(gzipped)
+    const gzipped = gzipSync(rdb)
+    const key = objectKeyFor(when)
+    const digest = createHash('sha256').update(gzipped).digest('hex')
     const sidecar = sidecarKey(key)
+    const s3 = options.s3 ?? createS3Client(env, options.s3Deps)
     await s3.putObject({
       bucket: env.BUCKET,
       key,
@@ -747,7 +356,7 @@ export async function runBackup(options) {
       try {
         await s3.deleteObject({ bucket: env.BUCKET, key })
       } catch {
-        // Leave the failed archive for the non-zero exit to surface.
+        // The non-zero exit is the signal that the archive has no sidecar.
       }
       throw error
     }
@@ -761,9 +370,8 @@ export async function runBackup(options) {
       assertDeletableBackupKey(doomedKey)
       await s3.deleteObject({ bucket: env.BUCKET, key: doomedKey })
     }
-    const keyCount = exported.keyCount == null ? 'snapshot' : String(exported.keyCount)
-    logger.info(`redis weekly backup uploaded ${key} bytes=${gzipped.length} keys=${keyCount} pruned=${doomed.length}`)
-    return { key, sidecar, pruned: doomed.length, ext: exported.ext, sha256: digest }
+    logger.info(`redis weekly backup uploaded ${key} bytes=${gzipped.length} pruned=${doomed.length}`)
+    return { key, sidecar, pruned: doomed.length, sha256: digest }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const safe = redactSecrets(message, secrets)
@@ -773,14 +381,6 @@ export async function runBackup(options) {
       throw error
     }
     throw new Error(safe)
-  } finally {
-    if (redis && typeof redis.close === 'function') {
-      try {
-        await redis.close()
-      } catch {
-        // Closing Redis must not hide the backup result.
-      }
-    }
   }
 }
 
