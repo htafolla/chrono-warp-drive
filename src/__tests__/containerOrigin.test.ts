@@ -17,11 +17,20 @@ import {
 import { containerToContractParams, type ContainerVortex } from '../../mcp/lib/temporalContainer'
 import { TemporalManifold } from '../../mcp/lib/temporalManifold'
 import { DEV_SEED_DISABLED_ERROR, mountDevSeedRoute } from '../../mcp/lib/devSeedRoute'
-import { EVIDENCE_SEED_IDS } from '../../mcp/lib/evidenceSeedIds'
-import { EVIDENCE_UNKNOWN_IDS } from '../../mcp/lib/evidenceUnknownIds'
 import { Hono } from 'hono'
 
+interface AuditContainerRow {
+  id: string
+  class: string
+  reason: string
+}
+
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
+const audit = JSON.parse(readFileSync(join(repoRoot, 'docs/empirical/container-seed-audit.json'), 'utf8')) as {
+  containerCount: number
+  counts: { seed: number; real: number; unknown: number }
+  containers: AuditContainerRow[]
+}
 const seedRouteSource = readFileSync(join(repoRoot, 'mcp/index.ts'), 'utf8')
 const ambientSource = readFileSync(join(repoRoot, 'mcp/lib/ambientField.ts'), 'utf8')
 
@@ -139,8 +148,8 @@ describe('container origin tags', () => {
   })
 })
 
-const evidenceSeedId = EVIDENCE_SEED_IDS.values().next().value as string
-const evidenceUnknownId = EVIDENCE_UNKNOWN_IDS.values().next().value as string
+const evidenceSeedId = audit.containers.find((row) => row.class === 'seed')?.id ?? ''
+const evidenceUnknownId = audit.containers.find((row) => row.class === 'unknown')?.id ?? ''
 const realContainerId = '0x' + '22'.repeat(32)
 
 function randomMetricSeedContainer(containerId: string, timestamp: number) {
@@ -385,8 +394,9 @@ describe('seed exclusion from manifold and re-score candidates', () => {
   })
 
   it('keeps an unknown container and flags it, including when it has no text', () => {
-    expect(EVIDENCE_UNKNOWN_IDS.size).toBe(94)
-    expect(EVIDENCE_SEED_IDS.size).toBe(786)
+    expect(audit.containerCount).toBe(932)
+    expect(audit.counts).toEqual({ seed: 786, real: 52, unknown: 94 })
+    expect(audit.containers.filter((row) => row.class === 'unknown')).toHaveLength(94)
     expect(containerReviewFlag(evidenceUnknownId)).toBe('unknown')
     expect(containerReviewFlag(evidenceSeedId)).toBeUndefined()
     expect(containerReviewFlag(realContainerId)).toBeUndefined()

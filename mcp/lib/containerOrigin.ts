@@ -1,4 +1,25 @@
-import { EVIDENCE_UNKNOWN_IDS } from './evidenceUnknownIds.js'
+import { readFileSync } from 'fs'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
+
+interface AuditContainerRow {
+  id: string
+  class: string
+  reason: string
+}
+
+function loadEvidenceUnknownIds(): ReadonlySet<string> {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const path = join(here, '../../docs/empirical/container-seed-audit.json')
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as { containers?: AuditContainerRow[] }
+  const ids = new Set<string>()
+  for (const row of parsed.containers ?? []) {
+    if (row.class === 'unknown' && typeof row.id === 'string') ids.add(row.id.toLowerCase())
+  }
+  return ids
+}
+
+const EVIDENCE_UNKNOWN_IDS = loadEvidenceUnknownIds()
 
 /**
  * Off-chain origin tags for temporal containers.
