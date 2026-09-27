@@ -15,6 +15,7 @@ import {
 import { containerToContractParams, type ContainerVortex } from '../../mcp/lib/temporalContainer'
 import { TemporalManifold } from '../../mcp/lib/temporalManifold'
 import { DEV_SEED_DISABLED_ERROR, mountDevSeedRoute } from '../../mcp/lib/devSeedRoute'
+import { EVIDENCE_SEED_IDS } from '../../mcp/lib/evidenceSeedIds'
 import { Hono } from 'hono'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -135,15 +136,19 @@ describe('container origin tags', () => {
   })
 })
 
+const evidenceSeedId = EVIDENCE_SEED_IDS.values().next().value as string
+const realContainerId = '0x' + '22'.repeat(32)
+
 function manifoldContainer(overrides: {
   origin?: 'seed' | 'real'
   timestamp: number
   proposalHash?: string
   resonance?: number
+  containerId?: string
 }) {
   const resonance = overrides.resonance ?? 0.91
   return {
-    containerId: '0x' + 'ab'.repeat(32),
+    containerId: overrides.containerId ?? realContainerId,
     timestamp: overrides.timestamp,
     proposalHash: overrides.proposalHash ?? ('0x' + 'cd'.repeat(32)),
     source: 'human' as const,
@@ -185,35 +190,66 @@ function manifoldContainer(overrides: {
   }
 }
 
-describe('seed exclusion from manifold and axioms', () => {
+describe('seed exclusion from manifold and re-score candidates', () => {
   const seconds = 1_780_868_701
+  const proposalText = 'Deploy the observatory on a quiet day'
 
-  it('does not let a tagged seed container into the manifold or the axioms', () => {
+  it('does not let a tagged seed into the manifold or re-score candidates even with text and a millisecond timestamp', () => {
     const manifold = new TemporalManifold()
-    const seed = manifoldContainer({ origin: 'seed', timestamp: seconds, resonance: 0.95 })
+    const now = Date.now()
+    const seed = manifoldContainer({
+      origin: 'seed',
+      timestamp: now,
+      resonance: 0.95,
+      containerId: realContainerId,
+    })
     const scores = { ...seed.resonanceProfile }
-    manifold.populateFromContainers([seed, seed, seed])
-    manifold.addFromContainer(seed)
+    manifold.populateFromContainers([seed, seed, seed], new Map([[seed.proposalHash, proposalText]]))
+    manifold.addFromContainer(seed, proposalText)
+    manifold.addPoint({
+      timestamp: now,
+      proposalHash: 'seed-point',
+      source: 'human',
+      solarActivity: 'quiet',
+      origin: 'seed',
+      resonance7D: 0.95,
+      phaseAlignment: 0.95,
+      vortexAlignment: 0.95,
+      synchronization: 0.95,
+      gematriaResonance: 0.95,
+      tmoScore: 0.95,
+      verdict: 'PASS',
+      summary: proposalText,
+    }, proposalText)
     expect(manifold.getPointCount()).toBe(0)
     expect(manifold.getAxioms(0.8, 1)).toEqual([])
     expect(manifold.getSelfReflectionCandidates()).toEqual([])
     expect(seed.resonanceProfile).toEqual(scores)
+    expect(isExcludedSeed({ origin: 'seed', containerId: realContainerId })).toBe(true)
   })
 
-  it('drops an untagged container that has no text or a unix-seconds timestamp', () => {
-    expect(isExcludedSeed({ text: '', timestamp: seconds })).toBe(true)
-    expect(isExcludedSeed({ text: 'a real proposal', timestamp: seconds })).toBe(true)
-    expect(isExcludedSeed({ origin: 'seed', text: 'labeled seed', timestamp: Date.now() })).toBe(true)
+  it('does not let an evidence-list container into the manifold or re-score candidates', () => {
+    expect(EVIDENCE_SEED_IDS.size).toBe(786)
+    expect(isExcludedSeed({ containerId: evidenceSeedId })).toBe(true)
+    expect(isExcludedSeed({ containerId: evidenceSeedId.toUpperCase() })).toBe(true)
 
     const manifold = new TemporalManifold()
-    manifold.populateFromContainers([
-      manifoldContainer({ timestamp: seconds, resonance: 0.95 }),
-    ])
+    const seeded = manifoldContainer({
+      timestamp: Date.now(),
+      resonance: 0.95,
+      containerId: evidenceSeedId,
+      proposalHash: '0x' + 'aa'.repeat(32),
+    })
+    manifold.populateFromContainers([seeded], new Map([[seeded.proposalHash, proposalText]]))
+    manifold.addFromContainer(seeded, proposalText)
     expect(manifold.getPointCount()).toBe(0)
-    expect(manifold.getAxioms(0.8, 1)).toEqual([])
+    expect(manifold.getSelfReflectionCandidates()).toEqual([])
   })
 
-  it('keeps a real run in the manifold and axioms without changing its scores', () => {
+  it('keeps a real container that has no text and a unix-seconds timestamp', () => {
+    expect(isExcludedSeed({ containerId: realContainerId })).toBe(false)
+    expect(isExcludedSeed({ origin: 'real', containerId: realContainerId })).toBe(false)
+
     const manifold = new TemporalManifold()
     const resonance = 0.91
     const real = manifoldContainer({
@@ -222,49 +258,57 @@ describe('seed exclusion from manifold and axioms', () => {
       resonance,
       proposalHash: '0x' + '11'.repeat(32),
     })
-    const text = 'Deploy the observatory on a quiet day'
-    manifold.populateFromContainers([real, real, real], new Map([[real.proposalHash, text]]))
-    expect(manifold.getPointCount()).toBe(3)
-    const axioms = manifold.getAxioms(0.8, 3)
-    expect(axioms).toHaveLength(1)
-    expect(axioms[0].resonance7D).toBe(resonance)
-    expect(axioms[0].tmoScore).toBe(resonance)
-    expect(axioms[0].occurrences).toBe(3)
-    expect(real.resonanceProfile.fullBox7DComposite).toBe(resonance)
+    const scores = { ...real.resonanceProfile }
+    manifold.populateFromContainers([real])
+    expect(manifold.getPointCount()).toBe(1)
+    const point = manifold.getAllPoints()[0]
+    expect(point.resonance7D).toBe(resonance)
+    expect(point.tmoScore).toBe(resonance)
+    expect(point.phaseAlignment).toBe(resonance)
+    expect(point.vortexAlignment).toBe(resonance)
+    expect(point.synchronization).toBe(resonance)
+    expect(point.gematriaResonance).toBe(resonance)
+    expect(point.verdict).toBe('PASS')
+    expect(point.summary).toBeUndefined()
+    expect(real.resonanceProfile).toEqual(scores)
+    expect(manifold.getSelfReflectionCandidates()).toEqual([])
+  })
 
-    const live = new TemporalManifold()
-    live.addPoint({
-      timestamp: Date.now(),
+  it('keeps a real millisecond point in the re-score candidates and leaves its scores unchanged', () => {
+    const manifold = new TemporalManifold()
+    const resonance = 0.91
+    const now = Date.now()
+    const real = manifoldContainer({
+      timestamp: now,
+      resonance,
       proposalHash: 'abc',
-      source: 'ambient',
-      solarActivity: 'quiet',
-      resonance7D: resonance,
-      phaseAlignment: resonance,
-      vortexAlignment: resonance,
-      synchronization: resonance,
-      gematriaResonance: resonance,
-      tmoScore: resonance,
-      verdict: 'PASS',
-    }, text)
-    expect(live.getPointCount()).toBe(1)
-    expect(live.getSelfReflectionCandidates().map(p => p.proposalHash)).toEqual(['abc'])
+    })
+    manifold.addFromContainer(real, proposalText)
+    expect(manifold.getPointCount()).toBe(1)
+    const point = manifold.getAllPoints()[0]
+    expect(point.resonance7D).toBe(resonance)
+    expect(point.tmoScore).toBe(resonance)
+    expect(point.solarActivity).toBe('quiet')
+    expect(manifold.getSelfReflectionCandidates().map(p => p.proposalHash)).toEqual(['abc'])
+    expect(seedRouteSource).toContain('temporalManifold.addFromContainer(container, proposalText)')
+    expect(seedRouteSource).not.toContain("addFromContainer({ ...container, origin: 'real' }")
   })
 })
 
 describe('dev seed route gate', () => {
   const previousNodeEnv = process.env.NODE_ENV
-  const previousAllow = process.env.ALLOW_DEV_SEED
+  const previousAllow = process.env.ALLOW_SEED_ROUTE
 
   afterEach(() => {
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV
     else process.env.NODE_ENV = previousNodeEnv
-    if (previousAllow === undefined) delete process.env.ALLOW_DEV_SEED
-    else process.env.ALLOW_DEV_SEED = previousAllow
+    if (previousAllow === undefined) delete process.env.ALLOW_SEED_ROUTE
+    else process.env.ALLOW_SEED_ROUTE = previousAllow
   })
 
-  it('returns 403 in production even when ALLOW_DEV_SEED=true', async () => {
+  it('returns 403 in production even when ALLOW_SEED_ROUTE=1', async () => {
     process.env.NODE_ENV = 'production'
-    process.env.ALLOW_DEV_SEED = 'true'
+    process.env.ALLOW_SEED_ROUTE = '1'
     expect(devSeedRouteAllowed()).toBe(false)
     const app = new Hono()
     let handlerRan = false
@@ -282,7 +326,7 @@ describe('dev seed route gate', () => {
 
   it('returns 403 when the dev flag is unset', async () => {
     process.env.NODE_ENV = 'development'
-    delete process.env.ALLOW_DEV_SEED
+    delete process.env.ALLOW_SEED_ROUTE
     expect(devSeedRouteAllowed()).toBe(false)
     const app = new Hono()
     mountDevSeedRoute(app, async (c) => c.json({ success: true }))
@@ -290,9 +334,12 @@ describe('dev seed route gate', () => {
     expect(res.status).toBe(403)
   })
 
-  it('allows the route only when both the dev flag and a non-production env are set', async () => {
+  it('allows the route only when ALLOW_SEED_ROUTE=1 and the process is not production', async () => {
     process.env.NODE_ENV = 'development'
-    process.env.ALLOW_DEV_SEED = 'true'
+    process.env.ALLOW_SEED_ROUTE = 'true'
+    expect(devSeedRouteAllowed()).toBe(false)
+
+    process.env.ALLOW_SEED_ROUTE = '1'
     expect(devSeedRouteAllowed()).toBe(true)
     const app = new Hono()
     mountDevSeedRoute(app, async (c) => c.json({ success: true, reached: true }))

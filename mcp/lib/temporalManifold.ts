@@ -42,8 +42,10 @@ export interface ManifoldPoint {
   verdict: string
   gematriaDecomposition?: GematriaDecomposition
   summary?: string
-  /** Off-chain only. Never part of the on-chain container payload. */
+  /** Off-chain only. Used to skip seeds. Never part of the on-chain container payload. */
   origin?: ContainerOrigin
+  /** Off-chain only. Used to match the evidence seed list. Never part of scoring. */
+  containerId?: string
 }
 
 export interface ResonanceSnapshot {
@@ -181,11 +183,7 @@ export class TemporalManifold {
   // ── Point Management ──
 
   addPoint(point: ManifoldPoint, proposalText?: string): void {
-    if (isExcludedSeed({
-      origin: point.origin,
-      text: proposalText ?? point.summary,
-      timestamp: point.timestamp,
-    })) return
+    if (isExcludedSeed({ origin: point.origin, containerId: point.containerId })) return
     if (proposalText) {
       point.gematriaDecomposition = computeFullGematriaDecomposition(proposalText)
       point.summary = proposalText
@@ -202,10 +200,10 @@ export class TemporalManifold {
   }
 
   /** Rebuild Manifold history from persisted containers (called on startup). */
-  populateFromContainers(containers: { timestamp: number; proposalHash: string; source: string; origin?: ContainerOrigin; resonanceProfile: { fullBox7DComposite: number; phaseAlignment: number; calibratedVortex: number; calibratedSync: number; gematriaResonance: number; verdict: string }; moralOverlay: { trinitariumMoralScore: number } }[], proposalTexts?: Map<string, string>): void {
+  populateFromContainers(containers: { timestamp: number; proposalHash: string; source: string; containerId?: string; origin?: ContainerOrigin; resonanceProfile: { fullBox7DComposite: number; phaseAlignment: number; calibratedVortex: number; calibratedSync: number; gematriaResonance: number; verdict: string }; moralOverlay: { trinitariumMoralScore: number } }[], proposalTexts?: Map<string, string>): void {
     for (const c of containers) {
       const text = proposalTexts?.get(c.proposalHash)
-      if (isExcludedSeed({ origin: c.origin, text, timestamp: c.timestamp })) continue
+      if (isExcludedSeed({ origin: c.origin, containerId: c.containerId })) continue
       this.addFromContainer(c, text)
     }
   }
@@ -214,6 +212,7 @@ export class TemporalManifold {
     timestamp: number
     proposalHash: string
     source: string
+    containerId?: string
     origin?: ContainerOrigin
     resonanceProfile: {
       fullBox7DComposite: number
@@ -227,14 +226,12 @@ export class TemporalManifold {
       trinitariumMoralScore: number
     }
   }, proposalText?: string): void {
-    const origin = container.origin
-    if (isExcludedSeed({ origin, text: proposalText, timestamp: container.timestamp })) return
+    if (isExcludedSeed({ origin: container.origin, containerId: container.containerId })) return
     const point: ManifoldPoint = {
       timestamp: container.timestamp,
       proposalHash: container.proposalHash,
       source: container.source as 'ambient' | 'human' | 'agent',
       solarActivity: 'quiet',
-      origin,
       resonance7D: container.resonanceProfile.fullBox7DComposite,
       phaseAlignment: container.resonanceProfile.phaseAlignment,
       vortexAlignment: container.resonanceProfile.calibratedVortex,
@@ -243,6 +240,8 @@ export class TemporalManifold {
       tmoScore: container.moralOverlay.trinitariumMoralScore,
       verdict: container.resonanceProfile.verdict,
     }
+    if (container.containerId) point.containerId = container.containerId
+    if (container.origin) point.origin = container.origin
     this.addPoint(point, proposalText)
   }
 
@@ -380,7 +379,7 @@ export class TemporalManifold {
   getSelfReflectionCandidates(windowMs: number = 72 * 60 * 60 * 1000, limit: number = 50): ManifoldPoint[] {
     const cutoff = Date.now() - windowMs
     return this.points
-      .filter(p => !isExcludedSeed({ origin: p.origin, text: p.summary, timestamp: p.timestamp }))
+      .filter(p => !isExcludedSeed({ origin: p.origin, containerId: p.containerId }))
       .filter(p => p.timestamp > cutoff && p.resonance7D >= 0.65 && p.summary)
       .sort((a, b) => b.resonance7D - a.resonance7D)
       .slice(0, limit)
@@ -401,7 +400,7 @@ export class TemporalManifold {
       proposalHashes: string[]
     }>()
     for (const p of this.points) {
-      if (isExcludedSeed({ origin: p.origin, text: p.summary, timestamp: p.timestamp })) continue
+      if (isExcludedSeed({ origin: p.origin, containerId: p.containerId })) continue
       if (p.resonance7D < minResonance) continue
       const existing = grouped.get(p.proposalHash)
       if (existing) {

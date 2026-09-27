@@ -5,7 +5,7 @@ export const DEV_SEED_DISABLED_ERROR = 'Dev seed route is disabled'
 
 /**
  * Registers POST /dev/seed-containers.
- * Returns 403 unless NODE_ENV is not production and ALLOW_DEV_SEED=true.
+ * Returns 403 unless NODE_ENV is not production and ALLOW_SEED_ROUTE=1.
  * The handler is only invoked when the gate is open. It must not change
  * on-chain payloads; the gate itself never writes.
  */

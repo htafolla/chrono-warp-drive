@@ -1,3 +1,5 @@
+import { EVIDENCE_SEED_IDS } from './evidenceSeedIds.js'
+
 /**
  * Off-chain origin tags for temporal containers.
  *
@@ -46,39 +48,30 @@ export function containerOriginHashField(
 
 /**
  * Dev seed route is off unless this process is explicitly not production
- * and ALLOW_DEV_SEED=true. Either condition failing is a 403.
+ * and ALLOW_SEED_ROUTE=1. Either condition failing is a 403.
  */
 export function devSeedRouteAllowed(
-  env: { NODE_ENV?: string; ALLOW_DEV_SEED?: string } = process.env,
+  env: { NODE_ENV?: string; ALLOW_SEED_ROUTE?: string } = process.env,
 ): boolean {
-  return env.NODE_ENV !== 'production' && env.ALLOW_DEV_SEED === 'true'
-}
-
-/** Unix milliseconds are ~1e12. Seed containers store unix seconds (~1e9). */
-export function timestampIsUnixSeconds(timestamp: number): boolean {
-  return Number.isFinite(timestamp) && timestamp > 0 && timestamp < 1_000_000_000_000
+  return env.NODE_ENV !== 'production' && env.ALLOW_SEED_ROUTE === '1'
 }
 
 export interface SeedExclusionInput {
   origin?: string | null
-  text?: string | null
-  timestamp?: number | null
+  containerId?: string | null
 }
 
 /**
- * Skip a container in the manifold rebuild, ambient re-score, and axioms.
- * Tagged seeds always skip. Untagged seeds match the signature that used to
- * fall out only by accident: no proposal text, or a unix-seconds timestamp
- * (manifold windows are milliseconds).
- * A container tagged origin=real is a real run and stays, including when its
- * on-chain timestamp is unix seconds.
+ * Skip a container at Manifold rebuild and when the ambient loop picks
+ * re-score candidates. A container is a seed when it is tagged origin=seed
+ * or its id is on the evidence seed list. Missing text and unix-seconds
+ * timestamps are not a seed signal.
  */
 export function isExcludedSeed(input: SeedExclusionInput): boolean {
-  if (input.origin === 'real') return false
   if (input.origin === 'seed') return true
-  const noText = input.text == null || input.text.trim() === ''
-  const seconds = input.timestamp != null && timestampIsUnixSeconds(input.timestamp)
-  return noText || seconds
+  const id = input.containerId?.toLowerCase()
+  if (id && EVIDENCE_SEED_IDS.has(id)) return true
+  return false
 }
 
 /** Read origin tags written by tagContainerOrigin. Unknown values are ignored. */

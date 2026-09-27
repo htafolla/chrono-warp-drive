@@ -45,8 +45,8 @@ const TOKEN_IMAGE_TTL = 86400
         }
       } catch { /* skip corrupt */ }
     }
-    // Rebuild Manifold from persisted containers. Seed rows (origin tag, or the
-    // no-text / unix-seconds signature) are not loaded.
+    // Rebuild Manifold from persisted containers. Skip origin=seed and any id
+    // on the evidence seed list. Real containers stay, including unix-seconds rows.
     let originById = new Map<string, 'seed' | 'real'>()
     try {
       originById = originFromRedisHash(await client.hgetall(REDIS_CONTAINER_ORIGIN_KEY))
@@ -1771,7 +1771,7 @@ app.post('/govern_with_solar', async (c: Context) => {
     latestContainerHash = container.containerHash
 
     // Feed into Temporal Manifold
-    temporalManifold.addFromContainer({ ...container, origin: 'real' }, proposalText)
+    temporalManifold.addFromContainer(container, proposalText)
 
     // Persist container to Redis for durability across deploys
     ;(async () => {
