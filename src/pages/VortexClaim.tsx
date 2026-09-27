@@ -11,7 +11,7 @@ import { MyVortices } from '@/components/vortex/MyVortices'
 import { ClaimModal } from '@/components/vortex/ClaimModal'
 import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
 
-const CLAIMS_PAUSED_NOTICE = 'Claims are paused while we add signed vouchers.'
+export const CLAIMS_PAUSED_NOTICE = 'Claims are paused while we add signed vouchers.'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const VORTEX_ABI = [
@@ -408,7 +408,7 @@ export default function VortexClaim() {
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-emerald-400 mb-2">Dynamo Vortex</h1>
           <p className="text-zinc-400 text-sm">
-            Temporal containers — click one to view details and claim its VortexToken
+            Temporal containers. Click one to view details.
           </p>
           <p className="text-zinc-200 text-sm mt-4">{CLAIMS_PAUSED_NOTICE}</p>
         </div>

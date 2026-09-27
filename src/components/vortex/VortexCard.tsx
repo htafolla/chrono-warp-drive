@@ -189,7 +189,7 @@ export function VortexCard({
                 className="w-16 px-1.5 py-1 text-[10px] rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
                 placeholder="ETH"
               />
-              {isConnected ? (() => {
+              {isConnected || claimsPaused ? (() => {
                 const mintAmt = parseFloat(donationAmount || '0.001')
                 const mintVal = BigInt(Math.floor(mintAmt * 1e18))
                 const insufficient = ethBalance !== null && ethBalance < mintVal + BigInt(1e15)

@@ -5,7 +5,7 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { ContainerItem } from '@/pages/VortexClaim'
+import { CLAIMS_PAUSED_NOTICE, type ContainerItem } from '@/pages/VortexClaim'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
@@ -342,7 +342,10 @@ export function VortexDetailModal({
               {inRegistry !== false ? (
                 <>
                   <div className="text-[10px] text-zinc-600 uppercase tracking-wide mb-3">Mint VortexToken</div>
-                  {isConnected ? (
+                  {claimsPaused && (
+                    <p className="text-zinc-200 text-sm mb-3">{CLAIMS_PAUSED_NOTICE}</p>
+                  )}
+                  {isConnected || claimsPaused ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <input
