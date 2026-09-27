@@ -3,8 +3,7 @@ import { solarDataFetcher } from './solarDataFetcher.js'
 import { dynamoSolarGovernance, getPublicFeed } from './dynamoSolarGovernance.js'
 import { isStructuredProposal, type StructuredDerivativeProposal } from './structuredProposal.js'
 import { governanceToContainer, type ContainerVortex } from './temporalContainer.js'
-import { MINT_SIGNATURE_TTL_SECONDS, readVortexSigningKey, signVortex } from './writeGate.js'
-import { VORTEX_TREASURY } from './chainPort.js'
+import { readVortexSigningKey } from './writeGate.js'
 import { persistContainerToChain } from './contractClient.js'
 import { getRedisClient } from '../pubsub.js'
 import { containerOriginHashField } from './containerOrigin.js'
@@ -336,10 +335,8 @@ export class AmbientField {
           const container = governanceToContainer(result, summary, source, this.latestContainerHash)
           const signingKey = readVortexSigningKey()
           if (!signingKey) {
-            // Fail closed: do not write a vortex this process cannot sign.
+            // Fail closed: no chain write and no Redis save when this process cannot sign.
           } else {
-            const signatureExpiresAt = Math.floor(Date.now() / 1000) + MINT_SIGNATURE_TTL_SECONDS
-            void signVortex(container.containerHash, container.containerId, VORTEX_TREASURY, signatureExpiresAt, signingKey)
             await persistContainerToChain(container)
             this.latestContainerHash = container.containerHash
             this.persistenceCount++

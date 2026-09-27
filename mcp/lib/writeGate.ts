@@ -21,6 +21,8 @@ export const MINT_RATE_WINDOW_MS = 60_000
 export const MINT_ADDRESS_CAP = 8
 /** How long a server-issued mint signature stays valid. */
 export const MINT_SIGNATURE_TTL_SECONDS = 600
+/** Reject expiries further ahead than this, including millisecond timestamps. */
+export const MINT_SIGNATURE_MAX_AHEAD_SECONDS = 60 * 60
 /** Chain-write budget across every caller. 0 blocks every mint. */
 export const DEFAULT_MINT_GLOBAL_BUDGET = 10
 export const DEFAULT_MINT_GLOBAL_WINDOW_MS = 60_000
@@ -35,6 +37,7 @@ const addressMintCounts = new Map<string, number>()
 const rateBuckets = new Map<string, number[]>()
 const globalBudgetStamps: number[] = []
 const pendingBudget = new Map<string, number>()
+let nextVerifyError: Error | null = null
 
 export function signingKeyReadCount(): number {
   return signingKeyReads
@@ -49,6 +52,12 @@ export function resetWriteGuardsForTests(): void {
   rateBuckets.clear()
   globalBudgetStamps.length = 0
   pendingBudget.clear()
+  nextVerifyError = null
+}
+
+/** Test seam. The next verifyVortexSignature call throws instead of returning. */
+export function throwOnNextVerifyForTests(error: Error): void {
+  nextVerifyError = error
 }
 
 function readNonNegativeInt(raw: string | undefined, fallback: number, allowZero: boolean): number {
@@ -150,7 +159,17 @@ export function verifyVortexSignature(
   key: string | null,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): VortexSignatureVerdict {
-  if (!key || !Number.isInteger(expiresAt)) return { ok: false, reason: 'invalid' }
+  if (nextVerifyError) {
+    const error = nextVerifyError
+    nextVerifyError = null
+    throw error
+  }
+  if (!key || typeof signatureHex !== 'string' || !Number.isInteger(expiresAt)) {
+    return { ok: false, reason: 'invalid' }
+  }
+  if (expiresAt > nowSeconds + MINT_SIGNATURE_MAX_AHEAD_SECONDS) {
+    return { ok: false, reason: 'invalid' }
+  }
   const expected = createHmac('sha256', key)
     .update(vortexSigningMessage(containerHash, containerId, recipient, expiresAt), 'utf8')
     .digest()
@@ -178,6 +197,11 @@ export function isAddress(value: string): boolean {
 
 export function isUnixSeconds(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
+/** 32-byte hex HMAC. Non-strings and any other length are rejected before a slot is claimed. */
+export function isVortexSignature(value: unknown): value is string {
+  return typeof value === 'string' && /^(?:0x)?[0-9a-fA-F]{64}$/.test(value.trim())
 }
 
 export function clientRateKey(forwardedFor: string | undefined): string {
@@ -252,6 +276,31 @@ export function releaseMintSlot(containerId: string): void {
   pendingBudget.delete(id)
   const index = globalBudgetStamps.lastIndexOf(stamp)
   if (index >= 0) globalBudgetStamps.splice(index, 1)
+}
+
+/**
+ * A chain write was attempted and failed. The container is not locked.
+ * The budget stamp stays: the attempt still counts, and the budget is in-memory per process.
+ */
+export function abortMintWrite(containerId: string): void {
+  const id = containerId.toLowerCase()
+  inFlightContainers.delete(id)
+  pendingBudget.delete(id)
+}
+
+/** Boot and the pre-mint chain check use this so a restart cannot mint a second token. */
+export function replaceMintedContainers(containerIds: string[]): void {
+  mintedContainers.clear()
+  for (const id of containerIds) mintedContainers.add(id.toLowerCase())
+}
+
+export function rememberMintedContainers(containerIds: string[]): void {
+  for (const id of containerIds) mintedContainers.add(id.toLowerCase())
+}
+
+export function persistCooldownRemaining(now = Date.now()): number {
+  if (now - lastPersistAt >= PERSIST_COOLDOWN_MS) return 0
+  return Math.ceil((PERSIST_COOLDOWN_MS - (now - lastPersistAt)) / 1000)
 }
 
 export function acquirePersistCooldown(now = Date.now()): { ok: true } | { ok: false; retryAfterSeconds: number } {

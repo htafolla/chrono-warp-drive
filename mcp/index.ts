@@ -19,6 +19,9 @@ import { baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, b
 import { temporalManifold } from './lib/temporalManifold.js'
 import {
   PERSIST_COOLDOWN_MS,
+  MINT_SIGNATURE_MAX_AHEAD_SECONDS,
+  MINT_SIGNATURE_TTL_SECONDS,
+  abortMintWrite,
   acquirePersistCooldown,
   authorizeWrite,
   claimMintSlot,
@@ -27,13 +30,16 @@ import {
   isAddress,
   isBytes32,
   isUnixSeconds,
-  MINT_SIGNATURE_TTL_SECONDS,
+  isVortexSignature,
+  persistCooldownRemaining,
   readVortexSigningKey,
   releaseMintSlot,
+  rememberMintedContainers,
+  replaceMintedContainers,
   signVortex,
   verifyVortexSignature,
 } from './lib/writeGate.js'
-import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, type RegistryContainer } from './lib/chainPort.js'
+import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -47,8 +53,20 @@ const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
 const REDIS_VORTEX_TOKEN_IMAGE = 'dynamo:vortex:token-image'
 const TOKEN_IMAGE_TTL = 86400
 
-// Bootstrap: load containers from Redis on module init
+export async function rebuildMintedSetFromChain(): Promise<void> {
+  const ids = await getChainExecutor().listMintedContainerIds()
+  replaceMintedContainers(ids)
+}
+
+// Bootstrap: load containers from Redis on module init.
+// Rebuild the minted-id set from chain even when Redis is down. Tests skip this
+// import-time scan; they call rebuildMintedSetFromChain after installing a stub.
 ;(async () => {
+  if (!process.env.VITEST) {
+    try {
+      await rebuildMintedSetFromChain()
+    } catch { /* chain unavailable; /vortex/mint still queries tokenByContainerId */ }
+  }
   try {
     const client = await getRedisClient()
     if (!client) return
@@ -1729,28 +1747,6 @@ app.get('/govern_with_solar', (c: Context) => {
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const persistToChain = body.persistToChain === true
-  // Read-only governance (persistToChain not true) stays open. Chain writes require the API key.
-  let persistSigningKey: string | null = null
-  if (persistToChain) {
-    const auth = authorizeWrite(c.req.header('authorization'))
-    if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
-    persistSigningKey = readVortexSigningKey()
-    if (!persistSigningKey) {
-      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
-    }
-    // 60 second cooldown for this persist and the auto-mint it triggers.
-    // PERSIST_COOLDOWN_MS is 60_000. The previous constant was 10_000 and disagreed with this comment.
-    const cooldown = acquirePersistCooldown()
-    if (!cooldown.ok) {
-      return c.json({
-        success: true,
-        temporalContainer: {
-          onChainError: `Rate-limited. Try again in ${cooldown.retryAfterSeconds}s (${PERSIST_COOLDOWN_MS / 1000}s cooldown).`,
-        },
-      })
-    }
-  }
-
   const rawProposal = body.proposal ?? body.structuredProposal
   if (!rawProposal || (typeof rawProposal === 'string' && !rawProposal.trim())) {
     return c.json({ success: false, error: 'proposal or structuredProposal required' }, 400)
@@ -1770,11 +1766,34 @@ app.post('/govern_with_solar', async (c: Context) => {
     return c.json({ success: false, error: 'proposal text cannot be empty' }, 400)
   }
   const proposalSource = structuredInput?.source || 'human'
+  // Auth comes after validation so a 400 does not start the persist cooldown.
+  let persistSigningKey: string | null = null
+  if (persistToChain) {
+    const auth = authorizeWrite(c.req.header('authorization'))
+    if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+    persistSigningKey = readVortexSigningKey()
+    if (!persistSigningKey) {
+      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+    }
+  }
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
   const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding, proposalSource)
 
   if (persistToChain) {
+    // Cooldown is checked after governance so the response still includes the result.
+    // It starts only once the verdict is allowed to persist, so a 400 or a REJECT does not consume it.
+    const retryAfterSeconds = persistCooldownRemaining()
+    if (retryAfterSeconds > 0) {
+      return c.json({
+        success: true,
+        ...result,
+        temporalContainer: {
+          onChainError: `Rate-limited. Try again in ${retryAfterSeconds}s (${PERSIST_COOLDOWN_MS / 1000}s cooldown).`,
+        },
+      })
+    }
+
     // Resonance gate: only persist non-REJECT verdicts
     const verdict = result.recommendation || result.fullBox7DVerdict
     if (verdict === 'REJECT') {
@@ -1786,6 +1805,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         },
       })
     }
+    acquirePersistCooldown()
 
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
@@ -1841,9 +1861,9 @@ app.post('/govern_with_solar', async (c: Context) => {
       })
     }
 
-    // Auto-mint uses the same containerId gate as POST /vortex/mint. Awaited so a
-    // failed claim cannot race a second write. The 60s cooldown above already passed.
-    await autoMintVortex(container, proposalText)
+    // Fire-and-forget, as before. The claim inside autoMintVortex is synchronous,
+    // so the response does not wait for the mint receipt.
+    void autoMintVortex(container, proposalText)
 
     return c.json({
       success: true,
@@ -2467,27 +2487,31 @@ app.post('/vortex/mint', async (c: Context) => {
   const auth = authorizeWrite(c.req.header('authorization'))
   if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
   let reservedId: string | null = null
-  let reservedRecipient = ''
+  let writeStarted = false
   try {
     const body = await c.req.json() as {
-      containerId?: string
-      to?: string
-      containerHash?: string
-      signature?: string
+      containerId?: unknown
+      to?: unknown
+      containerHash?: unknown
+      signature?: unknown
       expiresAt?: unknown
     }
-    const containerId = body.containerId ?? ''
-    const to = body.to ?? ''
-    const containerHash = body.containerHash ?? ''
-    const signature = body.signature ?? ''
-    if (!containerId || !to || !containerHash || !signature || body.expiresAt === undefined || body.expiresAt === null) {
+    const containerId = body.containerId
+    const to = body.to
+    const containerHash = body.containerHash
+    const signature = body.signature
+    if (typeof containerId !== 'string' || typeof to !== 'string' || typeof containerHash !== 'string' || typeof signature !== 'string' || !isUnixSeconds(body.expiresAt)) {
       return c.json({ success: false, error: 'containerId, containerHash, to, signature, and expiresAt are required' }, 400)
     }
-    // 18-character prefixes and any non-exact id fail here, before the chain client exists.
-    if (!isBytes32(containerId) || !isBytes32(containerHash) || !isAddress(to) || !isUnixSeconds(body.expiresAt)) {
-      return c.json({ success: false, error: 'containerId and containerHash must be exact 32-byte hex ids; to must be an address; expiresAt must be a unix second' }, 400)
+    // 18-character prefixes, non-strings, and wrong-length signatures fail here, before a slot is claimed.
+    if (!isBytes32(containerId) || !isBytes32(containerHash) || !isAddress(to) || !isVortexSignature(signature)) {
+      return c.json({ success: false, error: 'containerId and containerHash must be exact 32-byte hex ids; to must be an address; signature must be a 32-byte hex string' }, 400)
     }
     const expiresAt = body.expiresAt
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    if (expiresAt > nowSeconds + MINT_SIGNATURE_MAX_AHEAD_SECONDS) {
+      return c.json({ success: false, error: 'expiresAt must be a unix second at most 1 hour ahead' }, 400)
+    }
 
     const claim = claimMintSlot({
       containerId,
@@ -2496,7 +2520,6 @@ app.post('/vortex/mint', async (c: Context) => {
     })
     if (!claim.ok) return c.json({ success: false, error: claim.error }, claim.status)
     reservedId = containerId
-    reservedRecipient = to
 
     const signingKey = readVortexSigningKey()
     if (!signingKey) {
@@ -2504,7 +2527,14 @@ app.post('/vortex/mint', async (c: Context) => {
       reservedId = null
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
     }
-    const verdict = verifyVortexSignature(containerHash, containerId, to, expiresAt, signature, signingKey)
+    let verdict: { ok: true } | { ok: false; reason: 'invalid' | 'expired' }
+    try {
+      verdict = verifyVortexSignature(containerHash, containerId, to, expiresAt, signature, signingKey)
+    } catch {
+      releaseMintSlot(containerId)
+      reservedId = null
+      return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
+    }
     if (!verdict.ok) {
       releaseMintSlot(containerId)
       reservedId = null
@@ -2518,10 +2548,25 @@ app.post('/vortex/mint', async (c: Context) => {
       reservedId = null
       return c.json({ success: false, error: 'Container not found' }, 404)
     }
+    if ((container.containerHash || '').toLowerCase() !== containerHash.toLowerCase()) {
+      releaseMintSlot(containerId)
+      reservedId = null
+      return c.json({ success: false, error: 'Signed containerHash does not match the registry' }, 401)
+    }
 
+    const existing = await getChainExecutor().existingMint(containerId)
+    if (existing) {
+      rememberMintedContainers([containerId])
+      releaseMintSlot(containerId)
+      reservedId = null
+      return c.json({ success: false, error: 'Container already has a vortex token' }, 409)
+    }
+
+    writeStarted = true
     const minted = await getChainExecutor().mintRegistered({ to, containerId, container })
     commitMintSlot(containerId, to)
     reservedId = null
+    writeStarted = false
     if (minted.tokenId) await storeVortexStatusInRedis(containerId, minted.tokenId)
 
     return c.json({
@@ -2534,7 +2579,10 @@ app.post('/vortex/mint', async (c: Context) => {
       explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
     })
   } catch (err: any) {
-    if (reservedId) commitMintSlot(reservedId, reservedRecipient)
+    if (reservedId) {
+      if (writeStarted) abortMintWrite(reservedId)
+      else releaseMintSlot(reservedId)
+    }
     const msg = friendlyMintError(err)
     console.error(`[mint] ${err.message}`)
     return c.json({ success: false, error: msg }, 500)
@@ -2760,8 +2808,8 @@ async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
 }
 
 // Auto-mint token for newly governed containers (v4).
-// Same containerId idempotency, caller limit, address cap, and global mint budget as POST /vortex/mint.
-// Runs only after the 60s persist cooldown (PERSIST_COOLDOWN_MS = 60_000).
+// Same containerId, caller limit, address cap, and global mint budget as POST /vortex/mint.
+// The on-chain mint id is container.containerId, the same id POST /vortex/mint writes.
 export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
   const claim = claimMintSlot({
     containerId: container.containerId,
@@ -2772,13 +2820,23 @@ export async function autoMintVortex(container: ContainerVortex, proposalText: s
     console.log(`[vortex] Auto-mint skipped: ${claim.error}`)
     return null
   }
+  let writeStarted = false
   try {
-    const result = await getChainExecutor().autoMint(container, proposalText)
+    const existing = await getChainExecutor().existingMint(container.containerId)
+    if (existing) {
+      rememberMintedContainers([container.containerId])
+      releaseMintSlot(container.containerId)
+      console.log('[vortex] Auto-mint skipped: Container already has a vortex token')
+      return null
+    }
+    writeStarted = true
+    const result = await getChainExecutor().autoMint(onChainMintId(container.containerId), container, proposalText)
     commitMintSlot(container.containerId, VORTEX_TREASURY)
     console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`)
     return result.txHash
   } catch (err: unknown) {
-    commitMintSlot(container.containerId, VORTEX_TREASURY)
+    if (writeStarted) abortMintWrite(container.containerId)
+    else releaseMintSlot(container.containerId)
     const message = err instanceof Error ? err.message : String(err)
     console.log(`[vortex] Auto-mint skipped: ${message}`)
     return null

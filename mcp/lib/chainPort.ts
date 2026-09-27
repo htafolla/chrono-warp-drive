@@ -60,7 +60,16 @@ export interface ChainExecutor {
     containerId: string
     container: RegistryContainer
   }): Promise<{ txHash: string; tokenId: string | null }>
-  autoMint(container: ContainerVortex, proposalText: string): Promise<{ txHash: string }>
+  /** token id string when this container id already has a mint. Does not read the deployer key. */
+  existingMint(containerId: string): Promise<string | null>
+  /** Container ids already minted, for rebuilding the in-memory set at boot. No deployer key. */
+  listMintedContainerIds(): Promise<string[]>
+  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }>
+}
+
+/** The single bytes32 both mint paths pass to VortexToken.mint. */
+export function onChainMintId(containerId: string): `0x${string}` {
+  return containerId as `0x${string}`
 }
 
 interface WalletBundle {
@@ -102,6 +111,13 @@ function safeTs(value: bigint | number): bigint {
   return typeof value === 'bigint' ? value : BigInt(Math.floor(Number(value)))
 }
 
+function readClient() {
+  return createPublicClient({
+    chain: baseMainnet,
+    transport: buildReadTransport(),
+  })
+}
+
 class LiveChainExecutor implements ChainExecutor {
   chainCalls = 0
   keyReads = 0
@@ -128,10 +144,7 @@ class LiveChainExecutor implements ChainExecutor {
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
     this.chainCalls += 1
     try {
-      const publicClient = createPublicClient({
-        chain: baseMainnet,
-        transport: buildReadTransport(),
-      })
+      const publicClient = readClient()
       const abi = await loadAbi('registry')
       const container = await publicClient.readContract({
         address: CONTRACT_ADDRESS,
@@ -221,12 +234,12 @@ class LiveChainExecutor implements ChainExecutor {
     this.chainCalls += 1
     const abi = await loadAbi('token')
     const container = input.container
-    const containerId = input.containerId
+    const mintId = onChainMintId(input.containerId)
     const mintArgs = [
       input.to as `0x${string}`,
-      containerId as `0x${string}`,
+      mintId,
       {
-        containerId: containerId as `0x${string}`,
+        containerId: mintId,
         timestamp: safeTs(container.timestamp),
         verdict: container.resonanceProfile.verdict,
         fullBox7DComposite: scaleUint(container.resonanceProfile.fullBox7DComposite),
@@ -266,28 +279,76 @@ class LiveChainExecutor implements ChainExecutor {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'tokenByContainerId',
-        args: [containerId as `0x${string}`],
+        args: [mintId],
       }) as bigint
       if (tid !== 0n) tokenId = tid.toString()
     } catch { /* token id is optional */ }
     return { txHash: receipt.transactionHash, tokenId }
   }
 
-  async autoMint(container: ContainerVortex, proposalText: string): Promise<{ txHash: string }> {
+  async existingMint(containerId: string): Promise<string | null> {
+    this.chainCalls += 1
+    const publicClient = readClient()
+    const abi = await loadAbi('token')
+    const tid = await publicClient.readContract({
+      address: VORTEX_TOKEN_ADDRESS,
+      abi,
+      functionName: 'tokenByContainerId',
+      args: [onChainMintId(containerId)],
+    }) as bigint
+    if (tid === 0n) return null
+    return tid.toString()
+  }
+
+  async listMintedContainerIds(): Promise<string[]> {
+    this.chainCalls += 1
+    const publicClient = readClient()
+    const abi = await loadAbi('token')
+    const supply = await publicClient.readContract({
+      address: VORTEX_TOKEN_ADDRESS,
+      abi,
+      functionName: 'totalSupply',
+    }) as bigint
+    const ids: string[] = []
+    for (let i = 0n; i < supply; i++) {
+      const tokenId = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS,
+        abi,
+        functionName: 'tokenByIndex',
+        args: [i],
+      }) as bigint
+      const data = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS,
+        abi,
+        functionName: 'getContainerData',
+        args: [tokenId],
+      }) as { containerId?: string } | readonly string[]
+      const containerId = (typeof data === 'object' && data && 'containerId' in data
+        ? data.containerId
+        : Array.isArray(data) ? data[0] : undefined)
+      if (typeof containerId === 'string' && /^0x[0-9a-fA-F]{64}$/.test(containerId)) {
+        ids.push(containerId.toLowerCase())
+      }
+    }
+    return ids
+  }
+
+  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }> {
     const { walletClient, publicClient } = this.wallet()
     this.chainCalls += 1
     const abi = await loadAbi('token')
     const truncated = proposalText.slice(0, 140)
     const s = (value: number) => BigInt(Math.round(value * 1e18))
+    const id = onChainMintId(mintId)
     const txHash = await walletClient.writeContract({
       address: VORTEX_TOKEN_ADDRESS,
       abi,
       functionName: 'mint',
       args: [
         VORTEX_TREASURY,
-        container.containerHash as `0x${string}`,
+        id,
         {
-          containerId: container.containerId,
+          containerId: id,
           timestamp: BigInt(Math.floor(container.timestamp)),
           verdict: container.resonanceProfile.verdict,
           fullBox7DComposite: s(container.resonanceProfile.fullBox7DComposite),
@@ -317,11 +378,11 @@ class LiveChainExecutor implements ChainExecutor {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'tokenByContainerId',
-        args: [container.containerHash as `0x${string}`],
+        args: [id],
       }) as bigint
       if (tid !== 0n) {
         const client = await getRedisClient()
-        if (client) await client.hset('dynamo:vortex:mint', container.containerHash.toLowerCase(), tid.toString())
+        if (client) await client.hset('dynamo:vortex:mint', id.toLowerCase(), tid.toString())
       }
     } catch { /* Redis optional */ }
     return { txHash: receipt.transactionHash }

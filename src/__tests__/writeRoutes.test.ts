@@ -26,20 +26,23 @@ vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
   }
 })
 
-import { app, autoMintVortex } from '../../mcp/index'
-import { setChainExecutorForTests } from '../../mcp/lib/chainPort'
+import { app, autoMintVortex, rebuildMintedSetFromChain } from '../../mcp/index'
+import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
+import { onChainMintId, setChainExecutorForTests } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
 import {
   DEFAULT_MINT_GLOBAL_BUDGET,
   DEFAULT_MINT_GLOBAL_WINDOW_MS,
   MINT_ADDRESS_CAP,
   MINT_RATE_LIMIT,
+  MINT_SIGNATURE_MAX_AHEAD_SECONDS,
   PERSIST_COOLDOWN_MS,
   mintGlobalBudget,
   mintGlobalWindowMs,
   resetWriteGuardsForTests,
   signVortex,
   signingKeyReadCount,
+  throwOnNextVerifyForTests,
   verifyVortexSignature,
 } from '../../mcp/lib/writeGate'
 
@@ -54,6 +57,9 @@ class StubChain implements ChainExecutor {
   persists = 0
   autoMints: string[] = []
   containers = new Map<string, RegistryContainer>()
+  mintedOnChain = new Map<string, string>()
+  failNextMint = false
+  bootIds: string[] = []
 
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
     this.chainCalls += 1
@@ -78,14 +84,31 @@ class StubChain implements ChainExecutor {
   async mintRegistered(input: { to: string; containerId: string; container: RegistryContainer }): Promise<{ txHash: string; tokenId: string | null }> {
     this.keyReads += 1
     this.chainCalls += 1
-    this.mints.push(input.containerId)
+    if (this.failNextMint) {
+      this.failNextMint = false
+      throw new Error('mint reverted')
+    }
+    const mintId = onChainMintId(input.containerId)
+    this.mints.push(mintId)
+    this.mintedOnChain.set(mintId.toLowerCase(), '7')
     return { txHash: '0x' + '11'.repeat(32), tokenId: '7' }
   }
 
-  async autoMint(container: ContainerVortex): Promise<{ txHash: string }> {
+  async existingMint(containerId: string): Promise<string | null> {
+    this.chainCalls += 1
+    return this.mintedOnChain.get(containerId.toLowerCase()) ?? null
+  }
+
+  async listMintedContainerIds(): Promise<string[]> {
+    this.chainCalls += 1
+    return this.bootIds.length > 0 ? [...this.bootIds] : [...this.mintedOnChain.keys()]
+  }
+
+  async autoMint(mintId: string): Promise<{ txHash: string }> {
     this.keyReads += 1
     this.chainCalls += 1
-    this.autoMints.push(container.containerId)
+    this.autoMints.push(mintId)
+    this.mintedOnChain.set(mintId.toLowerCase(), '8')
     return { txHash: '0x' + '22'.repeat(32) }
   }
 }
@@ -340,6 +363,17 @@ describe('exact mint lookup', () => {
     const near = await mint(signedMint(neighbor, neighborHash, address(1)), authHeader())
     expect(near.status).toBe(404)
     expect(stub.reads).toEqual([unknown, neighbor])
+    expect(stub.mints).toEqual([])
+    expect(stub.keyReads).toBe(0)
+    expect(counters.deployerKeyReads).toBe(0)
+
+    const mismatchId = nextId()
+    const signedHash = nextId()
+    const registryHash = nextId()
+    stub.containers.set(mismatchId.toLowerCase(), registryContainer(mismatchId, registryHash))
+    const mismatch = await mint(signedMint(mismatchId, signedHash, address(1)), authHeader())
+    expect(mismatch.status).toBe(401)
+    expect(String(mismatch.json.error)).toMatch(/does not match/i)
     expect(stub.mints).toEqual([])
     expect(stub.keyReads).toBe(0)
     expect(counters.deployerKeyReads).toBe(0)
@@ -615,6 +649,132 @@ describe('mint abuse limits', () => {
     expect(signingKeyReadCount()).toBe(signingBefore)
     expect(stub.mints).toEqual([])
   })
+
+  it('refuses a signed mint after auto-mint and a simulated restart, with no second mint call', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const tx = await autoMintVortex(sampleVortex(id, hash), 'treasury')
+    expect(tx).toBe('0x' + '22'.repeat(32))
+    expect(stub.autoMints).toEqual([onChainMintId(id)])
+    expect(onChainMintId(id).toLowerCase()).not.toBe(hash.toLowerCase())
+    resetWriteGuardsForTests()
+    const mintsBefore = stub.mints.length
+    const signed = await mint(signedMint(id, hash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.50.0.1',
+    })
+    expect(signed.status).toBe(409)
+    expect(String(signed.json.error)).toContain('already')
+    expect(stub.mints).toHaveLength(mintsBefore)
+    expect(stub.keyReads).toBe(1)
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+  })
+
+  it('rebuilds the minted set from chain at boot and then refuses a mint', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.bootIds = [id]
+    await rebuildMintedSetFromChain()
+    const signed = await mint(signedMint(id, hash, VORTEX_TREASURY), authHeader())
+    expect(signed.status).toBe(409)
+    expect(stub.mints).toEqual([])
+    expect(stub.keyReads).toBe(0)
+    expect(counters.deployerKeyReads).toBe(0)
+  })
+
+  it('does not burn the container on a bad signature, and a later valid mint succeeds', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(60)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const nonString = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: futureExpiry(),
+      signature: 12345,
+    }, authHeader())
+    expect(nonString.status).toBe(400)
+    expectNoChainOrKey()
+
+    const short = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: futureExpiry(),
+      signature: 'abcd',
+    }, authHeader())
+    expect(short.status).toBe(400)
+    expectNoChainOrKey()
+
+    const tooFar = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: Math.floor(Date.now() / 1000) + MINT_SIGNATURE_MAX_AHEAD_SECONDS + 5,
+      signature: 'ab'.repeat(32),
+    }, authHeader())
+    expect(tooFar.status).toBe(400)
+    expect(String(tooFar.json.error)).toMatch(/1 hour/i)
+    expectNoChainOrKey()
+
+    const millis = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: Date.now(),
+      signature: 'cd'.repeat(32),
+    }, authHeader())
+    expect(millis.status).toBe(400)
+    expectNoChainOrKey()
+
+    throwOnNextVerifyForTests(new Error('verify exploded'))
+    const exploded = await mint(signedMint(id, hash, to), authHeader())
+    expect(exploded.status).toBe(401)
+    expect(String(exploded.json.error)).toMatch(/invalid vortex signature/i)
+    expectNoChainOrKey()
+
+    const ok = await mint(signedMint(id, hash, to), authHeader())
+    expect(ok.status).toBe(200)
+    expect(stub.mints).toEqual([onChainMintId(id)])
+    expect(counters.deployerKeyReads).toBe(0)
+  })
+
+  it('does not lock the container when the chain mint throws, and that attempt still uses budget', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '2'
+    const id = nextId()
+    const hash = nextId()
+    const to = address(61)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.failNextMint = true
+    const failed = await mint(signedMint(id, hash, to), {
+      ...authHeader(),
+      'x-forwarded-for': '10.61.0.1',
+    })
+    expect(failed.status).toBe(500)
+    expect(stub.mints).toEqual([])
+
+    const retry = await mint(signedMint(id, hash, to), {
+      ...authHeader(),
+      'x-forwarded-for': '10.61.0.2',
+    })
+    expect(retry.status).toBe(200)
+    expect(stub.mints).toEqual([onChainMintId(id)])
+
+    const otherId = nextId()
+    const otherHash = nextId()
+    stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
+    const blocked = await mint(signedMint(otherId, otherHash, address(62)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.61.0.3',
+    })
+    expect(blocked.status).toBe(429)
+    expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+    expect(stub.mints).toEqual([onChainMintId(id)])
+  })
 })
 
 describe('write-route auth', () => {
@@ -708,20 +868,39 @@ describe('write-route auth', () => {
 
   it('keeps the 60s auto-mint cooldown and does not call the chain on the limited request', async () => {
     expect(PERSIST_COOLDOWN_MS).toBe(60_000)
-    const body = {
-      proposal: 'Persist one signed vortex and then wait',
-      persistToChain: true,
-      sunNeuralEmbedding: [0.2],
+    const original = dynamoSolarGovernance.enhanceGovernanceDecision.bind(dynamoSolarGovernance)
+    const spy = vi.spyOn(dynamoSolarGovernance, 'enhanceGovernanceDecision').mockImplementation(async (...args) => {
+      const real = await original(...args)
+      return { ...real, recommendation: 'PASS', fullBox7DVerdict: 'PASS' }
+    })
+    try {
+      const body = {
+        proposal: 'Persist one signed vortex and then wait',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }
+      const invalid = await postJson('/govern_with_solar', { persistToChain: true, proposal: '   ' }, authHeader())
+      expect(invalid.status).toBe(400)
+      expectNoChainOrKey()
+
+      const first = await postJson('/govern_with_solar', body, authHeader())
+      expect(first.status).toBe(200)
+      expect(typeof first.json.finalRecommendation).toBe('string')
+      expect(stub.persists).toBe(1)
+      await vi.waitFor(() => {
+        expect(stub.autoMints.length).toBe(1)
+      })
+      const chainBefore = stub.chainCalls
+      const keyBefore = stub.keyReads
+      const second = await postJson('/govern_with_solar', body, authHeader())
+      expect(second.status).toBe(200)
+      expect(typeof second.json.finalRecommendation).toBe('string')
+      expect(String((second.json.temporalContainer as { onChainError?: string })?.onChainError)).toContain('60s cooldown')
+      expectNoChainOrKey(chainBefore, keyBefore)
+      expect(counters.deployerKeyReads).toBe(0)
+      expect(counters.directChainCalls).toBe(0)
+    } finally {
+      spy.mockRestore()
     }
-    const first = await postJson('/govern_with_solar', body, authHeader())
-    expect(first.status).toBe(200)
-    const chainBefore = stub.chainCalls
-    const keyBefore = stub.keyReads
-    const second = await postJson('/govern_with_solar', body, authHeader())
-    expect(second.status).toBe(200)
-    expect(String((second.json.temporalContainer as { onChainError?: string })?.onChainError)).toContain('60s cooldown')
-    expectNoChainOrKey(chainBefore, keyBefore)
-    expect(counters.deployerKeyReads).toBe(0)
-    expect(counters.directChainCalls).toBe(0)
   }, 30_000)
 })
