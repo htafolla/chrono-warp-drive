@@ -186,7 +186,13 @@ export function VortexCard({
                 onChange={e => onDonationChange(e.target.value)}
                 step="0.001"
                 min="0"
-                className="w-16 px-1.5 py-1 text-[10px] rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
+                disabled={!!claimsPaused}
+                className={cn(
+                  'w-16 px-1.5 py-1 text-[10px] rounded border focus:outline-none',
+                  claimsPaused
+                    ? 'bg-zinc-900 border-zinc-800 text-zinc-500 opacity-60 cursor-not-allowed'
+                    : 'bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-emerald-500/50',
+                )}
                 placeholder="ETH"
               />
               {isConnected || claimsPaused ? (() => {
@@ -200,9 +206,9 @@ export function VortexCard({
                       disabled={isMinting || insufficient || claimsPaused}
                       className={cn(
                         'text-[11px] font-medium py-1 px-2.5 rounded-lg transition-all',
-                        'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500',
-                        'text-white shadow-lg shadow-fuchsia-600/20',
-                        'disabled:opacity-50 disabled:cursor-not-allowed'
+                        claimsPaused
+                          ? 'bg-zinc-700 text-zinc-400 opacity-60 cursor-not-allowed shadow-none'
+                          : 'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 text-white shadow-lg shadow-fuchsia-600/20 disabled:opacity-50 disabled:cursor-not-allowed',
                       )}
                     >
                       {isMinting ? '...' : 'Mint'}

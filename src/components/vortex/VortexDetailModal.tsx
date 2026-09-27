@@ -354,7 +354,13 @@ export function VortexDetailModal({
                           onChange={e => onDonationChange?.(e.target.value)}
                           step="0.001"
                           min="0"
-                          className="w-20 px-2 py-1.5 text-xs rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
+                          disabled={!!claimsPaused}
+                          className={cn(
+                            'w-20 px-2 py-1.5 text-xs rounded border focus:outline-none',
+                            claimsPaused
+                              ? 'bg-zinc-900 border-zinc-800 text-zinc-500 opacity-60 cursor-not-allowed'
+                              : 'bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-emerald-500/50',
+                          )}
                           placeholder="ETH"
                         />
                         {ethPrice && (
@@ -376,11 +382,12 @@ export function VortexDetailModal({
                               onClick={onClaim}
                               disabled={isMinting || insufficient || claimsPaused}
                               className={cn(
-                                'px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-white',
-                                'disabled:opacity-50 disabled:cursor-not-allowed',
-                                insufficient && !claimsPaused
-                                  ? 'bg-red-600/50 cursor-not-allowed'
-                                  : 'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 shadow-lg shadow-fuchsia-600/20'
+                                'px-4 py-1.5 text-xs font-medium rounded-lg transition-all',
+                                claimsPaused
+                                  ? 'bg-zinc-700 text-zinc-400 opacity-60 cursor-not-allowed shadow-none'
+                                  : insufficient
+                                    ? 'bg-red-600/50 text-white cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 text-white shadow-lg shadow-fuchsia-600/20 disabled:opacity-50 disabled:cursor-not-allowed',
                               )}
                             >
                               {isMinting ? 'Minting...' : insufficient && !claimsPaused ? 'Low Balance' : 'Mint'}

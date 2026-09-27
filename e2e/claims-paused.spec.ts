@@ -126,8 +126,10 @@ test('detail view shows a disabled claim control and cannot mint', async ({ page
   await expect(page.getByText('Fixture container A for the paused-claims check.')).toBeVisible()
 
   const cardMint = page.getByRole('button', { name: 'Mint' }).first()
+  const cardAmount = page.getByRole('spinbutton').first()
   await expect(cardMint).toBeVisible()
   await expect(cardMint).toBeDisabled()
+  await expect(cardAmount).toBeDisabled()
   await cardMint.click({ force: true })
 
   await page.getByRole('button', { name: 'Details' }).first().click()
@@ -135,7 +137,9 @@ test('detail view shows a disabled claim control and cannot mint', async ({ page
   await expect(dialog).toBeVisible()
   await expect(dialog.getByText(NOTICE)).toBeVisible()
   const detailMint = dialog.getByRole('button', { name: 'Mint' })
+  const detailAmount = dialog.getByRole('spinbutton')
   await expect(detailMint).toBeDisabled()
+  await expect(detailAmount).toBeDisabled()
   await detailMint.scrollIntoViewIfNeeded()
   await detailMint.click({ force: true })
   expect(mintRequests).toEqual([])
