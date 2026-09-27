@@ -7,8 +7,7 @@
 // A/B testable: runs in parallel, doesn't touch current formulas.
 
 import { KuramotoResult, KuramotoTrajectoryPoint, PhaseType, Isotope, ISOTOPES } from './kuramotoOscillators.js'
-
-const PHI = 1.666
+import { PHI } from './tlmConstants.ts'
 const FREQ = 528
 const G = 1.0
 

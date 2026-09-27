@@ -5,7 +5,9 @@ import { applySolarOutputModulation } from './solarCoupling';
 import { stellarLibrary, StellarSpectrum } from './stellarLibraryLoader';
 import { solarDataFetcher, SolarData } from './solarDataFetcher';
 
-const PHI = 1.666;
+// Fusion math scales by NeuralInput.isotopeFactor, not this binding.
+// Re-exported so the module reads the shared TLM ratio.
+export { PHI } from './tlmConstants.ts';
 const SEQUENCES = [
   'quantum entanglement matrix activated',
   'temporal phase coherence achieved',

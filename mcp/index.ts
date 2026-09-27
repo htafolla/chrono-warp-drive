@@ -17,6 +17,7 @@ import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
+import { L, PHI } from './lib/tlmConstants.ts'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -194,7 +195,7 @@ class FusedSignal extends IsotopicSignal {
 }
 
 // ===== Inlined: temporalBlurrnSignal.ts =====
-const PHI = 1.666;
+// PHI and L come from ./lib/tlmConstants.ts (exact 5/3 and Trinity 3).
 const TAU = 0.865;
 
 class TemporalBlurrnSignal extends IsotopicSignal {
@@ -269,7 +270,6 @@ class TemporalBlurrnSignal extends IsotopicSignal {
 const FREQ = 528;
 const C = 3e8;
 const DELTA_T = 1e-6;
-const L = 3;
 const K = 0.5;
 const N = 3;
 const G = 1.0;
@@ -288,7 +288,7 @@ const ISOTOPES: Isotope[] = [
 
 // Blurrn-themed isotopes
 const BLURRN_ISOTOPES: Isotope[] = [
-  { type: "Trinitarium-166", factor: 1.666 },
+  { type: "Trinitarium-166", factor: PHI },
   { type: "Chronovium-865", factor: 0.865 },
   { type: "Vortexite-528", factor: 0.528 },
 ];
@@ -381,7 +381,7 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   'PHI': {
     term: 'PHI (φ) — Trinitarium Ratio',
     short: 'Fundamental Blurrn constant, valid range [1.566, 1.766]',
-    long: 'PHI is the Trinitarium ratio constant set at 1.666 (from Trinitarium-166 isotope). It appears throughout the v4.8 engine: as the exponent base in BlackHole_Seq, as a multiplier in tPTT, as a phase offset in harmonic oscillator (π/PHI), and as a signal embed component. Validated by validate_tlm to be within [1.566, 1.766].',
+    long: 'PHI is the Trinitarium ratio, the exact fraction 5/3 (Trinitarium-166 isotope). It appears throughout the v4.8 engine: as the exponent base in BlackHole_Seq, as a multiplier in tPTT, as a phase offset in harmonic oscillator (π/PHI), and as a signal embed component. Validated by validate_tlm to be within [1.566, 1.766].',
     formula: 'validate_tlm: 1.566 ≤ PHI ≤ 1.766',
   },
   'TDF': {
@@ -395,14 +395,14 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
     short: 'Energy-time product with isotopic modulation. See compute_tptt tool.',
     long: 'tPTT measures the energy-time product of a signal modulated by PHI and the speed of light constant C. Higher T_c (temporal constant) increases tPTT; higher E_t (entropy) decreases it. The formula encodes how much "photonic work" is transported across a time step.',
     formula: 'tPTT = T_c × (P_s / E_t) × PHI × (C / delta_t)',
-    example: 'Default: T_c=137, P_s=1.0, E_t=0.5, delta_t=1e-6 → tPTT ≈ 137 × 2.0 × 1.666 × 3e14 ≈ 1.37e17',
+    example: `Default: T_c=137, P_s=1.0, E_t=0.5, delta_t=1e-6, PHI=5/3, C=3e8 → tPTT = 137 × (1.0/0.5) × (5/3) × (3e8/1e-6) = ${tPTT(137, 1, 0.5, 1e-6)}`,
   },
   'BlackHole_Seq': {
     term: 'Black Hole Sequence',
     short: 'Void resonance function using PHI exponentiation. See black_hole_sequence tool.',
     long: 'BlackHole_Seq computes a resonance value from void count and PHI exponentiation, modulo π. It represents the "gravitational" component of the TDF chain — more voids or higher n produce larger resonance. The modulo operation wraps it into [0, π) range.',
     formula: 'BlackHole_Seq(L, voids, n) = (L × voids × PHI^n) % π',
-    example: 'Default: L=3, voids=7, n=3, PHI=1.666 → (3 × 7 × 1.666^3) % π ≈ 97.22 % 3.1416 ≈ 2.08',
+    example: `Default: L=${L}, voids=7, n=3, PHI=5/3 → (3 × 7 × (5/3)^3) = 21 × 125/27 = 2625/27. Code product ${((L * 7) * Math.pow(PHI, 3))}; 2625/27 mod π = ${blackHoleSequence(7, 3)}`,
   },
   'vortexVolume': {
     term: 'Vortex Volume',
@@ -430,7 +430,7 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   'blurrn-native matrix': {
     term: 'Blurrn-native Matrix',
     short: 'The mathematical framework built on PHI and TAU constants',
-    long: 'The Blurrn-native matrix refers to the entire v4.8 computational framework centered on the Trinitarium ratio (PHI=1.666) and Chronovium damping (TAU=0.865). It encompasses TDF computation, isotopic fingerprinting, cross-correlation, symbiotic fusion, and phase coherence — all built on these two fundamental constants.',
+    long: 'The Blurrn-native matrix refers to the entire v4.8 computational framework centered on the Trinitarium ratio (PHI=5/3) and Chronovium damping (TAU=0.865). It encompasses TDF computation, isotopic fingerprinting, cross-correlation, symbiotic fusion, and phase coherence — all built on these two fundamental constants.',
   },
   'FREQ': {
     term: 'Base Frequency (528 Hz)',
@@ -462,7 +462,7 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   'isotope': {
     term: 'Isotopes (Standard & Blurrn)',
     short: 'Configurable factors that modulate computations across v4.8 engine',
-    long: 'Isotopes provide configurable modulation factors across the v4.8 engine. Standard isotopes: C-12 (1.0), C-14 (0.8). Blurrn isotopes: Trinitarium-166 (1.666 = PHI), Chronovium-865 (0.865 = TAU), Vortexite-528 (0.528). Isotope selection affects wave amplitude, Kuramoto sync (fractal toggle), and isotopic fingerprinting.',
+    long: 'Isotopes provide configurable modulation factors across the v4.8 engine. Standard isotopes: C-12 (1.0), C-14 (0.8). Blurrn isotopes: Trinitarium-166 (5/3 = PHI), Chronovium-865 (0.865 = TAU), Vortexite-528 (0.528). Isotope selection affects wave amplitude, Kuramoto sync (fractal toggle), and isotopic fingerprinting.',
   },
   'S_L': {
     term: 'Spectral Luminance (S_L)',
@@ -487,7 +487,7 @@ Dynamo MCP (Blurrn) is a Temporal Displacement Engine providing tools for isotop
 ## Core Constants
 | Constant | Value     | Description |
 |----------|-----------|-------------|
-| PHI      | 1.666     | Trinitarium ratio (valid range: 1.566–1.766) |
+| PHI      | 5/3       | Trinitarium ratio (valid range: 1.566–1.766) |
 | TAU      | 0.865     | Temporal Attenuation Unit (Chronovium-865) |
 | FREQ     | 528 Hz    | Base oscillation frequency |
 | C        | 3e8 m/s   | Speed of light |
@@ -571,7 +571,7 @@ Computes wave amplitude with isotope modulation.
 
 ### 14. validate_tlm
 Validates that the Trinitarium ratio (\`phi\`) is within the valid range [1.566, 1.766].
-- **Inputs**: \`phi\` (default 1.666)
+- **Inputs**: \`phi\` (default 5/3)
 - **Outputs**: \`valid\` (boolean), \`range\`
 
 ## Governance System Overview (v4.8)
@@ -1052,7 +1052,7 @@ app.post('/black_hole_sequence', async (c: Context) => {
   const result = blackHoleSequence(voids, n)
   return ok(c, {
     BlackHole_Seq: result,
-    parameters: { voids, n, L: 3, PHI },
+    parameters: { voids, n, L, PHI },
   })
 })
 
@@ -1121,7 +1121,7 @@ app.post('/harmonic_oscillator', async (c: Context) => {
 
 // Tool 14: validate_tlm — TLM validation
 const TlmSchema = z.object({
-  phi: z.number().default(1.666),
+  phi: z.number().default(PHI),
 })
 
 app.post('/validate_tlm', async (c: Context) => {
@@ -1270,7 +1270,7 @@ app.get('/black_hole_sequence', (c: Context) => {
 
 app.get('/validate_tlm', (c: Context) => {
   const p = getQueryParams(c)
-  const phi = p.phi ?? 1.666
+  const phi = p.phi ?? PHI
   return c.json({ success: true, valid: validateTLM(phi), phi, range: { min: 1.566, max: 1.766 } })
 })
 
@@ -1351,7 +1351,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'validate_tlm',
     description: 'Validates that the Trinitarium ratio (phi) is within the valid range [1.566, 1.766].',
-    inputSchema: { type: 'object', properties: { phi: { type: 'number', default: 1.666, description: 'PHI to validate' } } },
+    inputSchema: { type: 'object', properties: { phi: { type: 'number', default: PHI, description: 'PHI to validate' } } },
   },
   {
     name: 'evaluate_governance',
@@ -1481,7 +1481,7 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return { P_o: harmonicOscillator(args.t ?? 0) }
   },
   validate_tlm: (args: any) => {
-    return { valid: validateTLM(args.phi ?? 1.666), phi: args.phi ?? 1.666, range: { min: 1.566, max: 1.766 } }
+    return { valid: validateTLM(args.phi ?? PHI), phi: args.phi ?? PHI, range: { min: 1.566, max: 1.766 } }
   },
   evaluate_governance: async (args: any) => {
     return evaluateGovernance(TOOL_HANDLERS, args)

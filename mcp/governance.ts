@@ -6,8 +6,8 @@ import { Hono, Context } from 'hono'
 import { z } from 'zod'
 import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
 
-// Blurrn Constants
-const PHI = 1.666
+// PHI is the shared TLM ratio. applyDecisionMatrix does not read it.
+export { PHI } from './lib/tlmConstants.ts'
 const TAU = 0.865
 
 // Input Schema
