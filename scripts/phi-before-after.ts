@@ -73,10 +73,11 @@ type Report = {
   leaves: Leaf[]
 }
 
-function runWorker(root: string, outFile: string) {
+function runWorker(root: string, outFile: string, extra?: Record<string, string>) {
   execFileSync('npx', ['tsx', join(repo, 'scripts/phi-governance-worker.ts'), root, outFile], {
     cwd: repo,
     stdio: 'inherit',
+    env: extra ? { ...process.env, ...extra } : process.env,
   })
 }
 
@@ -173,7 +174,7 @@ console.log(`Head evaluate_governance PASS count: ${headPass}. Of those, hammer 
 console.log('')
 console.log('## govern_with_solar recommendation')
 console.log('This field is result.recommendation. The on-chain path reads it before persistContainerToChain. This run does not set persistToChain.')
-console.log(`Flips: ${solarFlips.length} of ${before.solar.length}.`)
+console.log(`This table uses PHI_SUN=present, a fixed 16-number sun embedding, at the one pinned second above. Flips: ${solarFlips.length} of ${before.solar.length}.`)
 for (const line of solarFlips) console.log(`- ${line}`)
 console.log('')
 console.log('## computeDualBlackHoleSync(7, 29)')
@@ -202,3 +203,121 @@ console.log('| --- | ---: | ---: |')
 for (const row of moved) {
   console.log(`| ${row.path} | ${fmt(row.before)} | ${fmt(row.after)} |`)
 }
+
+const SWEEP_MS = [
+  Date.UTC(2026, 8, 27, 21, 30, 0),
+  Date.UTC(2026, 8, 27, 21, 30, 1),
+  Date.UTC(2026, 8, 27, 21, 30, 2),
+  Date.UTC(2026, 8, 27, 21, 30, 3),
+  Date.UTC(2026, 8, 27, 21, 30, 4),
+  Date.UTC(2026, 8, 27, 21, 30, 5),
+  Date.UTC(2026, 8, 27, 21, 30, 6),
+  Date.UTC(2026, 8, 27, 21, 30, 7),
+  Date.UTC(2026, 8, 27, 21, 30, 8),
+  Date.UTC(2026, 8, 27, 21, 31, 0),
+]
+const FLIP_MS = [
+  Date.UTC(2026, 8, 27, 21, 30, 0),
+  Date.UTC(2026, 8, 27, 21, 30, 7),
+  Date.UTC(2026, 8, 27, 21, 31, 0),
+]
+
+type SweepFile = {
+  sun: string
+  clocks: Array<{ ms: number; governance: Array<string | null>; solar: Array<string | null> }>
+}
+
+function loadSweep(file: string): SweepFile {
+  return JSON.parse(readFileSync(file, 'utf8')) as SweepFile
+}
+
+function tally(values: Array<string | null>): string {
+  const counts = new Map<string, number>()
+  for (const value of values) counts.set(value ?? 'MISSING', (counts.get(value ?? 'MISSING') ?? 0) + 1)
+  return [...counts.entries()].map(([key, n]) => `${n} ${key}`).join(', ')
+}
+
+function rejectPass(values: Array<string | null>): { reject: number; pass: number } {
+  return {
+    reject: values.filter((value) => value === 'REJECT').length,
+    pass: values.filter((value) => value === 'PASS').length,
+  }
+}
+
+function flipsBetween(left: Array<string | null>, right: Array<string | null>): number {
+  let n = 0
+  for (let i = 0; i < left.length; i++) if (left[i] !== right[i]) n += 1
+  return n
+}
+
+function sweepPair(sun: 'present' | 'absent'): { before: SweepFile; after: SweepFile } {
+  const tag = sun
+  const beforePath = join(outDir, `sweep-${tag}-before.json`)
+  const afterPath = join(outDir, `sweep-${tag}-after.json`)
+  const clocks = SWEEP_MS.join(',')
+  console.error(`sweep ${sun} on origin/main`)
+  runWorker(mainRoot, beforePath, { PHI_SUN: sun, PHI_CLOCKS: clocks })
+  console.error(`sweep ${sun} on HEAD`)
+  runWorker(repo, afterPath, { PHI_SUN: sun, PHI_CLOCKS: clocks })
+  return { before: loadSweep(beforePath), after: loadSweep(afterPath) }
+}
+
+const withEmbedding = sweepPair('present')
+const withoutEmbedding = sweepPair('absent')
+
+console.log('')
+console.log('## govern_with_solar flips and the sun embedding')
+console.log('PHI_SUN=present returns a fixed 16-number array from the neural-fusion fetch.')
+console.log('PHI_SUN=absent throws on that fetch, so fetchSunNeuralEmbedding returns undefined, which is what production does when the neural-fusion backend is down.')
+console.log('The flip count below is recommendation changes on the same 43 texts. persistToChain is not set.')
+console.log('')
+console.log('| pinned second | flips with embedding | flips with no embedding |')
+console.log('| --- | ---: | ---: |')
+for (const ms of FLIP_MS) {
+  const presentBefore = withEmbedding.before.clocks.find((row) => row.ms === ms)
+  const presentAfter = withEmbedding.after.clocks.find((row) => row.ms === ms)
+  const absentBefore = withoutEmbedding.before.clocks.find((row) => row.ms === ms)
+  const absentAfter = withoutEmbedding.after.clocks.find((row) => row.ms === ms)
+  if (!presentBefore || !presentAfter || !absentBefore || !absentAfter) {
+    console.error('missing clock', ms)
+    process.exit(1)
+  }
+  const stamp = new Date(ms).toISOString()
+  console.log(`| ${stamp} | ${flipsBetween(presentBefore.solar, presentAfter.solar)} | ${flipsBetween(absentBefore.solar, absentAfter.solar)} |`)
+}
+
+console.log('')
+console.log('## evaluate_governance across pinned seconds')
+console.log('The hammer nonce is floor(Date.now()/1000). Each row is one pinned second. The counts are from the PHI_SUN=present sweep. evaluate_governance calls enhanceGovernanceDecision without a sun embedding.')
+console.log('Pinned seconds:')
+for (const ms of SWEEP_MS) console.log(`- ${new Date(ms).toISOString()} (${ms})`)
+console.log('')
+console.log('| pinned second | main governance | head governance |')
+console.log('| --- | --- | --- |')
+const headRatios: Array<{ reject: number; pass: number }> = []
+const mainPasses: number[] = []
+for (const ms of SWEEP_MS) {
+  const mainRow = withEmbedding.before.clocks.find((row) => row.ms === ms)
+  const headRow = withEmbedding.after.clocks.find((row) => row.ms === ms)
+  if (!mainRow || !headRow) {
+    console.error('missing sweep clock', ms)
+    process.exit(1)
+  }
+  const mainGov = rejectPass(mainRow.governance)
+  const headGov = rejectPass(headRow.governance)
+  headRatios.push(headGov)
+  mainPasses.push(mainGov.pass)
+  console.log(`| ${new Date(ms).toISOString()} | ${tally(mainRow.governance)} | ${tally(headRow.governance)} |`)
+}
+const fewestHeadRejects = headRatios.reduce((left, right) => (left.reject <= right.reject ? left : right))
+const mostHeadRejects = headRatios.reduce((left, right) => (left.reject >= right.reject ? left : right))
+console.log(`Head REJECT/PASS ranges from ${fewestHeadRejects.reject}/${fewestHeadRejects.pass} to ${mostHeadRejects.reject}/${mostHeadRejects.pass}.`)
+console.log(`Main PASS ranges from ${Math.min(...mainPasses)} to ${Math.max(...mainPasses)}.`)
+let governanceDiffers = 0
+for (const ms of SWEEP_MS) {
+  const presentHead = withEmbedding.after.clocks.find((row) => row.ms === ms)
+  const absentHead = withoutEmbedding.after.clocks.find((row) => row.ms === ms)
+  if (!presentHead || !absentHead) continue
+  if (presentHead.governance.join('|') !== absentHead.governance.join('|')) governanceDiffers += 1
+}
+console.log(`Head evaluate_governance rows that differ between sun present and sun absent: ${governanceDiffers} of ${SWEEP_MS.length}.`)

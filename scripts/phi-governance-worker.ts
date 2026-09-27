@@ -5,6 +5,11 @@
  *
  * Refuses to start when REDIS_URL is set. Pins Date.now and replaces
  * fetch before the MCP modules load. Does not pass persistToChain.
+ *
+ * PHI_NOW_MS pins one millisecond. PHI_CLOCKS is a comma-separated list
+ * and writes one compact row per second. PHI_SUN=absent makes the
+ * neural-fusion fetch fail, so fetchSunNeuralEmbedding returns undefined.
+ * PHI_SUN=present (default) returns a fixed 16-number array.
  */
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
@@ -23,8 +28,16 @@ if (!root || !outPath) {
   process.exit(2)
 }
 
-const FIXED_NOW_MS = Date.UTC(2026, 8, 27, 21, 30, 0)
-Date.now = () => FIXED_NOW_MS
+const DEFAULT_NOW_MS = Date.UTC(2026, 8, 27, 21, 30, 0)
+const sunMode = process.env.PHI_SUN === 'absent' ? 'absent' : 'present'
+const clockSource = process.env.PHI_CLOCKS ?? process.env.PHI_NOW_MS ?? String(DEFAULT_NOW_MS)
+const clocks = clockSource.split(',').map((part) => Number(part.trim())).filter((n) => Number.isFinite(n))
+if (clocks.length === 0) {
+  console.error('PHI_NOW_MS / PHI_CLOCKS did not contain a finite millisecond')
+  process.exit(2)
+}
+let nowMs = clocks[0]
+Date.now = () => nowMs
 
 const SUN_EMBEDDING = Array.from({ length: 16 }, (_, i) => (i + 1) / 16)
 const REVIEW = 'The review text is fixed and does not depend on the clock.'
@@ -42,6 +55,7 @@ globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
     return jsonResponse({ resonance: 0.85, isotopicRatio: 0.9, metamorphosisIndex: 0.5 })
   }
   if (url.includes('process-current-sun') || url.includes('neural-fusion')) {
+    if (sunMode === 'absent') throw new Error('neural-fusion backend down')
     return jsonResponse({
       neuralEmbedding16: SUN_EMBEDDING,
       neuralOutput: { neuralEmbedding16: SUN_EMBEDDING },
@@ -231,46 +245,66 @@ type SolarRow = {
   status: number
 }
 
-const governance: GovRow[] = []
-const solar: SolarRow[] = []
+async function measureProposals(): Promise<{ governance: GovRow[]; solar: SolarRow[] }> {
+  const governance: GovRow[] = []
+  const solar: SolarRow[] = []
+  for (let index = 0; index < PROPOSALS.length; index++) {
+    const id = `p${String(index).padStart(2, '0')}`
+    const text = PROPOSALS[index]
+    const gov = await post(app, '/governance', {
+      proposalId: id,
+      proposalText: text,
+      agentReviews: [REVIEW],
+      source: 'human',
+    })
+    if (gov.status !== 200) {
+      console.error('governance failed', id, gov.status, gov.body)
+      process.exit(1)
+    }
+    governance.push({
+      id,
+      text,
+      recommendation: readString(gov.body, 'recommendation'),
+      confidence: readNumber(gov.body, 'confidence'),
+      resonanceScore: readNumber(gov.body, 'resonanceScore'),
+      solarHammerResonance: readNumber(gov.body, 'solarHammerResonance'),
+      status: gov.status,
+    })
 
-for (let index = 0; index < PROPOSALS.length; index++) {
-  const id = `p${String(index).padStart(2, '0')}`
-  const text = PROPOSALS[index]
-  const gov = await post(app, '/governance', {
-    proposalId: id,
-    proposalText: text,
-    agentReviews: [REVIEW],
-    source: 'human',
-  })
-  if (gov.status !== 200) {
-    console.error('governance failed', id, gov.status, gov.body)
-    process.exit(1)
+    const solarResult = await post(app, '/govern_with_solar', { proposal: text, sharePublicly: false })
+    if (solarResult.status !== 200) {
+      console.error('govern_with_solar failed', id, solarResult.status, solarResult.body)
+      process.exit(1)
+    }
+    solar.push({
+      id,
+      text,
+      recommendation: readString(solarResult.body, 'recommendation'),
+      confidence: readNumber(solarResult.body, 'confidence'),
+      resonanceScore: readNumber(solarResult.body, 'resonanceScore'),
+      status: solarResult.status,
+    })
   }
-  governance.push({
-    id,
-    text,
-    recommendation: readString(gov.body, 'recommendation'),
-    confidence: readNumber(gov.body, 'confidence'),
-    resonanceScore: readNumber(gov.body, 'resonanceScore'),
-    solarHammerResonance: readNumber(gov.body, 'solarHammerResonance'),
-    status: gov.status,
-  })
-
-  const solarResult = await post(app, '/govern_with_solar', { proposal: text, sharePublicly: false })
-  if (solarResult.status !== 200) {
-    console.error('govern_with_solar failed', id, solarResult.status, solarResult.body)
-    process.exit(1)
-  }
-  solar.push({
-    id,
-    text,
-    recommendation: readString(solarResult.body, 'recommendation'),
-    confidence: readNumber(solarResult.body, 'confidence'),
-    resonanceScore: readNumber(solarResult.body, 'resonanceScore'),
-    status: solarResult.status,
-  })
+  return { governance, solar }
 }
+
+if (clocks.length > 1) {
+  const rows = []
+  for (const ms of clocks) {
+    nowMs = ms
+    const measured = await measureProposals()
+    rows.push({
+      ms,
+      governance: measured.governance.map((row) => row.recommendation),
+      solar: measured.solar.map((row) => row.recommendation),
+    })
+  }
+  writeFileSync(outPath, JSON.stringify({ sha, sun: sunMode, clocks: rows }))
+  console.error(`wrote ${outPath} sha=${sha} sun=${sunMode} clocks=${rows.length}`)
+  process.exit(0)
+}
+
+const { governance, solar } = await measureProposals()
 
 const calls: Array<{ tool: string; body: unknown }> = []
 async function record(tool: string, result: unknown) {
@@ -331,7 +365,8 @@ flatten(calls, '', leaves)
 const report = {
   sha,
   root,
-  clock: FIXED_NOW_MS,
+  sun: sunMode,
+  clock: nowMs,
   phi: constantsMod.PHI,
   cross,
   phaseCoherence: readNumber(emit.body, 'phaseCoherence'),

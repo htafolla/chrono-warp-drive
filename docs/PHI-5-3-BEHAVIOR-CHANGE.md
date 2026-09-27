@@ -4,13 +4,13 @@
 
 The formulas, the decision thresholds, and `cross_correlate` are unchanged. This file records what the PHI binding does to those unchanged formulas. The live deployed effect is **UNVERIFIED**. Nothing here was deployed, and this measurement does not set `persistToChain`.
 
-`cross_correlate` strength is one constant for every input: `0.9524567885544127` on `origin/main`, `0.06480165906835389` on this branch. `evaluate_governance` on the 43 texts below is 43 PASS on main, and 34 REJECT plus 9 PASS on this branch. All 9 PASS rows pass only because the solar hammer is `>= 0.88`. `govern_with_solar`'s `recommendation`, the field that gates the on-chain write, flips on **0 of these 43**.
+`cross_correlate` strength is one constant for every input: `0.9524567885544127` on `origin/main`, `0.06480165906835389` on this branch. The long table is one pinned second, `2026-09-27T21:30:00.000Z`: `evaluate_governance` is 43 PASS on main, and 34 REJECT plus 9 PASS on this branch. All 9 PASS rows pass only because the solar hammer is `>= 0.88`. Across the 10 pinned seconds below, head `evaluate_governance` ranges from 29 REJECT / 14 PASS to 36 REJECT / 7 PASS, and main PASS ranges from 41 to 43. `govern_with_solar`'s `recommendation` flips on 0 of these 43 when a sun embedding is supplied, and on 3 of 43 at that same second when the embedding is absent.
 
 ## How this was measured
 
 `npx tsx scripts/phi-before-after.ts` runs `scripts/phi-governance-worker.ts` against `origin/main` (`dffb7520b918d7b00817937ef4e708ccddd3c31f`) and against this checkout. The worker imports each tree's own modules. Verdicts are printed from those processes. They are not stored in the script.
 
-Clock: `Date.now` is pinned to `Date.UTC(2026, 8, 27, 21, 30, 0)`, which is `1790544600000` (`2026-09-27T21:30:00.000Z`). NOAA fetches return `[]`. The sun embedding and the isotopic-embedding fetch are fixed stubs. `sharp` is absent, so sentence embeddings use the FNV fallback on both trees. The script exits if `REDIS_URL` is set, so the governance history write cannot run.
+Clock for the long table: `Date.now` is pinned to `Date.UTC(2026, 8, 27, 21, 30, 0)`, which is `1790544600000` (`2026-09-27T21:30:00.000Z`). That table is one pinned second. NOAA fetches return `[]`. `PHI_SUN=present` (the default, and this long table) returns a fixed 16-number array for the neural-fusion fetch. `PHI_SUN=absent` throws on that fetch, so `fetchSunNeuralEmbedding` (`mcp/index.ts:136-148`) returns `undefined`, the production result when the neural-fusion backend is down. The flip count depends on whether an embedding is present. `sharp` is absent, so sentence embeddings use the FNV fallback on both trees. The script exits if `REDIS_URL` is set. It does not set `persistToChain`.
 
 The 43 texts are the `PROPOSALS` array in `scripts/phi-governance-worker.ts`. Every `/governance` call uses the same review sentence: `The review text is fixed and does not depend on the clock.`
 
@@ -51,7 +51,7 @@ That strength is the same for every input. Phase coherence on an emit at tdf `5.
 
 Otherwise resonance is the cross strength above. The matrix then does: resonance `>= 0.90` is PASS at confidence `0.93`; `>= 0.80` is PASS at `0.86`; `>= 0.68` is NEEDS_REVISION at `0.76`; anything lower is REJECT at confidence `0.8`.
 
-On this clock and these 43 texts:
+At `2026-09-27T21:30:00.000Z`, one pinned second, on these 43 texts:
 
 - `origin/main`: **43 PASS**
 - this branch: **34 REJECT** at confidence `0.8`, and **9 PASS**
@@ -60,7 +60,24 @@ On this clock and these 43 texts:
 
 A hammer `<= 0.45` would also replace resonance, and that value is still REJECT at confidence `0.8`. The only way a call on this branch returns PASS is a hammer `>= 0.88`. The nine are `p01`, `p02`, `p05`, `p09`, `p10`, `p20`, `p29`, `p38`, and `p40`.
 
-So after merge, every `/governance` call is REJECT at confidence `0.8` unless the solar hammer is high enough to take over. That is the whole input set, because the strength does not depend on the proposal text.
+So after merge, every `/governance` call is REJECT at confidence `0.8` unless the solar hammer is high enough to take over. The strength does not depend on the proposal text. The hammer nonce is `floor(Date.now() / 1000)` (`mcp/lib/solarGovernanceIntegration.ts:53`), so the REJECT/PASS split changes with the pinned second.
+
+Pinned seconds, `PHI_SUN=present`. `evaluate_governance` does not receive a sun embedding. Head rows that differ between sun present and sun absent: 0 of 10.
+
+| pinned second | main | head |
+| --- | --- | --- |
+| `2026-09-27T21:30:00.000Z` | 43 PASS | 34 REJECT, 9 PASS |
+| `2026-09-27T21:30:01.000Z` | 41 PASS, 2 REJECT | 31 REJECT, 12 PASS |
+| `2026-09-27T21:30:02.000Z` | 42 PASS, 1 REJECT | 32 REJECT, 11 PASS |
+| `2026-09-27T21:30:03.000Z` | 43 PASS | 35 REJECT, 8 PASS |
+| `2026-09-27T21:30:04.000Z` | 43 PASS | 35 REJECT, 8 PASS |
+| `2026-09-27T21:30:05.000Z` | 43 PASS | 31 REJECT, 12 PASS |
+| `2026-09-27T21:30:06.000Z` | 43 PASS | 35 REJECT, 8 PASS |
+| `2026-09-27T21:30:07.000Z` | 43 PASS | 32 REJECT, 11 PASS |
+| `2026-09-27T21:30:08.000Z` | 43 PASS | 29 REJECT, 14 PASS |
+| `2026-09-27T21:31:00.000Z` | 43 PASS | 36 REJECT, 7 PASS |
+
+Head REJECT/PASS ranges from 29/14 to 36/7. Main PASS ranges from 41 to 43.
 
 ## govern_with_solar recommendation
 
@@ -72,13 +89,21 @@ The on-chain write reads `result.recommendation` before it persists:
     if (verdict === 'REJECT') {
 ```
 
-This run does not set `persistToChain`. It does record `recommendation` for the same 43 texts.
+This run does not set `persistToChain`. It records `recommendation` for the same 43 texts.
 
-**Measured flips: 0 of 43.** Each id keeps the same enum. Both trees are 26 PASS, 9 NEEDS_REVISION, and 8 REJECT. Confidence does not change either. Structural resonance does move. The largest absolute change on this list is `p16`, from `0.8822461798282215` to `0.8684409931984414`. Both stay at PASS with confidence `0.93`. The stubbed solar context is using the quiet thresholds in `mcp/lib/dynamoSolarGovernance.ts` (`strong` `0.86`, `good` `0.78`, `weak` `0.64`): a resonance of `0.8765806774997267` (`p08`) is already PASS at confidence `0.93`, which sits under a `0.88` strong bar and on the `0.86` bar. None of the 43 crossed `0.86`, `0.78`, or `0.64`.
+With the fixed sun embedding (`PHI_SUN=present`) at `2026-09-27T21:30:00.000Z`, recommendation flips on 0 of 43. Both trees are 26 PASS, 9 NEEDS_REVISION, and 8 REJECT. That 0 requires the embedding. With no embedding (`PHI_SUN=absent`), the same texts flip:
 
-The chain-write gate for these 43 proposals is the same enum on both trees. The `/governance` verdict above is the one that becomes REJECT by default.
+| pinned second | flips with embedding | flips with no embedding |
+| --- | ---: | ---: |
+| `2026-09-27T21:30:00.000Z` | 0 | 3 (`p08` PASS to NEEDS_REVISION, `p14` NEEDS_REVISION to REJECT, `p16` PASS to NEEDS_REVISION) |
+| `2026-09-27T21:30:07.000Z` | 0 | 5 (`p09`, `p22`, `p38`, `p41`, `p42`) |
+| `2026-09-27T21:31:00.000Z` | 0 | 3 (`p16`, `p29`, `p41`) |
+
+The chain-write gate follows `recommendation`. It stays put for these 43 while an embedding is supplied, and it moves when the embedding is absent. The solar columns in the long table are the with-embedding case at `2026-09-27T21:30:00.000Z` only.
 
 ## Table
+
+One pinned second, `2026-09-27T21:30:00.000Z`, with a sun embedding (`PHI_SUN=present`).
 
 | checkout | evaluate_governance | govern_with_solar recommendation |
 | --- | --- | --- |
@@ -192,4 +217,4 @@ The worker calls `computeDualBlackHoleSync(7, 29)` on each tree, so the phi is t
 
 ## Triangulation history
 
-`docs/empirical/CONSTANT-TRIANGULATION.md` records the search history. `fcd4df31` searched 20,592 formulas, including square roots, natural logs, log10, and powers `a^b` when `|b| ≤ 8`, plus sums and products. `2603fef` removed addition, subtraction, roots, and logarithms. The words "fixed before the search" in that commit were false. The current list is an exploratory candidate list. None of the constants is shown to derive from TLM, and that includes `delta_t`.
+`docs/empirical/CONSTANT-TRIANGULATION.md` records the search history. `d3f69cf2` searched 20,592 formulas, including square roots, natural logs, log10, and powers `a^b` when `|b| ≤ 8`, plus sums and products. `e43877bd` removed addition, subtraction, roots, and logarithms. The words "fixed before the search" in that commit were false. The current list is an exploratory candidate list. None of the constants is shown to derive from TLM, and that includes `delta_t`.
