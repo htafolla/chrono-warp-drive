@@ -13,6 +13,7 @@ import { isStructuredProposal, extractProposalText } from './lib/structuredPropo
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
+import { containerOriginHashField, SEED_ROUTE_SOURCE } from './lib/containerOrigin.js'
 import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
 
@@ -1768,9 +1769,11 @@ app.post('/govern_with_solar', async (c: Context) => {
       try {
         const client = await getRedisClient()
         if (client) {
+          const origin = containerOriginHashField(container.containerId, 'real')
           await client.multi()
             .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
             .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+            .hset(origin.key, origin.field, origin.value)
             .exec()
         }
       } catch { /* Redis unavailable */ }
@@ -3174,9 +3177,11 @@ app.post('/dev/seed-containers', async (c: Context) => {
       try {
         const client = await getRedisClient()
         if (client) {
+          const origin = containerOriginHashField(c.containerId, 'seed', SEED_ROUTE_SOURCE)
           await client.multi()
             .lpush(REDIS_CONTAINER_KEY, JSON.stringify(c))
             .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+            .hset(origin.key, origin.field, origin.value)
             .exec()
           entry.store = true
         }

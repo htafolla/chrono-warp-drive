@@ -1,0 +1,10277 @@
+# Container seed audit
+
+Registry `0xCB418F081D4fDAD6B2b17027294865B26cb26855` on Base (chain id 8453).
+Read-only through public RPCs. No scores were changed. No contract call was a write.
+
+## Counts
+
+| class | count |
+| --- | ---: |
+| seed | 786 |
+| real | 52 |
+| unknown | 94 |
+| total | 932 |
+
+Seed splits into 781 containers matching the committed `POST /dev/seed-containers` random-metric signature and 5 containers matching `mcp/scripts/register-test-containers.ts`.
+
+## Method
+
+Read-only eth_call against public Base RPCs (https://mainnet.base.org, fallback https://base-rpc.publicnode.com). containerCount(), then listContainers pages of 100, then getContainer via multicall batches of 25. No private key, no transaction, no Redis read, no dev-route log. A container is unknown unless a code-path invariant matches the on-chain payload. Seed, dev-route signature (POST /dev/seed-containers as committed): hammerReason is the route string paired with verdict (PASS → "Strong alignment verified", NEEDS_REVISION → "Partial alignment detected", FAIL → "Poor alignment - major revision needed"); fullBox7DVerdict equals verdict; every resonance and moral score is a 4-decimal quantum (distance to the nearest 1e14 scaled unit ≤ 64, the maximum float error of Number(x.toFixed(4)) then Math.round(x*1e18)); composite in [0.15, 0.99]; each sub-metric lies inside that route's jitter window of the composite (or the 0.01/0.99 clamp); confidence in [0.25, 0.99]; moral score in [0.30, 0.80] with virtue/safety/intent inside their jitter windows and fusion in [0.225, 0.775]; solar activityLevel in {quiet, moderate, high}; kpIndex is scaleKp of an integer 0..8; protonFlux in 0..199; magnetometer in -100..99; solarTdf in 0..4; xrayFlux in 10..2010; tension in {Mild, Low, Moderate, High}; source in {human, agent, ambient}; verdict agrees with the average of the eight sub-metrics at the route thresholds 0.65 and 0.42. Seed, dev test script: containerId equals sha256 of a label in mcp/scripts/register-test-containers.ts and the stored scores, hammerReason, solar snapshot, tension, and source match that script's fixed payload. Real: hammerReason is one of the six strings emitted only by dynamoSolarGovernance; protonFlux and magnetometer are 0 (hardcoded in governanceToContainer); tension is in {Aligned, Mild, Significant, Critical}; verdict is PASS, NEEDS_REVISION, or REJECT; activityLevel is quiet, moderate, active, or storm. The seed-route signature must not also hold. Anything else is unknown. Same-second bursts, hammer strings, or solar bounds alone are not a classification.
+
+Production Redis was not read, so no entry is classified from a Redis record. Dev-route server logs were not available, so no entry is classified from logs. Where a seed-signature container shares its timestamp with other seed-signature containers, the evidence says so as corroboration. That burst is not used to promote an unknown.
+
+Forward-looking labels are a separate Redis hash, `dynamo:containers:origin`, written by the seed route (`origin=seed`, `seedSource=/dev/seed-containers`) and by the real persist paths (`origin=real`). Those tags are not on the contract payload and were not backfilled onto these historical containers.
+
+## Containers
+
+### 0. `0xec51b55cdaf53ca9f6a0cf47845883f1dc6b5799ad4aaa23d90d643453172058`
+
+- **classification:** real
+- **timestamp:** 1780709765
+- **block:** 46960210
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Significant" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 1. `0xfbf1f7381845e8e97f8c3f8e03be0290afe317a5a0d0f58cb59c800785c0fdc5`
+
+- **classification:** real
+- **timestamp:** 1780709854
+- **block:** 46960254
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 2. `0xc5a0f35e0c30ec6f52e5931212b29396138905c3c7fe2583753046cc3932e78f`
+
+- **classification:** real
+- **timestamp:** 1780709884
+- **block:** 46960269
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 3. `0x8a0ecc611d10e8b191321b6c9d1b7930393112e06e576bebc5a64da348b20d30`
+
+- **classification:** real
+- **timestamp:** 1780709919
+- **block:** 46960287
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 4. `0xb57675dfe705784a633c37efde111aec84e7076cd9f93ea6980f499a30b4f37e`
+
+- **classification:** real
+- **timestamp:** 1780798508
+- **block:** 47004581
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 5. `0x73ca2f0c9a51a25389fe75a2b99eeddba41aa2e337c4c00a318b2d46431331ac`
+
+- **classification:** real
+- **timestamp:** 1780798612
+- **block:** 47004634
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 6. `0x0ed1a73b8353920cba8ec1eea57de6926a9a5f906581aa8b58e0cde8432fc769`
+
+- **classification:** real
+- **timestamp:** 1780800069
+- **block:** 47005362
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 7. `0xacc8ece1f33cc342bbf09e010644f59aeff9c342a5e2b5e0d4d0133ff88d3e2e`
+
+- **classification:** real
+- **timestamp:** 1780800218
+- **block:** 47005436
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 8. `0xf35ce34784f0ae94c5038b905e252da7ea57ec842738cd64e76013b49eddeea1`
+
+- **classification:** real
+- **timestamp:** 1780802024
+- **block:** 47006340
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 9. `0xe44e4f47ad467852aa56eb1d0da16b4bb1a27f303c8602473577d1288bb82c07`
+
+- **classification:** real
+- **timestamp:** 1780802074
+- **block:** 47006365
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 10. `0xb4560b30f47ccda7902e1847bc4b700818ff79d17f967f2ab10652c6dc2f6185`
+
+- **classification:** real
+- **timestamp:** 1780802665
+- **block:** 47006660
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 11. `0x525bb4f660d5ec8110bbbb6a2d109e511974d32ae79cd86530eb1b7f8d016aa9`
+
+- **classification:** real
+- **timestamp:** 1780802822
+- **block:** 47006739
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 12. `0x9c43cd551ebc6c855e2e4f2836a6383e449d09280142ebf32e4608e4905933fe`
+
+- **classification:** real
+- **timestamp:** 1780842011
+- **block:** 47026333
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 13. `0xf2288bc586bbe80e7153c9facb10ac48cc6ce99022ca106b2641c0294af50756`
+
+- **classification:** real
+- **timestamp:** 1780842357
+- **block:** 47026506
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 14. `0x1e1717a45b493822e2bf70b14d4b7c57333fc07908d10dcfac03e0eb064091e8`
+
+- **classification:** real
+- **timestamp:** 1780856432
+- **block:** 47033544
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 15. `0x413067f6a089564281e2cba6b73e84e147bb6d435ed995fa7e84cc12a0578029`
+
+- **classification:** seed
+- **timestamp:** 1780864595
+- **block:** 47037627
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Exceptional alignment score
+- **evidence:** dev test script mcp/scripts/register-test-containers.ts: containerId is sha256("celestial-test-container-1") and the on-chain scores, hammerReason, solar snapshot, tension, and source match that script's fixed payload
+
+### 16. `0xe0c237550ae1aa677aafa18fe9187897a281e49d7afb42ba106d4b5ebac1ce11`
+
+- **classification:** seed
+- **timestamp:** 1780864595
+- **block:** 47037633
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonant alignment
+- **evidence:** dev test script mcp/scripts/register-test-containers.ts: containerId is sha256("resonant-test-container-1") and the on-chain scores, hammerReason, solar snapshot, tension, and source match that script's fixed payload
+
+### 17. `0x7dbb2817f77212d888505ef0c1e79c7a715e62e8e6b711d1e3c46bdaf997c552`
+
+- **classification:** seed
+- **timestamp:** 1780864595
+- **block:** 47037638
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** dev test script mcp/scripts/register-test-containers.ts: containerId is sha256("unstable-test-container-1") and the on-chain scores, hammerReason, solar snapshot, tension, and source match that script's fixed payload
+
+### 18. `0x75f1e76ca1b4b5a05e7dd849280aec4dd3db5b1a69e52da2255e55bd53e414b6`
+
+- **classification:** seed
+- **timestamp:** 1780864595
+- **block:** 47037642
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** dev test script mcp/scripts/register-test-containers.ts: containerId is sha256("dissonant-test-container-1") and the on-chain scores, hammerReason, solar snapshot, tension, and source match that script's fixed payload
+
+### 19. `0x363273ee05fe1bc52c54613489579c176543b773bfce9c8e116455abac84ab11`
+
+- **classification:** seed
+- **timestamp:** 1780864595
+- **block:** 47037644
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** System-validated exceptional alignment
+- **evidence:** dev test script mcp/scripts/register-test-containers.ts: containerId is sha256("system-test-container-1") and the on-chain scores, hammerReason, solar snapshot, tension, and source match that script's fixed payload
+
+### 20. `0x4a8be0d19c9d59e48dfe017e628b0f7444e401ec2bf09a38836a0802613e67bb`
+
+- **classification:** real
+- **timestamp:** 1780668768
+- **block:** 47038351
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 21. `0x39ffed185d4329e79573c1506da429e6bf71bf0dbc79bcba1bde46c1fcd05fc3`
+
+- **classification:** real
+- **timestamp:** 1780668862
+- **block:** 47038355
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 22. `0x5d8aef8c54835f0028d82fac3893aca64047411339d6c5f9388edfbdda9b60a8`
+
+- **classification:** real
+- **timestamp:** 1780668898
+- **block:** 47038398
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 23. `0x9e54a50a7691fe921228a303c6469ad8065cb49242752e3d438ae152ba58b02c`
+
+- **classification:** real
+- **timestamp:** 1780802846
+- **block:** 47038458
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 24. `0x3487bc54cfff10b17ae9fd133182ff2150243abee8f9b702b1e4e46a596ba706`
+
+- **classification:** real
+- **timestamp:** 1780668922
+- **block:** 47038734
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 25. `0x8fdf89581b14e00bea98569da8d36e28a273582b0e562283359132ca4457182a`
+
+- **classification:** real
+- **timestamp:** 1780802787
+- **block:** 47038822
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 26. `0x7a24b5ba1cf7d88a824a9281c89c6079906ef1842727cbe147ebdda47453e9a9`
+
+- **classification:** real
+- **timestamp:** 1780668935
+- **block:** 47039021
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 27. `0xd66110f4b4d272a1e18e25781b8d00bd8df2740c7c44027a8ae169cec499a3cb`
+
+- **classification:** real
+- **timestamp:** 1780802648
+- **block:** 47039063
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 28. `0xbd38a3690f1b078907b37ae6a1bc18994cef5dc087e09403869f9cb2cfc58abb`
+
+- **classification:** real
+- **timestamp:** 1780709741
+- **block:** 47039165
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 29. `0x32da5a5ab30de7b42fc3368aba4c8a0e8162c7a7918fd1a5b873a7aa165b69e9`
+
+- **classification:** real
+- **timestamp:** 1780668982
+- **block:** 47039212
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 30. `0x9c194293c97a54f136c352d3f2f9ace2d9d0b3746bfd9c959800f03b35545647`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47039678
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 31. `0xeb42ce094638fca06ac19d0a9d70af3baed0402c488328cb2ca1b6de65c003fd`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47039679
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 32. `0x29c3cad14b4acb31779f1eaabdefb0226630892ca353dec10c9c89f1330140f2`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47039680
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 33. `0xd835621aaaa7a0c1a671d5998faa2270dbf9e5afef51744d159b470a1833a697`
+
+- **classification:** unknown
+- **timestamp:** 1780868957
+- **block:** 47039806
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868957 is shared with 2 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 34. `0xc2d121309cb90c5ef960d299c0684bf3509b53e2a602e6e2b9c8272ff10a9b07`
+
+- **classification:** unknown
+- **timestamp:** 1780868957
+- **block:** 47039807
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868957 is shared with 2 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 35. `0x7e7e937021ca60190d93482f23d78d0bb222db56fecda6b3b69ed39acc4c06d0`
+
+- **classification:** unknown
+- **timestamp:** 1780868957
+- **block:** 47039808
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868957 is shared with 2 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 36. `0xead3a75d677b0d3aa0ff82043fc74d1781fd4061bafca6a632e244f693383c54`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47039876
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 37. `0xede9df9bb62b7f371285ff22d2c6ff433d0ecc7debcc88d6f4332e624353f5a6`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47039911
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 38. `0x0bc02a2523e9a2b18d57db825eb8798eb27ea2a974b7f2f772606900dcf9b6c8`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47039929
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 39. `0x492d3570378e8b21160d91fc3bc387c7cf860e7412ce693a74c000220f9e4769`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039937
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 40. `0xfca5514342928cc3eb0456f6b5dbcd13eaa3affa92818ccad67c1237895fb772`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039937
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 41. `0x58358d063cdec8a731473ff1091f102cd910343f87cd606f201dd66ba77282c3`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039937
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 42. `0x63e3a03ca531fe32d330417ce5425aba0bd5526de5357307462cdad9950db255`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039938
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 43. `0xa46c4104232610df175b29d2187d21a13d5fdcf39f39f87af20634187d6fdc52`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039938
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 44. `0xac64e1e09bc602f5aae8cbbd5572b84e0d57d3b8e9aead0c7a0176b966ffc556`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039938
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 45. `0x43a8f6c2198002a70bad870676292fe73fedf32d2f261c96a496573ef6fbcd44`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039938
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 46. `0x65c6ae5dc2a3262601946f662786b88c0568e2b324f7e0f9e6c61ae48df618fa`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039938
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 47. `0xb23b394973c12982b5847d091f309370dad2163654c2ccbdb5e657189b663caa`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039939
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 48. `0xcfcc70b4023cfd9010366312ae613b2d6f96dd4aab50841237b298654d8c2249`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039939
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 49. `0x9600fa9c1b0356f3b8d17d250ee654e90cf9e41b187c63b026a1e3ed028462a9`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039939
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 50. `0x7beb5fade9086dd816779a1a09a7327ec88dca8824e214402835377d87ed708f`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039939
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 51. `0xfc99523815fb70d12fab99399e7215d3a2c979e0dd29fed04915d93542d0de4c`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039940
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 52. `0x3c9a84335eb707d94fe288d949265ba2e1366e6fa47fede01f2fe3fe99101909`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039940
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 53. `0x147ce8c00f28923c532ad759e276a966c19a360531d453153921a7d2c31bde93`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039940
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 54. `0xc59129b69fdee3479c2df975b782551327b83a4f5bd090b515024f2a7c427b93`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039940
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 55. `0xa88ffb79d058292ec377b2b6b891765d03780015ca62dc2d9dc1535af0899e4f`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039940
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 56. `0x16e18b4a2b59f7a1429f714cc99cf622b2fba30273a9aa47ec60ad8a781187e0`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039941
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 57. `0xc74611b650886b52b8a04d1c03a785edf4f8047c1d9cc1844bdf1061c8917d7c`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039941
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 58. `0x6458ff7c57c7fce1660774b27f86696833fb94a89feca7e84abd89a60a4762a6`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039941
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 59. `0x06a98373c44e6e0e66d8980f7e9e105f3041fa84da2ca8c16086be5a563e0848`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039941
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 60. `0x462dcfd009f6bde3a95548af6a428157f157afd945558fc174a46fff80625e2b`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039942
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 61. `0xf00e1044c61a824de13dc17e5a3c4b9afa4640cbf7d6d9db0dac891a888b7635`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039942
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 62. `0x2426a6f5de16e138b7ba55a0d4147d768b59b7f64e0b3adeefa98feace774679`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039942
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 63. `0xb1d1c0f90c2edabfe9a726c98906bd362c0587753e834e04fd631754796e4739`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039942
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 64. `0x42ee3516e0305e0ce2365e0cb35721a4ecf20d4ba4cc8635be2f27f01a8869ff`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039943
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 65. `0x4ec1afed33cab04e60f57e765cfae06100318af7ac2ef6d42c16e4f84ced8a55`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039943
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 66. `0x9599213fdd827b377344cb321c2c095219085a56a58a94b2a66745a86514564c`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039943
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 67. `0x111bed5195afabc8082f462abdf76edf55c91c5e994524c6cf9a3d07ca35203b`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039943
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 68. `0x7ad046dd15db1b5f0ca1301631b642ec3383fb7c0a740301fb68c7a4bc332ee8`
+
+- **classification:** unknown
+- **timestamp:** 1780869219
+- **block:** 47039943
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869219 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 69. `0x324c9a8c5722dd52a2bcca62bd34e356b20a0e845a81c8cbdc8dcafb72eb4b7b`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47039953
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 70. `0xf1f3d09e88843bffca9049224c9f5fc42b72c80244e045fae2641ee47b353bf0`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040044
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 71. `0xf66f280468e06cae2ac37aede7641e29a474193bba3a74894feee2f588c1bd28`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040044
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 72. `0xbd84e141a817a865ba4ba83e56872cf4b4852df5522efff3d9718c1271ea7bfb`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040044
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 73. `0x38c53c5c4c10c5d66f604dbef7cca1bdad322467423b098a623cde05134dcb47`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040045
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 74. `0x3e1f1da68652845e3ebaae57499002661133dc40dea448f4944043e6c4b416fc`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040045
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 75. `0xfbbbb41724089ddf46768e9de414fb42092d98884d40fb15ae93414620960322`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040045
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 76. `0x28d9234ba28b508b5bdc40bcbad63a0d29be398dc7344e9e3b9be9dd97789365`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040045
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 77. `0xd5663522fb563bf874e7ee30fef19ae9ac32e543075c7769b477a98a41b64f15`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040046
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 78. `0x0aa5d2ca277d88628db0daf67e51d8d6f2d0f784e66bea47936437690abfc540`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040046
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 79. `0x4c70fa39fb87651a4018c6e2710a75fe93c37af701db41bad37892628b6bb109`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040046
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 80. `0x0e2d5ccc47c02f1018ec9e191cf74b887615209b4761626add6d7e180df2e265`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040046
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 81. `0xc545f7e3a3bb5c824fad24129b4b2e7c1448855a4e2888b9b03b348b65f99fe6`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040046
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; NEEDS_REVISION verdict disagrees with sub-metric average. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 82. `0x46babd5dd9c00e937b9eaf1b714866154af1f8578a6793c635059fb5707490b1`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040047
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 83. `0xe6f8483cafc23d88ba92e79e4fe9d3838368675b37421d8caa4038217402d18d`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040047
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 84. `0x53c8feab9547e26092da9501ab89836a4220ede9e726af8db4f91ff37fbb1bd2`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040047
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 85. `0x4604067405b29b673d583163f9008e7feae8933a9516990c14b1ae63a0a3b1e9`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040047
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 86. `0x62e69362ea4f9f0c91b16546c7ca06c8b6a158cc7be76b62c4c34c9e98d91dcd`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040047
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 87. `0x3dfc7fc7395ddec8baa2d112ecfb2fdb8e351ea30fe155242f9848b54840b635`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040048
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 88. `0x2eee1715d7afd871df2c894edc7f083f9c42e7c5b46df8c18d922e4068c19905`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040048
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 89. `0x4f85386105d3af7bb2e0de93b53218cfa85ebd376a0581dc9bd29dada43177f4`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040048
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 90. `0x104554355fc5d3d33b71c384ce03eeadd3ac501f9d8713177e336900acb09990`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040048
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; NEEDS_REVISION verdict disagrees with sub-metric average. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 91. `0xd734460ffd7b301114a5147476b9168fd35025519aef634670981c31a802529f`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040048
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 92. `0x73d76bd012d82d36f248e663ce57c933da8ddb45e26e9cae39701ada4f0839d4`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040049
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 93. `0x1ebf4c2c1ce386d8c9acfbfad2d3b73e9186482e23bb35815a17cdfe517e6fbe`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040049
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 94. `0x86f4b5a598e9bb7bdfdcb59f92650a2333c6270dee8b035619a0c62e58cbd90f`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040049
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 95. `0x05cd3bcd8fddc2535e03b87ec30a604a426fb890f3c5afeca2695ff2c8d32b1d`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040049
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 96. `0xf0e09b10e54073f509aa16fefe2e826096b222981b1e49cf12aa3da2d3ad0f86`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040050
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 97. `0xdbb3802884c4b452776ec28a73d80b78372570222a69a24d9ea83ba0bfe5169a`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040050
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 98. `0x96db9868fca1b7f6847ee15a5ec81b36b92eb61037a679abd32a3e3523b420ad`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040050
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 99. `0xecfa73ccb6d834cbabf22063e88eec6ce13c6f815ff3b63e0bf06cf5274fea48`
+
+- **classification:** unknown
+- **timestamp:** 1780869433
+- **block:** 47040050
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869433 is shared with 29 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 100. `0x488b970ae8d5a7c96318c2c733f9d5f455ff63302c247b56de3595671609fff3`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47040186
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 101. `0xf0002a80e58d71d4927883d77b2da59d174360a182c8c97bd7e7e3ae5dd3f212`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040318
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 102. `0x33702308599baf502f9c4105d36d968927d7d23b0c4d17a70f8be0fca075e511`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040318
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 103. `0x2059b57e3c0f26b6abad04487883822ba9bbfbba2779553bef163047aa20fdaf`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040318
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 104. `0x9dc1ae2de626dc3bf091a5222a0e4f9a5df4db4413fd3e5e7055736cd04a5275`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040318
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 105. `0x3951e5df68e8d71907e4b20ec3073bd86d9d327139b79784c599a9666094987d`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040319
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 106. `0x8698e81119fc7d94f4e40840075e24eac21960de2eb431849f666879b2464952`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040319
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 107. `0x56cb2ee117af1f4a5be18b516335f51fc70a6a45323473c46a2b7be8e03530c4`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040319
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 108. `0x579a58d71b25a42fbb0bea6c24b5392c55f0c1c53d0542c5e357337baea731fb`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040319
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 109. `0x78f9a690df291294b008e65796115533f140e5c35e6ad03cf5fd23c4c3b51e0f`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040319
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 110. `0x04d99df53fbbcaa9e76be91a9663182349fbf1426f8f0c53d8d11fe1a0919cf0`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040320
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 111. `0x245948bbdafb7f0d7884f8b365f49043c52e72ab0f1fa546e46c71273f60fec5`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040320
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 112. `0x74f45d40080da9043a25238e5f4d4b3781a32ff5ec57bbda766802c62e3e9f63`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040320
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 113. `0x1bae630d8b259974c56272cce97c718863b748ff49704f442c92459df58742c5`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040320
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 114. `0xd2a8036d11e1cad41979c0c45f69868e6c371cb5a04654e438a5e2ab094ade17`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040321
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 115. `0x837a96fdcc9242ee6149a7d5081047d9fe42224397fecbd62c69c8490aecc3e4`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040321
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 116. `0x8012c6fc3a6f443d75da593268acad73e372c81926121c00494ed3940339c17f`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040321
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 117. `0xa60f9ba81f34f0d3e7254851d639dfed83453e16fbd82f8f67ffd386d2c0cd87`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040321
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 118. `0x16759fbc2077e73911cd0b6c3ce6b314aa435957aa56d5f3796e3fa483f6406c`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040322
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 119. `0x2bec5d86e9d589439ab45b48b7507554de7a40c654c7c4ed286a6e794ad99add`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040322
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 120. `0x7f0adfb199bfde81559c15552455f82072a70a3e89912940bbde0cddf075c90a`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040322
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 121. `0xe6d2e861704abe67acc8d0e6e2db1a805c15f556910733abde91a93ac179863e`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040322
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 122. `0x29429686bf3fca47281a632672e20dfb962e07c399413ba1435a1abb47120005`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040322
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 123. `0xaaf9dbfbe1019cd48132c123aef2475917e561d23b95ab7ac3cdb02552b70302`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040323
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 124. `0xeaab91c0622dce0d58b747a6cd76dd15b76c1ab24ad5b0c95609a1c7200c4633`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040323
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 125. `0xe0d55dbc4471e688abc8e546578d8404787af0a1e30c75e498cf93db60c46e78`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040323
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 126. `0x3179b09ae2ef1349f5c80a21f4effe982a252b648212a47798ce8f798df452d7`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040323
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 127. `0x6dff3b1612cd1ccc51396a9441112d2956e5007aa821b756e0833529a60c8063`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040324
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 128. `0xd86d13e567fb6500678db43c75e99d05574996a7240d07a894027bed93e31492`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040324
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 129. `0x98220d52939fc1bae42d3369618ed402b7f1ab36e231946d866c4a187d42cf88`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040324
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 130. `0xdad2c82b14bf04b4703b7a7fedcb591790c73a2644683ff10cfc2f3613b5b1ac`
+
+- **classification:** seed
+- **timestamp:** 1780869981
+- **block:** 47040324
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780869981 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 131. `0x00f1c8a4f38d3f78c74d49acbf7ec4f516c3d2c2e54a20758a3ea60b6349bc41`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040330
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 132. `0xb939414ff03c15fb4c59b76ac092ba97925c780ea63073e442c4deaa1131878c`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040330
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 133. `0x205a994cc3ed837ec764f402c7f7f5a98d5e35d088e3ce37e69ffa042c2befaf`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040331
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 134. `0x31e0852aaa920a0b898ff882e021ef0388f283dff4d9fa28717637c26a87dd0b`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040331
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 135. `0x0dc410963aa5f2a0a63afc384f40aa727c4898a65c391753489691c559af7e5b`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040331
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 136. `0x4890f2e55c46c66e657a0ffba647adb98a0b93663be2a16dff8bac88bb278eac`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040331
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 137. `0x0618ac033763f94c3c5b4614b1d10d9d824bbfce93a12cf562cb66317f31574c`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040332
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 138. `0x4abece14e69b0b51646f3e659bfcb8a218ce8de244705be15d559d4d6c65b40c`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040332
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 139. `0xb1096d0006795f8b4c575050f452f7146498a63cde55f1a2a746292156721639`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040332
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 140. `0x8b0ec2029e37f54ca0a5a17c5a03969cf6eff9ba245f296e036e3e0751ae718f`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040332
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 141. `0xd8bfb001d58944fe8172d8106a98bd72ebdeb49762c64f6212edfcde4af71415`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040332
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 142. `0x55d24479995dbbcaa142d59dac4c44e59d5efccf1e2b3e83d7eecc299f49c323`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040333
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 143. `0xbd244a735419ad1e70b7d0edb9b2a44e706f4fdd8dc726db3b3b7a57e3fd6fe0`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040333
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 144. `0xecb4f5e793199c7dc15008b32b21b33e4e2e15c919deb3589c218e9370797849`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040333
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 145. `0x528cd5d80725e082026558d367f3b947125fecd21dcffef3a08d1855db90de75`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040333
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 146. `0x160dca88a8fe4251ae6d7a2638c80cdc6b8c679dfee0b7d3f1f080a0f85d2ea0`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040334
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 147. `0x013b5991123f04d0af08b5de5e5187a04b0392f3ee966b9a9223e2c9de66862f`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040334
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 148. `0x518cc08bef6b456eeb5c1f9185de7d661dabc076f3ee368294b8dd81d2098ca2`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040334
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 149. `0xe4c9f2890a6eb870788e300addb436b6ca88d675cb0c69e9c3c33eade3ccd8ab`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040334
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 150. `0x958b8b2850673ab3fdfba894187ec8d4a5dcca5b5d52fce82e3093b46ef31a1d`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040334
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 151. `0x17ed73a90147b571271024c689e851d778a9e87ad1b01d693d5de220d4f72fe7`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040335
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 152. `0xc55ce548e55a6293a1955361ac2481d5a97159e81f328f879349a07ccb93a097`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040335
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 153. `0xb69cfdbe7c510c59d84d3c91890bedceab9f8748ed509962ff14d1e563e9bde8`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040335
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 154. `0x819e2e6e95123eb3de3804ad940d864390801243b256d3be6c3959755a4bd525`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040335
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 155. `0x99b13b79792e6bf79b0ff56149d6b16a09d553c4b6d56f08f16179807ff0e1d4`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040336
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 156. `0x05b639ed386dcac551b597dce33eb1ae92b8f8f5ee47a63f4ca02728a9fd48ae`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040336
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 157. `0x48d01dddd1e52106ead921fc7611f0774b614cf6b6d26b6a712a6683c85fad64`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040336
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 158. `0xc8cb823f6ea1c72825366c4a4a91089b7ced9f78a6d4cf35a7f86799893867fb`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040336
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 159. `0xa8f8cdb03958fe3666ca46c92e617e265e507909bbc56a206c740d9b0954b849`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040336
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 160. `0x3bb8afab450051b955fb7ce2eebbb08408fc7a36499194f3717a60084fd89c0f`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040337
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 161. `0x105c92929a7e37b71d00a9adfb2d7a6407a7228082aed8e7d4aefea8cf5ea1c1`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040337
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 162. `0x10d2000a277b31dd7d00200274d4e2d0df5eb194b1e7524514c2bc15e0f1e12d`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040337
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 163. `0xc2597225fb877bacb0c8763e2997590beba56d439d3fae56e60f77716e69ce4b`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040337
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 164. `0xe10db8a294edfa2ee40cd2d58b69686be87869afb9700b29678d00a141e20bf4`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040338
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 165. `0xb82a79a763670bdf2093b95ad22eff2f38516b07112974e5567b9beb1ca2d33c`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040338
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 166. `0xd056cd389dc00fa679506884a2597045d107dd0d99b10707763a96916e06dc0b`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040338
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 167. `0xe4bb2b7e971d284190a1a1a4d13f74b59be44ca19908fe4d3199c9bc17cf838c`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040338
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 168. `0x0ae07a98e957816a004ac8327e688cbfb8cc242265d1838a8397dac496de54e8`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040338
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 169. `0x77428390b2538945227a62d09b74d295d19ee963d6ba7cfde49300c9fa90dc2c`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040338
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 170. `0x16e02ff9756e60a69b4835a54a559294eaba75df6ffd8ef97e35a9d6bc9fa751`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040339
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 171. `0x16b7299657ee06cfde42b76b5083010d5c92772fb60cbc82ec50b52acc1ed5af`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040339
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 172. `0xd516489b7f5e19464415ce32829c4148df038dd0ee20f77bf913be933c85de7e`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040339
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 173. `0x6e94983b25029de995869f566625e81376486b83fac4fe68b66395571dc7999d`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040339
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 174. `0x6a56ad627ffdb6161d8d74e1eac8dc50847de307c05d3e44db5ab81894638212`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040339
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 175. `0xcc1d99ffd93efaddfa7e176a6138670abdf971938b13e4ea72de2784cb1ccb1e`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040340
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 176. `0x65d37d0476e37fa8a24eea641d506eb3d3cabc6da102cd923fcafa2d44f2f418`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040340
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 177. `0x236b581cbee5f972bd35cf79ead81fd44777c57290851ebc43e18043ecb5337c`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040340
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 178. `0x5a1f08efbdd1119e988137842a0c519fd9ae8af47faf746da607cacc3c2e1127`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040340
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 179. `0x4e70df87ed1d5dc87c8e95c6897af2d4f6fa41196526ca98e3536a242254df3a`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040340
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 180. `0x2bd7f6107878da8ac84d8236ec97a8e8b36573a3505f7f3ff432105c28c03217`
+
+- **classification:** seed
+- **timestamp:** 1780870005
+- **block:** 47040341
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780870005 is shared with 49 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 181. `0x18d19c6c06f8a62689cdffb3a554ad717903ef70a310667758ecbaa611dbd001`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47042645
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 182. `0xd7538777eb3b03b76877dad6f9d64b1c83b220bf197e3000b8f7b355c0f64e3d`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042964
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 183. `0x0f347221912b1ca6579cd242a009ef1e3426ad8014ee0f2a41684c5744cccd41`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042964
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 184. `0xbd29d0df693dfd741e2ebd333edaff13e49d2470d69d632dea2210f274c1c1af`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042965
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 185. `0x3026f496475f9db7dce810ba8a3a12ca86e3be08a382f34d27dfe69aff1e7145`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042965
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 186. `0xbfd0caf07a8683c62ad7879568e911305723236d3a296707ad6acb134e3597e1`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042965
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 187. `0x8e85e823e4d649e39547c5bfba91dc2a624e6f2e512a9e97e387d0bc1eac6eb9`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042965
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 188. `0xda0a55681bc135461c3a74aa289bd4c1bc45ad571eceef309fa7c29e0569d7f7`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042965
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 189. `0xda73e9a307847891097d77e4472c388d6ed5ebe793dfa9dd3fa33e73de35735c`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042966
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 190. `0xc2b8376c7eeb87a5876649c8f2c5bb0e04494e3f2becdf7f245866fa0eb6e822`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042966
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 191. `0x4fe1a6614ea7cd0bf3d9d929e74c3fad369fae43013ad2f8938fc5fa3f2c998d`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042966
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 192. `0x3435b3a3965f02fa43514ed606887cc57866d3f1c581bb64820f1f3412d973e2`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042966
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 193. `0x8edef608ed8e2f75b4268e5e46c78bb2eecbc57157b8c955201e62b6ab8ba5a2`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042967
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 194. `0xb2810939f42ee2f64c79e4753a4e55ea16ec10c9c6dc4dcd188a4488859ac761`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042967
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 195. `0xe89de5ba4a11a3a557956efec3577dcd1182700d76b0e515f3f7e12a365df113`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042967
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 196. `0x5ba4a9717548b2880b60a76dd1bddd6fa744aaf14fab86dde736c5c494ae937b`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042967
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 197. `0x0ce370547e541d5be9b698f257b73c4f22dd04d4df73f8ab606e11e9120c4c13`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042967
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 198. `0xd5b1b3ccc8f86e2764d3ba5ad488ff23e82fcf955dca965a71796e02e557a6ca`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042968
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 199. `0xf8b0f281a7c12a195c76b205c1ca23abc94616c819cdc12f69e0458ad0acfada`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042968
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 200. `0xa88278b9f276bcc87328995d63df71ae69337ffacca816f29c7db6be2c4bc5e3`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042968
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 201. `0x647fcb795c2a5ef3f2854be70fe03139128b580fbdc4a6dd5d511064330acea8`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042968
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 202. `0xad1602b65f72aa2713eaaa8b5b5fcde15533ef8e6e37c3e4fcc23500760906a3`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042969
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 203. `0x527505915bb3c1e8313b389730ea8173c7bd05e2aacbfaf4b6da4001992373e2`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042969
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 204. `0x09f91991c008069ad32da4e98e251bb587f7bdd4933a08ae26cbfb07a07127cc`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042969
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 205. `0xc5b063c447e0e9a7342baa9b8ff48854ec4c09257081f9e942f92ef8f1f8f7f0`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042969
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 206. `0x7d01e2ea70d8dd9def0eeb2bcfad88cfc4b29cb4142c87788aa6e2d67eec33e9`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042969
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 207. `0x8ea66590dbba1892f3f88ce4919a64814017e82af983d255fced90b00b93ba56`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042970
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 208. `0xc0fa5b112dc43e71d4e3797ad3e2dd6b4be4da49b520115b90316d65b1fe55d7`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042970
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 209. `0x9befceb79c4a4abcff822566c96f4456cdac906170dc27184a736a8ae8d7b641`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042970
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 210. `0x699bf7ebc9b2c056aee5364987a89307ad4a39346cc6df098d7bb8f3586374cf`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042970
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 211. `0xf3c338e3766926b9878ba0d3a410537f9d16635a536339050d0180e0e94d6bb4`
+
+- **classification:** seed
+- **timestamp:** 1780875273
+- **block:** 47042971
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780875273 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 212. `0x66988d5d0d25482dfe189fe598f6d9f6fbb447495ce9e2d39dbff4006ea81ab7`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47043183
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 213. `0x7576e8d717579b4134b6beba87df0e0493221df0dfc42217da0e6ea2045fdb99`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47043298
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; NEEDS_REVISION verdict disagrees with sub-metric average. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 214. `0x08a391f518adbe128c637c642bc17c4271618b7c6acc920428921ae8eac07008`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043418
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 215. `0xa4be76fe82b653a53bec74966701de64259ca3c4f0362a532ef58db264472cb0`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043418
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 216. `0x989c06bf709e2f327721ddeabb1d239f96e7ae0d197e7674615dd5b1f7f04832`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043418
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 217. `0x45773f4a323005e60c6478b880b6b294981e5584088fa179272c000addfa16ef`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043418
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 218. `0xee967c04c366240fa2b0ff012c70220bdbf753794a61796457a58e511e2f0e50`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043418
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 219. `0x426f644abb8593e0a8c556defaa8dbd050456d69be732206a7250f0e58c96b36`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043419
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 220. `0x0d91c78ce413c793dc24501f9d259a80f5560bb5c4b6f05c82ede977cc322d4e`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043419
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 221. `0x66fae2beea8735981526e4fd451a1c6b4cbbc64afe2e90870a52d2a36a017a3f`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043419
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 222. `0x3d2459619558bb23b31348f33bfcf023834356182d6dea9ed096d546ccdfa6c0`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043419
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 223. `0xa895d63c2f2716b8325c164a33818215781dc7fb397f30f8653703d27c989b01`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043420
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 224. `0xd6dc67324103d67f0dfbaa35b9d140f9ccff69b7538808683d3cd63870f4a49e`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043420
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 225. `0x6a6671735068382a549aaad3e101bf454302f7d01ca883f07f63b2812425405e`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043420
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 226. `0xb78ca6e9fec8dfdfdd7bf805f8292d12a11a7942d0d651612965c2d78b1d5eaf`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043420
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 227. `0xfd982e1f6689cef5e4684f2c534228b1c6ab3b0dcc2adbfb8f19e036778c6661`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043420
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 228. `0xf6a4b168865e0301ef955cc6c877548424709009eebdaecfa00fa124a86bcbb5`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043421
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 229. `0xa526ec7edd69b445c2a0d426d586e1e444197995b054dbbc17d4f22913e1dd0e`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043421
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 230. `0xfe12401abf63b008b18a12d6c6a58e6ff46ec488ee8420ddee2ccf4d9ec76005`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043421
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 231. `0xaffaed8de30589c2afd11174b4329e8af7f29cf004e4846dda235b304db1d26c`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043421
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 232. `0xb7017412f96f27c84a39dc2641d97d618dfe32f37a0b4959f357409d8ca325af`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043422
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 233. `0xef8fdc34d8eb45d533f1734583fe4a997ac6fc130b875d76415e096772388de1`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043422
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 234. `0x3a93f017bb798e2e0d4193f8feb5897453c33bdaf1d57976d8b1ed63c1d43311`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043422
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 235. `0x71fbba2a0a5384d097955b0ae9c221c9e406339fed30548a9ad82dea5a5e916b`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043422
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 236. `0x28e9b579fd41351b37d28e2c24f49a87a808f7b4f848247601c07e04cfb8e225`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043422
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 237. `0xd08e36510443c4fba3ad47e25d3fde52668df465eb8f5c2360a13b69f1b2298e`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043423
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 238. `0x20f2d8974894d2c19a9be1b8f004ee7450d05ba59ea9c9ee5bd8f9b7371aa377`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043423
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 239. `0x8a1e7bcf49d3fc36a813fff48ed1e450300fb047d0c3c4849585c77be14a6484`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043423
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 240. `0x8198aeaed8bf6c41468a9904d465398561c90c9315ad56be53c1d370ffe08478`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043423
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 241. `0x2a1a39bd49879a319719b075d495c6ca1c5fc204e2086bb52dc1d2472fb20294`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043423
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 242. `0x2a822052496fd97d6d2eb3d72f0f0f96b0479c1ea893133f30751fa6e1ed0c4d`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043424
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 243. `0x15afd69156414df55f50b95596dbac73c66d6ff6eab86222d6703fab5dff048c`
+
+- **classification:** seed
+- **timestamp:** 1780876181
+- **block:** 47043424
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780876181 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 244. `0x1affeb789ce454aecd95f9ddc77989ffe76efba8cb1bd2e90901825f55650348`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47044345
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 245. `0x5481c7ea55b5073313cd8a1bcf6207be3acab38c6b9ff49b9fa0bf99acaecdd4`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47044430
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 246. `0x1aeaffe4db5265f8fad454bbfe91d97bca314e6a34ddf5bcf07632a76507bd62`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47044487
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 247. `0xbfbfa8f1940004dac1377ef8478da3cce6667d5ebff5f84cb69df5b3e1840fba`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47044869
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; NEEDS_REVISION verdict disagrees with sub-metric average. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 248. `0xe3a530a3f65e37c2caf71153f2299c92bbe636ca8442ebabaca9c87084c40f98`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47044882
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; NEEDS_REVISION verdict disagrees with sub-metric average. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 249. `0x916cdb830fa1b3a94c48538c0db06555bad70a92c6d516dfcf8da8df8f87a95d`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47045320
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 250. `0xea74e3e55126606fa35e8966f8dd06c0dbd24ddbbab2ebad4c5bbd4c0750f862`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47045648
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 251. `0xcd3d7c06ace35ef43757753afab7810732003cbbc9c972af3b0e8a771e560b1f`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47045775
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 252. `0xe0fa5d99ff214e9aa8ae6290c9cd3199ef27b0d4942a138fed5921aa21497504`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47045836
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 253. `0xd269f7ad4adc8cc8a4526fe227aff7659742b08023ce42d5232a5d0e7c2eba4b`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47045931
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 254. `0x27bd892da5d52234b26ac185fea87ac031452bc86a3e51d98a1eabece2ee625c`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046377
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 255. `0xb4d26c9fe34345f066b985d40bc077a52f8957e1c5e699d365029daeea66c540`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046377
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 256. `0x5f1c1dae6548c5f504f20ee90888140b32f71d9361687c6d633c8a79ea4d96eb`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046377
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 257. `0x52ed74de5a2f7b767fc79401fa4816730b3173fc48a4355f28e5dab2e513bb7f`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046377
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 258. `0xeea83dd5267c2f088a90c904027b01b3042e2e7cb1895814fd4dee4d6c5c45f9`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046378
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 259. `0xb8c98bf9c7b189346abaaf189b90fcf13be8d31194a6a419d84f1dc830278788`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046378
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 260. `0xfb6a0d471ed9eece52d5c51e588cc40a6b7f442287a5c7d84074fa9784e50a58`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046378
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 261. `0x28eca5dc6028b4c19fad1e3f8a0b33de53cbb72bc687aba61bc0e36aca6b036b`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046378
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 262. `0xf5a31c797f8f04951c51b2faacf1cf86040383d5204b42dedd252e6167a31437`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046379
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 263. `0x91d023bebbd3050b7feede528ee967fc8c7d06ba278e0c952ba78ed49fcb6437`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046379
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 264. `0xec283471b7b3d40fafee1c939fa60966d465ef000382e550e53f37ef69969db1`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046379
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 265. `0x62d888f20b4a76787ab4fe366f032c24cb73d3d0f6d233f37529a9f81d3220f4`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046379
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 266. `0x46ee70144d90438fb89643243280440c3a0f7813296a2d4b9335af33e41c2b9a`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046380
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 267. `0x4e7f0662838e7d3b0f87d2c7b09164637963d96a9d592af77962de60fd759d13`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046380
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 268. `0x20a1550b48531bd166c2a66c0bb2770f383110f33e732166febc457e43acc769`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046380
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 269. `0x0543c18953924348c3a8973ec53b4433bdaef272b007a6583724b104b84e3afc`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046380
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 270. `0x931d45737f5acb2e4a93647a644b3c0950876f7373c47d40a57a74b3c02d01b3`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046380
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 271. `0xb55bac31a4a5fd5080ff1c03e54a94a1ddbbf32abf55149439c064fdea2bc6fe`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046381
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 272. `0x2aab40a0d07cc41d0cb50092e3d7c876862616d5106798f402731719c1beb180`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046381
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 273. `0x1ec5bfda6d9f2f338a677cd4fa66acda9371b7cd8a76f3d7f82cfe683d02325b`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046381
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 274. `0x7e9249039f7fb8e584b67ea15c977a0c2122f1855f7e48151dca754049004147`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046381
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 275. `0x10fcf830ee6f7ff8883af2df34cb0a52fffe8e72f40e3fb8598cdf2a6de55c9f`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046382
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 276. `0x459807cbb209bd412c5a9bd4d8a51cadc41c897fa351eb4a069c88328a9e1b2a`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046382
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 277. `0x11b0402685c52063dc97ec18f7dbb57999ba9628a0c0639070a812c9723e198e`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046382
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 278. `0x5f0f2062b6117ee1b4cb5fb0599d3a2bcd2844ddf98383dcb46798e9da410459`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046382
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 279. `0x23b71544cf72325d29a47176b2fb0541df35782dc1732ce24990a4f72bcd3540`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046383
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 280. `0xf0c535eff770a681ca45f23f256f6f23186ba8f534430531cb9b5c2ed17260d9`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046383
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 281. `0xe1868ac998ac7c0d16d1b3f7c705df36338adc3024407dd6dffcc74a03306150`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046383
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 282. `0x5652fb209c6026724e220bc09351db4437b8406bf76a617974725a868d31264b`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046384
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 283. `0x7ded5f2a36bf46994c57574ef1786da7b8894e88c898172171e4de15e18da855`
+
+- **classification:** seed
+- **timestamp:** 1780882099
+- **block:** 47046384
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882099 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 284. `0x7575b4a5fcbb352a2079e7566eeab1df03d745f2036f926507a4e766430028d0`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046387
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 285. `0xa309d0f206bf26b15dbe3c69191aad5fcb7de34031a2f6006bcac1413969e7a5`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046388
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 286. `0xcdb75bdfe6c6d9ab5d4c600161d9ec62849afc9ec6f14849ca86002520a40037`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046388
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 287. `0xd778babe775d38b272df4c3c9dfa2098e5276196d3318f9c8c1e0c5cde29d676`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046388
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 288. `0x321889327037f31765ac64ad366cca5b7f9796d51e632f6a19eaa928ca8e88d1`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046388
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 289. `0x23a5069e03c750d8f2ddd0c81aca9113b550659e14d1c98f8ef7e98ea7288bc2`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046389
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 290. `0x5feb8c509e04a1c4830ca81be1ec918a42c883c7b2e45888c614d4c34560f5b4`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046389
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 291. `0x4ebb6cf6aee2253764e592283dbbd3bbd4e58d2f7bdfe597bba17da7c86ce032`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046389
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 292. `0xeb2cf0af0067b0c369599d55cf4b5f9dc1e12e6d724c2375311462ce70a418ef`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046389
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 293. `0xbbc5127e91179a67861d72e62aa6d0c29c709eae6a127ba5ab41bf74eec6378c`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046390
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 294. `0xbc81ef98d1bad8596db020863f3508b15bfb26ddbc4a475a66cc8b5cc314c582`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046390
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 295. `0xdaa4d2601ef9821821f3f4a141bf201a81a4edc30bb6c4dc91620233f9473641`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046390
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 296. `0xadec86111b99c310c2ddd3f0c41a9134296ddffdf88348f48a2511531621ce52`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046390
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 297. `0x27c295ddd8403950e1403116460483d009a2a28b4928e44a83ba43faeb412bfd`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046391
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 298. `0x80236a28519db628b59cf00704635352f09a6b997f4c6f830aba38fbcc8fb006`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046391
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 299. `0xedbbd3b24a9337ddb9b911601d9b6676d370151adfff8978d0e6f95206cc3827`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046391
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 300. `0x03289cda582e47e696da897b0e3ccdea21e480fe2d78a1a3b94c754df4e38e42`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046391
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 301. `0x726c2ed0ce3b68c1196ce3d23355836bd20f19e7c12813fac2b320de88c49bf4`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046392
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 302. `0x7635afde769b942999c6cf935cc0023bbc70fc03abfedd71086eff9af962d7b7`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046392
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 303. `0xb74817bf14a9edbf24c619187c84762d824c694518881bb50e689c0d3c52fd3b`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046392
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 304. `0xbaf17c393e5a3543bb811521b008b2a816ebbc20c1e69a50b1d8522bcafeed2a`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046392
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 305. `0xc70a9979108544f17d9c18f9dc444919d0fc10294a170ce9b264fc4bef4510b1`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046392
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 306. `0x4006be628c8ef3048b57f0fda49ccb5d868b658e2fb7f5b273af6519fb7af6a9`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046393
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 307. `0xcd0fbace05deba2d1553d8d32cb7cacac283314b2339d3cd164462536281352f`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046393
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 308. `0x867ae85e639683b39b4030d117d5540de9900096f08fd8da7d896f632197e5e5`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046393
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 309. `0x0e444b5148598ea7b2b08409357a43a3e5eb0812b1da87c8bcf734cc71b22057`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046393
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 310. `0xaa57be4421c1d535a0e4789efba20adcf8484f695a3fece0fe841bbe22ea1847`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046394
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 311. `0x0d02741fc5ec42cea352f4dc3b437fcd2583e1e7813bef53d515eb781cac8fbe`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046394
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 312. `0x818b57bb3810effb900698d55c8a2b45dce53e8502bee632156f510cc48b4715`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046394
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 313. `0xcbad1aa8528c4464d3731a7bebcf113122b608314f08085229876745f67338e1`
+
+- **classification:** seed
+- **timestamp:** 1780882120
+- **block:** 47046394
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882120 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 314. `0x816ec9fbed7c278a48938eb14b271ff51f5d3bf361b07c1b0ff883230528efb2`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47046457
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 315. `0xe6552ced01eb482869ad0f72d6b132e9334406bcb7f2020b029ff152661b6674`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47046478
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "High" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 316. `0x30b32cf05eac39069600c2c7086724010218b35e1d7ef37f376ced471e682bad`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046491
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 317. `0x7f89d9ca46d4c112967cf4124732f03dafb1a4bc985f631764bc5860a8fa1c84`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046491
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 318. `0x3caca44b1e68b7de970105b555fce113fb3412c49542bbda21f013d31502f162`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046492
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 319. `0xe5d3445c7f28a5101671fd4893cfe6ff8f8ae9a03f7c7cc2b4dff216fb6aad5e`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046492
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 320. `0x5046a6c5e82d50f750fa522819c1aaad13568acf1002359fdbb8ae861a59dedf`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046492
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 321. `0xc3c97a75174bb452864cb70a7e0e9ca2002ca49b986a66914247d649d8e30fab`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046492
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 322. `0x5e8fd1235e4618feb785b7471c5377d53abfb14eeb54eb135bf7f4e24a845ab5`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046493
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 323. `0x7f3c010d19baa131b6c9cf2cbc2fd4f311be4fd9abeedc28f5c0128822f30f87`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046493
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 324. `0xd70c229105e368fd361b0430f42851ef40d38b59921999c69ce5d5d59e0e9639`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046493
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 325. `0x116a6596199f1ad495cd66541ae556798563844b36d37479514c8ced442ce64a`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046494
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 326. `0x89e375b2aa6743f4c1caac9f7f00e71ceeb1b4586fed9870654b7fb6ea9a7be8`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046494
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 327. `0x97ed10567b8a867790db58cd757910503da8c1f518f8f8e512857586e3f56281`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046494
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 328. `0xd147f49e0e52ef8b44036862791ca049453e407e59ed89207f28c40bf208a78d`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046494
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 329. `0x7a1c3a204955cb3eda3e03dbd5fc98b5581e2698c220b876b0442a094354be81`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046495
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 330. `0xde2658c39a011f2034eb1167ad522f9555b39fbc9864c2d4d4d57d0a15ddaaa8`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046495
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 331. `0xa07782c613f123e2f75c68af9346652ad69c04ae1e0c64333a50f7a9ebafc3b4`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046495
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 332. `0x1d62f4cab8b58552e4a17b0042ae94478150b7234d820e645464d1c551eaf1d1`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046495
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 333. `0x25ad9a0c575f0ecab5a1bd1c23da5a60c9113be9d55f87ef5f5dbb1195280db0`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046496
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 334. `0xb2c82f835e8e4b266503159b0d875e9688abf14b9a1ef9e8276008c76a132296`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046496
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 335. `0xddb33fc8ba5895ad2406f2cf2e381c34c2c966710ea5f27de15ca0ca7e8c3876`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046496
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 336. `0xf8725cfa51872d41e142a5de55e4f402e636ee51b29b64446f8664b6ab101909`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046497
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 337. `0xa0a7e3d23de9f992b3e338338419b0d1c3dc9cdcc5498093153a7b3d5ea21025`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046497
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 338. `0x93d63095153d2af98c4b8204d6b2bc26a5d2cd289ad2c5131bb9f54ca47b0035`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046497
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 339. `0x0a1d0cbc7178b22b381aefba23d44298e29daa7eab305b0bc9bc4531cb60bd11`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046497
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 340. `0x7538aeedcb99e934b0c51ed5019038711b0ecc9aecc1a1a98305666c4fc19469`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046497
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 341. `0xae8796646d5e0ff818ee635f57dfe111a97776acb0c9e32ceabe4fe9b7f60429`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046498
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 342. `0xe70299292c779afe9ba21ccd4cabae6361721d9fb960e2c1ea969da88ddcca80`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046498
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 343. `0xd591e760762fb4661b492e49cab8456c5dba1cd3c0d7b06e35f245fc8024e656`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046498
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 344. `0xa993f4861abae499c20e5d96d173c1d8893dc323ebbd07b01261fef308f4558a`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046498
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 345. `0x7729007c2719a0a8e289fd481613b695c18540370613bb097282077fc09a77df`
+
+- **classification:** seed
+- **timestamp:** 1780882327
+- **block:** 47046499
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882327 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 346. `0xac2f58f92d1307f6a7db7cfe3e5ab6cebd3678d1687f3da69b58d412734c9c03`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046499
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 347. `0xc2c78145647f389508bec30eafcfc55a9358d35bd700c7d16bdab91c7611001e`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046499
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 348. `0xd888939b7274392d24ee7ea0fd0014f434256193f2df14e29c33d9a6e3cd9278`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046499
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 349. `0xd4836a4ae0a4714ad08af8ce130953f126110f6ffcda67aba394c43a9a2a20a2`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046500
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 350. `0x85030d8fc7a071819f159352c4833861f18a48c4311809268efb46fee717fb3a`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046500
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 351. `0x036959ffaa01c1479ecedd6b7ec76b158aefc13642926d6c6b8b911a56e593f7`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046500
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 352. `0x6a873f11963567a47aa1da0ccd94484f2af8dcf29451146f7f49df61364944da`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046500
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 353. `0xa363b0ff9cb0fd52bcd160c568c15fe84af383f3e696ac8d617ae12de938957b`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046501
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 354. `0x0da570644b048cd357c4a39f58591a49c0b1b21269fb38c930a07eb3c4cb31e3`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046501
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 355. `0x39cf08f0fddc3b0da4774c0897575058a9e59b7d7bce03b6904f912beb2ca758`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046501
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 356. `0x378a22bad0f6aadf26fe95bcbe813a661bc2a00eb7d315539885342aa9de4170`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046501
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 357. `0xef92025532ea1f6257517adc9d32f49fae378baff480dc9e3644e52cd485ab89`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046502
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 358. `0xf814daa9118b437d94c5085c7e86f1d915f1569f76c84c69fd6ca2bf6934af84`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046502
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 359. `0xf3be3b3e9b4eaff4817071d2d189d3fd4fceab76ba590f1f612923840ace853c`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046502
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 360. `0xab0b442861766ee6d5c2e22fc6a3b303ab955f9d5151671961329db424e4110f`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046502
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 361. `0xf09a7b5356f190bb8132be405746d79a8c82faa966b014b0e2dea80ad8c110e9`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046503
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 362. `0xf71c5fe346385e15885220ef3be5acf117149b7762561adbaa1cc62510ebcbf5`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046503
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 363. `0x8c1bfb40e4316bff0bf541fcbd93fa3a3c8c69891aa3c6d5be2927be6d717597`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046503
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 364. `0xa569206091c5d20af88bde5877e64fd3e163d36521d1d4c1a77e4b1ca795bb69`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046504
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 365. `0xaed734b2cd73682e097a4cd406c6e7ffe2f6b3d72ca0a1b66a75fc825f5040ba`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046504
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 366. `0x0b3d2394806c0ba8ae7fc580ae0a917ec2e7bec9251d1f3748e8c9d7ecb19383`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046504
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 367. `0x8577b332c198cb1fcbafc1a4db0cb16f1a185ee166cd73a4c63b184847ad6dcf`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046504
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 368. `0xb07d57e3cca068938e14ac0c4469db20c20625722d03dac10716e1073ec30eaf`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046505
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 369. `0x9f77e44a30e5bce40a04d803187e187008b14e0ccb28d7f2bd876a5b526297c7`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046505
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 370. `0xf9f2cf232f502cd4a4aa25d8b7a71a2a9e7abb7b0524074438b7d9e83468ab89`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046505
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 371. `0x509e2d3fd7c555d09e3e1e7c867c5038371a8788567e21d1f9c168a7912829e5`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046506
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 372. `0xd486e8b20a6a4e73c00bebc51a4f1e1a59b2ef1a7cea08c67b739278688d5d99`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046506
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 373. `0xa7f75b743af77353e495004ce29786ad2fc1ac9bed518b7a26adfee29cc05509`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046506
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 374. `0xf19de42ff1c0c651b7e9d453a97d8feb166594a71f08ba4df0510abc24176ed0`
+
+- **classification:** seed
+- **timestamp:** 1780882343
+- **block:** 47046506
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882343 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 375. `0x927ab55a23a714500a87c1fb87dcaf4ea0663f3b04d4594167918e458cc977e7`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046513
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 376. `0xc7a653c66fa6e17f887bf8c1cae21fad4d3ea62cb0ebcad93805ef7f7d744e0f`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046513
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 377. `0x6da3dc41bd9fabe89f513cae206519ea0af86850a9e2ac3025cfd9bc4c363248`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046514
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 378. `0x74e68c8b3cb559164e857f0bb1fabf2213ad69c9ea06d47bda45f0cd744ec994`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046514
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 379. `0x7267e55a6e03f13de13cd28367497b781cc925635323ebf9f08d134b65dded8f`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046514
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 380. `0x43d1fc4df105630d8a212eaa9f576939afeb5ed0eac3bac1d65ae8932ecde34b`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046514
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 381. `0xa64434e2160ea967eddc69321de6a19e989769fd86cd1659498712a0b3941a38`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046514
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 382. `0xedce250f5545698afbd6726f5cd71335c516e2315b1549ed1ada305f492b7a12`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046515
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 383. `0x8611e007c284b0b45300243516ceee562452472f873ad4b5570fcc9084c0cda2`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046515
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 384. `0xf082af6df167dc7d45223e4c1ac0401939909d723936b1acdd56157ff50d04a1`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046515
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 385. `0xb7d51b268f6d76d2e53c92cb6e9aed7bbecd4b8cf4edb7645614229a00429330`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046515
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 386. `0x683c912741f2142802d8838adac11fc5980e45ec52ece0fbc91245b0170670eb`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046516
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 387. `0xbbbe21ca329e07c98b5a49261c6966b4e981b23bb974486651e5616bdd84b632`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046516
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 388. `0x247a7fe003d105155834a3877947d760330450e7a023894b18f8bdbeee39ea23`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046516
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 389. `0xd628c627bc8902162c8cccea101c845470e09f92db49acfcff937507e9f1fcec`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046516
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 390. `0x56c3bfe5757b9de34ea44816a39b6981387a2d78a35374d3de8c2d9d4724c919`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046516
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 391. `0x9edb6142fe2408756e2e0bcea79b3981b99379496e3d1528c39b10d932d10859`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046517
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 392. `0x73543bbed8996cdcc3d5c49f8c2a5f1154ebc0d62471bbf76f41c9d1ee30eed5`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046517
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 393. `0x7181329eb59b2885d3a56ce9d5f0a8b0b260cffb0d285ab1d92f2b1604707ab3`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046517
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 394. `0x99a36e42cff7fa1329ca4ef96d83de2e405301bca763bfe702d29cee91a803bd`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046517
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 395. `0x16cbe0bb8df2d743b6a1fe643642cac0bc34ad349cc95294b69fcb4f3d17ba40`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046518
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 396. `0x359fbfed47d28c30ed6918275f07bd46b12f11a505072693eec4f3758622f444`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046518
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 397. `0x5e28bbbf424a8cd25cd50dc7c8a525b17b3873352cf9b4ee1f0a44e1efb4d5f3`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046518
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 398. `0x93321332530ea24e4c4115a316c1a7afeb92d4bed641bc3a32e7163f581f6c42`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046518
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 399. `0x56294cf29152c05664d8474535da913c1e2de19335bdb7b32a00cbb6cefa3c0e`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046518
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 400. `0xe057d3ef859d0318d2985e1b95c0866f89281974fcc3a4bf8c7be98141010904`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046519
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 401. `0xe16ea19eb69887e06a885f40fade96fa304956b823f7febc5b63ad32b4dc9cef`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046519
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 402. `0x5f00f0b358c2a01d0e36b1bb798c4a1d5a330300e85601e12b8d50d7dc0fb0f3`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046519
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 403. `0xdc6cf1beaa16d2851ee0316513bcc3feab889e4d2c634c86382eee3d078b0d96`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046519
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 404. `0x0a1924ad1e96ff8e1e4b7a703c737481c55577490fbba6be567235ec58e1624e`
+
+- **classification:** seed
+- **timestamp:** 1780882371
+- **block:** 47046519
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882371 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 405. `0x539d0267a5be267912b5a48d5b5db98afebdf5548eada8f8af925b9dd4ebd0bd`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046520
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 406. `0x23dde3c5729f1a9d4807ccbbdb8bd89479e8666cba4f80612359ea41a0cecc73`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046521
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 407. `0xee29933cb7d6ad291cc9c0be216864e286035f6c4a16b9e41623a0e83d9c48c9`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046521
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 408. `0xb2330b8be75c4c325440c3058e3bd40a7abaf3097438e96413ea5ed2b4d79886`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046521
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 409. `0x69916263abc0620f9d0740d572e61c67ae4b1c909bbfddca4890d3990d609ba6`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046521
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 410. `0xb22b845e3ceca40bb36b63571eab3e75b684c4472f399a4b0df3b6b4676fa8ee`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046522
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 411. `0x1cc064c9f72eaa6f5ff2adf65656433ad47d308f87b56d1a8c7b88c43a8ddc35`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046522
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 412. `0x768c7ffe2f982d600d80d9012286da3b323ce61db9cd0c77751596bdaae8253e`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046522
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 413. `0x95a4c7c78b87b356000bd3fc975aa699dd3eb45b3c856773810c284ca387b7c4`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046522
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 414. `0xdac4581c18597e607fcafb5f6ba65f221ae49963e63955679db21ade3b710ca6`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046523
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 415. `0xa81aff47c0f4aec432c64bab9c0e3f2a425545e7abdfe5cf87881682215bf811`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046523
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 416. `0x9266862b1bf7779ab2a05f28540c7dd203bf4851990070adb46583869ad95ae3`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046523
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 417. `0x293e1c0f2f9f711c19d569adb7ec9f8ddb1b5a326fd7413043f1eba8b33f6ac4`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046524
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 418. `0x135d40dc049e69f8c39e86bdd94dc43c23a9644d672edb6e376f43d235174ba7`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046524
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 419. `0xb019df748a285da6d6cebfbd229e6f0bc0b4aead330f6d47851ab7567bcc95b8`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046524
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 420. `0xad670a3e5b421fdebdb22961d417a9158c655fdd82c0368b34178f26ab74a174`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046524
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 421. `0x8ab02fe24598dc9bc6b361450184c711c45ad77e628396a6a9d6c23a1c7a4885`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046524
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 422. `0x64543ec3def63154ff959f1a89246cddf64a0aa14a2733792798c72626d49999`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046524
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 423. `0xf10e2b4e13362985837953fea5ede421f25c255849d4d9b008780d7eb3c09a55`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046525
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 424. `0x2601a7422514c43e51a2b449f5ae017c16c91283787d9ab1cb5177f6971ae55f`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046525
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 425. `0x491f5b4ad1fdfe001bb2239c571a3a181b1a816ea95b43b67fab65ec5e8abc5d`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046525
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 426. `0xa5ed64d0d006419e81f54f51690aed203ce8f984118847fe8e4cfb91f4ddb6d3`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046525
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 427. `0x97a73758903f5fcb5412d2b638247773135ad3ffeefe2ce41b055ead19a9cf7e`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046526
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 428. `0x5edfa38aa3db21c0dbe9b88d120da9d7ce77f5416787375b7250d84267cde1d0`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046526
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 429. `0xe8c2719e6a2becfeb985eea0525cc0b480c0c1000d29545ef6fa1a980d76dfb4`
+
+- **classification:** seed
+- **timestamp:** 1780882384
+- **block:** 47046526
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882384 is shared with 24 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 430. `0x377480294a8752c2903d60e4e7396c01b03a6e8b9e73bc81003002a53ecdb4a0`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046527
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 431. `0x07ce2cacdc06ddc2dd867a8ce17fbd6b8849c98dbe7d8ff67687c05d9bd2b1f4`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046527
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 432. `0x1dda1f5f27b910d0cbe9a1ef4f94801e8d85bd6a4c851c139783afdd07a8963c`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046527
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 433. `0x085251655391e9186d953ef5a60c9818119d5fb485380f0d1a2c131a9367d4a5`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046527
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 434. `0x4fb0b9f85c8c5539f8cf7bc95b7589e08e9f5d526b06ed4ee92a0f1f542d52e0`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046528
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 435. `0x9fcf5a3930250e3301b63d71ee4701c3cfc9060e3f5d4473ce36b8a2e758feba`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046528
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 436. `0x90508544dec19c46b96bd9a78aa6f63d3d6758f75ed249278b93ecd41d0fb566`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046528
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 437. `0x17105333bb35dc37ec5d2a5e875fab597b2b965d74dbcdcc13e2a9a86166f19e`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046528
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 438. `0xb8c8bba62265d1f8c359cfbe02e98fae87467fec8f927a3783a11e7ea9126056`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046529
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 439. `0x52a4d60073fcb88c32d7b2da7b853190ed4ec46a3984124482ec7983354ccd80`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046529
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 440. `0x866c8c7151f8a81803fd19141be09189406713b2335ab55263d8d47691660e73`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046529
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 441. `0x6ec823bc2ea729e8b90da72a12c5adf761e2879225b1224a918e0eddb6ed2248`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046530
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 442. `0x565621b3ace91d8badcc893bde448fa99a09d5285d3520ed3a016ea3ac87a8b5`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046530
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 443. `0x995ca618e6f441e99f8917bb831400bea5b3f1a71f6652ec2d2d2011a374b52f`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046530
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 444. `0x5238fef02492457cbef71e02993065afce257b1906cd177f6f00013c27014cce`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046530
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 445. `0xbfc862ca81392f4c06fa9b71f0ed4889b1c8c12f9e24bf9112d08f093eb0113f`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046531
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 446. `0x52d9ebd84d218229704922c4907019901ab421ac985293018901da43073035cb`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046531
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 447. `0x89d9e7113412af5a4b702d2998b6558ab0154c6a1af77dc6c4e246aa9b334d55`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046531
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 448. `0x0eef4f19a8a94555fd0951c548d236bfe5ab9bba4ae18acde4af6e5c8f0bd5e9`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046532
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 449. `0xcc5b6dc8569951aa25020c496266d84c21d5e1c3cdad79e965b8308a42b740db`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046532
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 450. `0x397606eb1dff7935a264acbdadcfae5907d2a6403ae077fef297962165072f76`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046532
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 451. `0xe0dbfa1bd37939e24f60c98fdaed51f3b41ff4a91a24b52dba96fa945bc95302`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046533
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 452. `0x26624d0c8919212d4437c5f2fdd9b3dde878bcd28640422696dde03e3e7389f0`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046533
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 453. `0x9629ee8e7b05798bc4e5762319d2f797d4a0a9c6ce2e4016745b7d4ff64a68b7`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046533
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 454. `0x48755df93a29a7dbd7c572d279b7569e80556e64d9de6680f0d26783970f1ffc`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046533
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 455. `0x891e1210c95adf16d7c8535c06f696be239564cb04cb93bf437b008e2a6099f1`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046533
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 456. `0x27afaf1a8a487d9a9d8fc742de58498a6c6578cc9424e6b64a9b6e6122fa0394`
+
+- **classification:** seed
+- **timestamp:** 1780882398
+- **block:** 47046534
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882398 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 457. `0x3fdf03951159dca7718e6bef3bcc907b6c60a81bbbabd5b461daa1d8bcec1e64`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046534
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 458. `0x1f3dfbd081dde75b9a555d4011b0e6cb729ec024383a16e2e2753d6dc38fca02`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046534
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 459. `0xe7f0fbfeba966a44be3669315ecf4294755f22c3cf5550419661fc1ff5f5add1`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046534
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 460. `0x1aef74d388f090f6c63c2dab6296041ce54d3c858e29ac043530e2f4372f7236`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046535
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 461. `0xa85b1a6640c78d35574cba54fe86da8df61c3975d1b9e15d904d46b03d167936`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046535
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 462. `0x5285e6de85af35e4e06867f369475c580e32f8d4bd55b04630b4d2a55760b154`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046535
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 463. `0xeaec5f9645c14fae1fa0c8559057c6cc8181ef365ca3f4f7541e4d0058137774`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046535
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 464. `0x8499534fce1e4dccddb5ff38386e9afe3735164d279094c586c94d14d818ed1c`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046536
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 465. `0x8d7a9c27ed9e45acfd9f1f33d79abf750744b228bbd352207c3344db2dcc57a4`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046536
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 466. `0xadf6513997e9fa011c4a1059258015e7608d09e5bd197d55eadb417f7ff07908`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046536
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 467. `0x7ad9f1e62d2f8416aa823c2a58fa6a83e88bcdbd2407b02cce074159b1517622`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046536
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 468. `0x32f1e133fa7c32eb8965fe55a93a2017ad23746d48ea9e7f4e8449fe9d50d943`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046536
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 469. `0x8a9dbfb974cca8028a0e9a608b262b51d7c744c4093bc092f1a2d00677005afb`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046537
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 470. `0x7906622e7461aa85a48e208f84f7b5a1a40bb0b160abcad0a1f464245bc04621`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046537
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 471. `0xfb61affa29db337b0758b56f04aafa68bd25245c0d5895d3eba92de2ec468655`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046537
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 472. `0x023b7f79758de1aac788f0fa454609a9aca7b49354409d0fdb89277ca678493f`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046537
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 473. `0x8ac8de9d809ddd32c1f8944a58ddc0409c030cf44f03de9a6aad15e2dcaa1f1d`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046538
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 474. `0xc96be190bad36dcfbab265159397161ee52a95a06441ddbf18955e7966f31d96`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046538
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 475. `0xa54b006b6aca9b50fa178fa3aac56970752cba59a9abde2e482135da4c145f70`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046538
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 476. `0x60058194e1259a6611aa835db8ca15046288cb15907c58c0e680fafb82aff8ef`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046538
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 477. `0x595fb5cbbad476c7b80683d99cf08696f65e4b6831eb2d397f8a4a07eb838021`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046538
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 478. `0xcdf50620cdcfad1a637182b84408c87ec6e5d945ea60d4b29a28fba90f27a6f5`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046539
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 479. `0x1cbb358793c73a48f37daf5e1a8a86660fa133cd9e0b55df9c2685dc47c8073b`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046539
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 480. `0xd3efa78cf233a2f243d527b5e4d28644b5a37b0cbee1efd2dc406ed5f5cf9508`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046539
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 481. `0x47cbb8f7dc1aabe7f300486de7b8ed5100d1500b94aeb3a855e3b14d0b10da96`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046539
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 482. `0x9a0a0f7e973ab602ac50371f935d98681addaec8b8fb88264b43ae90c0e38a14`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046540
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 483. `0x40367b4d5cd3647c1fd13cc833873faca79e5ec6e6bebec45e6eb27a6e577168`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046540
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 484. `0x5b8027771036d76be615c1d0585d438bd5c9e2973eedf25f834cd8fb07ad1f1e`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046540
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 485. `0x3f4118cc6ee7e56ba3578a0082135f3ed8cfaf36476c6f2b3c298110bf4b2dea`
+
+- **classification:** seed
+- **timestamp:** 1780882413
+- **block:** 47046540
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882413 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 486. `0x163699eccd2812ad2bd1fb7048614072edc58ef48d414843271d10fce127f7dd`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046546
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 487. `0xcae47290c62d7326f511053af8dc3fe80968f1e40c9675fa43d7fa57b39291e7`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046546
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 488. `0x5be09bcf73f29add940a50ab4dd3b3ac96b4689120ca1ffa38f8583f310a0376`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046546
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 489. `0x5138c52bc6d8f5e3ce1496e1eb77d87934ebcd85aa9bec9b08ce3deea4339ceb`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046547
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 490. `0xa5fc63bd4268e1e9f983ec3c1af21594978f5fff706b2e8c61dd6596ff23981a`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046547
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 491. `0x5c92cb6ee7c8e4f4baacdc53109a822fc9787d1f3ba3808bc09b0f4e2e49b3c6`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046547
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 492. `0xd2302357e2522bd1806f8c4658cc73c655af1f84067474fa920001d6ac0b3819`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046547
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 493. `0xe453fec0d922134098fd13ea9d9d042c22dc4e46bc888886f6ad33505752eb53`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046547
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 494. `0x438a202f56a00f2c1a37312841227a1b7f07ef515b9a670e949d010165c51354`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046548
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 495. `0x486c1541232995d8bd75568c93f89a9af88c4b6da2aefd3f2a180ccb18fb44f0`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046548
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 496. `0xd69b5e4490b9f90d0ef9b068d3b3e1f293495b6c3ee4fdf0665ef1aca30c16b1`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046548
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 497. `0x636a9c6bb99677fd3e130146d0216e2016b6746be18b93d25242e98198ba8ade`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046549
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 498. `0xfa42819d4702cb5db1abdbabb181e90623113b302c8e92521404a551deab2760`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046549
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 499. `0xdf485a236ef46d2f2d190e5f79021acb3174bf7991fbd93f40a1e9c11bbca85d`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046549
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 500. `0x3dba71572f99480730f44f15794ccb273d9b44917cd11198afe5065bb5b3535f`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046549
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 501. `0xcd4344bc67517265b175b5a571245bb0ac708f6035323eb2a142a0364dd5c993`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046549
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 502. `0x180ba21f20aee45d3c7fbbd2676331b1be4df39d048f367438d2704d732d874d`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046550
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 503. `0xf3a1218522bafcc8c044d1f095c5c4a8e7a7532050d7ce4c926df5064bd22212`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046550
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 504. `0x51d97fa0e691bfc8e9725673d5d88359d846da7a216ac7c5b80d1ebcc5b29cc7`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046550
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 505. `0x56f16967dc6c1e8d8e1f804a8553bdba74420b82471fe5e28a8f539196333684`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046550
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 506. `0xdf48b9fba21b82a5b18c322d67ec8f7f6952442a0be32d0c670fb13dc97b9782`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046551
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 507. `0x72c789de10c28b10392c5663496d909128c42e18c4e090d961eaf432b604c45d`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046551
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 508. `0x6d61800a3a1fdf7f91ae3a9d58d997c24c06b74b8b1c8a5f55e3f9510b6a9b8e`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046551
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 509. `0xec8f8588dcfbdd4082cbf1cd3e85b9888e3bc89f74cd4cb1d051ccc0b111646b`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046551
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 510. `0xe5dc502a26e127064ee4af039033db0a26fd4cb7f13001391ef9a2ab3a64adcd`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046552
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 511. `0x564c34a328f32a978478df814f18b2b03c7e93f8a4e158957f347f55817487b2`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046552
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 512. `0xed09484c6c827984309351a5b20184ae5fe630985307b80bbd8db5d9625c2fa5`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046552
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 513. `0x6522c147866e410952eed235b30c78e9ba16a398f3c4b1b8351381cb9d7157d2`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046552
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 514. `0xc513213985df2e830472224ebd5d6458a5ff6fe0eab5bb101a3d48ae482b9d6c`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046552
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 515. `0x87cbc32f70ed3ca1adff3054ff0252622c1eaa56ccf50bb0b32a6287af8daba1`
+
+- **classification:** seed
+- **timestamp:** 1780882437
+- **block:** 47046553
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882437 is shared with 29 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 516. `0xca778225cd50cbfc5337f3ff3c43d13d389453f3caca81afd2dab3f3df92961c`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046553
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 517. `0x6797ee94f35649c54e8a2338e7d4a1bac8646ca88fcd339517149e65a14eff07`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046553
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 518. `0xa62baee3b77a4d4dc9f659ef0624bfd4f40dc40552cb5ec20dc61aab6cd5224c`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046553
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 519. `0x617601837a3fb51d0dc789b03adec75d7ca2a91c6115908c82bf891b6686d7c3`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046554
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 520. `0xd522cc33e829225772a9192c1006d7b4595bbb746e7b66794fd1b9e27fb01d72`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046554
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 521. `0x53de75f10e7335366429e6b266234267bc324b3835d37deaf0d89268b7201ece`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046554
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 522. `0xe40c1e8c7716d53a817999b7200d7ec74e0df1df957a3714930055446583a81a`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046554
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 523. `0xc2bca3d35c60974c80b6e67a1c93820f15c8c60ef6c9207a22b578b7dee5a71a`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046554
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 524. `0xb7ec16cc7b8befd390806139b0a17e4d942d9e343460f754d8c43b7cd9cfd5e0`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046555
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 525. `0x762484fcfa69abdb79705bead3cb46721c4799f4a95ad2beec29a713848b5d43`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046555
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 526. `0x81406b2d126df5873dd3cbcd87f170238bf114b7848107d54039a299f858a384`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046555
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 527. `0x6bc6c676044df5b97ba254b66faca5312a566490b3dbd5cae9233cedee337bd0`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046555
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 528. `0xb502a8b1304f45cfe14e6f121b4a69a5eea0698df35600ac57c2a2d6f0f8e88c`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046556
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 529. `0x2a76c85efd7006e38b8769fbac695573b967bcb51bd043b4e3ed6ee47cce1ef0`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046556
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 530. `0xf016c98cba6ece806558dff1c4b88d8c892b7cdbd909a11bea15a136360e11af`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046556
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 531. `0x7e292233f4c3d355c04bbdfe819a53c917bf069ddaa4739c2f4d52c21b0000a6`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046556
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 532. `0x88d0a153ffe0c081bd3572e15a8f09db01f1b578f986c72d191115ef7308a280`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046556
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 533. `0x2910048fae39c7059ddc5137d762b3725ce135d12f5bc8cbe9671de82439b2db`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046557
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 534. `0x7f0c7620b86e82871176229668453c1d933589a602c5eee0326dd241d0e6e56d`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046557
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 535. `0x8e952b50632b2c877038ae1c5d7852fd89b99c64715fdc5c929c0e4c839367bb`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046557
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 536. `0x34a08a226866c7bb3d228120eafca12c45f11b1be4853f7796276dc1ad920c64`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046557
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 537. `0xf522f8c30021d15a2e210382c30846273cb0dad76b6e4a3c665ca2e15ac2a98f`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046557
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 538. `0x96073b90b47b5ce6fd0ebf3d6616e2ca1660c6ffa8ca25ebc844217f2e167bf3`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046558
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 539. `0x318455acfcffbf622abe898ff3c8ae550b3a203af2fbd769c61d8149b885af25`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046558
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 540. `0x67a0a70721b926fd54bce94de2f588b5e7bd3dfe06fac67ba4eef229b690db72`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046558
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 541. `0x46d6ba42c528e916ad75427012301cbffa8cc41db854577c191950686ad339d8`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046558
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 542. `0x3420eed066172b5bc685017404be9e995ed0dc52caad3bbf1a23e6071421b749`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046558
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 543. `0xa38db69c5c77e911d9b93a7df17adb3e8f4afa62a566c44c3b9003e3348d3b2c`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046559
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 544. `0xc12e2df063ef971dfd3ce69e7ec89c9b593c7fa228f64a5141b7aa2b3ab71dba`
+
+- **classification:** seed
+- **timestamp:** 1780882451
+- **block:** 47046559
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882451 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 545. `0x7e1bb2c2bac11dae6a9197b6b8f672b0fa392302e0450a1944c0b897fe6320cb`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046559
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 546. `0xc4a88926d6f3199fb7d463f1bc513fd1e710281ddd5677aed5d0eff8fa8da182`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046560
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 547. `0x54e3d00902477a86474525da3c917ebfeae0386946ba3ad6c8c3bebb48abbe9a`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046560
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 548. `0x57740dd88d4d1675fc8aa8f199cc72604927eb1dddce1dd6b5ec397a0d11a935`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046560
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 549. `0x2f004c0e223628d89a157181078cce25eb7ce9f2c38ad1f3517e68c5947c6076`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046560
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 550. `0x5b25b59b3d594d105688c4c3ca6a2632e6bb73ad315b3edad71e88e7b19f7fba`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046560
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 551. `0xf5ea28754f150d9d7f9e17961666dd59dc29e8714e356edc79623e42b921a7f8`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046561
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 552. `0x33a536ec3e9ad4debdddef60f1205a5b9eb596f3deaa34bca9869d4424d856da`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046561
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 553. `0x2c7241a6885911a0186014f0b4765a8ad1f1a6f409a20b9cdafbd0d72c5c649f`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046561
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 554. `0xcadd955a221f69ad62759485b3a9d7d420990872a002f74922445be54b3d7168`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046561
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 555. `0x355a01c6242a709d45924c0739a99e82f66f2cf83853fcd6eea13151454731d6`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046562
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 556. `0x6dc3424fa81471244faa41b6aec907e7fa0d07692444ed4589d6283be9dece4d`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046562
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 557. `0x87573f04538837569c69a67d51bc07df2c6d1ca5412e3aa722c53f2d05b9b830`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046562
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 558. `0x4401bd72b13a47138d189771bdcbfc72f7f9456f0b555f2ff3899fdc39bb3bb5`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046562
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 559. `0xea61eff4e64a874c5415042e3b3999bed9f6e4160f508bd976adb26035d2650a`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046562
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 560. `0x91e23d06e33bc43ce3cbb17e7e8865694b2fc6ff6581226d23b4666c5022a740`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046563
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 561. `0xf501918d7c9848c0b479d6a64606dbdbba8fa43c85bcd53d5dc06f81286f3e2b`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046563
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 562. `0xdefbe56d060ba027cc7156473c56588e8ac73eeb69a5fdc784e902da9ca5a516`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046563
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 563. `0xb13cdf4881df7b57756231eda1d5a02b7f3270ef63ec1ae2859b3bc67a3f5fb8`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046563
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 564. `0x90bf05818cf71c253bb7cdd1ce7cab944bdd652c851d06d2c707926e8e66bdb6`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046563
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 565. `0xa7ed092b211528eac1b5500f02c1e3c2f090be8587391a65b74603257c1cb035`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046564
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 566. `0x018163e0a842145bbb5196a2c069847032e680df3e3a1a6261069d8e1f8f8334`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046564
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 567. `0x14bab153fdc2a8c7b68de39f1da5ed9980cd9d05dacd25e461e103619c85f155`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046564
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 568. `0xafd3c3e0796cb68051c8951f986a43b57c021a8ac8974cf40473af731ffb1c9d`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046564
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 569. `0x9384e15eb3811f0beafec414817fef033639d90e1ded54c550c2e1ea4fe0df48`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046565
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 570. `0x7d905837017c85abc008a360a905ba568a3607a2b76134c2f7857c3038176810`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046565
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 571. `0x48ede35bdf33d09f66746e4ce371dbda507262c631f89ebd292a2c6d26675b91`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046565
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 572. `0xe02a81329b28def3ee24f6eb8be6c86dcc8946423b7cd19a7e08255443e8c1f7`
+
+- **classification:** seed
+- **timestamp:** 1780882464
+- **block:** 47046565
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882464 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 573. `0x688458e6dd81e93624e596cc3d5395e15ee84a8c729879c049029e9962225951`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046566
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 574. `0x4cd9c99a9bac34d030c3bfa9d3fd54ba292247026801a172a78e330691f8c50f`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046566
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 575. `0x54058cfddecc40175d5ae207d82b35892dd6ed9e6be6326a9b14b4471e325e8f`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046566
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 576. `0x8a2b0b04c68cc5a8ab5d5be95a0a179939433e22ba3d4892c2e8ad913477a8ad`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046566
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 577. `0xa7810b7580484a43c1e3f5387b9b4d2e17016399aaf9a165b0a8b9c4112abbf5`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046566
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 578. `0x1d40c629f7d5c36195c136d8c38f1ad3e861a681e89832b150fd1544771560d0`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046567
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 579. `0xe4cd17ab41ed90b4bfcc90fd34f453946ea6c0b08b8b40c3a215254206cf815c`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046567
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 580. `0x53d5f4ea5ef32487542a6baa991669a95799e943f7c7259a7294d3356138f041`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046567
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 581. `0x22663a52680d4f25f4151328d67b5c8beb69dd008044005dccfdda96acdb20d1`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046567
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 582. `0x675e2544167a715e103527524b04af373f602f03fd6187900d2f05ca83ff4a5e`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046568
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 583. `0x054b2cde71b5261d9edce5f6c75220f41045f3f5f44c1bca20b937e0ff3e6410`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046568
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 584. `0xa920bcfb348095e14497c2e3e2b4ec5cb9a20d5c206110bd2508278f21f3dffd`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046568
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 585. `0x5ef3169ca8731d38c80f2e1d38a6f559bc8aa2209380acace8660e8b61c4a17c`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046568
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 586. `0x71b009dccfea6170d152da49edab31852f61e921d3b61fb12eee84a21b29bf9f`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046569
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 587. `0x834486ddead0e39a206dac2ae9eb72fffe457c463b439e35095785379057e53c`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046569
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 588. `0xd8b1042ce71e09437d7f3ec0e4b5fc19169966510ea7ad420d004e28f52fe88a`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046569
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 589. `0xd24e349182916520b34f02cd62316e6b4f494c5c617baa085a03232c6e034c7c`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046569
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 590. `0x1116d6c3cd3f9264bc62fab145e7a17be1e5ab694306724bb28a7734b0e446c1`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046569
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 591. `0x6e9bee723e3e586376ed1ef9862032a061108d701c25f54d9c59e1f8ef0c6eb2`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046570
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 592. `0xd754dfa0ced010a159e5bdabb1a28f1a6c65d6f86c856018a4f62ea70c8860eb`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046570
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 593. `0x22e046f2134eef1580c4fffa564e16ee673f2be6916259f68fe9c897ff19010c`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046570
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 594. `0x26a3b7768735ad28f626b9e8cfa80263cbc9f2b563d75a3a8eef5c6e4e119444`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046570
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 595. `0xe6dc8e4a349280ede1026f9db82375a7c720928c98be22f49741f5a46a5c70f7`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046571
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 596. `0x2d13657791ec28a19b512508aaf13b3d029ffb2e3c93544805b8004911fbe03e`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046571
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 597. `0xd1b1c0cd843cd0c46a73767b51d995e85eb21fece50810f340001d523775d263`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046571
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 598. `0x123fa23a1cd9b8e5cb1dea67b9c3832778864305873ac73b41e9d5056cca3e08`
+
+- **classification:** seed
+- **timestamp:** 1780882476
+- **block:** 47046571
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882476 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 599. `0x10d87b79ee181d052a8c5533197f3349485b393176d84b7578bda6cd374dac1e`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046572
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 600. `0x2f946b59daca2e30323d6a35a780adff7f14a20d432804ce2802e78fbaf1cabe`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046572
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 601. `0xeaa191daa52eddb985a307a79c9ec16cd7705ca10f2c064e35c78a1744a0b8c7`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046572
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 602. `0x2e4ce0b854ebd7f7358b80a53f7e44d6c6fd4c6b266e363f770c8d66ce5b36d7`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046572
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 603. `0x084df5899131fb1ef8f3d0509d3747f426b3eadb8e8c728a5fe55fda155fe964`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046572
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 604. `0xd90941d29eb8823f68348a7572dc9be2f0325512b525a15579a58e949afa3115`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046573
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 605. `0x64dfb24574ed930262549246de16eaa4e7bed9a1bc192a5cb31c2d9fdbfa3d0d`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046573
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 606. `0x553a3dcfbd94d75ff009f5019bd7b8b5c985c94b1eb515a71478907614222b87`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046573
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 607. `0x2205fbb0ca4f5199a85c8408c48debb68be70068fab4cdd99cd175f166b88b84`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046573
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 608. `0x639294d4bb26c1ff117f2fc4434222cfa41a876f0ec3019f450ef54a3f42891c`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046573
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 609. `0x13f34a83874eb8731482311f12b6d80f55d20528efa4bf44223430490ff64395`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046574
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 610. `0xfe70072838461b5a56941a3f5420ed64ce006c824042b2e4486c5b52b4895916`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046574
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 611. `0x1004dcfe13ea3b0ca5404f1812757d8d00abc17af5f2a74739990ecb69fb1c3e`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046574
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 612. `0x70e1f9aa3358f966919d054dd641e5b0e7878b9919bb34084f354150b031043b`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046574
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 613. `0x9c36a24f4c6825d296dd133f43dc16f4c3f638eb9a0872ff4a2eebb3262f7d28`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046575
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 614. `0x81404f7c580169ff1aa151d1e20200155cb5b1cf582e2bb8160a891da222b3ad`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046575
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 615. `0xe3af90823bf6c12591e794184c73bff479c1eb0a0b3a7435bdb1d235049c1a1d`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046575
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 616. `0x20de8eb8a009302d1109f27b8a1cc3d192417b35afcaf09fa5b5708d24eb4112`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046575
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 617. `0x4a3ecbd0cfd05680671c1ff3018a13375091dd50d12745b11ed8b58a36385d3a`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046575
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 618. `0xc20f6ca1d9e612b54d886111365f1116b659493b0a7fc96673261469d59ad004`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046576
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 619. `0x2fa1c05d0ebc2bcd8fbf7d0d62589ab5e2b3a4e3b2be2d533884f0a1b5819251`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046576
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 620. `0xeb5fae7225f9182c192c81a7c8db4b2bf907fdc38432299974ade82e827dfc6c`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046576
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 621. `0xc5afcac2105bfadf36ec38e3b5249bd41d3d0d838d59a4c6a44e2d98f009980b`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046576
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 622. `0x85dd7a2b72c0355d5038a10fa82dc17dbe137bc150cd9c819d68e2b238d31a8e`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046577
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 623. `0x3415a67c5056bafc7276bb97b97013930a8ec0f81dbc5fa06d3f942aa664754b`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046577
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 624. `0xeafbfc78e3bcb32d59e83e2ebfabac62f6bcd927d9ccbafd54d9b5978a5681df`
+
+- **classification:** seed
+- **timestamp:** 1780882488
+- **block:** 47046577
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882488 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 625. `0x634bc53323a9aba35d33bcaa7cb91ac9c6c42a417330db02981e2759df7c14cc`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046578
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 626. `0xcb2daf7172bbf8b5536f1e3cb9d007245f8ce7b60933f63391b6d91a08038d01`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046578
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 627. `0xc8520bb091d7215e627e22de3b2aa5246f3673c7961e868e6de5507ab7cb2a85`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046578
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 628. `0x5891ebc6b91902375281e9fc1b1c3ed6ce83f8838c950642b4ac5a9f96495b58`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046578
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 629. `0xd59e1020fe2aed38f4c941277a0f43d95ab65f38cd051bb484caff8ffeba1a32`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046578
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 630. `0x18e713b44af14e459bce4ee852afc805cbb325c39254beb79ff6b468ae3e9afd`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046579
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 631. `0x3d2a02802e9a76101599680272fb5ee0b89dc5e72d320957246148a8ab454fd3`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046579
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 632. `0x30eb66d55dd55810521075f7f3eb4a0d1a86cf0f6b84d578ff761b81ac819df6`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046579
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 633. `0xe3b9cb0e237ab49b7d0bbbb9b4f23077e509a5a6bd41652df37fcbf00e0b1dc9`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046579
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 634. `0x5639b62cc96050b4d92697b7dcd375a0560eb3d97101a7af0ea6c5bfeede53a0`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046579
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 635. `0x312e522d6a379faa371d24d5c09c7ca10268bc99202c9645c50ad07df3714be1`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046580
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 636. `0xfb9adb16948816fa0e8030bd419984696dcf43b8fdd408c32f0c4a51fa0ae53e`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046580
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 637. `0x84e117eedb465d80eb5370f2d1b42740836a7ce1ef6f057b670cad853911a7eb`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046580
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 638. `0x748eab8598cde2b5c6482dcc412e6d09497cfca0f430febe773832bd1afa56e4`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046580
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 639. `0xbec390b6a1ce3d2905445866c5320f75616c995a76a340ffd11caafea262703c`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046580
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 640. `0x85a3d4526918c37ace0c2d3438c7204acf3092ad37852a54532f4e6f302c64c7`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046581
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 641. `0x9bf1659318d54d56aba04c7f21e1a38c095061f1a135b5385e8d4971ffcd910c`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046581
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 642. `0xf809b1ccd9aef196d2a92a0bd08c2c37f0aa435f35e48ffbdfeec949fc73975b`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046581
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 643. `0x7593018401d3ab8ced60555cb9a264aa400ef869155426ae1ec2fe209dd21a5e`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046581
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 644. `0x59b9191ab9290c47bd5a99311c7e1d5d09f3c9c72e4bc40de46582cc85451d40`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046581
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 645. `0xb5dadaae4efc729fd90260d47c1393548155ec6c8d4745bf3152dda57494f495`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046582
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 646. `0x2736dad5615255d15a18e0568b9b159cb59c11cfbb0211d5fa8517a55ccdcde5`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046582
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 647. `0x391577d37ae4e595a70a96c04d7a623276aeed5ce61338d30cf2a4db10e30b04`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046582
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 648. `0x48d674f2bd93dd9bbec2e76d2a1e1e55e5c66684c3df84f06c1735b0622da501`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046582
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 649. `0x60c1ab87bffd9baef4c3385f74ebd6e3e10fde53fc4cfe3e5c0358a3639cc9b4`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046582
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 650. `0x2d349edfc178149ad4ecd3428152f05375743650416a52b371d6a9d4eaeba2a9`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046583
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 651. `0x085e10003cb382eebbe5e349826276dadf3380526f48e2e227e600efcda77668`
+
+- **classification:** seed
+- **timestamp:** 1780882500
+- **block:** 47046583
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882500 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 652. `0x5d78c1f4b15a19cc58bc0c547875f0ef639124a45a1c31959e3bef769dcee590`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046583
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 653. `0xca63239cea8cb03ef4b8db37a0c0bed0f86e1a457b7e2f5127bea8134f7eed04`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046584
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 654. `0x2e970a8063c51e6cc2ae9f7a4b6ce5ebe1a1dbee47b57f65adc028984bd91be4`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046584
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 655. `0xc88cbd434d1d598b99880dcba7c856089468e08c9239510ae76aa57cd53a2fdf`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046584
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 656. `0x45ab6a3dc80d0c9962abc7c18a8a0e36b59deb92edbe6665deecf1315ca30c6a`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046584
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 657. `0x708a39c9518e7508d9b074c5ffaa0bbeaa56f5787acd3f2fd55e56396a305e51`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046584
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 658. `0xf4e444c1ec2f38f02722859c443bd38a58160e938700ee96b8271f567ed015c5`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046585
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 659. `0x0a8391d5877c1e0fabd209e9e7875207889aad91370dfe1187ab729c6281ef86`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046585
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 660. `0x2cbf452225eae13984aa5e840f117ffa2c53e380f0cd0dd6519d2499b0daa65f`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046585
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 661. `0x5fb46126d75ce205943411f48c07ea607aa165443afb512cd2c97d1e12dfc1b2`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046585
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 662. `0x466fcfb9579802b1cfaf0a4355aaab90543f41e893c9ef60ca6a1de31ab40ee3`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046586
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 663. `0x8ba3a185a733b7a261fdeada95e738d8fe7d8e50e0a81e5449add8195123a21b`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046586
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 664. `0x07f7e918f06b794d06a69a12899923937860dd3fdc9db98a8c5b34281748c1bc`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046586
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 665. `0x191b4feef114f031c24261adf8748b6726b6b0df7e9b36b6e2d29185a3f1a1b2`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046586
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 666. `0xb588e22b527226780cf1c6619b0d783a222c325035fbee0320038386b5a5e2fc`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046586
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 667. `0xd78cda5daa20dface546ef333438ae352449dc41dc9777c6a40b20730a3cce2f`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046587
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 668. `0x82fa2c8e8cbee159272495b72d2b31f8939d56f6037d4f52d78f63b2b0e9c8f2`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046587
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 669. `0x4062ec6524506c1e33d0d7657446f6456d7331fe85e3e908fd6162e083a1d583`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046587
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 670. `0x56d9291f3812ba88186c0b48cccd3a765b9c8b283719d6b255272a0c04b35824`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046587
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 671. `0x4c59652dc5869a2f7ac85dd0fb25e8d790b872bd26267b57b4fdd215b408ee45`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046587
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 672. `0x5acbfc67d4a03ab2e161c49c66cb8e773982f09f5761ae6aaee39586e4b3e945`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046588
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 673. `0x1a5635f165c13fa17512b1d21ca1f5d31592f62ee7237c1b4a39ade3b39aeeb3`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046588
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 674. `0x457d27b029d78985e417359bbad55e9a620e9693c2bf677ef18190c005df5d72`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046588
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 675. `0x113c4965190a49b4171debf97db9ee5ab8f3b1558ea8dad68356894cbfedd68c`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046588
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 676. `0x81e781128eba525b1d6e71829a7bb76f90d60a165c0329eb23aa63e3453a85c2`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046588
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 677. `0x42ccb03fc5d184b905c073010b317de0b529de09c238298042473fafe46a4347`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046589
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 678. `0x90dc0f384ebac612030f16157a9ca095e1a90ab10c2824947898b850dd9a0d30`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046589
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 679. `0x91cc7154df9640eacc23ba2ff0437bee0b17e4a4dd1e9e48796f80f031795170`
+
+- **classification:** seed
+- **timestamp:** 1780882511
+- **block:** 47046589
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882511 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 680. `0x01f99887518d50351e4075fc28af7f56c1eba90861004974aaefcc89cc51beb2`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046589
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 681. `0x8fc26fe54ebbecd0803deeeba72b63530b216bdc39c62e71a684f8d98759fc18`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046590
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 682. `0x9f9228859344ec6f06c3ac46515b088168a9901a9daba119acaaed9f243b00aa`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046590
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 683. `0x04f01708ec35fec05fc4b68ea8507d6d427d155d7d349955d255ca4fbc0f5ead`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046590
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 684. `0x32756c202af9aee1bf14d61d18d24a8a48e56f6af693c9b0031cfc9fdc255c50`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046590
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 685. `0x6c07b5925cb5dbc16ce53fe839380819b082b439a7bd98268334a98c8e750620`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046591
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 686. `0xed3341114c58c84db398df02174f266a1430c014a9c9bfdb68ff5137c17c1a19`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046591
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 687. `0x5eba0e2fa876e04eb7ab8394d3ab65f92c657b713935132cfed0e4b1b5542857`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046591
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 688. `0x0b96deef5c5a4f09aee5ab2cce7cddb5940208ff39434ec68c7651e6002db447`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046591
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 689. `0x8062e2f085f460812b774ef6fd7a4e20db0b28153e978395d9170c86ffdf0652`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046591
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 690. `0x96c052788126e001faf0e49ca837aacf232e6670d2a21b80faaa68e781621339`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046592
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 691. `0xfceba8b4e3cfa09ddf455345e5a00c1b55b2be0f006b79baec66c7bd4aaf56e4`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046592
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 692. `0x790ac12d8b68b55f4bf9183a7e8e646410599cf07dcf692deb5f00bda35c2c0b`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046592
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 693. `0xa0cec7dad6c7741f5f6a0ee83c2fd2dfa73f46d0fd2a27ab478599c00d39b858`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046593
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 694. `0x61cea705cad0009b6f29ba78b56332d0c2f39193fdaba5b0bd719724efca11fd`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046593
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 695. `0x1d5dbe181099a7cbe664341c303f5eda4866c1ccf254596e51d52324ed0704a3`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046593
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 696. `0xd78deef9738cf0f791ccfb883b0a9a38d4e15aa9a993c3dfd4c09b195a7ecf27`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046593
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 697. `0xf90b27e93844dec76c5c28ce8b4c8bedf005c75852ee40554682f491dadf3d93`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046594
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 698. `0x70706824bca1593e08a2ca468b768a27d06922b1f23553bc57a1960305d967b1`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046594
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 699. `0xb416a70e44b7b2435ed3368be4ddf04c16880512a61d39e3442e33fd14e0210e`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046594
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 700. `0x8ea151e9a3983282376d1fc7696c298c32efdd42059aa15e9adb6e7180dea2b4`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046594
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 701. `0xcc30f74aeac81f34546cebd1de503b0fca5c26f019df425b7d0f2337fe62127d`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046594
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 702. `0x12aaea0b81d8c17c9f9fd3378a5b7e7053caa005e15f64466da69a1f6551ee53`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046595
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 703. `0x581b402a3a533d30194d49416d7a45cbcf6037a25ec40745c25537e396e15e53`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046595
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 704. `0x8b02131496b6d5b74f2cc20d4a454a084d95198af415cdb81fd7146519d5494b`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046595
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 705. `0x5e7513195f993894eb3768bf1e63ec5c0dcbc966763eb4d202a59a8e39e138ae`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046595
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 706. `0x3844a68b649e0d06f6b8ebfc4c4f22f4591327860f739541ba0fd65489cbc8c5`
+
+- **classification:** seed
+- **timestamp:** 1780882524
+- **block:** 47046596
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882524 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 707. `0xfec6699c85f47228d32e0a644e6b4f44ee4b1cf9a586e25fb4aab27484bd6c25`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046596
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 708. `0x1a039e8c259ad58235014bde2e0c328365d85f32da7ccfdecad26e5fb5c6e8ab`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046596
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 709. `0x8fb7b4b4b93afc35b060ed1183661033237e2af1ae85abb06bc99dd656435f5d`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046596
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 710. `0x964f80fd1ed8aa1df24a67647089b6604a4d0bfbe6d585a96a491f580f7243e4`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046597
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 711. `0x66323bf404c3634670919615e881b022c1dcf1649cf4b5a309bc8a65a90b7740`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046597
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 712. `0x798a117542ac19cf671d546b1d7bee4de317fc11f293151fb601289bb37a9850`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046597
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 713. `0x02286d7c9af61e2d78974699a09551af047a1af25fbbcd58d960a1184a640990`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046597
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 714. `0x14332d766deb58ecb0bc11f9ae8aab239eff6afd9fa187ea5dfe5f05cb4a0b1c`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046598
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 715. `0x531d20d6aca6a3e48eb20eab3ec75ad4dce6aa1a04e6bab6d193e471a32a630b`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046598
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 716. `0x7dedbc1306756256f1948ca38b946e2b5b3800cfc1c48a511c653a91d1dd16d2`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046598
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 717. `0x96c478d29fef996d5acccd061a03c4a5d3d68d36375a58787152040bcfc6fe87`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046598
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 718. `0xcae1d693fdff2ebeb929c6e756e9cf9689f744a7e92caf405be13fd0b9edb8f8`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046598
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 719. `0x0b3e7fda678ac2418131bebdf7481ada337653b4b94abecc5628818852849ec2`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046599
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 720. `0xfaf02d61df1cc2cf581ac245a62f91c13d8ed089fb7e0f32f3804bdc1d0fe196`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046599
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 721. `0xd1335a24c0291fbcdcba69411a0cdad0a0303fe2d4d90f0e7ffd59f6d324d2b0`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046599
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 722. `0x67f9262ee40be13bb7068f1581b43b1d09235ab69b92ff4ebd403dcb15ac1bed`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046599
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 723. `0xbc068e4f84210e9efa5cdb3d4ee0b5a70009d0f0a198b6a53769d313b2384c35`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046600
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 724. `0x607e0378ddd8889bd35290d123fc820cd6ae25942c0ae37bb6af365fd9b86d29`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046600
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 725. `0xec1c1ecafc64005bcd4d1e021efb97bd02ae216091865ea235e9671ef34eda0b`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046600
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 726. `0xbe62f1b6490d78a07c985645d45024e614f501cda061064821951ac844457ebe`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046600
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 727. `0x4d3e416876eda03ff46d7ac58e326e6e1c863137c5f62ac640f03727e62a6fd2`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046600
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 728. `0xfe3090ab4e3b15fb5ea5c2a0ed5be4b40b457c23dea85f8db92cfc80b54b49c3`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046601
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 729. `0x99c81f82925788ce42becc517e80c838c196675f19cb8fd038c4daf76a25a75b`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046601
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 730. `0x186b9d7dc55666367753d7baa16429c2e5f9015a0d82c435aff1429f8cacc3bb`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046601
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 731. `0x5f05fefce361fecd02490d28d5186eab3d4fe5cedf3ed0562e5e1b1cf372284f`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046601
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 732. `0x5fc43f0036bb1018938b9d044a7e4d063805fab7b9ccbd237951d8e4dc23f5ff`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046601
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 733. `0xe44589ff2917b3590ea9a5da07fc38d779de15f15b2b7e50a24af17811a8f6b8`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046602
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 734. `0x2bf85e0bdcbe32a673cf339c2b7bfca9dccdd1ac4f369fa582a4d6bdf466c55b`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046602
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 735. `0xbda80634faf067268d03f7e6ee7d9cb2702cc2c7cca3ac92a384c11017c67a66`
+
+- **classification:** seed
+- **timestamp:** 1780882537
+- **block:** 47046602
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882537 is shared with 28 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 736. `0x62d17cf01a3b31c0c09fc40fa56f13b81ea34077ab2d959b888a57bf5f02d6aa`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046603
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 737. `0x7453f8ce015c7b8665a2a082a7f1dca2b7fab6b151a3ab6d2385cfe5ed462b87`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046603
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 738. `0x392bcc00f78747f6094c2aacbf4c701e5a70707ac6352dd3f814d7d04a1e72e3`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046603
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 739. `0xff5df1abce182cb965c8b0154e3ab7d986a3824f27f1b1d99e7b7721d66cbc32`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046603
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 740. `0x56eebc557c96d45c5aed487a89a4ac315e63f61ade4af39756917dcc50be8ad9`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046603
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 741. `0x8e13cf47c59fa57af208868787acef051a31f839be4e41e80b7441ed2179224c`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046604
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 742. `0xa2e3aa7e5e863b20632e3e7dc621601ccda83ce6976730f3102658868847e720`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046604
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 743. `0x734600a16322acdfd855645c57ed39fdb1fc28db91b5ef1c72a629798b338fd1`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046604
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 744. `0x479d50bbeaf41bd5c1a628c736de425aad675505db917ed00b819346a9ef4c5a`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046604
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 745. `0x04da3c11d37dd03f45a72b1eed9f82fc7f41ef9769849ea7a5e62bb74f9eb8ea`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046604
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 746. `0x2f5310031c688ac5500849b9b4fdd318834f93130b79603a250578d21f9f5491`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046605
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 747. `0x913ebee2afbda01d19fbb92f2f9a8af193ff2ff2fa80a8f0d6c6a9cccb06a429`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046605
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 748. `0x6021a013aca5168a00c4e3f3705c1169888804565c08a98df6249270e3b902c0`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046605
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 749. `0x0a40907909fe5b9a75de65acc718e5b0748c194ead90111e664362fe025280fb`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046605
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 750. `0xd16d31ed7eed139ee632fefaa1f58ef424ff7f5f0a49e209d1ccb6339524e04d`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046605
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 751. `0x2f036c367455b8ab34dd19c2ed559eb848bdab4518dca31cd4bb42ba0006c219`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046606
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 752. `0xf43cae7dede20fd32d15ad7b499a8c97a768348ef675f27262bd751edce045f5`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046606
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 753. `0xacf8fb8c07a946fa56cbca9403be1943662fb9b4e79e08aee871f523dc1dd0fe`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046606
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 754. `0xc461fcc7fc8eb784a705c5d2799805b678f6992b0f75eea192bb9218678bf8f8`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046606
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 755. `0x0b33b975146b996320da64a229cd61daed936bf6db27fb49264cadc80ad4054f`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046606
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 756. `0x6886b00eaf55c46fa8a1f0cee41060c7853113c07c14201f6e0a7902cdfa88ea`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046607
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 757. `0xd5bf52f472269ebf7beb940c5c0d1a08866a44a9e5f57889feb9776327a0f3a5`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046607
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 758. `0x8799dec6e617ae264c95fb944a28e155cb48ccbbb82961008e66dbbd86331d72`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046607
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 759. `0x55f1c6ff96d9feca0412387f480a79bf2e03530ed12136d7a29c997eb8ea5d61`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046607
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 760. `0x483c73901cdbc00c862ce2423ee620c82feeaa3889bf37439da285f0cf9a0f35`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046607
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 761. `0x66e6873003713de2274ad368e0b890c35f0b81f2e24e3c337d9f85aefcd37a0f`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046608
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 762. `0xc4d0fc928a3ed60b8fb85b44af3ee82f3d347a82684cb03166f2a658ce046c86`
+
+- **classification:** seed
+- **timestamp:** 1780882550
+- **block:** 47046608
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882550 is shared with 26 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 763. `0xff142127b7e1f5aeecae8963e6c4609546cd892760bf002d7a8139874384f653`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046608
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 764. `0x9e22aea54f1406847e7be538e07359760f51856b5e2007625a8db870818d017a`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046608
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 765. `0x2e8c6a1d1eb933844501211e9aa15ed9f0a25c53863014441d27598174f63984`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046609
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 766. `0x976bd5d27ed9c59c725c781d8142e3b2eb5f277db6ddc7d172926e724038c967`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046609
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 767. `0x56e1a204df06967271c65f9e6eea76e74e3d2614ce8c68911c4383cdc9272b14`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046609
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 768. `0x8ee6a866e958e9033e20855a56d9a8d33f624be2c2e516c849ea51bb1ebefb40`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046609
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 769. `0xbc84a07dfa03bee838b8c73e56488dd8c30b1ecc04f8963e486d0e658511c975`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046610
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 770. `0x9bdcc5e47d7ba65dc51cd20a4f260bb0f15ca419b0f00e9d3872327d8a7e8be6`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046610
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 771. `0x456cc2f3de8acc0e5eb2e98a94feaf125a1c09e099af0224e9bce4bf06e603dd`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046610
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 772. `0x5eb3a57052afcceee80e2781df2a47b3150baa774cb22a5b199ba926a75767a9`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046610
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 773. `0x045c9810290850dbd335453cd18e35e7b1c04623498fceb8bdb848bd4acf4642`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046610
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 774. `0xefb4af710bfe40d5cf0a6cc94b4831c572ff4bb995cb5eab0d021aa51db8f829`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046611
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 775. `0x086ffc616c4d163d9682d98a6c09662acba3384a97cf20077134e831c43bffd4`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046611
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 776. `0x943f1c10bd98aef6407b8d13008fba17f199564844588400b3eb8b68e278763a`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046611
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 777. `0x7d43ebad9b397b8eced8bf37d32e69be8bfb0feba8a1663b06ff87d40751da63`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046611
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 778. `0x57c0d55ca30c45b8b85f02af524ce2fdce328542efd7d1a8ae17a2fcbed31403`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046612
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 779. `0x50500df4779e5b4ee64d549b297c6c03915d782b712b3f5a30bd2870b51f0fb9`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046612
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 780. `0x4c7619c1ef6c73b629b3c864cfbfb6f4d3fa2a2b8cbbb703e1f71215543f00ba`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046612
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 781. `0x9b71c5af2da290c295200dbdcabcc2fb46c5588d0657b41a56f20f07f188ee5b`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046612
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 782. `0x2c6f9ddda0224db8cc451d3d0975757316f8e199bb00fb98b9f0431658dd7ca8`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046612
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 783. `0x62ca96257bfd66e0a84935ef8537136ff5b5d296df8bd439e39037bfa1a59781`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046613
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 784. `0xa239c1df99aeef3fb0723296cd0580fd59aa0e00f53ed630fa79a0e83f7a22d3`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046613
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 785. `0xd46979d8458c0263addb550c9635dd1df8c131bf405a9a2e8cd78502f4d239cd`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046613
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 786. `0xf6036d37d37a8a8d9d318761530c5c02deae8d4e30f5c2c378d61ddcb7753990`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046613
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 787. `0x8e879a306c69bfd89120a4d3271c2c61c71f622bb4539a7577166a0637dd9fa9`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046614
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 788. `0x8568c6408c48797072ab19528b2c6e100b82f7ec62b509cfd58826bbf87c0e60`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046614
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 789. `0x33e05ca75a1b72444110430de5d9d5ded2ef610a9d657d4aee94d4ff416cd035`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046614
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 790. `0x9d59aefd89d4d78e0abf8a4966769ef3433b6d5c60d56d78271ff5224cba9bda`
+
+- **classification:** seed
+- **timestamp:** 1780882561
+- **block:** 47046614
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882561 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 791. `0x4c0238a419023289b4ea05d4860e97957160d93028bf6ee0820aa26ebfd066fd`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046615
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 792. `0xe30fbd0f8ebd3b753e02a6e02aa8f70cfa4baf1e41061df514edc383324d62b2`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046615
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 793. `0x72f2a69ff31fa25a80d2da741684af823e1db49ba7471b6183d8949011f4310f`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046615
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 794. `0xb602615f47b8962fe07f3a9b5aefc1e459e87ec5db9e24a0334ee3f031d6a3d4`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046615
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 795. `0x7d7b73b8ad2eaf5e2177144407a4c9e5bc0e10dd5d7bccfc59769e4328aecffc`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046616
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 796. `0xe1993112f34cf6095871841cbff5f1bd5eb834daf51cae59b36e64940713f5fe`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046616
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 797. `0x4aca34afd92e2b54c05d61cf941224b9561124664e53364e67d03aa0fc09231c`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046616
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 798. `0x1a87cedcdd4528fe760fa4e6098cea5ecca60bf80c6ceb548ac0b4b2f691165e`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046616
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 799. `0xdf5f4076f8c1f525b8adc44c679caf69d2bc6747254d585bf0657d65267e5790`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046616
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 800. `0x88dec30481cf8dd5db75867c627c07cfdcab6a16211ee646bfb89d1ad25824c8`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046617
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 801. `0xacc6009330922b5474ce3c991ec0918ebe1ac0ce2fa17be605a5e7a015781ee2`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046617
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 802. `0x186f8dd606f15730fd0c76b2aab582792122cf1200e2b227a7c5cc2b9b9ba4e5`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046617
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 803. `0x8bd236bb7eaeb12ade0213d1db63edcd41dc4c6e01453e0e43d054bceed8eb93`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046617
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 804. `0xf93a3caf0190d57a5b58b2d31b1df83ef9fe1b8b5abceeb2433bcd13cb0a7121`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046618
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 805. `0xc1edcacd6644e7e730673178f5522d1991627b47ccb3d2014c77412d65592bec`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046618
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 806. `0xc6d379c0e0a89e3e25c97c529a116b54bbcf2ac8cd347e2155b2a6fcabf44cb6`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046618
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 807. `0xfec2ca9aa6b8b3267f5200f883a4b9f0c75d6897b0e5620b2f3e7d9586f0a282`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046618
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 808. `0xb77bb88861af344f446f29afa37bf8b9ec5693db1ef7d39e0623acd90eef3df6`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046618
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 809. `0x02bd9a211d6819e9cc8681e03e02aab43bf19f761c4293c795bc4c0dae4fe54c`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046619
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 810. `0xc8cf31d83b139f97fdab854ad84af664bde784862194809dfc1faa5cebeccf1f`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046619
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 811. `0xd9764bd06aac255ba90d00558c5f7a59cc9d05b29e6b12ad640177d9bf9c531e`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046619
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 812. `0x27c46726bf44652f030a98c445fc5516983a36a46926200a4afa9cf6acb9afee`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046619
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 813. `0x9b957a87dc41cc6ca8a9d6b0757985fde857b48e64ca927fb01ed12f5e6fd506`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046620
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 814. `0xa718d65e5412f91abbc0a873b5e38063647c96264f09a0096b1562468d2e54e5`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046620
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 815. `0x8d97f2e75d6f6259a8e3d14f6ccabaadbeeb9127444e5ead9f756f5488775326`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046620
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 816. `0x962c09824cfb71a60ae89de97a9fde856899d546eff57148a9c80046358f5444`
+
+- **classification:** seed
+- **timestamp:** 1780882574
+- **block:** 47046620
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882574 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 817. `0x054f1f8dd9898e8daa36eda350be49175bd013269c50b5fd93cff0ba7a82fcf9`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046621
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 818. `0xb4a6d441a54b2c1884a060432aa0df9bb480f9380e930de2828ec60da2f05176`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046622
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 819. `0x9ab0af6390694a2c0432b53cd6a909ce2344d732b83917946f87013f36d1f995`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046622
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 820. `0xd3af9f3bf6f38f2bd8ed16d541bf9d7428149ec257a3d5bd9246024e0c00fd13`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046622
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 821. `0xced0e4dde6e7635884beb1f0181ab7de9a9a5a0fcdfbd806a18bc737dc94e113`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046622
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 822. `0x375a9991989e64b282dd67ab2643961345d7d6ebfb280b97362056e19b94baeb`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046622
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 823. `0x7f51c2cc4c3ed1c4d8128711db4deae77df14d0c3f46606f9d7228155ec2b748`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046623
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 824. `0xba50397d7c91ddafbc32ec9def180467e5f9b839c7a18ea5a833a9a37ab68de8`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046623
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 825. `0x305d4fe42ab61877cc37d2c47bcc178e87471e4c5f929e36d959d0244e5497ff`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046623
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 826. `0xc527037fb8ecd96d95eff06c50b85be85aaff30f9e78e35884bacfb5ecd6822f`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046623
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 827. `0x3bc948dd4f59fc2ec37c9861a1eb9ae75a445ca4fef51f67bf76f8bd2062fded`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046623
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 828. `0x0af5e4a17755bae41ada7a3f3a6ece1165a9849eeb068f69792e3c1daa2f530f`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046624
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 829. `0xbfff0e7bc529a9a622cc5fbac76415afe700721070449dd2a8cbbd2ce62a1f9b`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046624
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 830. `0x78c752712db3220e714f12c37fbcf2a5ba42864e607b9df0666d4c825b9fd570`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046624
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 831. `0x4de77edc63721811df2e7e9150b1a8b9b37211d94f7ddc1719a2b1a069b3ecc4`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046624
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 832. `0xdd57c0ace8112f24f949b74e4b72549f997b5b1df83940cccfd98ae970a303be`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046625
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 833. `0xdc8e2c6440d6a57eb768736afe5cc43545d25fb7848dcacdc96bc0a9a2a96659`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046625
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 834. `0xf69ef31d96937aba08656bd441b8aac9617112060811a7024d32a06cd3c09474`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046625
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 835. `0x2b12a441cd16555dff17aaba1a699f580ca21df151cb7b98274769f5fae238b7`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046625
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 836. `0xc55002ccacea08f2ec0c6023b0bd457b564271ed2c474fe5e02a5b66b16c830d`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046625
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 837. `0x34a84d877ded480880c94a401e74a734e879b48e9b432633c998aeacb71374c5`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046626
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 838. `0x2f9aa7b238529e78a46adaa5e8688ad590506503141801b41f70e631135d84dc`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046626
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 839. `0xa257f3c6fd19b2c7e24f278452441ff8b809ed36bffa843abd349cb099d58f07`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046626
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 840. `0xc2cdfa0509634993d16b72af9d833117dd418197ed5cba195faf897139d00ce9`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046626
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 841. `0xe31dfd8749464a6749a532bee4cf871d64b0d24f7c9c119099235fa78c23acdb`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046627
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 842. `0xa9fc906ace291e3a73d84cffd1ffa452fcd8be006eec107ea16f7746d320072c`
+
+- **classification:** seed
+- **timestamp:** 1780882587
+- **block:** 47046627
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882587 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 843. `0x7b4baac8cfaad78d2b6df3d8a5c04d22e27a7c582ce149c941657c3f2b5cab8e`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046627
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 844. `0x0f961c9e5d905deaf6b423afd62e88141d05371de3fa53403e7249a4e836e245`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046628
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 845. `0x7b4e3ac12e912c20c41749ee3c84e7c7714f8b7d144c934798abe375e652b145`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046628
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 846. `0xe1f9ad0d483a87ba35bb5aad8e11cd65b276eb4bd95e0bbaac3d174a854678a9`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046628
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 847. `0x77e36f1a0bd8e37825300068a81082a66da3eeedb8f8ae0923a7ddedea7bf24a`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046628
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 848. `0x1da45fbba1be39b3dd36b97ed541e4652daf407f4a29fb0495ed65ed3b03f87e`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046628
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 849. `0xb293ef7fe3880c2ee614fbf9eddf0a620fe1fc70fb554ac9f572c7bd6b396a86`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046629
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 850. `0xdfbe7dc661cf343f932a4275112f65fc33330e3ef0ba34bae823bed8a1c85e46`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046629
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 851. `0xe82ea9939c7792bc3e7b75d9b37921b1490536ffb01721b80753e617d942e5e2`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046629
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 852. `0x27d52efe0dd0e75451528babfe05093622f032e8f12d542fed603878586674ee`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046629
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 853. `0x7e8c1234857e793b8cfbcbeedb73a8f1dc448bb32557b3e314b9850b4c78491c`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046630
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 854. `0x482c2907473bd6523f1e779c6dbb019d9518e4729d9980559db7badf2972f008`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046630
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 855. `0xb44fdfb1528daba8fbe3726f61e50f2b99740f94a94b5a42550222ad475d9b89`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046630
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 856. `0x645ed29caf3d2eac59bb00ce37584a8aeaccd7073101a2522a859bd775506e8c`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046630
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 857. `0x54fdb1b75011cf85ee3861051e6409697c9e884970a37176867bbc910de8ff33`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046630
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 858. `0x09822305f1abb02ee032dbd0e76b5c25fa0b0e454ed663be5a289d10630bdd1b`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046631
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 859. `0x0486c2ef98667935639d0e9f498f64b5bcd14a5834e5a75ddafe67da2ec7dd09`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046631
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 860. `0x1a2714a6b3adb16f14da925b1d0a1ff9f32b7421109c826d3e711398c5db7a4c`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046631
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 861. `0x3ad72895ed805587cbd634e600995644e2c88d8e3e5fa6302f16f4df408ecfc1`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046631
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 862. `0x024da1d033f42dfed39f5cede3f20205e4dbbb63093d5fd2971f44d2be8de5ba`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046632
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 863. `0xd11b965b53b0d96ddb53213052d407107a5c9b6944104883d4879c3bc1f7d695`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046632
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 864. `0xa845bde6b179b9bba28aa92492de2900d9588381194a5148c404fc5a0f1babb6`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046632
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 865. `0x18de20e8d5834d2f736cde8774336f93002eb682bfee4220babbe496e785e767`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046632
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 866. `0x08e2a861618a7a16aefc7e0e4d0b505f5222c291d0422cc3bf127f48854c94bf`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046632
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 867. `0x14382d79fc4ff652dedda951093b87ccf46dd199f3ef32014bff68ee45e15a72`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046633
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 868. `0xc71d1ec5b7ab2093f958c4caa43036c8721f779c2b5618b59aa00bb44593a1a6`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046633
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 869. `0xc9e4db22d52dfe2832fb5732a03d7595b8fab73dacf7f4f6a8fd6dbcf97c8ab7`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046633
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 870. `0x2abf4c8272bc5e455da071f3fbb3cf6815b4e5667684f915e2f7c75104df21be`
+
+- **classification:** seed
+- **timestamp:** 1780882600
+- **block:** 47046633
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882600 is shared with 27 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 871. `0xd75f1f81c7f60c3e9f2a524996819bfb05c09367d4b8705aa5249f86d1ea0bf8`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046634
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 872. `0x6e063cefd009cb3840c29be565dc75bc5a8a66643caaeae41c07db085c6e1f77`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046634
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 873. `0x233e2d1c4b5b3b2d3d7be78254a4f4da65bc51f75ff88499db0f0ee49b6c4b71`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046634
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 874. `0x3a3cea8e9b9b626f43c205e1fba0554429167693894ffa6e85bd7745ee083ff2`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046635
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 875. `0xcfc30720e498d5a584add10b76b4768a1566e6e343640fcd5a34497a3e91674f`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046635
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 876. `0x48d11f952cf6411c743ff07d0d9789762ea35927429b7e3bd7ebe4abdc1fdb21`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046635
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 877. `0x1c31693b5e127388e234d40f67b6b1e600521db5c1e1f64200540f9c159bdf63`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046635
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 878. `0xda856b790497ebf660c4b915d06826ec0efb514febf8d3648ac4916aa2848bca`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046635
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 879. `0x233daa486461c77b03559319890e9826ded6e954921e43e5feb48be489a96088`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046636
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 880. `0x23824be0345e03a825b05ac680e03df860e4acede1095eb504d97cd9329c9495`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046636
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 881. `0x2722e181b79e6ea26866ed063a0d9c7cde52c14446b6c33d0f31e175441300f0`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046636
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 882. `0x5e778ebd4ac03426bb7bcfc0a20d520da9ff504c315debccfec7c128b58243c3`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046636
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 883. `0x76b0aac56a3fa6f9302228fd5e948aa26152158fa9fc857793d215121a3ec02f`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046636
+- **verdict:** FAIL
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 884. `0x837def54b5e01b1f05212e757a98b40e0d60d61b6a897727335063dcc3971c26`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046637
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 885. `0xb4bbc4a03bda1057664aeb9b394ae1aef60d0353facb24760815c234441e0af9`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046637
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 886. `0xf2a032bc0bce982d35faf6024f82774183e806449052d4f4df5cba552efeea1e`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046637
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 887. `0x72ef69e174403a7e61cf482ea7b107aaa709109135788093ba4a252c2dae8467`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046637
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 888. `0xe4f5e6b689263f3b2fbf1c07636f0e8cc14277c80e0b1fde24116ad6140f2be7`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046638
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 889. `0x3a00cb8d7e60c739c5c58721a5859fe6f6940d1401a1fd6529fa7ee6e313ab1f`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046638
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 890. `0xe4039558e38eefd9c9d64ed6476fd96739dc88d16dc3d3693f2bb354f8bad9fc`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046638
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong alignment verified
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Strong alignment verified" is the seed-route string for verdict PASS; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 891. `0x5c96429478103c8d19fc68c6c9fb90a035fc35cf966888bc9a9137bc0fb554b5`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046638
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 892. `0xdcc930bfb0444182b0104abda8f5df8b027642534316abc549bac6a8844cba56`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046638
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 893. `0x85ffb37016a1c296e348656b497233bc77aec0b71a9bb5ecae35744ec59041f3`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046639
+- **verdict:** FAIL
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Poor alignment - major revision needed" is the seed-route string for verdict FAIL; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 894. `0xb407e1d6a195ac910a01de7973c02f94dfec61c8285b25f216cf74b0c9934103`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046639
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 895. `0x2c99c13e1b9f2b1621cfc873a800ff1e3a99d5842433d0e74a91810e36b2f398`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046639
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 896. `0x1a799698140af50cc0ee97dca90fb02632f1fca38d781a8cb6ff4680334857a8`
+
+- **classification:** seed
+- **timestamp:** 1780882612
+- **block:** 47046639
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Partial alignment detected
+- **evidence:** random-metric signature of POST /dev/seed-containers: hammerReason "Partial alignment detected" is the seed-route string for verdict NEEDS_REVISION; all resonance and moral scores are 4-decimal quanta from toFixed(4); sub-metrics sit inside the generator jitter windows; solar kp/proton/magnetometer/solarTdf/xrayFlux sit inside the generator bounds; verdict agrees with the sub-metric average. Timestamp 1780882612 is shared with 25 other containers that carry the same seed signature (seed-run burst). Production Redis was not read and dev-route logs were not available, so this entry is not claimed from those sources.
+
+### 897. `0x900abf597e0740874e6b78167a1eb2c9d06e293ebfb013e6a282e38322544cb6`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47046720
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 898. `0x6a094bf2dc252d50f7e76ec73d6f98a12589ae6d7b9f3b4b9b559c13b8ae942d`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47046924
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 899. `0x6909788fd1c8d7c4827a09c7f03365eb6c985f3429caa99d7b0fe4be2f6a67aa`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47047150
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 900. `0x6146516408b89e6780665631a0160716195bf3529add2c02543d42a7bdc3d476`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47063542
+- **verdict:** FAIL
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Poor alignment - major revision needed
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Poor alignment - major revision needed" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; verdict FAIL is not PASS|NEEDS_REVISION|REJECT. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 901. `0x0d6029351904d7e9d56986767a8f2da9d969d191735ce57f64b9d2949ac1f206`
+
+- **classification:** real
+- **timestamp:** 1780916643
+- **block:** 47063649
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 902. `0x3f6cab4692a05409d0fc6648996defc588885210dbe3e1149a8b959e4fb76270`
+
+- **classification:** unknown
+- **timestamp:** 1780869088
+- **block:** 47113329
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869088 is shared with 2 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion; trinitariumMoralScore outside [0.30, 0.80]; fusion outside [0.225, 0.775]. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 903. `0xa5c4cf81418df34d47935e74b7101e8c4b6d470da949a2f2cae3a99f2f74d4d2`
+
+- **classification:** unknown
+- **timestamp:** 1780869088
+- **block:** 47113334
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** high
+- **hammerReason:** Strong alignment verified
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869088 is shared with 2 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Strong alignment verified" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Low" is outside computeTrinitariumGematriaFusion; activityLevel "high" is outside the live solar classifier. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 904. `0x4687a5c0cf915ffee47c7a14f21cf12bba80339eb96b43752b3d31421bd8532e`
+
+- **classification:** unknown
+- **timestamp:** 1780868701
+- **block:** 47150505
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780868701 is shared with 27 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; magnetometer is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 905. `0x86c889a62a0d143634e2e433e9e093d5c5573f339e011f2fe6efaf9adabc7300`
+
+- **classification:** unknown
+- **timestamp:** 1780869088
+- **block:** 47200456
+- **verdict:** NEEDS_REVISION
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Partial alignment detected
+- **evidence:** unproven — not classified as seed or real. Timestamp 1780869088 is shared with 2 other unproven containers. Seed-route signature failed: scores not 4-decimal quanta: fullBox7DComposite, waveProximity, phaseAlignment, calibratedVortex, calibratedSync, neuralProximity, neuralVortex, gematriaResonance, structuralResonance, confidence, trinitariumMoralScore, virtueAlignment, moralSafety, intentAlignment, trinitariumGematriaFusion. Real-run signature failed: hammerReason "Partial alignment detected" is not in the dynamoSolarGovernance set; protonFlux is not the governanceToContainer hardcode 0; tension "Moderate" is outside computeTrinitariumGematriaFusion. No Redis record and no dev-route log were available. Not guessed. Partial overlap with the seed route (hammer string and solar bounds) is not proof: the committed random-metric signature does not hold.
+
+### 906. `0xc4ab65e14e219c7ee6a7be8b87a69eefcd2561d9b9635336eba47e7d193c6495`
+
+- **classification:** real
+- **timestamp:** 1783309971
+- **block:** 48260313
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 907. `0x64b84c041a319a3c80b831d06065e66aa5d24be4f55145e88384447a8e01ad9b`
+
+- **classification:** real
+- **timestamp:** 1783349447
+- **block:** 48280051
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 908. `0x6a58e24da881130e642690824ab1d70e6ea4cccd041482c4d1460e42aa8ab786`
+
+- **classification:** real
+- **timestamp:** 1783349782
+- **block:** 48280219
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 909. `0x4715ebe22466cb6a2e2776d334d7f7eb45ded3e60cf330fe5d7912016098a868`
+
+- **classification:** real
+- **timestamp:** 1784592642
+- **block:** 48901649
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 910. `0x576578e84e494f91e2bc2ad034433f411abcc8c878b781132ac3d6bb14b22d8f`
+
+- **classification:** real
+- **timestamp:** 1784640000
+- **block:** 48925328
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 911. `0xd400041e30192ce0ed1d2a596962f39d6715257050fc5e8e391954b03fc59d80`
+
+- **classification:** real
+- **timestamp:** 1786840090
+- **block:** 50025373
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 912. `0x858b3e302d7694bd87df5a6ff25b8ca2a6346d39c77cd2e45458194ece851628`
+
+- **classification:** real
+- **timestamp:** 1786840258
+- **block:** 50025457
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 913. `0x7f5297e8f84cdbadeedce045d0d3cc411d4ca4cc19b0b7fb8f4ee2385348bcec`
+
+- **classification:** real
+- **timestamp:** 1786855085
+- **block:** 50032870
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 914. `0x5c515af0813c8218c3315f43fca7253ec2535d0eb7ea4ac29e12421425ef68b0`
+
+- **classification:** real
+- **timestamp:** 1786856597
+- **block:** 50033626
+- **verdict:** PASS
+- **source:** ambient
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 915. `0xca258942c3176b70853f8bb1f2aef62648a0abb01d2c53e1be49f74d82bce146`
+
+- **classification:** real
+- **timestamp:** 1789061160
+- **block:** 51135908
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 916. `0xd3ecfcb6b8838552711ad29bda0f775f92543d933b7c1010a925716afb943a71`
+
+- **classification:** real
+- **timestamp:** 1789063601
+- **block:** 51137128
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 917. `0xb834c47daaeb5d1f3a1dd4d5e5db8a39dae9d43fbb480512011f35793ed6bea4`
+
+- **classification:** real
+- **timestamp:** 1789066036
+- **block:** 51138345
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 918. `0xd5dfeb7d2f6aee3447287169cc0c68c114a9d5015c79371a2a919d1d4b18ba97`
+
+- **classification:** real
+- **timestamp:** 1789261371
+- **block:** 51236013
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 919. `0x04c2e04defbac64cd1ce505a37a8f0ce207ab121c1411f336900213be5c7a846`
+
+- **classification:** real
+- **timestamp:** 1789261870
+- **block:** 51236263
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 920. `0x257136b1038f16324d9efe0a7e209ebffc5885b362182e6deb8d70fb43d36a54`
+
+- **classification:** real
+- **timestamp:** 1789261901
+- **block:** 51236278
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 921. `0xe32369262eda42c6fcc239d4d293f29e3869164b9175cf2f5c6796fb100a30b2`
+
+- **classification:** real
+- **timestamp:** 1789262059
+- **block:** 51236357
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 922. `0xaf105e77eefeb1f0e6346f2899d0cea694178b0017360b4b64c3d8545c736e41`
+
+- **classification:** real
+- **timestamp:** 1789262716
+- **block:** 51236686
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 923. `0x6bbdc967a20377408f858d61165c2e0d9abde94fe0128d36886ac4d7c12d011e`
+
+- **classification:** real
+- **timestamp:** 1789299697
+- **block:** 51255176
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 924. `0x89c11d96e9075f6c6e3a511194ebfe64edd905f7fd0fda22853353ccf66f6c7a`
+
+- **classification:** real
+- **timestamp:** 1789742550
+- **block:** 51476602
+- **verdict:** NEEDS_REVISION
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 925. `0x317bbd932771eecffdf8199e544a1562ec7ecce4eff7696d1ce81aa9b30d4d19`
+
+- **classification:** real
+- **timestamp:** 1789742586
+- **block:** 51476621
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** quiet
+- **hammerReason:** Good alignment with solar field
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Good alignment with solar field" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 926. `0xff343930a7940d5f31f7ace0dffa7eab094743e4e80a659d435b778a1c13ea4f`
+
+- **classification:** real
+- **timestamp:** 1789747027
+- **block:** 51478841
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 927. `0x1060130a2a3efb60c162184e29ecc02b6edc6a1b88d9761fec2cec1c0330246d`
+
+- **classification:** real
+- **timestamp:** 1789751221
+- **block:** 51480938
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 928. `0x1eaa2b2db6cdd22f1cbad3f96622ffb7f398fa161f58af9551449c8e19d41e2b`
+
+- **classification:** real
+- **timestamp:** 1789751296
+- **block:** 51480976
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Aligned" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 929. `0x7ab8186f1868aa88b5538f250347cce657df354a597e3cf9038226b0841211f2`
+
+- **classification:** real
+- **timestamp:** 1789751392
+- **block:** 51481024
+- **verdict:** NEEDS_REVISION
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Moderate resonance — needs refinement
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Moderate resonance — needs refinement" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict NEEDS_REVISION is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 930. `0xaede3265eb4d84c6de963a38e7d19c52fb017cd171c80165d394e3c3d3339bb1`
+
+- **classification:** real
+- **timestamp:** 1789751432
+- **block:** 51481044
+- **verdict:** PASS
+- **source:** human
+- **activityLevel:** quiet
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "quiet" is a live solar class. The seed-route random-metric signature does not hold.
+
+### 931. `0x86a06aee594e499af76a2bfe4ea81e5753bdef9b01786b3a79b761aab908c689`
+
+- **classification:** real
+- **timestamp:** 1789843707
+- **block:** 51527181
+- **verdict:** PASS
+- **source:** agent
+- **activityLevel:** moderate
+- **hammerReason:** Strong resonance with current solar conditions
+- **evidence:** real-run signature of governanceToContainer: hammerReason "Strong resonance with current solar conditions" is emitted only by dynamoSolarGovernance; protonFlux=0 and magnetometer=0 are hardcoded by governanceToContainer and are not the seed generator; tension "Mild" is in the Trinitarium set; verdict PASS is PASS|NEEDS_REVISION|REJECT; activityLevel "moderate" is a live solar class. The seed-route random-metric signature does not hold.
