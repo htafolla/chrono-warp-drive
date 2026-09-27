@@ -5,8 +5,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   containerOriginHashField,
   containerOriginRecord,
+  containerReviewFlag,
   devSeedRouteAllowed,
   isExcludedSeed,
+  matchesRandomMetricSeedShape,
   REDIS_CONTAINER_ORIGIN_KEY,
   SEED_ROUTE_SOURCE,
   tagContainerOrigin,
@@ -16,6 +18,7 @@ import { containerToContractParams, type ContainerVortex } from '../../mcp/lib/t
 import { TemporalManifold } from '../../mcp/lib/temporalManifold'
 import { DEV_SEED_DISABLED_ERROR, mountDevSeedRoute } from '../../mcp/lib/devSeedRoute'
 import { EVIDENCE_SEED_IDS } from '../../mcp/lib/evidenceSeedIds'
+import { EVIDENCE_UNKNOWN_IDS } from '../../mcp/lib/evidenceUnknownIds'
 import { Hono } from 'hono'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -137,7 +140,50 @@ describe('container origin tags', () => {
 })
 
 const evidenceSeedId = EVIDENCE_SEED_IDS.values().next().value as string
+const evidenceUnknownId = EVIDENCE_UNKNOWN_IDS.values().next().value as string
 const realContainerId = '0x' + '22'.repeat(32)
+
+function randomMetricSeedContainer(containerId: string, timestamp: number) {
+  const base = manifoldContainer({ containerId, timestamp, resonance: 0.8, proposalHash: '0x' + 'ab'.repeat(32) })
+  const score = 0.8
+  return {
+    ...base,
+    hammerReason: 'Strong alignment verified',
+    solarSnapshot: {
+      ...base.solarSnapshot,
+      activityLevel: 'moderate',
+      xrayFlux: 1e-6,
+      kpIndex: 3,
+      protonFlux: 40,
+      magnetometer: -12,
+      solarTdf: 2,
+    },
+    resonanceProfile: {
+      ...base.resonanceProfile,
+      fullBox7DComposite: score,
+      fullBox7DVerdict: 'PASS',
+      waveProximity: score,
+      phaseAlignment: score,
+      calibratedVortex: score,
+      calibratedSync: score,
+      neuralProximity: score,
+      neuralVortex: score,
+      gematriaResonance: score,
+      structuralResonance: score,
+      verdict: 'PASS',
+      confidence: 0.5,
+    },
+    moralOverlay: {
+      ...base.moralOverlay,
+      trinitariumMoralScore: 0.55,
+      virtueAlignment: 0.55,
+      moralSafety: 0.55,
+      intentAlignment: 0.55,
+      trinitariumGematriaFusion: 0.5,
+      moralNumerologicalTension: 'Mild',
+    },
+  }
+}
 
 function manifoldContainer(overrides: {
   origin?: 'seed' | 'real'
@@ -194,104 +240,189 @@ describe('seed exclusion from manifold and re-score candidates', () => {
   const seconds = 1_780_868_701
   const proposalText = 'Deploy the observatory on a quiet day'
 
-  it('does not let a tagged seed into the manifold or re-score candidates even with text and a millisecond timestamp', () => {
-    const manifold = new TemporalManifold()
-    const now = Date.now()
-    const seed = manifoldContainer({
-      origin: 'seed',
-      timestamp: now,
-      resonance: 0.95,
-      containerId: realContainerId,
-    })
-    const scores = { ...seed.resonanceProfile }
-    manifold.populateFromContainers([seed, seed, seed], new Map([[seed.proposalHash, proposalText]]))
-    manifold.addFromContainer(seed, proposalText)
-    manifold.addPoint({
-      timestamp: now,
-      proposalHash: 'seed-point',
-      source: 'human',
-      solarActivity: 'quiet',
-      origin: 'seed',
-      resonance7D: 0.95,
-      phaseAlignment: 0.95,
-      vortexAlignment: 0.95,
-      synchronization: 0.95,
-      gematriaResonance: 0.95,
-      tmoScore: 0.95,
-      verdict: 'PASS',
-      summary: proposalText,
-    }, proposalText)
-    expect(manifold.getPointCount()).toBe(0)
-    expect(manifold.getAxioms(0.8, 1)).toEqual([])
-    expect(manifold.getSelfReflectionCandidates()).toEqual([])
-    expect(seed.resonanceProfile).toEqual(scores)
-    expect(isExcludedSeed({ origin: 'seed', containerId: realContainerId })).toBe(true)
+  it('recognizes containers built with the seed route formulas', () => {
+    const fix = (value: number) => Number(value.toFixed(4))
+    for (let n = 1; n <= 40; n++) {
+      let state = n * 997
+      const r = () => {
+        state = (state * 16807) % 2147483647
+        return (state - 1) / 2147483646
+      }
+      const jitter = (base: number, range: number) => Math.max(0.01, Math.min(0.99, base + (r() - 0.5) * range))
+      const compRaw = r() * 0.5 + r() * 0.3 + r() * 0.2
+      const compositeRaw = Math.min(0.99, 0.15 + compRaw * 0.85)
+      const waveRaw = jitter(compositeRaw, 0.35)
+      const phaseRaw = jitter(compositeRaw, 0.40)
+      const vortexRaw = jitter(compositeRaw, 0.30)
+      const syncRaw = jitter(compositeRaw, 0.38)
+      const neuralProximityRaw = jitter(compositeRaw, 0.32)
+      const neuralVortexRaw = jitter(compositeRaw, 0.28)
+      const gematriaRaw = jitter(compositeRaw, 0.36)
+      const structuralRaw = jitter(compositeRaw, 0.34)
+      const avgSub = (waveRaw + phaseRaw + vortexRaw + syncRaw + neuralProximityRaw + neuralVortexRaw + gematriaRaw + structuralRaw) / 8
+      const verdict = avgSub >= 0.65 ? 'PASS' : avgSub >= 0.42 ? 'NEEDS_REVISION' : 'FAIL'
+      const agreement = 1 - Math.abs(avgSub - compositeRaw)
+      const confidenceRaw = Math.min(0.99, Math.max(0.25, agreement * 0.5 + r() * 0.4))
+      const moralRaw = jitter(0.55, 0.50)
+      const virtueRaw = jitter(moralRaw, 0.30)
+      const safetyRaw = jitter(moralRaw, 0.35)
+      const intentRaw = jitter(moralRaw, 0.28)
+      const fusionRaw = jitter(0.50, 0.55)
+      const solarScore = r()
+      const container = {
+        source: 'agent' as const,
+        hammerReason: verdict === 'PASS' ? 'Strong alignment verified'
+          : verdict === 'NEEDS_REVISION' ? 'Partial alignment detected'
+          : 'Poor alignment - major revision needed',
+        solarSnapshot: {
+          activityLevel: solarScore > 0.7 ? 'high' : solarScore > 0.4 ? 'moderate' : 'quiet',
+          xrayFlux: 1e-8 + r() * 2.0e-6,
+          kpIndex: Math.floor(r() * 9),
+          protonFlux: Math.floor(r() * 200),
+          magnetometer: Math.floor((r() - 0.5) * 200),
+          solarTdf: Math.floor(r() * 5),
+        },
+        resonanceProfile: {
+          fullBox7DComposite: fix(compositeRaw),
+          fullBox7DVerdict: verdict,
+          waveProximity: fix(waveRaw),
+          phaseAlignment: fix(phaseRaw),
+          calibratedVortex: fix(vortexRaw),
+          calibratedSync: fix(syncRaw),
+          neuralProximity: fix(neuralProximityRaw),
+          neuralVortex: fix(neuralVortexRaw),
+          gematriaResonance: fix(gematriaRaw),
+          structuralResonance: fix(structuralRaw),
+          verdict,
+          confidence: fix(confidenceRaw),
+        },
+        moralOverlay: {
+          trinitariumMoralScore: fix(moralRaw),
+          virtueAlignment: fix(virtueRaw),
+          moralSafety: fix(safetyRaw),
+          intentAlignment: fix(intentRaw),
+          trinitariumGematriaFusion: fix(fusionRaw),
+          moralNumerologicalTension: 'Low',
+        },
+      }
+      expect(matchesRandomMetricSeedShape(container)).toBe(true)
+    }
   })
 
-  it('does not let an evidence-list container into the manifold or re-score candidates', () => {
+  it('matches the unstable dev-script payload and rejects the dissonant one', () => {
+    const unstable = randomMetricSeedContainer(realContainerId, seconds)
+    unstable.hammerReason = 'Partial alignment detected'
+    unstable.resonanceProfile = {
+      ...unstable.resonanceProfile,
+      fullBox7DComposite: 0.65,
+      fullBox7DVerdict: 'NEEDS_REVISION',
+      waveProximity: 0.60,
+      phaseAlignment: 0.58,
+      calibratedVortex: 0.62,
+      calibratedSync: 0.55,
+      neuralProximity: 0.63,
+      neuralVortex: 0.59,
+      gematriaResonance: 0.61,
+      structuralResonance: 0.57,
+      verdict: 'NEEDS_REVISION',
+      confidence: 0.60,
+    }
+    unstable.moralOverlay = {
+      ...unstable.moralOverlay,
+      trinitariumMoralScore: 0.55,
+      virtueAlignment: 0.52,
+      moralSafety: 0.58,
+      intentAlignment: 0.50,
+      trinitariumGematriaFusion: 0.45,
+      moralNumerologicalTension: 'Moderate',
+    }
+    unstable.solarSnapshot = { ...unstable.solarSnapshot, activityLevel: 'quiet', xrayFlux: 2e-7, kpIndex: 2, protonFlux: 10, magnetometer: 5, solarTdf: 1 }
+    expect(matchesRandomMetricSeedShape(unstable)).toBe(true)
+
+    const dissonant = randomMetricSeedContainer(realContainerId, seconds)
+    dissonant.moralOverlay = { ...dissonant.moralOverlay, trinitariumGematriaFusion: 0.20 }
+    expect(matchesRandomMetricSeedShape(dissonant)).toBe(false)
+  })
+
+  it('drops a container only when it has no text and matches the random-metric seed shape', () => {
+    const shaped = randomMetricSeedContainer(realContainerId, Date.now())
+    expect(matchesRandomMetricSeedShape(shaped)).toBe(true)
+    expect(isExcludedSeed({ container: shaped })).toBe(true)
+    expect(isExcludedSeed({ text: proposalText, container: shaped })).toBe(false)
+    expect(isExcludedSeed({ containerId: evidenceSeedId })).toBe(false)
+
+    const manifold = new TemporalManifold()
+    const scores = { ...shaped.resonanceProfile }
+    manifold.populateFromContainers([shaped])
+    manifold.addFromContainer(shaped)
+    expect(manifold.getPointCount()).toBe(0)
+    expect(manifold.getSelfReflectionCandidates()).toEqual([])
+    expect(shaped.resonanceProfile).toEqual(scores)
+  })
+
+  it('never skips a real container that has text, and leaves its scores unchanged', () => {
+    const manifold = new TemporalManifold()
+    const shaped = randomMetricSeedContainer(realContainerId, Date.now())
+    shaped.origin = 'real'
+    shaped.proposalHash = 'abc'
+    const scores = { ...shaped.resonanceProfile }
+    manifold.populateFromContainers([shaped], new Map([[shaped.proposalHash, proposalText]]))
+    manifold.addFromContainer(shaped, proposalText)
+    expect(manifold.getPointCount()).toBe(2)
+    const point = manifold.getAllPoints()[0]
+    expect(point.resonance7D).toBe(shaped.resonanceProfile.fullBox7DComposite)
+    expect(point.phaseAlignment).toBe(shaped.resonanceProfile.phaseAlignment)
+    expect(point.vortexAlignment).toBe(shaped.resonanceProfile.calibratedVortex)
+    expect(point.synchronization).toBe(shaped.resonanceProfile.calibratedSync)
+    expect(point.gematriaResonance).toBe(shaped.resonanceProfile.gematriaResonance)
+    expect(point.tmoScore).toBe(shaped.moralOverlay.trinitariumMoralScore)
+    expect(point.verdict).toBe(shaped.resonanceProfile.verdict)
+    expect(point.reviewFlag).toBeUndefined()
+    expect(shaped.resonanceProfile).toEqual(scores)
+    expect(manifold.getSelfReflectionCandidates().map(p => p.proposalHash)).toEqual(['abc', 'abc'])
+    expect(seedRouteSource).toContain('temporalManifold.addFromContainer(container, proposalText)')
+    expect(seedRouteSource).not.toContain("addFromContainer({ ...container, origin: 'real' }")
+  })
+
+  it('keeps an unknown container and flags it, including when it has no text', () => {
+    expect(EVIDENCE_UNKNOWN_IDS.size).toBe(94)
     expect(EVIDENCE_SEED_IDS.size).toBe(786)
-    expect(isExcludedSeed({ containerId: evidenceSeedId })).toBe(true)
-    expect(isExcludedSeed({ containerId: evidenceSeedId.toUpperCase() })).toBe(true)
+    expect(containerReviewFlag(evidenceUnknownId)).toBe('unknown')
+    expect(containerReviewFlag(evidenceSeedId)).toBeUndefined()
+    expect(containerReviewFlag(realContainerId)).toBeUndefined()
+
+    const shaped = randomMetricSeedContainer(evidenceUnknownId, seconds)
+    expect(matchesRandomMetricSeedShape(shaped)).toBe(true)
+    expect(isExcludedSeed({ containerId: evidenceUnknownId, container: shaped })).toBe(false)
 
     const manifold = new TemporalManifold()
-    const seeded = manifoldContainer({
-      timestamp: Date.now(),
-      resonance: 0.95,
-      containerId: evidenceSeedId,
-      proposalHash: '0x' + 'aa'.repeat(32),
-    })
-    manifold.populateFromContainers([seeded], new Map([[seeded.proposalHash, proposalText]]))
-    manifold.addFromContainer(seeded, proposalText)
-    expect(manifold.getPointCount()).toBe(0)
-    expect(manifold.getSelfReflectionCandidates()).toEqual([])
+    manifold.populateFromContainers([shaped])
+    expect(manifold.getPointCount()).toBe(1)
+    expect(manifold.getAllPoints()[0].reviewFlag).toBe('unknown')
+    expect(manifold.getAllPoints()[0].resonance7D).toBe(shaped.resonanceProfile.fullBox7DComposite)
+
+    const live = new TemporalManifold()
+    const withText = randomMetricSeedContainer(evidenceUnknownId, Date.now())
+    withText.proposalHash = 'unknown-hash'
+    live.addFromContainer(withText, proposalText)
+    expect(live.getAllPoints()[0].reviewFlag).toBe('unknown')
+    expect(live.getSelfReflectionCandidates().map(p => p.proposalHash)).toEqual(['unknown-hash'])
   })
 
-  it('keeps a real container that has no text and a unix-seconds timestamp', () => {
-    expect(isExcludedSeed({ containerId: realContainerId })).toBe(false)
-    expect(isExcludedSeed({ origin: 'real', containerId: realContainerId })).toBe(false)
-
+  it('keeps a real container that has no text when it does not match the seed shape', () => {
     const manifold = new TemporalManifold()
-    const resonance = 0.91
     const real = manifoldContainer({
       origin: 'real',
       timestamp: seconds,
-      resonance,
+      resonance: 0.91,
       proposalHash: '0x' + '11'.repeat(32),
     })
-    const scores = { ...real.resonanceProfile }
+    expect(matchesRandomMetricSeedShape(real)).toBe(false)
+    expect(isExcludedSeed({ container: real, containerId: real.containerId })).toBe(false)
     manifold.populateFromContainers([real])
     expect(manifold.getPointCount()).toBe(1)
-    const point = manifold.getAllPoints()[0]
-    expect(point.resonance7D).toBe(resonance)
-    expect(point.tmoScore).toBe(resonance)
-    expect(point.phaseAlignment).toBe(resonance)
-    expect(point.vortexAlignment).toBe(resonance)
-    expect(point.synchronization).toBe(resonance)
-    expect(point.gematriaResonance).toBe(resonance)
-    expect(point.verdict).toBe('PASS')
-    expect(point.summary).toBeUndefined()
-    expect(real.resonanceProfile).toEqual(scores)
-    expect(manifold.getSelfReflectionCandidates()).toEqual([])
-  })
-
-  it('keeps a real millisecond point in the re-score candidates and leaves its scores unchanged', () => {
-    const manifold = new TemporalManifold()
-    const resonance = 0.91
-    const now = Date.now()
-    const real = manifoldContainer({
-      timestamp: now,
-      resonance,
-      proposalHash: 'abc',
-    })
-    manifold.addFromContainer(real, proposalText)
-    expect(manifold.getPointCount()).toBe(1)
-    const point = manifold.getAllPoints()[0]
-    expect(point.resonance7D).toBe(resonance)
-    expect(point.tmoScore).toBe(resonance)
-    expect(point.solarActivity).toBe('quiet')
-    expect(manifold.getSelfReflectionCandidates().map(p => p.proposalHash)).toEqual(['abc'])
-    expect(seedRouteSource).toContain('temporalManifold.addFromContainer(container, proposalText)')
-    expect(seedRouteSource).not.toContain("addFromContainer({ ...container, origin: 'real' }")
+    expect(manifold.getAllPoints()[0].reviewFlag).toBeUndefined()
+    expect(manifold.getAllPoints()[0].resonance7D).toBe(0.91)
   })
 })
 

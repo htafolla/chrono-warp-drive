@@ -190,8 +190,9 @@ export class AmbientField {
       this.config.selfReflectWindowMs,
       this.config.selfReflectCandidates,
     ).filter(c => !isExcludedSeed({
-      origin: c.origin,
+      text: c.summary,
       containerId: c.containerId,
+      container: c.seedShape,
     }))
 
     const available = candidates.filter(c => !this.recentlySampledHashes.has(c.proposalHash))

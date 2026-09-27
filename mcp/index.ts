@@ -45,8 +45,9 @@ const TOKEN_IMAGE_TTL = 86400
         }
       } catch { /* skip corrupt */ }
     }
-    // Rebuild Manifold from persisted containers. Skip origin=seed and any id
-    // on the evidence seed list. Real containers stay, including unix-seconds rows.
+    // Rebuild Manifold from persisted containers. Skip a row only when it has
+    // no proposal text and it matches the random-metric seed shape. Unknown
+    // evidence-list ids stay and are flagged. Real containers stay.
     let originById = new Map<string, 'seed' | 'real'>()
     try {
       originById = originFromRedisHash(await client.hgetall(REDIS_CONTAINER_ORIGIN_KEY))
