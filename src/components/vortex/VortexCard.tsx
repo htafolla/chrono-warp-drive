@@ -63,6 +63,7 @@ interface VortexCardProps {
   inRegistry: boolean
   isMinting: boolean
   mintError?: string
+  claimsPaused?: boolean
   onClaim: (containerId: string) => void
   onViewDetails: (container: ContainerItem) => void
   donationAmount: string
@@ -82,6 +83,7 @@ export function VortexCard({
   inRegistry,
   isMinting,
   mintError,
+  claimsPaused,
   onClaim,
   onViewDetails,
   donationAmount,
@@ -195,7 +197,7 @@ export function VortexCard({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => onClaim(container.containerId)}
-                      disabled={isMinting || insufficient}
+                      disabled={isMinting || insufficient || claimsPaused}
                       className={cn(
                         'text-[11px] font-medium py-1 px-2.5 rounded-lg transition-all',
                         'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500',

@@ -7,6 +7,7 @@ interface VortexCardGridProps {
   tokenStatus: Record<string, { hasToken: boolean; tokenId: string | null; inRegistry?: boolean }>
   minting: string | null
   mintErrors: Record<string, string>
+  claimsPaused?: boolean
   onClaim: (containerId: string) => void
   onViewDetails: (container: ContainerItem) => void
   filterMode: 'all' | 'claimed' | 'unclaimed'
@@ -31,6 +32,7 @@ export function VortexCardGrid({
   tokenStatus,
   minting,
   mintErrors,
+  claimsPaused,
   onClaim,
   onViewDetails,
   filterMode,
@@ -131,7 +133,8 @@ export function VortexCardGrid({
               tokenId={tokenStatus[c.containerId]?.tokenId ?? null}
               inRegistry={tokenStatus[c.containerId]?.inRegistry ?? false}
               isMinting={minting === c.containerId}
-              mintError={mintErrors[c.containerId]}
+              mintError={claimsPaused ? undefined : mintErrors[c.containerId]}
+              claimsPaused={claimsPaused}
               onClaim={onClaim}
               onViewDetails={onViewDetails}
               donationAmount={donationAmounts[c.containerId] || '0.001'}

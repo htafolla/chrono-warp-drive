@@ -72,6 +72,60 @@ export function onChainMintId(containerId: string): `0x${string}` {
   return containerId as `0x${string}`
 }
 
+const ZERO_MINT_KEY = '0x' + '00'.repeat(32)
+
+function isMintKey(value: string | undefined): value is string {
+  return typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value) && value.toLowerCase() !== ZERO_MINT_KEY
+}
+
+/**
+ * One on-chain token, as read at boot. `tokenByKey` is tokenByContainerId for
+ * both historical keys: containerId (route mint) and containerHash (auto-mint).
+ */
+export interface ChainMintRecord {
+  containerId: string
+  containerHash: string
+  tokenByKey: Record<string, string | null>
+}
+
+function tokenForKey(record: ChainMintRecord, key: string): string | null {
+  const lower = key.toLowerCase()
+  if (lower in record.tokenByKey) return record.tokenByKey[lower]
+  for (const [stored, tokenId] of Object.entries(record.tokenByKey)) {
+    if (stored.toLowerCase() === lower) return tokenId
+  }
+  return null
+}
+
+/**
+ * Ids that already have a token. A hit on either old key marks that key, and a
+ * hash-keyed auto-mint also marks the container id stored on the token.
+ */
+export function mintedIdsFromChainRecords(records: ChainMintRecord[]): string[] {
+  const minted = new Set<string>()
+  for (const record of records) {
+    const containerId = record.containerId.toLowerCase()
+    const containerHash = record.containerHash.toLowerCase()
+    if (isMintKey(record.containerId) && tokenForKey(record, containerId)) {
+      minted.add(containerId)
+    }
+    if (isMintKey(record.containerHash) && tokenForKey(record, containerHash)) {
+      minted.add(containerHash)
+      if (isMintKey(record.containerId)) minted.add(containerId)
+    }
+  }
+  return [...minted]
+}
+
+function readBytes32Field(data: unknown, name: 'containerId' | 'containerHash', index: number): string {
+  if (!data || typeof data !== 'object') return ''
+  const record = data as Record<string, unknown>
+  const named = record[name]
+  if (typeof named === 'string') return named
+  const indexed = record[index]
+  return typeof indexed === 'string' ? indexed : ''
+}
+
 interface WalletBundle {
   walletClient: ReturnType<typeof createWalletClient>
   publicClient: ReturnType<typeof createPublicClient>
@@ -309,7 +363,7 @@ class LiveChainExecutor implements ChainExecutor {
       abi,
       functionName: 'totalSupply',
     }) as bigint
-    const ids: string[] = []
+    const records: ChainMintRecord[] = []
     for (let i = 0n; i < supply; i++) {
       const tokenId = await publicClient.readContract({
         address: VORTEX_TOKEN_ADDRESS,
@@ -322,15 +376,25 @@ class LiveChainExecutor implements ChainExecutor {
         abi,
         functionName: 'getContainerData',
         args: [tokenId],
-      }) as { containerId?: string } | readonly string[]
-      const containerId = (typeof data === 'object' && data && 'containerId' in data
-        ? data.containerId
-        : Array.isArray(data) ? data[0] : undefined)
-      if (typeof containerId === 'string' && /^0x[0-9a-fA-F]{64}$/.test(containerId)) {
-        ids.push(containerId.toLowerCase())
+      })
+      const containerId = readBytes32Field(data, 'containerId', 0)
+      const containerHash = readBytes32Field(data, 'containerHash', 18)
+      const tokenByKey: Record<string, string | null> = {}
+      for (const key of [containerId, containerHash]) {
+        if (!isMintKey(key)) continue
+        const lower = key.toLowerCase()
+        if (lower in tokenByKey) continue
+        const tid = await publicClient.readContract({
+          address: VORTEX_TOKEN_ADDRESS,
+          abi,
+          functionName: 'tokenByContainerId',
+          args: [key as `0x${string}`],
+        }) as bigint
+        tokenByKey[lower] = tid === 0n ? null : tid.toString()
       }
+      records.push({ containerId, containerHash, tokenByKey })
     }
-    return ids
+    return mintedIdsFromChainRecords(records)
   }
 
   async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }> {

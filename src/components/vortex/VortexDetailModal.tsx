@@ -69,6 +69,7 @@ interface VortexDetailModalProps {
   tokenId?: string | null
   onChainMetadata?: any
   onClaim?: () => void
+  claimsPaused?: boolean
   isMinting?: boolean
   mintError?: string
   mintResult?: string
@@ -163,6 +164,7 @@ export function VortexDetailModal({
   tokenId,
   onChainMetadata,
   onClaim,
+  claimsPaused,
   isMinting,
   mintError,
   mintResult,
@@ -369,15 +371,16 @@ export function VortexDetailModal({
                           <div className="flex items-center gap-2">
                             <button
                               onClick={onClaim}
-                              disabled={isMinting || insufficient}
+                              disabled={isMinting || insufficient || claimsPaused}
                               className={cn(
                                 'px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-white',
-                                insufficient
+                                'disabled:opacity-50 disabled:cursor-not-allowed',
+                                insufficient && !claimsPaused
                                   ? 'bg-red-600/50 cursor-not-allowed'
                                   : 'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 shadow-lg shadow-fuchsia-600/20'
                               )}
                             >
-                              {isMinting ? 'Minting...' : insufficient ? 'Low Balance' : 'Mint'}
+                              {isMinting ? 'Minting...' : insufficient && !claimsPaused ? 'Low Balance' : 'Mint'}
                             </button>
                             {insufficient && (
                               <span className="text-[11px] text-red-400">Insufficient ETH for donation + gas</span>
@@ -391,7 +394,7 @@ export function VortexDetailModal({
                       Connect your wallet to mint this container as a VortexToken
                     </div>
                   )}
-                  {mintError && (
+                  {mintError && !claimsPaused && (
                     <div className="text-[11px] text-red-400 mt-2">{mintError}</div>
                   )}
                   {mintResult && (

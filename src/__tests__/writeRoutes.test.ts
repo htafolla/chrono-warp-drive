@@ -28,7 +28,7 @@ vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
 
 import { app, autoMintVortex, rebuildMintedSetFromChain } from '../../mcp/index'
 import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
-import { onChainMintId, setChainExecutorForTests } from '../../mcp/lib/chainPort'
+import { mintedIdsFromChainRecords, onChainMintId, setChainExecutorForTests, type ChainMintRecord } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
 import {
   DEFAULT_MINT_GLOBAL_BUDGET,
@@ -60,6 +60,7 @@ class StubChain implements ChainExecutor {
   mintedOnChain = new Map<string, string>()
   failNextMint = false
   bootIds: string[] = []
+  tokenRecords: ChainMintRecord[] = []
 
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
     this.chainCalls += 1
@@ -101,6 +102,7 @@ class StubChain implements ChainExecutor {
 
   async listMintedContainerIds(): Promise<string[]> {
     this.chainCalls += 1
+    if (this.tokenRecords.length > 0) return mintedIdsFromChainRecords(this.tokenRecords)
     return this.bootIds.length > 0 ? [...this.bootIds] : [...this.mintedOnChain.keys()]
   }
 
@@ -668,6 +670,41 @@ describe('mint abuse limits', () => {
     expect(String(signed.json.error)).toContain('already')
     expect(stub.mints).toHaveLength(mintsBefore)
     expect(stub.keyReads).toBe(1)
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+
+    const routeId = nextId()
+    const routeHash = nextId()
+    const autoId = nextId()
+    const autoHash = nextId()
+    stub.containers.set(routeId.toLowerCase(), registryContainer(routeId, routeHash))
+    stub.containers.set(autoId.toLowerCase(), registryContainer(autoId, autoHash))
+    stub.tokenRecords = [
+      {
+        containerId: routeId,
+        containerHash: routeHash,
+        tokenByKey: { [routeId.toLowerCase()]: '1', [routeHash.toLowerCase()]: null },
+      },
+      {
+        containerId: autoId,
+        containerHash: autoHash,
+        tokenByKey: { [autoId.toLowerCase()]: null, [autoHash.toLowerCase()]: '2' },
+      },
+    ]
+    resetWriteGuardsForTests()
+    await rebuildMintedSetFromChain()
+    const afterRebuild = stub.mints.length
+    const routeMint = await mint(signedMint(routeId, routeHash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.50.0.2',
+    })
+    const hashMint = await mint(signedMint(autoId, autoHash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.50.0.3',
+    })
+    expect(routeMint.status).toBe(409)
+    expect(hashMint.status).toBe(409)
+    expect(stub.mints).toHaveLength(afterRebuild)
     expect(counters.deployerKeyReads).toBe(0)
     expect(counters.directChainCalls).toBe(0)
   })
