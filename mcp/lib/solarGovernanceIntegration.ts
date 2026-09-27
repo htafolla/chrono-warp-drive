@@ -11,7 +11,7 @@ import { runKuramotoCoupling } from './kuramotoOscillators.js'
 import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16, sentenceToEmbedding16 } from './wavePropagation.js'
 import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine.js'
 import { computeTrinitariumOverlay, computeTrinitariumGematriaFusion } from './trinitariumMoralOverlay.js'
-import { resolveTimestampMs } from './signalFromText.js'
+import { crossTexts, resolveTimestampMs } from './signalFromText.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -115,6 +115,36 @@ function getSolarReferenceTdf(solarData: SolarData): number {
 // not content hash (content hashes are now replaced by Kuramoto oscillators).
 function tdfCascade(tdf: number): number {
   return Math.floor((tdf % 1e6) / 10000) % 100;
+}
+
+/**
+ * Text → TDF for cross_correlate.
+ * hashProposalToTdf (commit 164e6cf3) was the first hammer fingerprint.
+ * deriveProposalCodexParams (commit 588cb2de) replaced it. computeProposalTdf
+ * calls that function and computeFullTDF. No new hash is added here.
+ */
+function tdfForProposalText(text: string, solarData: SolarData, timestampMs: number): { tdf: number; cascadeIndex: number } {
+  const normalized = normalizeProposalText(text || 'empty-proposal')
+  const words = normalized ? normalized.split(/\s+/).filter((word) => word.length > 0) : []
+  const tdf = computeProposalTdf(words, solarData, timestampMs)
+  return { tdf, cascadeIndex: tdfCascade(tdf) }
+}
+
+/** Both sides of one correlation share one solar snapshot and one timestamp. */
+export async function crossCorrelateFromProposalText(
+  contentA: string,
+  contentB: string,
+  timestampMs: number,
+): Promise<ReturnType<typeof crossTexts>> {
+  const solarData = await solarDataFetcher.fetchCurrentSolarData()
+  const left = tdfForProposalText(contentA, solarData, timestampMs)
+  const right = tdfForProposalText(contentB, solarData, timestampMs)
+  return crossTexts(contentA, contentB, {
+    tdfA: left.tdf,
+    tdfB: right.tdf,
+    cascadeA: left.cascadeIndex,
+    cascadeB: right.cascadeIndex,
+  })
 }
 
 export interface SolarGovernanceContext {

@@ -19,12 +19,12 @@ import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, 
 import { temporalManifold } from './lib/temporalManifold.js'
 import {
   TextDerivedSignal,
-  crossTexts,
   triangulateTexts,
   fuseTexts,
   resolveTimestampMs,
   type ResolvedClock,
 } from './lib/signalFromText.js'
+import { crossCorrelateFromProposalText } from './lib/solarGovernanceIntegration.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -871,7 +871,11 @@ app.post('/cross_correlate', async (c: Context) => {
 
   try {
     const clock = readClock(parsed.data.timestamp)
-    const score = crossTexts(parsed.data.contentA, parsed.data.contentB ?? 'reference-signal')
+    const score = await crossCorrelateFromProposalText(
+      parsed.data.contentA,
+      parsed.data.contentB ?? 'reference-signal',
+      clock.timestampMs,
+    )
     return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
   } catch (err) {
     return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
@@ -1388,7 +1392,7 @@ function mcpError(id: any, code: number, message: string, data?: any) {
 }
 
 // Map tool calls to actual handlers
-const TOOL_HANDLERS: Record<string, (args: any) => any> = {
+export const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   compute_tdf: (args: any) => {
     const { tptt, bhs, tdf, s_l } = computeFullTDF(
       args.T_c ?? 137, args.P_s ?? 1.0, args.E_t ?? 0.5, args.delta_t ?? 1e-6,
@@ -1397,9 +1401,13 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return { tdfValue: tdf, S_L: s_l, tau: TAU, tPTT: tptt, BlackHole_Seq: bhs }
   },
   emit_isotopic_signal: (args: any) => emitIsotopic(args),
-  cross_correlate: (args: any) => {
+  cross_correlate: async (args: any) => {
     const clock = readClock(args.timestamp)
-    const score = crossTexts(args.contentA, args.contentB ?? 'reference-signal')
+    const score = await crossCorrelateFromProposalText(
+      args.contentA,
+      args.contentB ?? 'reference-signal',
+      clock.timestampMs,
+    )
     return { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs }
   },
   list_isotopes: () => {

@@ -100,6 +100,8 @@ export async function evaluateGovernance(
   params: z.infer<typeof GovernanceSchema>,
 ) {
   const { proposalId, proposalText, codeDiff, agentReviews, historicalSignalIds = [] } = params
+  // One clock for this decision. cross_correlate and the hammer both read it.
+  const evaluatedAtMs = Date.now()
 
   // 1. Emit the proposal as an isotopic signal. A single text has no Codex isotopic ratio.
   await handlers['emit_isotopic_signal']({ content: proposalText })
@@ -116,9 +118,12 @@ export async function evaluateGovernance(
   let vortexVolume = 0
 
   for (const review of agentReviews) {
+    // Correlation reads the proposal through deriveProposalCodexParams.
+    // The hammer below reads that same text again. The two are not independent.
     const cross = await handlers['cross_correlate']({
       contentA: proposalText,
       contentB: review,
+      timestamp: evaluatedAtMs,
     })
     if (typeof cross.strength === 'number') {
       strengths.push(cross.strength)
@@ -152,7 +157,9 @@ export async function evaluateGovernance(
   let solarHammerRes = resonance
   let hammerNote = ''
   try {
-    const hammer = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, 1.0)
+    const hammer = await dynamoSolarGovernance.enhanceGovernanceDecision(
+      proposalText, 1.0, false, undefined, undefined, 'human', evaluatedAtMs,
+    )
     if (typeof hammer.resonanceScore === 'number') {
       solarHammerRes = hammer.resonanceScore
       hammerNote = ` | solar-hammer:${(solarHammerRes*100).toFixed(0)}%`
@@ -179,7 +186,8 @@ export async function evaluateGovernance(
     confidence: decision.confidence,
     voteWeight: decision.voteWeight,
     reasons: decision.reasons,
-    note: 'v4.8.6-solar-hammer - resonance prioritizes sun-isotopic alignment' + hammerNote,
+    evaluatedAtMs,
+    note: 'v4.8.6-solar-hammer - resonance prioritizes sun-isotopic alignment. The proposal text is counted twice: cross_correlate and the solar hammer both read it and are no longer independent.' + hammerNote,
     diagnostics: {
       isotopicRatio,
       vortexVolume,

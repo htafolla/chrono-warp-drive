@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeAll, describe, it, expect, vi } from 'vitest'
 
 vi.mock('../../mcp/lib/wavePropagation.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../mcp/lib/wavePropagation.js')>()
@@ -88,6 +88,11 @@ function signalScores(body: Record<string, unknown>) {
       .sort((a, b) => a.content.localeCompare(b.content)),
   }]))
 }
+
+beforeAll(async () => {
+  const { solarDataFetcher } = await import('../../mcp/lib/solarDataFetcher.js')
+  vi.spyOn(solarDataFetcher, 'fetchCurrentSolarData').mockResolvedValue(SOLAR)
+})
 
 describe('isotopic tools read the text', () => {
   it('repeats the same score for the same text and timestamp', async () => {
