@@ -2,9 +2,9 @@
  * Exploratory candidate list. Does not change any engine value.
  *
  * Revision history, also in docs/empirical/CONSTANT-TRIANGULATION.md:
- *   fcd4df31 searched sums as well as products. Under that grammar
- *   voids=7 matched ((5/3)+3)*1.5 with relative error 0.
- *   2603fef dropped addition and subtraction.
+ *   fcd4df31 searched 20,592 formulas, including square roots, logarithms, and powers.
+ *   Under that grammar voids=7 matched ((5/3)+3)*1.5 with relative error 0.
+ *   2603fef dropped addition, subtraction, roots, and logarithms.
  *   This file does not score controls and does not assign a verdict.
  *
  *   node scripts/constant-triangulation.mjs

@@ -4,9 +4,9 @@ No engine value was changed. Numbers come from `node scripts/constant-triangulat
 
 ## Revision history
 
-`fcd4df31` searched a grammar that included addition and subtraction, plus products. Under that grammar, `voids = 7` matched `((5/3) + 3) * 1.5` with relative error 0. That commit's note treated several hits as inside a 0.1% band.
+`fcd4df31` searched 20,592 formulas. That grammar included each atom, square root, square, cube, reciprocal, natural log, and log10, every sum, difference, product, and quotient of two atoms, every `(a ∘ b) ∘ c` for those four operators, and powers `a^b` when `|b| ≤ 8`. Under that grammar, `voids = 7` matched `((5/3) + 3) * 1.5` with relative error 0. That commit's note treated several hits as inside a 0.1% band.
 
-`2603fef` removed addition and subtraction. It kept products and quotients of at most 3 factors, exponents `{-2, -1, 1, 2}`, and it attached a control percentile. The words "fixed before the search" in that commit were false. The grammar was revised after `fcd4df31`.
+`2603fef` removed addition, subtraction, roots, and logarithms. It kept products and quotients of at most 3 factors, exponents `{-2, -1, 1, 2}`, and it attached a control percentile. The words "fixed before the search" in that commit were false. The grammar was revised after `fcd4df31`.
 
 This revision drops every percentile and every "notable" label. A smooth log-uniform control almost never lands on an exact product, so an exact hit scores in the extreme tail for that reason alone. Many small integers do the same. There is no correction for searching eight constants at once. A different set of building blocks produces a different closest expression. That procedure cannot tell a real match from chance.
 
@@ -47,7 +47,7 @@ Separate from the expression list. Defaults `T_c=137`, `P_s=1`, `E_t=0.5`, `delt
 
 | PHI | tPTT | BlackHole_Seq | raw TDF |
 | --- | ---: | ---: | ---: |
-| `1666/1000` | `136945200000000000` | `2.8578226083061864` | `41450297739162020` |
+| truncated decimal | `136945200000000000` | `2.8578226083061864` | `41450297739162020` |
 | `5/3` | `137000000000000000` | `2.974442614528435` | `39841077928742510` |
 
-`raw TDF / 5.781e12` is `7170.091288559422` (`1666/1000`) and `6891.727716440497` (`5/3`). The base is not shown to be that default chain.
+`raw TDF / 5.781e12` is `7170.091288559422` (truncated decimal) and `6891.727716440497` (`5/3`). The base is not shown to be that default chain.

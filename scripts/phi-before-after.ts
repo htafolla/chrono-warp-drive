@@ -1,330 +1,204 @@
 /**
- * Before/after numeric table for the PHI = 5/3 change.
+ * Before/after table for the PHI = 5/3 change.
  *
- * Pins Date.now and blocks live network fetches so the only moving input
- * is the PHI binding inside the MCP modules.
+ * Runs the worker against origin/main and against this checkout.
+ * Verdicts are read from those processes. None are stored in this file.
  *
- * Run from the repo root:
  *   npx tsx scripts/phi-before-after.ts
  *
- * Refuses to start when REDIS_URL is set, so the governance history
- * write in dynamoSolarGovernance cannot run.
- *
- * Clock sites (not changed by this script, only pinned):
- *   mcp/lib/solarGovernanceIntegration.ts temporalNonce uses Date.now
- *   mcp/stellar.ts isotopic embedding tdfValue and signalId use Date.now
+ * Refuses to start when REDIS_URL is set. The worker also refuses.
+ * PHI_MAIN_ROOT overrides the origin/main checkout (default /tmp/phi-main).
  */
-import { BEFORE_PATHS, BEFORE_VALUES } from './phi-before-snapshot.ts'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 if (process.env.REDIS_URL) {
   console.error('REDIS_URL is set. Refusing to run so this audit cannot write Redis history.')
   process.exit(2)
 }
 
-const FIXED_NOW_MS = Date.UTC(2026, 8, 27, 21, 30, 0)
+const repo = process.cwd()
 
-Date.now = () => FIXED_NOW_MS
-
-const BACKEND_BODY = {
-  resonance: 0.85,
-  isotopicRatio: 0.9,
-  metamorphosisIndex: 0.5,
+function git(args: string[], cwd: string): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
 }
 
-const SUN_EMBEDDING = Array.from({ length: 16 }, (_, i) => (i + 1) / 16)
+function ensureMainCheckout(): string {
+  const dest = process.env.PHI_MAIN_ROOT ?? '/tmp/phi-main'
+  const originMain = git(['rev-parse', 'origin/main'], repo)
+  if (!existsSync(join(dest, 'mcp/index.ts'))) {
+    execFileSync('git', ['worktree', 'add', '--detach', dest, originMain], { cwd: repo, stdio: 'inherit' })
+  }
+  const sha = git(['rev-parse', 'HEAD'], dest)
+  if (sha !== originMain) {
+    console.error(`${dest} is ${sha}. origin/main is ${originMain}. Refresh that checkout before measuring.`)
+    process.exit(1)
+  }
+  const modules = join(dest, 'node_modules')
+  if (!existsSync(modules)) symlinkSync(join(repo, 'node_modules'), modules)
+  return dest
+}
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
+type GovRow = {
+  id: string
+  text: string
+  recommendation: string | null
+  confidence: number | null
+  resonanceScore: number | null
+  solarHammerResonance: number | null
+}
+
+type SolarRow = {
+  id: string
+  text: string
+  recommendation: string | null
+  confidence: number | null
+  resonanceScore: number | null
+}
+
+type Leaf = { path: string; value: number }
+
+type Report = {
+  sha: string
+  clock: number
+  phi: number
+  cross: Array<{ contentA: string; contentB: string; strength: number | null }>
+  phaseCoherence: number | null
+  waveAmplitude: number | null
+  dualBlackHole: { voids: number; n: number; seq1: number; seq2: number; total: number; syncEfficiency: number }
+  governance: GovRow[]
+  solar: SolarRow[]
+  leaves: Leaf[]
+}
+
+function runWorker(root: string, outFile: string) {
+  execFileSync('npx', ['tsx', join(repo, 'scripts/phi-governance-worker.ts'), root, outFile], {
+    cwd: repo,
+    stdio: 'inherit',
   })
 }
 
-globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
-  const url = String(input)
-  if (url.includes('/isotopic-embedding') || url.includes('localhost:3001')) {
-    return jsonResponse(BACKEND_BODY)
-  }
-  if (url.includes('process-current-sun') || url.includes('neural-fusion')) {
-    return jsonResponse({ neuralEmbedding16: SUN_EMBEDDING })
-  }
-  if (url.includes('services.swpc.noaa.gov')) {
-    return jsonResponse([])
-  }
-  throw new Error(`blocked fetch during PHI table: ${url}`)
+function load(outFile: string): Report {
+  return JSON.parse(readFileSync(outFile, 'utf8')) as Report
 }
 
-const { app } = await import('../mcp/index.ts')
-const stellarMod = await import('../mcp/stellar.ts')
-const stellarApp = stellarMod.app
-const { computeFullTDF } = await import('../mcp/lib/vortexMath.ts')
-const { deterministicRandom } = await import('../mcp/lib/deterministicUtils.ts')
-const { TemporalBlurrnSignal } = await import('../mcp/lib/temporalBlurrnSignal.ts')
-const { PHI, L } = await import('../mcp/lib/tlmConstants.ts')
+const fmt = (n: number | null) => (n === null ? 'MISSING' : JSON.stringify(n))
 
-async function post(target: { request: (typeof app)['request'] }, path: string, body: unknown) {
-  const res = await target.request(path, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const text = await res.text()
-  let parsed: unknown = text
-  try { parsed = JSON.parse(text) } catch { /* keep text */ }
-  return { status: res.status, body: parsed }
-}
-
-type Leaf = { path: string; value: number | string | boolean | null }
-
-function flatten(value: unknown, prefix: string, out: Leaf[]) {
-  if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean' || value === null) {
-    out.push({ path: prefix, value })
-    return
+function countBy(rows: Array<{ recommendation: string | null }>): string {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    const key = row.recommendation ?? 'MISSING'
+    counts.set(key, (counts.get(key) ?? 0) + 1)
   }
-  if (Array.isArray(value)) {
-    value.forEach((item, i) => flatten(item, `${prefix}[${i}]`, out))
-    return
-  }
-  if (value && typeof value === 'object') {
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      flatten(v, prefix ? `${prefix}.${k}` : k, out)
-    }
-  }
+  return [...counts.entries()].map(([key, n]) => `${n} ${key}`).join(', ')
 }
 
-const calls: Array<{ tool: string; clock: string; body: unknown }> = []
-
-async function record(tool: string, clock: string, result: unknown) {
-  calls.push({ tool, clock, body: result })
+function hammerDrives(hammer: number | null): boolean {
+  return hammer !== null && (hammer >= 0.88 || hammer <= 0.45)
 }
 
-const dynamoPosts: Array<[string, unknown, string]> = [
-  ['/compute_tdf', {}, 'no'],
-  ['/compute_tptt', {}, 'no'],
-  ['/black_hole_sequence', {}, 'no'],
-  ['/harmonic_oscillator', {}, 'no'],
-  ['/harmonic_oscillator', { t: 0.5 }, 'no'],
-  ['/validate_tlm', {}, 'no'],
-  ['/wave_function', {}, 'no'],
-  ['/wave_function', { x: 1, t: 0.5, n: 3, isotope: 'Trinitarium-166', lambda: 0.53, phaseType: 'push' }, 'no'],
-  ['/list_isotopes', {}, 'no'],
-  ['/kuramoto_sync', { phases: [0, 1, 2], frequencies: [1, 1, 1], fractalToggle: false, isotope: 'C-12', phaseType: 'push', oscillatorIndex: 0 }, 'no'],
-  ['/kuramoto_sync', { phases: [0, 1, 2], frequencies: [1, 1, 1], fractalToggle: true, isotope: 'Trinitarium-166', phaseType: 'push', oscillatorIndex: 0 }, 'no'],
-  ['/emit_isotopic_signal', { content: 'phi-probe', tdf: 5.781e12, cascadeIndex: 42 }, 'signal id uses Date.now'],
-  ['/cross_correlate', { contentA: 'alpha probe text', contentB: 'beta probe text' }, 'no'],
-  ['/triangulate_signals', { signals: [{ content: 'alpha' }, { content: 'beta' }] }, 'no'],
-  ['/fuse_symbiotic', { partners: [{ content: 'alpha' }, { content: 'beta' }] }, 'no'],
-  ['/get_phase_coherence', { signalId: 'not-stored' }, 'no'],
-  ['/explain_term', { term: 'BlackHole_Seq' }, 'no'],
-  ['/govern_with_solar', { proposal: 'Fixed phi probe proposal for the engine triangulation study.', sharePublicly: false }, 'temporalNonce uses Date.now; NOAA fetch replaced with empty arrays'],
-]
+const mainRoot = ensureMainCheckout()
+const outDir = join(tmpdir(), 'phi-measure')
+mkdirSync(outDir, { recursive: true })
+const beforeFile = join(outDir, 'before.json')
+const afterFile = join(outDir, 'after.json')
 
-for (const [path, body, clock] of dynamoPosts) {
-  const result = await post(app, path, body)
-  await record(`POST ${path} ${JSON.stringify(body)}`, clock, result)
-}
+console.error(`measuring origin/main at ${mainRoot}`)
+runWorker(mainRoot, beforeFile)
+console.error(`measuring HEAD at ${repo}`)
+runWorker(repo, afterFile)
 
-const getTdf = await app.request('/compute_tdf', { method: 'GET' })
-await record('GET /compute_tdf', 'no', { status: getTdf.status, body: await getTdf.json() })
+const before = load(beforeFile)
+const after = load(afterFile)
 
-const stellar = await post(
-  stellarApp,
-  '/stellar_isotopic_embedding',
-  { wavelengths: [400, 450, 500, 550, 600], fluxes: [1, 1, 1, 1, 1], cascadeIndex: 0 },
-)
-await record(
-  'POST /stellar_isotopic_embedding fixed backend resonance 0.85',
-  'tdfValue and signalId use Date.now; backend fetch is the fixed mock',
-  stellar,
-)
-
-const vortex = computeFullTDF({ T_c: 137, P_s: 1, E_t: 0.5, delta_t: 1e-6, voids: 7, bhs_n: 3 })
-await record('vortexMath.computeFullTDF defaults', 'no', vortex)
-
-const libSignal = new TemporalBlurrnSignal({ content: 'lib' }, 5.781e12, 42)
-await record('lib TemporalBlurrnSignal', 'no', {
-  phaseCoherence: libSignal.getPhaseCoherence(),
-  embed: libSignal.embed(),
-  variantDelta: libSignal.getVariantDelta(),
-})
-
-await record('deterministicRandom(12345, 1)', 'no', { value: deterministicRandom(12345, 1) })
-await record('module PHI and L', 'no', { PHI, L })
-
-const LABELS = [
-  'POST /compute_tdf {}',
-  'POST /compute_tptt {}',
-  'POST /black_hole_sequence {}',
-  'POST /harmonic_oscillator {}',
-  'POST /harmonic_oscillator {t:0.5}',
-  'POST /validate_tlm {}',
-  'POST /wave_function {}',
-  'POST /wave_function {t:0.5,n:3,isotope:Trinitarium-166}',
-  'POST /list_isotopes {}',
-  'POST /kuramoto_sync {C-12, fractal:false}',
-  'POST /kuramoto_sync {Trinitarium-166, fractal:true}',
-  'POST /emit_isotopic_signal',
-  'POST /cross_correlate',
-  'POST /triangulate_signals',
-  'POST /fuse_symbiotic',
-  'POST /get_phase_coherence',
-  'POST /explain_term BlackHole_Seq',
-  'POST /govern_with_solar',
-  'GET /compute_tdf',
-  'POST /stellar_isotopic_embedding',
-  'vortexMath.computeFullTDF defaults',
-  'lib TemporalBlurrnSignal',
-  'deterministicRandom(12345, 1)',
-  'tlmConstants PHI,L',
-]
-
-function labelFor(path: string): string {
-  const m = /^\[(\d+)\](.*)$/.exec(path)
-  if (!m) return path
-  const idx = Number(m[1])
-  const rest = m[2].replace(/^\.body\.body\./, '.').replace(/^\.body\./, '.')
-  return `${LABELS[idx] ?? idx}${rest}`
-}
-
-const leaves: Leaf[] = []
-flatten(calls, '', leaves)
-const afterNums = leaves.filter((leaf): leaf is { path: string; value: number } => typeof leaf.value === 'number')
-
-if (afterNums.length !== BEFORE_VALUES.length) {
-  console.error(`shape changed: after ${afterNums.length} numbers, snapshot ${BEFORE_VALUES.length}`)
+if (before.governance.length !== 43 || after.governance.length !== 43) {
+  console.error(`expected 43 governance rows, got ${before.governance.length} and ${after.governance.length}`)
   process.exit(1)
 }
 
-const moved: Array<{ label: string; before: number; after: number }> = []
-const unchanged: Array<{ label: string; value: number }> = []
-for (let i = 0; i < afterNums.length; i++) {
-  const path = afterNums[i].path
-  if (path !== BEFORE_PATHS[i]) {
-    console.error(`path mismatch at ${i}: ${path} vs ${BEFORE_PATHS[i]}`)
-    process.exit(1)
-  }
-  const before = BEFORE_VALUES[i]
-  const after = afterNums[i].value
-  const row = { label: labelFor(path), before, after }
-  if (before === after) unchanged.push({ label: row.label, value: after })
-  else moved.push(row)
-}
+const beforeCross = new Set(before.cross.map((row) => row.strength))
+const afterCross = new Set(after.cross.map((row) => row.strength))
 
-const fmt = (n: number) => JSON.stringify(n)
-
-console.log(`# PHI before/after`)
-console.log(`Clock pinned at ${FIXED_NOW_MS} (2026-09-27T21:30:00.000Z) via Date.now.`)
-console.log(`Before snapshot: commit 55e934b03914a52c12c5b113d81ba45314626fdc.`)
-console.log(`Moved ${moved.length}. Unchanged numbers ${unchanged.length}.`)
+console.log('# PHI before/after')
+console.log(`Clock pinned at ${before.clock} (2026-09-27T21:30:00.000Z) via Date.now.`)
+console.log(`Before checkout: ${before.sha} (origin/main).`)
+console.log(`After checkout: ${after.sha} (this tree).`)
+console.log('NOAA fetches return []. Sentence embeddings use whatever fallback the process has. The same review text is sent on every /governance call.')
+console.log('persistToChain is not set. REDIS_URL must be unset or this script exits.')
 console.log('')
-console.log('| output | before | after |')
-console.log('| --- | ---: | ---: |')
-for (const row of moved) {
-  console.log(`| ${row.label} | ${fmt(row.before)} | ${fmt(row.after)} |`)
-}
+console.log('## cross_correlate')
+console.log('The handler builds both signals with fixed tdf values 5.781e12 and 5.782e12. The proposal text is not an input to that strength.')
+console.log(`Distinct strengths on main across ${before.cross.length} content pairs: ${[...beforeCross].map((n) => fmt(n)).join(', ')}.`)
+console.log(`Distinct strengths on head across ${after.cross.length} content pairs: ${[...afterCross].map((n) => fmt(n)).join(', ')}.`)
+console.log(`Emit phase coherence at tdf 5.781e12: before ${fmt(before.phaseCoherence)}, after ${fmt(after.phaseCoherence)}.`)
+console.log(`Wave amplitude t=0.5 n=3 Trinitarium-166: before ${fmt(before.waveAmplitude)}, after ${fmt(after.waveAmplitude)}.`)
 console.log('')
 console.log('## evaluate_governance')
-console.log('Phase coherence is `tdf % sqrt(PHI)` on a tdf near 5.781e12 (`mcp/index.ts` TemporalBlurrnSignal constructor, `mcp/lib/temporalBlurrnSignal.ts`).')
-console.log('The formula is unchanged. Changing PHI changes that remainder, so cross_correlate strength moves the way a new seed would.')
-console.log('Before column: same clock and the same fetch stubs, commit 55e934b0. Live deployed effect is unverified.')
-console.log('`govern_with_solar` prints a hammer percent tag. That tag is not this decision.')
+console.log(`Before: ${countBy(before.governance)}.`)
+console.log(`After: ${countBy(after.governance)}.`)
+console.log('Head cross strength is below 0.68, so the matrix returns REJECT at confidence 0.8 unless the hammer replaces resonance. The hammer replaces resonance at >= 0.88 or <= 0.45. A hammer <= 0.45 is still REJECT. A head PASS requires a hammer >= 0.88.')
 console.log('')
+console.log('| proposal | before verdict | before confidence | before resonance | before hammer | after verdict | after confidence | after resonance | after hammer | solar before | solar after |')
+console.log('| --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | --- | --- |')
 
-const REVIEW = 'The review text is fixed and does not depend on the clock.'
-const STEM = 'Fixed phi probe proposal for the engine triangulation study'
-const governanceCases = [
-  {
-    id: 'variant-0',
-    text: `${STEM} variant 0.`,
-    beforeRecommendation: 'PASS',
-    beforeConfidence: 0.93,
-    beforeResonance: 0.9524567885544127,
-    beforeHammer: 0.6181689127184462,
-  },
-  {
-    id: 'variant-2',
-    text: `${STEM} variant 2.`,
-    beforeRecommendation: 'PASS',
-    beforeConfidence: 0.93,
-    beforeResonance: 0.9524567885544127,
-    beforeHammer: 0.8227185310590787,
-  },
-  {
-    id: 'variant-1',
-    text: `${STEM} variant 1.`,
-    beforeRecommendation: 'PASS',
-    beforeConfidence: 0.93,
-    beforeResonance: 0.9104628970007227,
-    beforeHammer: 0.9104628970007227,
-  },
-]
+const solarFlips: string[] = []
+let headPass = 0
+let headPassViaHammer = 0
+let headReject = 0
 
-console.log('| proposal | before verdict | before confidence | before resonance | before hammer | after verdict | after confidence | after resonance | after hammer |')
-console.log('| --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |')
-for (const item of governanceCases) {
-  const result = await post(app, '/governance', {
-    proposalId: item.id,
-    proposalText: item.text,
-    agentReviews: [REVIEW],
-    source: 'human',
-  })
-  const body = result.body as {
-    recommendation?: string
-    confidence?: number
-    resonanceScore?: number
-    solarHammerResonance?: number
+for (let i = 0; i < before.governance.length; i++) {
+  const b = before.governance[i]
+  const a = after.governance[i]
+  const sb = before.solar[i]
+  const sa = after.solar[i]
+  if (!b || !a || !sb || !sa || b.id !== a.id || b.text !== a.text) {
+    console.error('proposal mismatch', b?.id, a?.id)
+    process.exit(1)
   }
-  console.log(`| ${item.id} | ${item.beforeRecommendation} | ${item.beforeConfidence} | ${item.beforeResonance} | ${item.beforeHammer} | ${body.recommendation} | ${body.confidence} | ${body.resonanceScore} | ${body.solarHammerResonance} |`)
-}
-console.log('')
-console.log('variant-0 and variant-2: hammer stays inside (0.45, 0.88), so the matrix uses cross_correlate strength. That strength is about 0.95 before and about 0.065 after, and the verdict goes from PASS 0.93 to REJECT 0.8.')
-console.log('variant-1: after hammer is at least 0.88, so evaluate_governance replaces resonance with the hammer (`mcp/governance.ts`). The verdict stays PASS only through that override. The cross_correlate strength alone would be the REJECT 0.8 path.')
-
-console.log('')
-console.log('## Unchanged highlights')
-const highlight = [
-  'vortexMath.computeFullTDF defaults.tptt',
-  'vortexMath.computeFullTDF defaults.bhs',
-  'vortexMath.computeFullTDF defaults.tdf',
-  'POST /govern_with_solar.solarContext.proposalTdf',
-  'POST /govern_with_solar.solarContext.solarReferenceTdf',
-  'POST /compute_tdf {}.tau',
-  'POST /wave_function {}.amplitude',
-  'POST /kuramoto_sync {C-12, fractal:false}.frequencyUpdate',
-  'POST /stellar_isotopic_embedding.tdfValue',
-  'POST /govern_with_solar.adjustedVoteWeight',
-  'POST /govern_with_solar.proximity',
-  'tlmConstants PHI,L.PHI',
-  'tlmConstants PHI,L.L',
-]
-for (const row of unchanged) {
-  if (highlight.some(h => row.label.includes(h) || row.label === h)) {
-    console.log(`- ${row.label} = ${fmt(row.value)}`)
+  if (a.recommendation === 'PASS') {
+    headPass += 1
+    if (hammerDrives(a.solarHammerResonance)) headPassViaHammer += 1
   }
+  if (a.recommendation === 'REJECT') headReject += 1
+  if (sb.recommendation !== sa.recommendation) {
+    solarFlips.push(`${a.id}: ${sb.recommendation} -> ${sa.recommendation} (${a.text})`)
+  }
+  console.log(`| ${a.id} | ${b.recommendation} | ${fmt(b.confidence)} | ${fmt(b.resonanceScore)} | ${fmt(b.solarHammerResonance)} | ${a.recommendation} | ${fmt(a.confidence)} | ${fmt(a.resonanceScore)} | ${fmt(a.solarHammerResonance)} | ${sb.recommendation} | ${sa.recommendation} |`)
 }
 
-const C = 3e8
-const C_EXACT = 299792458
-const TAU = 0.865
-function chain(c: number) {
-  const tptt = 137 * (1 / 0.5) * PHI * (c / 1e-6)
-  const bhs = ((L * 7) * Math.pow(PHI, 3)) % Math.PI
-  const tdf = tptt * TAU * (1 / bhs)
-  const s_l = tdf * PHI
-  return { tptt, bhs, tdf, s_l }
-}
-const kept = chain(C)
-const exact = chain(C_EXACT)
 console.log('')
-console.log('## c = 299792458 counterfactual (NOT applied)')
-console.log(`Engine c stays ${C}. Replacing it with ${C_EXACT} would scale tPTT, TDF, and S_L by ${C_EXACT / C}. BlackHole_Seq does not use c.`)
-console.log(`| field | c = 3e8 (applied) | c = 299792458 (not applied) |`)
-console.log(`| --- | ---: | ---: |`)
-for (const key of ['tptt', 'bhs', 'tdf', 's_l'] as const) {
-  console.log(`| ${key} | ${fmt(kept[key])} | ${fmt(exact[key])} |`)
-}
+console.log(`Head evaluate_governance PASS count: ${headPass}. Of those, hammer >= 0.88 or <= 0.45 accounts for ${headPassViaHammer}. REJECT count: ${headReject}. A hammer <= 0.45 still returns REJECT.`)
+console.log('')
+console.log('## govern_with_solar recommendation')
+console.log('This field is result.recommendation. The on-chain path reads it before persistContainerToChain. This run does not set persistToChain.')
+console.log(`Flips: ${solarFlips.length} of ${before.solar.length}.`)
+for (const line of solarFlips) console.log(`- ${line}`)
+console.log('')
+console.log('## computeDualBlackHoleSync(7, 29)')
+console.log('Called with no phi argument, so each tree uses that function\'s default parameter. voids 7 is the Chrono Transport default.')
+console.log(`Before syncEfficiency ${fmt(before.dualBlackHole.syncEfficiency)} seq1 ${fmt(before.dualBlackHole.seq1)} seq2 ${fmt(before.dualBlackHole.seq2)}.`)
+console.log(`After syncEfficiency ${fmt(after.dualBlackHole.syncEfficiency)} seq1 ${fmt(after.dualBlackHole.seq1)} seq2 ${fmt(after.dualBlackHole.seq2)}.`)
+console.log('')
 
-const example = (calls.find(c => c.tool.startsWith('POST /explain_term'))?.body as { body?: { example?: string } })?.body?.example
+const beforeLeaves = new Map(before.leaves.map((leaf) => [leaf.path, leaf.value]))
+const afterLeaves = new Map(after.leaves.map((leaf) => [leaf.path, leaf.value]))
+const moved: Array<{ path: string; before: number; after: number }> = []
+let unchanged = 0
+for (const [path, value] of afterLeaves) {
+  if (!beforeLeaves.has(path)) continue
+  const prior = beforeLeaves.get(path) as number
+  if (prior === value) unchanged += 1
+  else moved.push({ path, before: prior, after: value })
+}
+const onlyBefore = [...beforeLeaves.keys()].filter((path) => !afterLeaves.has(path))
+const onlyAfter = [...afterLeaves.keys()].filter((path) => !beforeLeaves.has(path))
+console.log(`## Numeric leaves measured on both trees`)
+console.log(`Moved ${moved.length}. Unchanged ${unchanged}. Only-before paths ${onlyBefore.length}. Only-after paths ${onlyAfter.length}.`)
 console.log('')
-console.log('## Glossary BlackHole_Seq example')
-console.log(example ?? 'MISSING')
+console.log('| path | before | after |')
+console.log('| --- | ---: | ---: |')
+for (const row of moved) {
+  console.log(`| ${row.path} | ${fmt(row.before)} | ${fmt(row.after)} |`)
+}
