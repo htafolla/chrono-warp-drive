@@ -44,6 +44,60 @@ export function containerOriginHashField(
   }
 }
 
+/**
+ * Dev seed route is off unless this process is explicitly not production
+ * and ALLOW_DEV_SEED=true. Either condition failing is a 403.
+ */
+export function devSeedRouteAllowed(
+  env: { NODE_ENV?: string; ALLOW_DEV_SEED?: string } = process.env,
+): boolean {
+  return env.NODE_ENV !== 'production' && env.ALLOW_DEV_SEED === 'true'
+}
+
+/** Unix milliseconds are ~1e12. Seed containers store unix seconds (~1e9). */
+export function timestampIsUnixSeconds(timestamp: number): boolean {
+  return Number.isFinite(timestamp) && timestamp > 0 && timestamp < 1_000_000_000_000
+}
+
+export interface SeedExclusionInput {
+  origin?: string | null
+  text?: string | null
+  timestamp?: number | null
+}
+
+/**
+ * Skip a container in the manifold rebuild, ambient re-score, and axioms.
+ * Tagged seeds always skip. Untagged seeds match the signature that used to
+ * fall out only by accident: no proposal text, or a unix-seconds timestamp
+ * (manifold windows are milliseconds).
+ * A container tagged origin=real is a real run and stays, including when its
+ * on-chain timestamp is unix seconds.
+ */
+export function isExcludedSeed(input: SeedExclusionInput): boolean {
+  if (input.origin === 'real') return false
+  if (input.origin === 'seed') return true
+  const noText = input.text == null || input.text.trim() === ''
+  const seconds = input.timestamp != null && timestampIsUnixSeconds(input.timestamp)
+  return noText || seconds
+}
+
+/** Read origin tags written by tagContainerOrigin. Unknown values are ignored. */
+export function originFromRedisHash(
+  entries: Record<string, string> | null | undefined,
+): Map<string, ContainerOrigin> {
+  const origins = new Map<string, ContainerOrigin>()
+  if (!entries) return origins
+  for (const [id, raw] of Object.entries(entries)) {
+    try {
+      const parsed = JSON.parse(raw) as { origin?: string }
+      if (parsed.origin === 'seed' || parsed.origin === 'real') {
+        origins.set(id.toLowerCase(), parsed.origin)
+      }
+    } catch { /* ignore malformed tag */ }
+  }
+  return origins
+}
+
 /** Write an origin tag. Does not read or modify the container or any on-chain payload. */
 export async function tagContainerOrigin(
   client: RedisHashWriter,

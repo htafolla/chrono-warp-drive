@@ -13,7 +13,8 @@ import { isStructuredProposal, extractProposalText } from './lib/structuredPropo
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, containerToContractParams, determineSource } from './lib/temporalContainer.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
-import { containerOriginHashField, SEED_ROUTE_SOURCE } from './lib/containerOrigin.js'
+import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
+import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { persistContainerToChain, baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
 import { temporalManifold } from './lib/temporalManifold.js'
 
@@ -44,8 +45,16 @@ const TOKEN_IMAGE_TTL = 86400
         }
       } catch { /* skip corrupt */ }
     }
-    // Rebuild Manifold from persisted containers
-    temporalManifold.populateFromContainers(containerStore)
+    // Rebuild Manifold from persisted containers. Seed rows (origin tag, or the
+    // no-text / unix-seconds signature) are not loaded.
+    let originById = new Map<string, 'seed' | 'real'>()
+    try {
+      originById = originFromRedisHash(await client.hgetall(REDIS_CONTAINER_ORIGIN_KEY))
+    } catch { /* origin tags optional */ }
+    temporalManifold.populateFromContainers(containerStore.map(c => ({
+      ...c,
+      origin: originById.get(c.containerId.toLowerCase()),
+    })))
     console.log(`[bootstrap] Manifold populated with ${temporalManifold.getPointCount()} points from ${containerStore.length} containers`)
 
     // Start ambient field AFTER restoring Manifold history
@@ -1762,7 +1771,7 @@ app.post('/govern_with_solar', async (c: Context) => {
     latestContainerHash = container.containerHash
 
     // Feed into Temporal Manifold
-    temporalManifold.addFromContainer(container, proposalText)
+    temporalManifold.addFromContainer({ ...container, origin: 'real' }, proposalText)
 
     // Persist container to Redis for durability across deploys
     ;(async () => {
@@ -3000,7 +3009,7 @@ async function autoMintVortex(container: any, proposalText: string) {
 }
 
 // === Dev: seed test containers ===
-app.post('/dev/seed-containers', async (c: Context) => {
+mountDevSeedRoute(app, async (c: Context) => {
   try {
     const count = Math.min(50, parseInt((c.req.query('count') || '30') as string))
     const { publicClient, walletClient, account } = getVortexTokenClient()
