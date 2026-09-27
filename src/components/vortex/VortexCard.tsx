@@ -224,14 +224,15 @@ export function VortexCard({
             </div>
           ) : (
             <div className="flex-1 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-              {isConnected ? (
+              {isConnected || claimsPaused ? (
                 <button
                   onClick={onSaveToChain}
-                  disabled={isSaving}
+                  disabled={isSaving || !!claimsPaused}
                   className={cn(
                     'flex-1 text-[11px] font-medium py-1 px-2.5 rounded-lg transition-all',
-                    'bg-amber-600/80 hover:bg-amber-500/80 text-white',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                    claimsPaused
+                      ? 'bg-zinc-700 text-zinc-400 opacity-60 cursor-not-allowed shadow-none'
+                      : 'bg-amber-600/80 hover:bg-amber-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed',
                   )}
                 >
                   {isSaving ? 'Saving...' : 'Save to Chain'}

@@ -26,7 +26,7 @@ vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
   }
 })
 
-import { app, autoMintVortex, rebuildMintedSetFromChain } from '../../mcp/index'
+import { app, autoMintVortex, markMintRebuildReadyForTests, rebuildMintedSetFromChain } from '../../mcp/index'
 import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
 import { mintedIdsFromChainRecords, onChainMintId, setChainExecutorForTests, type ChainMintRecord } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
@@ -61,6 +61,8 @@ class StubChain implements ChainExecutor {
   failNextMint = false
   bootIds: string[] = []
   tokenRecords: ChainMintRecord[] = []
+  listHold: Promise<void> | null = null
+  listError: Error | null = null
 
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
     this.chainCalls += 1
@@ -95,13 +97,24 @@ class StubChain implements ChainExecutor {
     return { txHash: '0x' + '11'.repeat(32), tokenId: '7' }
   }
 
-  async existingMint(containerId: string): Promise<string | null> {
-    this.chainCalls += 1
-    return this.mintedOnChain.get(containerId.toLowerCase()) ?? null
+  async existingMint(containerId: string, containerHash: string): Promise<string | null> {
+    const seen = new Set<string>()
+    let found: string | null = null
+    for (const key of [containerId, containerHash]) {
+      const lower = key.toLowerCase()
+      if (seen.has(lower)) continue
+      seen.add(lower)
+      this.chainCalls += 1
+      const hit = this.mintedOnChain.get(lower) ?? null
+      if (hit && !found) found = hit
+    }
+    return found
   }
 
   async listMintedContainerIds(): Promise<string[]> {
     this.chainCalls += 1
+    if (this.listHold) await this.listHold
+    if (this.listError) throw this.listError
     if (this.tokenRecords.length > 0) return mintedIdsFromChainRecords(this.tokenRecords)
     return this.bootIds.length > 0 ? [...this.bootIds] : [...this.mintedOnChain.keys()]
   }
@@ -244,6 +257,7 @@ async function mint(body: Record<string, unknown>, headers: Record<string, strin
 }
 
 beforeEach(() => {
+  markMintRebuildReadyForTests()
   counters.deployerKeyReads = 0
   counters.directChainCalls = 0
   resetWriteGuardsForTests()
@@ -705,6 +719,78 @@ describe('mint abuse limits', () => {
     expect(routeMint.status).toBe(409)
     expect(hashMint.status).toBe(409)
     expect(stub.mints).toHaveLength(afterRebuild)
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+  })
+
+  it('(1b-down) the RPC is down at boot, then a signed mint is refused and no second token is minted', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.mintedOnChain.set(hash.toLowerCase(), '9')
+    stub.listError = new Error('rpc down')
+    await rebuildMintedSetFromChain()
+    const mintsBefore = stub.mints.length
+    const signed = await mint(signedMint(id, hash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.51.0.1',
+    })
+    expect(signed.status).toBe(503)
+    expect(String(signed.json.error)).toContain('rebuild failed')
+    expect(stub.mints).toHaveLength(mintsBefore)
+    expect(stub.autoMints).toEqual([])
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+  })
+
+  it('(1b-race) an auto-mint or signed mint arriving before the rebuild completes is refused', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    let release: () => void = () => {}
+    stub.listHold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const pending = rebuildMintedSetFromChain()
+    const signed = await mint(signedMint(id, hash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.52.0.1',
+    })
+    const skipped = await autoMintVortex(sampleVortex(id, hash), 'before-rebuild')
+    expect(signed.status).toBe(503)
+    expect(String(signed.json.error)).toContain('has not finished')
+    expect(skipped).toBeNull()
+    expect(stub.mints).toEqual([])
+    expect(stub.autoMints).toEqual([])
+    expect(counters.deployerKeyReads).toBe(0)
+    release()
+    await pending
+  })
+
+  it('refuses a request carrying an old containerHash-keyed mint after the rebuild', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.tokenRecords = [{
+      containerId: id,
+      containerHash: hash,
+      tokenByKey: { [id.toLowerCase()]: null, [hash.toLowerCase()]: '2' },
+    }]
+    stub.mintedOnChain.set(hash.toLowerCase(), '2')
+    await rebuildMintedSetFromChain()
+    resetWriteGuardsForTests()
+    const mintsBefore = stub.mints.length
+    const signed = await mint(signedMint(id, hash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.53.0.1',
+    })
+    expect(signed.status).toBe(409)
+    expect(String(signed.json.error)).toContain('already')
+    expect(stub.mints).toHaveLength(mintsBefore)
+    resetWriteGuardsForTests()
+    const skipped = await autoMintVortex(sampleVortex(id, hash), 'old-hash')
+    expect(skipped).toBeNull()
+    expect(stub.autoMints).toEqual([])
     expect(counters.deployerKeyReads).toBe(0)
     expect(counters.directChainCalls).toBe(0)
   })

@@ -60,8 +60,11 @@ export interface ChainExecutor {
     containerId: string
     container: RegistryContainer
   }): Promise<{ txHash: string; tokenId: string | null }>
-  /** token id string when this container id already has a mint. Does not read the deployer key. */
-  existingMint(containerId: string): Promise<string | null>
+  /**
+   * Token id when either historical key already has a mint: containerId (route)
+   * and containerHash (old auto-mint). Does not read the deployer key.
+   */
+  existingMint(containerId: string, containerHash: string): Promise<string | null>
   /** Container ids already minted, for rebuilding the in-memory set at boot. No deployer key. */
   listMintedContainerIds(): Promise<string[]>
   autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }>
@@ -340,18 +343,25 @@ class LiveChainExecutor implements ChainExecutor {
     return { txHash: receipt.transactionHash, tokenId }
   }
 
-  async existingMint(containerId: string): Promise<string | null> {
-    this.chainCalls += 1
+  async existingMint(containerId: string, containerHash: string): Promise<string | null> {
     const publicClient = readClient()
     const abi = await loadAbi('token')
-    const tid = await publicClient.readContract({
-      address: VORTEX_TOKEN_ADDRESS,
-      abi,
-      functionName: 'tokenByContainerId',
-      args: [onChainMintId(containerId)],
-    }) as bigint
-    if (tid === 0n) return null
-    return tid.toString()
+    const seen = new Set<string>()
+    for (const key of [containerId, containerHash]) {
+      if (!isMintKey(key)) continue
+      const lower = key.toLowerCase()
+      if (seen.has(lower)) continue
+      seen.add(lower)
+      this.chainCalls += 1
+      const tid = await publicClient.readContract({
+        address: VORTEX_TOKEN_ADDRESS,
+        abi,
+        functionName: 'tokenByContainerId',
+        args: [onChainMintId(key)],
+      }) as bigint
+      if (tid !== 0n) return tid.toString()
+    }
+    return null
   }
 
   async listMintedContainerIds(): Promise<string[]> {

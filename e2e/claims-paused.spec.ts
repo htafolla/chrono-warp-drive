@@ -1,4 +1,13 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { test, expect, type Page, type Route } from '@playwright/test'
+
+const screenshotDir = process.env.CLAIMS_SCREENSHOT_DIR ?? 'test-results'
+fs.mkdirSync(screenshotDir, { recursive: true })
+
+function screenshotPath(name: string): string {
+  return path.join(screenshotDir, name)
+}
 
 const NOTICE = 'Claims are paused while we add signed vouchers.'
 const SUBTITLE = 'Temporal containers. Click one to view details.'
@@ -71,9 +80,9 @@ async function stubExternal(page: Page, mintRequests: string[], withFixtures: bo
     if (type !== 'fetch' && type !== 'xhr' && type !== 'websocket') {
       return route.continue()
     }
-    if (url.includes('/vortex/mint')) {
+    if (url.includes('/vortex/mint') || url.includes('/vortex/persist')) {
       mintRequests.push(url)
-      return fulfillJson(route, { success: false, error: 'mint must not be called' })
+      return fulfillJson(route, { success: false, error: 'chain write must not be called' })
     }
     if (!withFixtures) {
       return fulfillJson(route, {})
@@ -92,7 +101,7 @@ async function stubExternal(page: Page, mintRequests: string[], withFixtures: bo
         success: true,
         statuses: {
           [FIXTURE_A]: { claimed: false, tokenId: null, inRegistry: true },
-          [FIXTURE_B]: { claimed: false, tokenId: null, inRegistry: true },
+          [FIXTURE_B]: { claimed: false, tokenId: null, inRegistry: false },
         },
       })
     }
@@ -111,7 +120,7 @@ test('claim page shows the paused notice at desktop width', async ({ page }) => 
   await expect(page.getByText(SUBTITLE)).toBeVisible()
   await expect(page.getByText(NOTICE)).toBeVisible()
   await page.screenshot({
-    path: '/opt/cursor/artifacts/claims_paused_notice.png',
+    path: screenshotPath('claims_paused_notice.png'),
     fullPage: false,
   })
 })
@@ -127,10 +136,13 @@ test('detail view shows a disabled claim control and cannot mint', async ({ page
 
   const cardMint = page.getByRole('button', { name: 'Mint' }).first()
   const cardAmount = page.getByRole('spinbutton').first()
+  const cardSave = page.getByRole('button', { name: 'Save to Chain' })
   await expect(cardMint).toBeVisible()
   await expect(cardMint).toBeDisabled()
   await expect(cardAmount).toBeDisabled()
+  await expect(cardSave).toBeDisabled()
   await cardMint.click({ force: true })
+  await cardSave.click({ force: true })
 
   await page.getByRole('button', { name: 'Details' }).first().click()
   const dialog = page.getByRole('dialog')
@@ -145,7 +157,7 @@ test('detail view shows a disabled claim control and cannot mint', async ({ page
   expect(mintRequests).toEqual([])
 
   await page.screenshot({
-    path: '/opt/cursor/artifacts/claims_paused_detail.png',
+    path: screenshotPath('claims_paused_detail.png'),
     fullPage: false,
   })
 })

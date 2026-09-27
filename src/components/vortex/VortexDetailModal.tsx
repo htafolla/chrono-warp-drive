@@ -424,8 +424,13 @@ export function VortexDetailModal({
                   </p>
                   <button
                     onClick={onSaveToChain}
-                    disabled={isSaving}
-                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-amber-600/80 hover:bg-amber-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSaving || !!claimsPaused}
+                    className={cn(
+                      'px-4 py-1.5 text-xs font-medium rounded-lg transition-all',
+                      claimsPaused
+                        ? 'bg-zinc-700 text-zinc-400 opacity-60 cursor-not-allowed shadow-none'
+                        : 'bg-amber-600/80 hover:bg-amber-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed',
+                    )}
                   >
                     {isSaving ? 'Saving...' : 'Save to Chain'}
                   </button>

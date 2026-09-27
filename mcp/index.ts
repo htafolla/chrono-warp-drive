@@ -53,19 +53,71 @@ const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
 const REDIS_VORTEX_TOKEN_IMAGE = 'dynamo:vortex:token-image'
 const TOKEN_IMAGE_TTL = 86400
 
+/** How long boot waits for the minted-set scan. One attempt; no retry loop. */
+const MINT_REBUILD_TIMEOUT_MS = 20_000
+
+type MintRebuildGate = 'pending' | 'ready' | 'closed'
+
+/** Closed until a rebuild succeeds. A failure or timeout leaves minting closed. */
+let mintRebuildGate: MintRebuildGate = 'pending'
+let rebuildInFlight: Promise<void> | null = null
+
+export function markMintRebuildReadyForTests(): void {
+  mintRebuildGate = 'ready'
+}
+
+function mintRebuildBlock(): { error: string } | null {
+  if (mintRebuildGate === 'ready') return null
+  if (mintRebuildGate === 'pending') {
+    return { error: 'Mint rebuild has not finished' }
+  }
+  return { error: 'Mint rebuild failed; minting is closed' }
+}
+
 export async function rebuildMintedSetFromChain(): Promise<void> {
-  const ids = await getChainExecutor().listMintedContainerIds()
-  replaceMintedContainers(ids)
+  if (rebuildInFlight) return rebuildInFlight
+  mintRebuildGate = 'pending'
+  let timedOut = false
+  const run = new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      timedOut = true
+      mintRebuildGate = 'closed'
+      console.error(`[mint] rebuild timed out after ${MINT_REBUILD_TIMEOUT_MS}ms; minting stays closed`)
+      resolve()
+    }, MINT_REBUILD_TIMEOUT_MS)
+    getChainExecutor().listMintedContainerIds().then(
+      (ids) => {
+        clearTimeout(timer)
+        if (timedOut) return
+        replaceMintedContainers(ids)
+        mintRebuildGate = 'ready'
+        console.log(`[mint] rebuilt minted set from chain (${ids.length} ids)`)
+        resolve()
+      },
+      (err: unknown) => {
+        clearTimeout(timer)
+        if (timedOut) return
+        mintRebuildGate = 'closed'
+        const message = err instanceof Error ? err.message : String(err)
+        console.error(`[mint] rebuild failed; minting stays closed: ${message}`)
+        resolve()
+      },
+    )
+  })
+  rebuildInFlight = run
+  try {
+    await run
+  } finally {
+    if (rebuildInFlight === run) rebuildInFlight = null
+  }
 }
 
 // Bootstrap: load containers from Redis on module init.
-// Rebuild the minted-id set from chain even when Redis is down. Tests skip this
-// import-time scan; they call rebuildMintedSetFromChain after installing a stub.
+// One chain scan. Tests skip this import-time scan and open the gate themselves.
+// A failed or timed-out scan leaves minting closed. There is no retry loop.
 ;(async () => {
   if (!process.env.VITEST) {
-    try {
-      await rebuildMintedSetFromChain()
-    } catch { /* chain unavailable; /vortex/mint still queries tokenByContainerId */ }
+    await rebuildMintedSetFromChain()
   }
   try {
     const client = await getRedisClient()
@@ -1805,7 +1857,16 @@ app.post('/govern_with_solar', async (c: Context) => {
         },
       })
     }
-    acquirePersistCooldown()
+    const acquired = acquirePersistCooldown()
+    if (!acquired.ok) {
+      return c.json({
+        success: true,
+        ...result,
+        temporalContainer: {
+          onChainError: `Rate-limited. Try again in ${acquired.retryAfterSeconds}s (${PERSIST_COOLDOWN_MS / 1000}s cooldown).`,
+        },
+      })
+    }
 
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
@@ -2484,6 +2545,8 @@ app.post('/vortex/persist', async (c: Context) => {
 
 // Exact containerId match only. No store fallback, no listContainers scan, no prefix match.
 app.post('/vortex/mint', async (c: Context) => {
+  const rebuildBlock = mintRebuildBlock()
+  if (rebuildBlock) return c.json({ success: false, error: rebuildBlock.error }, 503)
   const auth = authorizeWrite(c.req.header('authorization'))
   if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
   let reservedId: string | null = null
@@ -2554,9 +2617,9 @@ app.post('/vortex/mint', async (c: Context) => {
       return c.json({ success: false, error: 'Signed containerHash does not match the registry' }, 401)
     }
 
-    const existing = await getChainExecutor().existingMint(containerId)
+    const existing = await getChainExecutor().existingMint(containerId, containerHash)
     if (existing) {
-      rememberMintedContainers([containerId])
+      rememberMintedContainers([containerId, containerHash])
       releaseMintSlot(containerId)
       reservedId = null
       return c.json({ success: false, error: 'Container already has a vortex token' }, 409)
@@ -2811,6 +2874,11 @@ async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
 // Same containerId, caller limit, address cap, and global mint budget as POST /vortex/mint.
 // The on-chain mint id is container.containerId, the same id POST /vortex/mint writes.
 export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
+  const rebuildBlock = mintRebuildBlock()
+  if (rebuildBlock) {
+    console.log(`[vortex] Auto-mint skipped: ${rebuildBlock.error}`)
+    return null
+  }
   const claim = claimMintSlot({
     containerId: container.containerId,
     recipient: VORTEX_TREASURY,
@@ -2822,9 +2890,9 @@ export async function autoMintVortex(container: ContainerVortex, proposalText: s
   }
   let writeStarted = false
   try {
-    const existing = await getChainExecutor().existingMint(container.containerId)
+    const existing = await getChainExecutor().existingMint(container.containerId, container.containerHash)
     if (existing) {
-      rememberMintedContainers([container.containerId])
+      rememberMintedContainers([container.containerId, container.containerHash])
       releaseMintSlot(container.containerId)
       console.log('[vortex] Auto-mint skipped: Container already has a vortex token')
       return null

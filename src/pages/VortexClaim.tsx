@@ -331,23 +331,8 @@ export default function VortexClaim() {
     return
   }
 
-  async function handleSaveToChain(containerId: string) {
-    setSaving(containerId)
-    setSaveErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
-    try {
-      const res = await fetch(`${MCP_URL}/vortex/persist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ containerId }),
-      })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Save failed')
-      setTokenStatus(prev => ({ ...prev, [containerId]: { ...prev[containerId], inRegistry: true } }))
-    } catch (err: any) {
-      setSaveErrors(prev => ({ ...prev, [containerId]: err.message?.slice(0, 150) || 'Save failed' }))
-    } finally {
-      setSaving(null)
-    }
+  async function handleSaveToChain(_containerId: string) {
+    return
   }
 
   async function loadOnChainMetadata(tokenId: string, containerId: string) {
