@@ -659,6 +659,7 @@ beforeEach(() => {
   vi.useRealTimers()
   ambientField.stop()
   clearRedisClientForTests()
+  setRedisClientForTests(new MemoryRedis())
   counters.deployerKeyReads = 0
   counters.directChainCalls = 0
   resetWriteGuardsForTests()
@@ -2333,13 +2334,25 @@ describe('mint abuse limits', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     try {
       await replayMintBacklog()
-      expect(stub.autoMints).toEqual([onChainMintId(idB)])
-      expect(stub.autoMints).not.toContain(onChainMintId(idA))
+      expect(stub.autoMints).toEqual([])
+      expect(stub.autoMintEntered).toBe(0)
       expect(stub.mintEntered).toBe(0)
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string }
+      expect(letter.proposal).toBe('expired head')
+      expect(letter.oldHash).toBe(pendingHash)
+      expect(letter.reason).toBe('expired')
+      expect(letter.timestamp).toEqual(expect.any(String))
       const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hashA.toLowerCase()))) as { state?: string; txHash?: string }
       expect(stored.state).toBe('expired')
       expect(stored.txHash).toBe(pendingHash)
-      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(idB)
+
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(idB)])
+      expect(stub.autoMints).not.toContain(onChainMintId(idA))
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
 
       stub.receipts.set(pendingHash.toLowerCase(), 'success')
       stub.mintedOnChain.set(idA.toLowerCase(), '11')
@@ -2397,16 +2410,29 @@ describe('mint abuse limits', () => {
       proposalText: 'behind the dropped head',
     }))
     stub.nonceNow = 4
+    await redis.set('vortex:mint:cap:' + VORTEX_TREASURY.toLowerCase(), '1')
+    await redis.set('vortex:mint:cap-hold:' + idA.toLowerCase(), VORTEX_TREASURY.toLowerCase())
     resetWriteGuardsForTests()
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     try {
       await replayMintBacklog()
-      expect(stub.autoMints).toEqual([onChainMintId(idA), onChainMintId(idB)])
-      expect(stub.autoMintEntered).toBe(2)
+      expect(stub.autoMints).toEqual([])
+      expect(stub.autoMintEntered).toBe(0)
+      expect(stub.mintEntered).toBe(0)
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string }
+      expect(letter.proposal).toBe('replaced nonce')
+      expect(letter.oldHash).toBe(pendingHash)
+      expect(letter.reason).toBe('dropped')
+      expect(letter.timestamp).toEqual(expect.any(String))
       const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hashA.toLowerCase()))) as { state?: string; txHash?: string }
-      expect(stored.state).toBe('landed')
-      expect(stored.txHash).not.toBe(pendingHash)
+      expect(stored.state).toBe('dropped')
+      expect(stored.txHash).toBe(pendingHash)
+      expect(await redis.get('vortex:mint:cap:' + VORTEX_TREASURY.toLowerCase())).toBe('1')
+      expect(await redis.get('vortex:mint:cap-hold:' + idA.toLowerCase())).toBe(VORTEX_TREASURY.toLowerCase())
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(idB)
 
       stub.receipts.set(pendingHash.toLowerCase(), 'success')
       stub.containers.set(idA.toLowerCase(), registryContainer(idA, hashA))
@@ -2415,8 +2441,11 @@ describe('mint abuse limits', () => {
         'x-forwarded-for': '203.0.113.31',
       })
       expect(late.status).toBe(409)
-      expect(late.json.txHash).toBe(stored.txHash)
+      expect(late.json.txHash).toBe(pendingHash)
+      expect(stub.mints).not.toContain(onChainMintId(idA))
       expect(stub.mintEntered).toBe(0)
+      expect(stub.autoMintEntered).toBe(0)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
     } finally {
       errorSpy.mockRestore()
       logSpy.mockRestore()
@@ -2498,7 +2527,7 @@ describe('mint abuse limits', () => {
     }
   })
 
-  it('dead-letters an expired auto-mint and resubmits a dropped one across three fake days', async () => {
+  it('dead-letters an expired auto-mint and a dropped one across three fake days, and sends nothing', async () => {
     vi.useFakeTimers()
     const redis = new MemoryRedis()
     setRedisClientForTests(redis)
@@ -2559,14 +2588,24 @@ describe('mint abuse limits', () => {
       startMintDrainTimer()
       await vi.advanceTimersByTimeAsync(3 * 24 * 60 * 60 * 1000)
       expect(mintDrainRunCount()).toBeGreaterThan(100)
-      expect(stub.autoMints).toEqual([onChainMintId(droppedId)])
-      expect(stub.autoMints).not.toContain(onChainMintId(expiredId))
+      expect(stub.autoMints).toEqual([])
+      expect(stub.autoMintEntered).toBe(0)
+      expect(stub.mintEntered).toBe(0)
       const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
-      expect(dead.some((row) => row.includes(expiredId))).toBe(true)
+      expect(dead).toHaveLength(2)
+      const letters = dead.map((row) => JSON.parse(row) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string })
+      const expiredLetter = letters.find((letter) => letter.reason === 'expired')
+      const droppedLetter = letters.find((letter) => letter.reason === 'dropped')
+      expect(expiredLetter).toMatchObject({ proposal: 'expired over days', oldHash: expiredTx, reason: 'expired' })
+      expect(droppedLetter).toMatchObject({ proposal: 'dropped over days', oldHash: droppedTx, reason: 'dropped' })
+      expect(expiredLetter?.timestamp).toEqual(expect.any(String))
+      expect(droppedLetter?.timestamp).toEqual(expect.any(String))
       const expiredRecord = JSON.parse(String(await redis.hget('vortex:mint:pending', expiredHash.toLowerCase()))) as { state?: string; txHash?: string }
       expect(expiredRecord.state).toBe('expired')
       expect(expiredRecord.txHash).toBe(expiredTx)
-      expect(await redis.hget('vortex:mint:pending', droppedHash.toLowerCase())).toBeNull()
+      const droppedRecord = JSON.parse(String(await redis.hget('vortex:mint:pending', droppedHash.toLowerCase()))) as { state?: string; txHash?: string }
+      expect(droppedRecord.state).toBe('dropped')
+      expect(droppedRecord.txHash).toBe(droppedTx)
     } finally {
       stopMintDrainTimerForTests()
       errorSpy.mockRestore()
@@ -2695,14 +2734,13 @@ describe('mint abuse limits', () => {
     }
   })
 
-  it('stores the new hash when a nonce move resubmits, so a later retry is not a 409 for the dead hash', async () => {
+  it('a nonce move writes one dead-letter and returns the old hash as dropped', async () => {
     const redis = new MemoryRedis()
     setRedisClientForTests(redis)
     const id = nextId()
     const hash = nextId()
     const to = address(83)
     const deadHash = '0x' + '83'.repeat(32)
-    const liveHash = '0x' + '84'.repeat(32)
     stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
     stub.nextReceiptStatus = 'pending'
     stub.pendingTxHash = deadHash
@@ -2713,28 +2751,59 @@ describe('mint abuse limits', () => {
       const first = await mint(signedMint(id, hash, to), authHeader())
       expect(first.status).toBe(202)
       expect(first.json.txHash).toBe(deadHash)
+      expect(stub.mintEntered).toBe(1)
       stub.nonceNow = 5
       stub.submitNonce = 5
       stub.nextReceiptStatus = 'success'
-      stub.pendingTxHash = liveHash
-      const resubmit = await mint(signedMint(id, hash, to), authHeader())
-      expect(resubmit.status).toBe(200)
-      expect(resubmit.json.txHash).toBe('0x' + '11'.repeat(32))
-      expect(resubmit.json.txHash).not.toBe(deadHash)
+      stub.pendingTxHash = '0x' + '11'.repeat(32)
+      const dropped = await mint(signedMint(id, hash, to), authHeader())
+      expect(dropped.status).toBe(409)
+      expect(dropped.json.status).toBe('dropped')
+      expect(dropped.json.txHash).toBe(deadHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(stub.mints).toEqual([])
       const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string; state?: string }
-      expect(stored.txHash).toBe(resubmit.json.txHash)
-      expect(stored.state).toBe('landed')
-      const later = await mint(signedMint(id, hash, to), authHeader())
-      expect(later.status).toBe(409)
-      expect(later.json.txHash).toBe(resubmit.json.txHash)
-      expect(later.json.txHash).not.toBe(deadHash)
+      expect(stored.txHash).toBe(deadHash)
+      expect(stored.state).toBe('dropped')
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string }
+      expect(letter.proposal).toBe(hash)
+      expect(letter.oldHash).toBe(deadHash)
+      expect(letter.reason).toBe('dropped')
+      expect(letter.timestamp).toEqual(expect.any(String))
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
+      const again = await mint(signedMint(id, hash, to), authHeader())
+      expect(again.status).toBe(409)
+      expect(again.json.status).toBe('dropped')
+      expect(again.json.txHash).toBe(deadHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
       const still = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string; state?: string }
-      expect(still.state).toBe('landed')
-      expect(still.txHash).not.toBe(deadHash)
-      expect(stub.mintEntered).toBe(2)
+      expect(still.state).toBe('dropped')
+      expect(still.txHash).toBe(deadHash)
     } finally {
       errorSpy.mockRestore()
     }
+  })
+
+  it('refuses a mint when Redis is down and sends nothing', async () => {
+    setRedisClientForTests(null)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(84)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const refused = await mint(signedMint(id, hash, to), authHeader())
+    expect(refused.status).toBe(503)
+    expect(refused.json.error).toBe('Mint guard store is unavailable')
+    expect(stub.mintEntered).toBe(0)
+    expect(stub.mints).toEqual([])
+    expect(stub.autoMintEntered).toBe(0)
+    const auto = await autoMintVortex(sampleVortex(nextId(), nextId()), 'redis down')
+    expect(auto).toBeNull()
+    expect(stub.autoMintEntered).toBe(0)
+    expect(stub.mintEntered).toBe(0)
+    expect(stub.mints).toEqual([])
   })
 
   it('a 409 without Redis still carries a known txHash', async () => {

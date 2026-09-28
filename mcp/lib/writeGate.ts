@@ -346,10 +346,10 @@ export function clientRateKey(): string {
 
 export type MintClaim =
   | { ok: true }
-  | { ok: false; status: 409 | 429; error: string }
+  | { ok: false; status: 409 | 429 | 503; error: string }
 
 /** Failure fields. `in` checks so this narrows without strictNullChecks. */
-export function rejectedMint(claim: MintClaim): { status: 409 | 429; error: string } | null {
+export function rejectedMint(claim: MintClaim): { status: 409 | 429 | 503; error: string } | null {
   if (claim.ok) return null
   if ('status' in claim && 'error' in claim) return { status: claim.status, error: claim.error }
   return { status: 409, error: 'Container already has a vortex token' }
@@ -373,7 +373,7 @@ export function claimMintSlot(input: {
   recipient: string
   rateKey: string
   now?: number
-  /** Redis INCR value when the cap is persisted. The higher of this and memory wins. */
+  /** Redis INCR value. Missing means the guard store is down; memory must not authorize the mint. */
   addressCount?: number
 }): MintClaim {
   const id = input.containerId.toLowerCase()
@@ -386,9 +386,10 @@ export function claimMintSlot(input: {
     rateBuckets.set(input.rateKey, bucket)
     return { ok: false, status: 429, error: 'Mint rate limit exceeded' }
   }
-  const recipient = input.recipient.toLowerCase()
-  const memoryCount = addressMintCounts.get(recipient) ?? 0
-  const counted = Math.max(memoryCount, input.addressCount ?? 0)
+  if (input.addressCount === undefined) {
+    return { ok: false, status: 503, error: 'Mint guard store is unavailable' }
+  }
+  const counted = input.addressCount
   if (counted >= MINT_ADDRESS_CAP) {
     return { ok: false, status: 429, error: 'Per-address mint cap exceeded' }
   }
