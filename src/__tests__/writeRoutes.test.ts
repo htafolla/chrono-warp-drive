@@ -1945,6 +1945,7 @@ describe('write-route auth', () => {
       const real = await original(...args)
       return { ...real, recommendation: 'PASS', fullBox7DVerdict: 'PASS' }
     })
+    setRedisClientForTests(new MemoryRedis())
     try {
       const body = {
         proposal: 'Persist one signed vortex and then wait',
@@ -1960,9 +1961,18 @@ describe('write-route auth', () => {
       expect(typeof first.json.finalRecommendation).toBe('string')
       expect(stub.persists).toBe(1)
       await waitForAutoMint(1)
+      const firstTx = (first.json.temporalContainer as { onChainTx?: string } | undefined)?.onChainTx
+      const replay = await postJson('/govern_with_solar', body, authHeader())
+      expect(replay.status).toBe(200)
+      expect((replay.json.temporalContainer as { onChainTx?: string } | undefined)?.onChainTx).toBe(firstTx)
+      expect(stub.persists).toBe(1)
       const chainBefore = stub.chainCalls
       const keyBefore = stub.keyReads
-      const second = await postJson('/govern_with_solar', body, authHeader())
+      const second = await postJson('/govern_with_solar', {
+        proposal: 'A different proposal still has to wait out the cooldown',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, authHeader())
       expect(second.status).toBe(200)
       expect(typeof second.json.finalRecommendation).toBe('string')
       expect(String((second.json.temporalContainer as { onChainError?: string })?.onChainError)).toContain('10s cooldown')
@@ -1982,6 +1992,7 @@ describe('write-route auth', () => {
       return { ...real, recommendation: 'PASS', fullBox7DVerdict: 'PASS' }
     })
     stub.persistError = new Error(`dial ${secretUrl} failed`)
+    setRedisClientForTests(new MemoryRedis())
     try {
       const result = await postJson('/govern_with_solar', {
         proposal: 'Persist without leaking the endpoint',

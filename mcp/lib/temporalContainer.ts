@@ -66,6 +66,11 @@ function scaleKp(value: number): bigint {
   return BigInt(Math.round(value * KP_SCALE))
 }
 
+/** Same bytes32 the chain container uses: sha256 of the proposal text. */
+export function hashProposalText(proposalText: string): string {
+  return '0x' + createHash('sha256').update(proposalText).digest('hex')
+}
+
 export function governanceToContainer(
   decision: EnhancedGovernanceDecision,
   proposalText: string,
@@ -73,7 +78,7 @@ export function governanceToContainer(
   previousHash?: string,
 ): ContainerVortex {
   const timestamp = Math.floor(Date.now() / 1000)
-  const proposalHash = '0x' + createHash('sha256').update(proposalText).digest('hex')
+  const proposalHash = hashProposalText(proposalText)
 
   const solarSnapshot: ContainerSolarSnapshot = {
     timestamp,

@@ -12,11 +12,11 @@ interface ChainSaveNodeResponse {
 }
 
 /**
- * Upstream chain save aborts at 60s. 90s is that timeout plus 30s for
- * Turnstile, the limiter, and writing the response. Vercel reads this
- * export and the matching `functions` entry in vercel.json.
+ * Upstream chain save aborts at 45s. maxDuration is that timeout plus 15s,
+ * and it stays on the Vercel Hobby cap of 60s. Vercel reads this export
+ * and the matching `functions` entry in vercel.json.
  */
-export const maxDuration = 90
+export const maxDuration = 60
 
 /** Vercel serverless route. DynamoDeploy is a static Vite app; this is the server in front of it. */
 export default async function handler(req: ChainSaveNodeRequest, res: ChainSaveNodeResponse): Promise<void> {

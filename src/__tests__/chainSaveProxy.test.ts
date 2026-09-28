@@ -1,9 +1,22 @@
 import { readFileSync } from 'node:fs'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { maxDuration } from '../../api/govern-chain'
+import { app } from '../../mcp/index'
+import { setChainExecutorForTests, type ChainExecutor, type RegistryContainer } from '../../mcp/lib/chainPort'
+import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
+import { clearRedisClientForTests, setRedisClientForTests } from '../../mcp/redisTestHooks'
+import {
+  CHAIN_SAVE_STILL_SAVING,
+  chainSaveButtonEnabled,
+  chainSaveRetryAllowed,
+  chainSaveTimedOut,
+  lockChainSaveProposal,
+} from '../lib/chainSaveClient'
 import {
   CHAIN_SAVE_BODY_MAX,
+  CHAIN_SAVE_MAX_DURATION_S,
   CHAIN_SAVE_RATE_LIMIT,
+  CHAIN_SAVE_UPSTREAM_TIMEOUT_MS,
   GENERIC_CHAIN_SAVE_ERROR,
   handleChainSave,
   resetChainSaveGuardsForTests,
@@ -395,11 +408,178 @@ describe('chain save proxy', () => {
     expect(ok.status).toBe(200)
   })
 
-  it('sets maxDuration to 90 so the function outlasts the 60s upstream timeout', () => {
-    expect(maxDuration).toBe(90)
+  it('sets maxDuration to 60, the 45s upstream timeout plus 15s, within the Hobby cap', () => {
+    expect(CHAIN_SAVE_UPSTREAM_TIMEOUT_MS).toBe(45_000)
+    expect(CHAIN_SAVE_MAX_DURATION_S).toBe(60)
+    expect(maxDuration).toBe(CHAIN_SAVE_UPSTREAM_TIMEOUT_MS / 1000 + 15)
+    expect(maxDuration).toBeLessThanOrEqual(60)
     const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
       functions: Record<string, { maxDuration: number }>
     }
-    expect(vercel.functions['api/govern-chain.ts'].maxDuration).toBe(90)
+    expect(vercel.functions['api/govern-chain.ts'].maxDuration).toBe(maxDuration)
   })
+
+  it('keeps the chain-save button off until Blaze turns it on, and a timeout locks that proposal', () => {
+    expect(chainSaveButtonEnabled(undefined)).toBe(false)
+    expect(chainSaveButtonEnabled('')).toBe(false)
+    expect(chainSaveButtonEnabled('true')).toBe(true)
+    const proposal = 'Deploy the new agent to production'
+    expect(chainSaveRetryAllowed(proposal)).toBe(true)
+    expect(chainSaveTimedOut({ pending: true }, false)).toBe(true)
+    lockChainSaveProposal(proposal)
+    expect(chainSaveRetryAllowed(proposal)).toBe(false)
+    expect(CHAIN_SAVE_STILL_SAVING).toBe('may still be saving, check back')
+  })
+
+  it('persists and mints once when a slow chain outlasts the proxy and the route is called twice', async () => {
+    const firstHash = '0x' + 'ab'.repeat(32)
+    const proposal = 'Save this proposal once even if the proxy times out'
+    class LedgerRedis {
+      private rows = new Map<string, { value: string; expiresAt: number | null }>()
+
+      async get(key: string): Promise<string | null> {
+        const row = this.rows.get(key)
+        if (!row) return null
+        if (row.expiresAt !== null && row.expiresAt <= Date.now()) {
+          this.rows.delete(key)
+          return null
+        }
+        return row.value
+      }
+
+      async set(key: string, value: string, ...rest: Array<string | number>): Promise<'OK' | null> {
+        const args = rest.map((part) => String(part))
+        const exists = await this.get(key)
+        if (args.includes('NX') && exists !== null) return null
+        let expiresAt: number | null = null
+        const px = args.indexOf('PX')
+        if (px >= 0) expiresAt = Date.now() + Number(args[px + 1])
+        this.rows.set(key, { value, expiresAt })
+        return 'OK'
+      }
+
+      async del(key: string): Promise<number> {
+        return this.rows.delete(key) ? 1 : 0
+      }
+    }
+    class SlowChain implements ChainExecutor {
+      chainCalls = 0
+      keyReads = 0
+      persists = 0
+      mints = 0
+      async readContainerExact(): Promise<RegistryContainer | null> { return null }
+      async persistStoredContainer(): Promise<{ txHash: string }> { throw new Error('unused') }
+      async persistGovernedContainer(): Promise<{ txHash: string }> {
+        this.persists += 1
+        this.chainCalls += 1
+        await new Promise<void>((resolve) => { setTimeout(resolve, CHAIN_SAVE_UPSTREAM_TIMEOUT_MS + 5_000) })
+        return { txHash: firstHash }
+      }
+      async mintRegistered(): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' }> {
+        throw new Error('unused')
+      }
+      async existingMint(): Promise<string | null> { return null }
+      async autoMint(): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }> {
+        this.mints += 1
+        return { txHash: '0x' + '22'.repeat(32), receiptStatus: 'success' }
+      }
+    }
+    const chain = new SlowChain()
+    const redis = new LedgerRedis()
+    const store = new MemoryLimitStore()
+    const previousKey = process.env.MCP_WRITE_API_KEY
+    const previousSign = process.env.VORTEX_SIGNING_KEY
+    process.env.MCP_WRITE_API_KEY = SAMPLE_KEY
+    process.env.VORTEX_SIGNING_KEY = 'sign-test-key'
+    setChainExecutorForTests(chain)
+    setRedisClientForTests(redis)
+    const spy = vi.spyOn(dynamoSolarGovernance, 'enhanceGovernanceDecision').mockResolvedValue({
+      recommendation: 'PASS',
+      fullBox7DVerdict: 'PASS',
+      finalRecommendation: 'PASS',
+    } as Awaited<ReturnType<typeof dynamoSolarGovernance.enhanceGovernanceDecision>>)
+    const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+      const headerRecord: Record<string, string> = {}
+      const raw = init?.headers
+      if (raw && typeof raw === 'object' && !Array.isArray(raw) && !(raw instanceof Headers)) {
+        for (const [key, value] of Object.entries(raw)) headerRecord[key] = String(value)
+      }
+      const mcp = app.request('/govern_with_solar', {
+        method: 'POST',
+        headers: headerRecord,
+        body: typeof init?.body === 'string' ? init.body : undefined,
+      })
+      const responsePromise = mcp.then(async (response) => {
+        const text = await response.text()
+        return new Response(text, { status: response.status, headers: { 'content-type': 'application/json' } })
+      })
+      const signal = init?.signal
+      if (!signal) return responsePromise
+      return await new Promise<Response>((resolve, reject) => {
+        const fail = () => { reject(Object.assign(new Error('aborted'), { name: 'AbortError' })) }
+        if (signal.aborted) fail()
+        else signal.addEventListener('abort', fail, { once: true })
+        responsePromise.then(resolve, reject)
+      })
+    }) as typeof fetch
+    const rateNow = 1_000_000
+    const call = (token: string | null) => handleChainSave({
+      method: 'POST',
+      headers: headers(),
+      body: token ? { ...chainBody({ proposal }), turnstileToken: token } : chainBody({ proposal }),
+      env: readyEnv(),
+      now: rateNow,
+      fetchImpl,
+      limitStore: store,
+      verifyImpl: async () => true,
+    })
+    vi.useFakeTimers()
+    try {
+      const refused = await call(null)
+      expect(refused.status).toBe(403)
+      expect(chain.persists).toBe(0)
+      expect(chain.mints).toBe(0)
+
+      const first = call('token-ok')
+      await vi.advanceTimersByTimeAsync(1)
+      expect(chain.persists).toBe(1)
+      await vi.advanceTimersByTimeAsync(CHAIN_SAVE_UPSTREAM_TIMEOUT_MS)
+      const firstResult = await first
+      expect(firstResult.status).toBe(504)
+      expect(firstResult.body.pending).toBe(true)
+      expect(firstResult.body.error).toBe(GENERIC_CHAIN_SAVE_ERROR)
+      expect(chain.persists).toBe(1)
+      expect(chain.mints).toBe(0)
+
+      const second = call('token-ok')
+      await vi.advanceTimersByTimeAsync(5_000)
+      const secondResult = await second
+      const container = secondResult.body.temporalContainer as { onChainTx?: string } | undefined
+      expect(secondResult.status).toBe(200)
+      expect(container?.onChainTx).toBe(firstHash)
+      expect(chain.persists).toBe(1)
+      for (let n = 0; n < 20 && chain.mints < 1; n += 1) await vi.advanceTimersByTimeAsync(0)
+      expect(chain.mints).toBe(1)
+
+      resetChainSaveGuardsForTests()
+      for (let n = 0; n < CHAIN_SAVE_RATE_LIMIT - 2; n += 1) {
+        const again = await call('token-ok')
+        expect(again.status).toBe(200)
+        expect((again.body.temporalContainer as { onChainTx?: string }).onChainTx).toBe(firstHash)
+      }
+      const limited = await call('token-ok')
+      expect(limited.status).toBe(429)
+      expect(chain.persists).toBe(1)
+      expect(chain.mints).toBe(1)
+    } finally {
+      vi.useRealTimers()
+      spy.mockRestore()
+      setChainExecutorForTests(null)
+      clearRedisClientForTests()
+      if (previousKey === undefined) delete process.env.MCP_WRITE_API_KEY
+      else process.env.MCP_WRITE_API_KEY = previousKey
+      if (previousSign === undefined) delete process.env.VORTEX_SIGNING_KEY
+      else process.env.VORTEX_SIGNING_KEY = previousSign
+    }
+  }, 20_000)
 })

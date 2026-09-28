@@ -7,6 +7,13 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import { TransportPipeline } from '@/components/vortex/TransportPipeline';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
+import {
+  CHAIN_SAVE_STILL_SAVING,
+  chainSaveButtonEnabled,
+  chainSaveRetryAllowed,
+  chainSaveTimedOut,
+  lockChainSaveProposal,
+} from '@/lib/chainSaveClient';
 
 import {
   DYNAMO_MCP_URL as MCP_URL,
@@ -378,16 +385,34 @@ async function checkGovernance(proposal: string, sharePublicly: boolean, persist
     let solar = null
     let alignment = null
     if (persistToChain) {
+      if (!chainSaveRetryAllowed(proposal)) return chainSaveErrorResult(CHAIN_SAVE_STILL_SAVING)
       // Same-origin server route. The write key stays on the server.
-      const solarRes = await fetch('/api/govern-chain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(chainPayload),
-        signal: AbortSignal.timeout(60000),
-      })
+      let solarRes: Response
+      try {
+        solarRes = await fetch('/api/govern-chain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chainPayload),
+          signal: AbortSignal.timeout(60000),
+        })
+      } catch (err: unknown) {
+        const aborted = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
+        if (chainSaveTimedOut(null, aborted)) {
+          lockChainSaveProposal(proposal)
+          return chainSaveErrorResult(CHAIN_SAVE_STILL_SAVING)
+        }
+        return chainSaveErrorResult('Chain save failed')
+      }
       const solarBody = await solarRes.json().catch(() => null)
+      const pendingBody = solarBody !== null && typeof solarBody === 'object'
+        ? solarBody as { pending?: unknown; error?: unknown }
+        : null
       if (!solarRes.ok) {
-        const message = solarBody && typeof solarBody.error === 'string' ? solarBody.error : 'Chain save failed'
+        if (chainSaveTimedOut(pendingBody, false)) {
+          lockChainSaveProposal(proposal)
+          return chainSaveErrorResult(CHAIN_SAVE_STILL_SAVING)
+        }
+        const message = pendingBody && typeof pendingBody.error === 'string' ? pendingBody.error : 'Chain save failed'
         return chainSaveErrorResult(message)
       }
       solar = solarBody
@@ -584,6 +609,7 @@ export default function DynamoDeploy() {
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
   const [persistToChain, setPersistToChain] = useState(false);
+  const chainSaveOn = chainSaveButtonEnabled(import.meta.env.VITE_CHAIN_SAVE_ENABLED);
   const [pipelineComplete, setPipelineComplete] = useState(false);
   const [feed, setFeed] = useState<Array<{
     proposal: string; resonanceScore: number; recommendation: string;
@@ -686,10 +712,12 @@ export default function DynamoDeploy() {
     setResult(null);
     setLastProposal(input);
     if (text) setProposal(text);
-    const r = await checkGovernance(input, sharePublicly, persistToChain);
+    const allowPersist = chainSaveOn && persistToChain && chainSaveRetryAllowed(input);
+    const r = await checkGovernance(input, sharePublicly, allowPersist);
+    if (!chainSaveRetryAllowed(input)) setPersistToChain(false);
     setResult(r);
     fetchFeed();
-  }, [proposal, sharePublicly, persistToChain, fetchFeed]);
+  }, [proposal, sharePublicly, persistToChain, chainSaveOn, fetchFeed]);
 
   useEffect(() => {
     if (pipelineComplete) {
@@ -796,16 +824,19 @@ export default function DynamoDeploy() {
                 />
                 <span className="text-xs text-white/50">Share publicly</span>
               </label>
-              <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={persistToChain}
-                  onChange={e => setPersistToChain(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-white/20 bg-white/[0.05] accent-amber-500 cursor-pointer"
-                />
-                <span className="text-xs text-white/50">Post to blockchain</span>
-              </label>
-              {persistToChain ? <ChainSaveTurnstile /> : null}
+              {chainSaveOn ? (
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={persistToChain && chainSaveRetryAllowed(proposal)}
+                    onChange={e => setPersistToChain(e.target.checked)}
+                    disabled={!chainSaveRetryAllowed(proposal)}
+                    className="w-3.5 h-3.5 rounded border-white/20 bg-white/[0.05] accent-amber-500 cursor-pointer disabled:opacity-40"
+                  />
+                  <span className="text-xs text-white/50">Post to blockchain</span>
+                </label>
+              ) : null}
+              {chainSaveOn && persistToChain ? <ChainSaveTurnstile /> : null}
             </div>
           </div>
           {showExamples && (

@@ -14,6 +14,9 @@ export const CHAIN_SAVE_RATE_LIMIT = 5
 export const CHAIN_SAVE_RATE_WINDOW_MS = 60_000
 export const CHAIN_SAVE_PROPOSAL_MAX = 20_000
 export const CHAIN_SAVE_BODY_MAX = 48_000
+/** Shorter than the chain receipt wait. maxDuration is this plus 15s, and not above the Hobby cap. */
+export const CHAIN_SAVE_UPSTREAM_TIMEOUT_MS = 45_000
+export const CHAIN_SAVE_MAX_DURATION_S = 60
 export const TURNSTILE_SECRET_ENV = 'TURNSTILE_SECRET_KEY'
 export const CHAIN_SAVE_LIMIT_STORE_ENV = 'CHAIN_SAVE_LIMIT_STORE_URL'
 export const GENERIC_CHAIN_SAVE_ERROR = 'Chain save failed'
@@ -235,6 +238,17 @@ async function takeSharedSlot(store: ChainSaveLimitStore, ip: string, now: numbe
   return true
 }
 
+function upstreamAbort(timeoutMs: number): { signal: AbortSignal; cancel: () => void } {
+  const controller = new AbortController()
+  const timer = setTimeout(() => { controller.abort() }, timeoutMs)
+  return { signal: controller.signal, cancel: () => { clearTimeout(timer) } }
+}
+
+function upstreamTimedOut(err: unknown, signal: AbortSignal): boolean {
+  if (signal.aborted) return true
+  return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
+}
+
 /** Upstream text stays on the server. Callers see one sentence. */
 export function sanitizeUpstreamBody(status: number, record: Record<string, unknown>): Record<string, unknown> {
   const failed = status < 200 || status >= 300 || record.success === false || typeof record.onChainError === 'string' || typeof record.error === 'string'
@@ -319,6 +333,7 @@ export async function handleChainSave(input: {
   if (!allowed) {
     return { status: 429, body: { success: false, error: 'Too many chain saves' } }
   }
+  const abortHandle = upstreamAbort(CHAIN_SAVE_UPSTREAM_TIMEOUT_MS)
   let response: Response
   try {
     response = await fetchImpl(`${mcpBase(input.env)}/govern_with_solar`, {
@@ -328,10 +343,15 @@ export async function handleChainSave(input: {
         authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(parsed.payload),
-      signal: AbortSignal.timeout(60_000),
+      signal: abortHandle.signal,
     })
-  } catch {
+  } catch (err: unknown) {
+    if (upstreamTimedOut(err, abortHandle.signal)) {
+      return { status: 504, body: { success: false, error: GENERIC_CHAIN_SAVE_ERROR, pending: true } }
+    }
     return { status: 502, body: { success: false, error: GENERIC_CHAIN_SAVE_ERROR } }
+  } finally {
+    abortHandle.cancel()
   }
   const text = await response.text()
   let upstream: unknown
