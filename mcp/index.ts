@@ -46,6 +46,18 @@ const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusio
 const containerStore: ContainerVortex[] = []
 let latestContainerHash = '0x' + '0'.repeat(64)
 
+export function rememberContainerForTests(container: ContainerVortex): void {
+  const id = container.containerId.toLowerCase()
+  if (!containerStore.some((entry) => entry.containerId.toLowerCase() === id)) {
+    containerStore.push(container)
+  }
+}
+
+export function resetBootMemoryForTests(): void {
+  containerStore.length = 0
+  latestContainerHash = '0x' + '00'.repeat(64)
+}
+
 const REDIS_CONTAINER_KEY = 'dynamo:containers'
 const MAX_REDIS_CONTAINERS = 1000
 const REDIS_VORTEX_KEY_MINT = 'dynamo:vortex:mint'
@@ -53,21 +65,32 @@ const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
 const REDIS_VORTEX_TOKEN_IMAGE = 'dynamo:vortex:token-image'
 const TOKEN_IMAGE_TTL = 86400
 
-/** How long one scan waits for the chain. A timeout counts as a failure. */
+/** Logged while a scan is still running. The gate stays pending until the scan settles. */
 const MINT_REBUILD_TIMEOUT_MS = 20_000
+/** Cancels a hung scan. The retry starts only after that scan's workers have stopped. */
+export const MINT_REBUILD_WATCHDOG_MS = 15 * 60 * 1000
 /** First background retry. Later waits double, and never drop below this. */
 const MINT_REBUILD_RETRY_BASE_MS = 5_000
 /** Ceiling for the background retry. The RPC is never polled in a hot loop. */
 const MINT_REBUILD_RETRY_MAX_MS = 5 * 60 * 1000
+const MINT_BACKLOG_KEY = 'vortex:mint:backlog'
 
 type MintRebuildGate = 'pending' | 'ready' | 'closed'
 
-/** Closed until a rebuild succeeds. A failure or timeout leaves minting closed. */
+/** Pending while a scan runs. Failed only after the scan errors or the watchdog cancels it. */
 let mintRebuildGate: MintRebuildGate = 'pending'
 let rebuildInFlight: Promise<void> | null = null
 let rebuildRetryAttempt = 0
 let rebuildRetryTimer: ReturnType<typeof setTimeout> | null = null
 let rebuildRetryDelayMs: number | null = null
+let drainInFlight: Promise<void> | null = null
+
+interface MintBacklogEntry {
+  containerId: string
+  containerHash: string
+  skippedAt: string
+  reason: string
+}
 
 function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
   if (typeof timer.unref === 'function') timer.unref()
@@ -132,17 +155,23 @@ export async function rebuildMintedSetFromChain(): Promise<void> {
   if (rebuildInFlight) return rebuildInFlight
   clearMintRebuildRetry()
   mintRebuildGate = 'pending'
+  const controller = new AbortController()
   const run = (async () => {
-    let timer: ReturnType<typeof setTimeout> | undefined
+    let slowTimer: ReturnType<typeof setTimeout> | undefined
+    let watchdog: ReturnType<typeof setTimeout> | undefined
     try {
       const ids = await new Promise<string[]>((resolve, reject) => {
-        timer = setTimeout(() => {
-          if (mintRebuildGate === 'ready') return
-          mintRebuildGate = 'closed'
+        slowTimer = setTimeout(() => {
+          if (mintRebuildGate !== 'pending') return
           console.error(`[mint] rebuild still running after ${MINT_REBUILD_TIMEOUT_MS}ms; minting stays closed until this scan settles`)
         }, MINT_REBUILD_TIMEOUT_MS)
-        unrefTimer(timer)
-        getChainExecutor().listMintedContainerIds().then(resolve, reject)
+        unrefTimer(slowTimer)
+        watchdog = setTimeout(() => {
+          console.error(`[mint] rebuild watchdog after ${MINT_REBUILD_WATCHDOG_MS}ms; cancelling hung scan`)
+          controller.abort()
+        }, MINT_REBUILD_WATCHDOG_MS)
+        unrefTimer(watchdog)
+        getChainExecutor().listMintedContainerIds(controller.signal).then(resolve, reject)
       })
       replaceMintedContainers(ids)
       mintRebuildGate = 'ready'
@@ -150,13 +179,20 @@ export async function rebuildMintedSetFromChain(): Promise<void> {
       rebuildRetryDelayMs = null
       clearMintRebuildRetry()
       console.log(`[mint] rebuilt minted set from chain (${ids.length} ids)`)
+      try {
+        await drainMintBacklog()
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error(`[mint] backlog drain failed: ${message}`)
+      }
     } catch (err: unknown) {
       mintRebuildGate = 'closed'
       const message = err instanceof Error ? err.message : String(err)
       console.error(`[mint] rebuild failed; minting stays closed: ${message}`)
       scheduleMintRebuildRetry()
     } finally {
-      if (timer) clearTimeout(timer)
+      if (slowTimer) clearTimeout(slowTimer)
+      if (watchdog) clearTimeout(watchdog)
     }
   })()
   rebuildInFlight = run
@@ -167,14 +203,14 @@ export async function rebuildMintedSetFromChain(): Promise<void> {
   }
 }
 
-// Bootstrap: load containers from Redis on module init.
-// One chain scan. A slow scan stays in flight until it settles; the 20s mark
-// does not start another. An error schedules a background retry (5s, 10s, 20s, up to 5min).
-// Tests skip this import-time scan and open the gate themselves.
-;(async () => {
-  if (!process.env.VITEST) {
-    await rebuildMintedSetFromChain()
-  }
+function startMintRebuildWithoutWaiting(): void {
+  void rebuildMintedSetFromChain().catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[mint] rebuild failed: ${message}`)
+  })
+}
+
+async function restoreBootState(): Promise<void> {
   try {
     const client = await getRedisClient()
     if (!client) return
@@ -265,6 +301,32 @@ export async function rebuildMintedSetFromChain(): Promise<void> {
       } catch { /* registry sync failed */ }
     } catch { /* sync failed */ }
   } catch { /* Redis unavailable */ }
+  if (mintRebuildGate === 'ready') {
+    try {
+      await drainMintBacklog()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[mint] backlog drain failed: ${message}`)
+    }
+  }
+}
+
+/** Same boot the process runs: the chain scan does not block Redis, the Manifold, or the ambient field. */
+export async function bootServerForTests(): Promise<void> {
+  startMintRebuildWithoutWaiting()
+  await restoreBootState()
+}
+
+// Bootstrap: load containers from Redis on module init.
+// The chain scan is fire-and-forget. Minting stays closed until it succeeds.
+// A slow scan stays in flight until it settles or the 15 minute watchdog cancels it.
+// An error schedules a background retry (5s, 10s, 20s, up to 5min).
+// Tests skip this import-time scan and open the gate themselves.
+;(async () => {
+  if (!process.env.VITEST) {
+    startMintRebuildWithoutWaiting()
+  }
+  await restoreBootState()
 })()
 
 function temporalManifoldProposalHash(text: string): string {
@@ -2926,45 +2988,175 @@ async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
   } catch { /* Redis optional */ }
 }
 
+type AutoMintOutcome =
+  | { kind: 'minted'; txHash: string }
+  | { kind: 'skipped'; reason: string }
+  | { kind: 'error'; error: unknown }
+
 // Auto-mint token for newly governed containers (v4).
 // Same containerId, caller limit, address cap, and global mint budget as POST /vortex/mint.
 // The on-chain mint id is container.containerId, the same id POST /vortex/mint writes.
-export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
-  const rebuildBlock = mintRebuildBlock()
-  if (rebuildBlock) {
-    console.log(`[vortex] Auto-mint skipped: ${rebuildBlock.error}`)
-    return null
-  }
+async function runAutoMint(container: ContainerVortex, proposalText: string): Promise<AutoMintOutcome> {
   const claim = claimMintSlot({
     containerId: container.containerId,
     recipient: VORTEX_TREASURY,
     rateKey: 'auto-mint',
   })
-  if (!claim.ok) {
-    console.log(`[vortex] Auto-mint skipped: ${claim.error}`)
-    return null
-  }
+  if (!claim.ok) return { kind: 'skipped', reason: claim.error }
   let writeStarted = false
   try {
     const existing = await getChainExecutor().existingMint(container.containerId, container.containerHash)
     if (existing) {
       rememberMintedContainers([container.containerId, container.containerHash])
       releaseMintSlot(container.containerId)
-      console.log('[vortex] Auto-mint skipped: Container already has a vortex token')
-      return null
+      return { kind: 'skipped', reason: 'Container already has a vortex token' }
     }
     writeStarted = true
     const result = await getChainExecutor().autoMint(onChainMintId(container.containerId), container, proposalText)
     commitMintSlot(container.containerId, VORTEX_TREASURY)
     console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`)
-    return result.txHash
+    return { kind: 'minted', txHash: result.txHash }
   } catch (err: unknown) {
     if (writeStarted) abortMintWrite(container.containerId)
     else releaseMintSlot(container.containerId)
+    return { kind: 'error', error: err }
+  }
+}
+
+async function pushMintBacklog(container: ContainerVortex, reason: string): Promise<void> {
+  const entry: MintBacklogEntry = {
+    containerId: container.containerId,
+    containerHash: container.containerHash,
+    skippedAt: new Date().toISOString(),
+    reason,
+  }
+  console.log(`[vortex] Auto-mint skipped: ${reason} containerId=${container.containerId}`)
+  try {
+    const client = await getRedisClient()
+    if (!client) {
+      console.error(`[mint] backlog not stored; redis unavailable containerId=${container.containerId}`)
+      return
+    }
+    await client.rpush(MINT_BACKLOG_KEY, JSON.stringify(entry))
+  } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.log(`[vortex] Auto-mint skipped: ${message}`)
+    console.error(`[mint] backlog not stored containerId=${container.containerId}: ${message}`)
+  }
+}
+
+async function containerForBacklog(entry: MintBacklogEntry): Promise<ContainerVortex | null> {
+  const id = entry.containerId.toLowerCase()
+  const local = containerStore.find((candidate) => candidate.containerId.toLowerCase() === id)
+  if (local) return local
+  const client = await getRedisClient()
+  if (!client) return null
+  const raw = await client.lrange(REDIS_CONTAINER_KEY, 0, -1) as string[]
+  for (const item of raw) {
+    try {
+      const stored = JSON.parse(item) as ContainerVortex
+      if (stored.containerId?.toLowerCase() === id) return stored
+    } catch { /* skip corrupt */ }
+  }
+  return null
+}
+
+async function confirmedBacklogSkip(entry: MintBacklogEntry): Promise<boolean> {
+  const existing = await getChainExecutor().existingMint(entry.containerId, entry.containerHash)
+  if (!existing) return false
+  rememberMintedContainers([entry.containerId, entry.containerHash])
+  console.log(`[mint] backlog skip; token already on chain containerId=${entry.containerId}`)
+  return true
+}
+
+/** One pass over the backlog. A second caller waits on the same pass. */
+async function drainMintBacklog(): Promise<void> {
+  if (drainInFlight) return drainInFlight
+  const run = drainMintBacklogOnce()
+  drainInFlight = run
+  try {
+    await run
+  } finally {
+    if (drainInFlight === run) drainInFlight = null
+  }
+}
+
+async function drainMintBacklogOnce(): Promise<void> {
+  if (mintRebuildGate !== 'ready') return
+  const client = await getRedisClient()
+  if (!client) return
+  for (;;) {
+    if (mintRebuildGate !== 'ready') return
+    const raw = await client.lindex(MINT_BACKLOG_KEY, 0) as string | null
+    if (!raw) return
+    let entry: MintBacklogEntry
+    try {
+      entry = JSON.parse(raw) as MintBacklogEntry
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[mint] backlog drain stopped; head entry is not JSON: ${message}`)
+      return
+    }
+    if (!entry.containerId || !entry.containerHash) {
+      console.error('[mint] backlog drain stopped; head entry is missing ids')
+      return
+    }
+    const container = await containerForBacklog(entry)
+    if (!container) {
+      console.error(`[mint] backlog replay waiting for container containerId=${entry.containerId}`)
+      return
+    }
+    let already: boolean
+    try {
+      already = await confirmedBacklogSkip(entry)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+      return
+    }
+    if (already) {
+      await client.lpop(MINT_BACKLOG_KEY)
+      continue
+    }
+    const outcome = await runAutoMint(container, 'backlog replay')
+    if (outcome.kind === 'error') {
+      const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error)
+      console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+      return
+    }
+    if (outcome.kind === 'minted') {
+      await client.lpop(MINT_BACKLOG_KEY)
+      continue
+    }
+    try {
+      if (await confirmedBacklogSkip(entry)) {
+        await client.lpop(MINT_BACKLOG_KEY)
+        continue
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+      return
+    }
+    console.error(`[mint] backlog left in place containerId=${entry.containerId} reason=${outcome.reason}`)
+    return
+  }
+}
+
+export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
+  const rebuildBlock = mintRebuildBlock()
+  if (rebuildBlock) {
+    await pushMintBacklog(container, rebuildBlock.error)
     return null
   }
+  const outcome = await runAutoMint(container, proposalText)
+  if (outcome.kind === 'minted') return outcome.txHash
+  if (outcome.kind === 'skipped') {
+    console.log(`[vortex] Auto-mint skipped: ${outcome.reason}`)
+    return null
+  }
+  const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error)
+  console.log(`[vortex] Auto-mint skipped: ${message}`)
+  return null
 }
 
 // === Dev: seed test containers ===

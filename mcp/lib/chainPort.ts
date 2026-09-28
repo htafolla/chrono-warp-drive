@@ -66,7 +66,7 @@ export interface ChainExecutor {
    */
   existingMint(containerId: string, containerHash: string): Promise<string | null>
   /** Container ids already minted, for rebuilding the in-memory set at boot. No deployer key. */
-  listMintedContainerIds(): Promise<string[]>
+  listMintedContainerIds(signal?: AbortSignal): Promise<string[]>
   autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }>
 }
 
@@ -77,22 +77,133 @@ export function onChainMintId(containerId: string): `0x${string}` {
 
 const ZERO_MINT_KEY = '0x' + '00'.repeat(32)
 /** Per-token reads during a rebuild. Wider fan-out is rejected by the public Base RPC. */
-const MINT_SCAN_CONCURRENCY = 2
+export const MINT_SCAN_CONCURRENCY = 2
+/** Extra attempts after viem's own retries, only when the RPC answers 429. */
+const MINT_SCAN_RATE_LIMIT_RETRIES = 3
+const MINT_SCAN_RATE_LIMIT_BASE_MS = 200
 
-async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+export class MintScanCancelled extends Error {
+  constructor() {
+    super('mint scan cancelled')
+    this.name = 'MintScanCancelled'
+  }
+}
+
+export interface MintScanCall {
+  functionName: 'totalSupply' | 'tokenByIndex' | 'getContainerData' | 'tokenByContainerId'
+  args: readonly unknown[]
+}
+
+function errorText(err: unknown): string {
+  if (err instanceof Error) {
+    const extra = err as Error & { shortMessage?: string; details?: string }
+    return [extra.shortMessage, extra.details, extra.message].filter((part) => typeof part === 'string' && part.length > 0).join(' ')
+  }
+  return String(err)
+}
+
+function isRateLimited(err: unknown): boolean {
+  const text = errorText(err)
+  return text.includes('429') || /rate limit/i.test(text)
+}
+
+/**
+ * Fails closed: only the exact revert "No token for this container" means the key has no token.
+ * Any other error, including a changed revert string, fails the read.
+ */
+function isNoTokenRevert(err: unknown): boolean {
+  return errorText(err).includes('No token for this container')
+}
+
+function throwIfCancelled(signal: AbortSignal): void {
+  if (signal.aborted) throw new MintScanCancelled()
+}
+
+function waitForDelay(ms: number, signal: AbortSignal): Promise<void> {
+  throwIfCancelled(signal)
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(new MintScanCancelled())
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+/** Abandons the await when the scan is cancelled. The HTTP call may still finish; it is not used. */
+function raceSignal<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  throwIfCancelled(signal)
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      reject(new MintScanCancelled())
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    work.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        if (signal.aborted) reject(new MintScanCancelled())
+        else resolve(value)
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(err)
+      },
+    )
+  })
+}
+
+async function readWithRateLimitBackoff<T>(read: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  let attempt = 0
+  for (;;) {
+    throwIfCancelled(signal)
+    try {
+      return await raceSignal(read(), signal)
+    } catch (err) {
+      if (signal.aborted || err instanceof MintScanCancelled) throw new MintScanCancelled()
+      if (!isRateLimited(err) || attempt >= MINT_SCAN_RATE_LIMIT_RETRIES) throw err
+      attempt += 1
+      await waitForDelay(MINT_SCAN_RATE_LIMIT_BASE_MS * (2 ** (attempt - 1)), signal)
+    }
+  }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+  signal: AbortSignal,
+  cancel: () => void,
+): Promise<R[]> {
   const results = new Array<R>(items.length)
   let cursor = 0
+  let firstError: unknown = null
   const workers = Math.min(Math.max(limit, 0), items.length)
   async function run(): Promise<void> {
     for (;;) {
+      if (signal.aborted || firstError) return
       const index = cursor
       cursor += 1
       if (index >= items.length) return
-      results[index] = await fn(items[index])
+      if (signal.aborted || firstError) return
+      try {
+        results[index] = await fn(items[index])
+      } catch (err) {
+        if (!firstError || (firstError instanceof MintScanCancelled && !(err instanceof MintScanCancelled))) {
+          firstError = err
+        }
+        if (!signal.aborted) cancel()
+        return
+      }
     }
   }
   if (workers === 0) return results
   await Promise.all(Array.from({ length: workers }, () => run()))
+  if (firstError) throw firstError
+  if (signal.aborted) throw new MintScanCancelled()
   return results
 }
 
@@ -372,66 +483,36 @@ class LiveChainExecutor implements ChainExecutor {
       if (seen.has(lower)) continue
       seen.add(lower)
       this.chainCalls += 1
-      const tid = await publicClient.readContract({
-        address: VORTEX_TOKEN_ADDRESS,
-        abi,
-        functionName: 'tokenByContainerId',
-        args: [onChainMintId(key)],
-      }) as bigint
+      let tid = 0n
+      try {
+        tid = await publicClient.readContract({
+          address: VORTEX_TOKEN_ADDRESS,
+          abi,
+          functionName: 'tokenByContainerId',
+          args: [onChainMintId(key)],
+        }) as bigint
+      } catch (err) {
+        // Fails closed: only the exact revert "No token for this container" means this key has no token.
+        // Any other error, including a changed revert string, fails the check so a second mint is not attempted.
+        if (!isNoTokenRevert(err)) throw err
+      }
       if (tid !== 0n) return tid.toString()
     }
     return null
   }
 
-  async listMintedContainerIds(): Promise<string[]> {
-    this.chainCalls += 1
+  async listMintedContainerIds(signal?: AbortSignal): Promise<string[]> {
     const publicClient = readClient()
     const abi = await loadAbi('token')
-    const supply = await publicClient.readContract({
-      address: VORTEX_TOKEN_ADDRESS,
-      abi,
-      functionName: 'totalSupply',
-    }) as bigint
-    const count = Number(supply)
-    if (!Number.isSafeInteger(count)) throw new Error('totalSupply is too large to scan')
-    const indexes = Array.from({ length: count }, (_, i) => BigInt(i))
-    const records = await mapWithConcurrency(indexes, MINT_SCAN_CONCURRENCY, async (i) => {
-      const tokenId = await publicClient.readContract({
+    return scanMintedContainerIds(async (call) => {
+      this.chainCalls += 1
+      return publicClient.readContract({
         address: VORTEX_TOKEN_ADDRESS,
         abi,
-        functionName: 'tokenByIndex',
-        args: [i],
-      }) as bigint
-      const data = await publicClient.readContract({
-        address: VORTEX_TOKEN_ADDRESS,
-        abi,
-        functionName: 'getContainerData',
-        args: [tokenId],
+        functionName: call.functionName,
+        args: call.args as never,
       })
-      const containerId = readBytes32Field(data, 'containerId', 0)
-      const containerHash = readBytes32Field(data, 'containerHash', 18)
-      const tokenByKey: Record<string, string | null> = {}
-      for (const key of [containerId, containerHash]) {
-        if (!isMintKey(key)) continue
-        const lower = key.toLowerCase()
-        if (lower in tokenByKey) continue
-        let tid = 0n
-        try {
-          tid = await publicClient.readContract({
-            address: VORTEX_TOKEN_ADDRESS,
-            abi,
-            functionName: 'tokenByContainerId',
-            args: [key as `0x${string}`],
-          }) as bigint
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err)
-          if (!message.includes('No token for this container')) throw err
-        }
-        tokenByKey[lower] = tid === 0n ? null : tid.toString()
-      }
-      return { containerId, containerHash, tokenByKey }
-    })
-    return mintedIdsFromChainRecords(records)
+    }, signal)
   }
 
   async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }> {
@@ -487,6 +568,66 @@ class LiveChainExecutor implements ChainExecutor {
       }
     } catch { /* Redis optional */ }
     return { txHash: receipt.transactionHash }
+  }
+}
+
+/**
+ * One rebuild scan. The first failed read cancels the signal so every worker
+ * stops before its next read. A 429 is retried with backoff and does not cancel the scan.
+ * `signal` aborts the whole scan (the 15 minute watchdog).
+ */
+export async function scanMintedContainerIds(
+  read: (call: MintScanCall) => Promise<unknown>,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const controller = new AbortController()
+  const onAbort = () => controller.abort()
+  if (signal) {
+    if (signal.aborted) controller.abort()
+    else signal.addEventListener('abort', onAbort, { once: true })
+  }
+  const local = controller.signal
+  const cancel = () => controller.abort()
+  const readCall = (call: MintScanCall) => readWithRateLimitBackoff(() => read(call), local)
+  try {
+    let supply: bigint
+    try {
+      supply = await readCall({ functionName: 'totalSupply', args: [] }) as bigint
+    } catch (err) {
+      if (!local.aborted) cancel()
+      throw err
+    }
+    const count = Number(supply)
+    if (!Number.isSafeInteger(count)) throw new Error('totalSupply is too large to scan')
+    const indexes = Array.from({ length: count }, (_, i) => BigInt(i))
+    const records = await mapWithConcurrency(indexes, MINT_SCAN_CONCURRENCY, async (i) => {
+      const tokenId = await readCall({ functionName: 'tokenByIndex', args: [i] }) as bigint
+      const data = await readCall({ functionName: 'getContainerData', args: [tokenId] })
+      const containerId = readBytes32Field(data, 'containerId', 0)
+      const containerHash = readBytes32Field(data, 'containerHash', 18)
+      const tokenByKey: Record<string, string | null> = {}
+      for (const key of [containerId, containerHash]) {
+        if (!isMintKey(key)) continue
+        const lower = key.toLowerCase()
+        if (lower in tokenByKey) continue
+        let tid = 0n
+        try {
+          tid = await readCall({
+            functionName: 'tokenByContainerId',
+            args: [key],
+          }) as bigint
+        } catch (err) {
+          // Fails closed: only the exact revert "No token for this container" counts as no token.
+          // Any other error, including a changed revert string, fails the scan.
+          if (err instanceof MintScanCancelled || !isNoTokenRevert(err)) throw err
+        }
+        tokenByKey[lower] = tid === 0n ? null : tid.toString()
+      }
+      return { containerId, containerHash, tokenByKey }
+    }, local, cancel)
+    return mintedIdsFromChainRecords(records)
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
   }
 }
 

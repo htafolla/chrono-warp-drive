@@ -5,6 +5,16 @@ emitter.setMaxListeners(100)
 
 let redisClient: any = null
 let redisSubscriber: any = null
+let redisClientForTests: { enabled: true; client: unknown } | null = null
+
+/** Tests inject a client without opening a real connection. `null` means Redis is down. */
+export function setRedisClientForTests(client: unknown | null): void {
+  redisClientForTests = { enabled: true, client }
+}
+
+export function clearRedisClientForTests(): void {
+  redisClientForTests = null
+}
 
 let pubsubMode: 'redis' | 'memory' = 'memory'
 
@@ -64,6 +74,7 @@ export function getMode() {
 
 /** Get the shared Redis client for data storage (not just pub/sub). */
 export async function getRedisClient(): Promise<any> {
+  if (redisClientForTests?.enabled) return redisClientForTests.client
   if (pubsubMode === 'redis') {
     const { client } = await getRedis()
     return client

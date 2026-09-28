@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ChainExecutor, RegistryContainer } from '../../mcp/lib/chainPort'
+import type { ChainExecutor, MintScanCall, RegistryContainer } from '../../mcp/lib/chainPort'
+import { MINT_SCAN_CONCURRENCY, scanMintedContainerIds } from '../../mcp/lib/chainPort'
 import type { ContainerVortex } from '../../mcp/lib/temporalContainer'
+import { ambientField } from '../../mcp/lib/ambientField.js'
+import { clearRedisClientForTests, setRedisClientForTests } from '../../mcp/pubsub'
+import { temporalManifold } from '../../mcp/lib/temporalManifold.js'
+
+const realSetTimeout = globalThis.setTimeout.bind(globalThis)
 
 const counters = vi.hoisted(() => {
   delete process.env.REDIS_URL
@@ -26,7 +32,7 @@ vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
   }
 })
 
-import { app, autoMintVortex, markMintRebuildReadyForTests, mintRebuildRetryDelayForTests, rebuildMintedSetFromChain, runScheduledMintRebuildRetryForTests } from '../../mcp/index'
+import { app, autoMintVortex, bootServerForTests, MINT_REBUILD_WATCHDOG_MS, markMintRebuildReadyForTests, mintRebuildRetryDelayForTests, rebuildMintedSetFromChain, rememberContainerForTests, resetBootMemoryForTests, runScheduledMintRebuildRetryForTests } from '../../mcp/index'
 import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
 import { mintedIdsFromChainRecords, onChainMintId, setChainExecutorForTests, type ChainMintRecord } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
@@ -66,6 +72,11 @@ class StubChain implements ChainExecutor {
   scanStarts = 0
   scansInFlight = 0
   maxConcurrentScans = 0
+  existingHold: Promise<void> | null = null
+  existingWaiters = 0
+  existingMintErrorIds = new Set<string>()
+  autoMintHold: Promise<void> | null = null
+  autoMintEntered = 0
 
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
     this.chainCalls += 1
@@ -101,6 +112,11 @@ class StubChain implements ChainExecutor {
   }
 
   async existingMint(containerId: string, containerHash: string): Promise<string | null> {
+    if (this.existingHold) {
+      this.existingWaiters += 1
+      await this.existingHold
+    }
+    if (this.existingMintErrorIds.has(containerId.toLowerCase())) throw new Error('rpc down')
     const seen = new Set<string>()
     let found: string | null = null
     for (const key of [containerId, containerHash]) {
@@ -114,13 +130,15 @@ class StubChain implements ChainExecutor {
     return found
   }
 
-  async listMintedContainerIds(): Promise<string[]> {
+  async listMintedContainerIds(signal?: AbortSignal): Promise<string[]> {
     this.chainCalls += 1
     this.scanStarts += 1
     this.scansInFlight += 1
     this.maxConcurrentScans = Math.max(this.maxConcurrentScans, this.scansInFlight)
     try {
-      if (this.listHold) await this.listHold
+      if (signal?.aborted) throw new Error('mint scan cancelled')
+      if (this.listHold) await waitForScanHold(this.listHold, signal)
+      if (signal?.aborted) throw new Error('mint scan cancelled')
       if (this.listError) throw this.listError
       if (this.tokenRecords.length > 0) return mintedIdsFromChainRecords(this.tokenRecords)
       return this.bootIds.length > 0 ? [...this.bootIds] : [...this.mintedOnChain.keys()]
@@ -130,12 +148,142 @@ class StubChain implements ChainExecutor {
   }
 
   async autoMint(mintId: string): Promise<{ txHash: string }> {
+    this.autoMintEntered += 1
+    if (this.autoMintHold) await this.autoMintHold
     this.keyReads += 1
     this.chainCalls += 1
     this.autoMints.push(mintId)
     this.mintedOnChain.set(mintId.toLowerCase(), '8')
     return { txHash: '0x' + '22'.repeat(32) }
   }
+}
+
+function waitForScanHold(hold: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return hold
+  if (signal.aborted) return Promise.reject(new Error('mint scan cancelled'))
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(new Error('mint scan cancelled'))
+    signal.addEventListener('abort', onAbort, { once: true })
+    hold.then(
+      () => {
+        signal.removeEventListener('abort', onAbort)
+        if (signal.aborted) reject(new Error('mint scan cancelled'))
+        else resolve()
+      },
+      (err: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(err)
+      },
+    )
+  })
+}
+
+class MemoryRedis {
+  lists = new Map<string, string[]>()
+  hashes = new Map<string, Record<string, string>>()
+
+  private list(key: string): string[] {
+    const current = this.lists.get(key)
+    if (current) return current
+    const created: string[] = []
+    this.lists.set(key, created)
+    return created
+  }
+
+  async rpush(key: string, value: string): Promise<number> {
+    const values = this.list(key)
+    values.push(value)
+    return values.length
+  }
+
+  async lpush(key: string, value: string): Promise<number> {
+    const values = this.list(key)
+    values.unshift(value)
+    return values.length
+  }
+
+  async lpop(key: string): Promise<string | null> {
+    const values = this.list(key)
+    return values.shift() ?? null
+  }
+
+  async lindex(key: string, index: number): Promise<string | null> {
+    return this.list(key)[index] ?? null
+  }
+
+  async lrange(key: string, start: number, end: number): Promise<string[]> {
+    const values = this.list(key)
+    const stop = end < 0 ? values.length + end : end
+    return values.slice(start, stop + 1)
+  }
+
+  async ltrim(): Promise<string> {
+    return 'OK'
+  }
+
+  async hgetall(key: string): Promise<Record<string, string>> {
+    return this.hashes.get(key) ?? {}
+  }
+
+  async hset(key: string, field: string, value: string): Promise<number> {
+    const hash = this.hashes.get(key) ?? {}
+    hash[field] = value
+    this.hashes.set(key, hash)
+    return 1
+  }
+
+  multi(): MemoryRedisMulti {
+    return new MemoryRedisMulti(this)
+  }
+}
+
+class MemoryRedisMulti {
+  private ops: Array<() => Promise<unknown>> = []
+
+  constructor(private readonly redis: MemoryRedis) {}
+
+  lpush(key: string, value: string): this {
+    this.ops.push(() => this.redis.lpush(key, value))
+    return this
+  }
+
+  rpush(key: string, value: string): this {
+    this.ops.push(() => this.redis.rpush(key, value))
+    return this
+  }
+
+  ltrim(): this {
+    this.ops.push(async () => 'OK')
+    return this
+  }
+
+  hset(key: string, field: string, value: string): this {
+    this.ops.push(() => this.redis.hset(key, field, value))
+    return this
+  }
+
+  async exec(): Promise<Array<[null, unknown]>> {
+    const results: Array<[null, unknown]> = []
+    for (const op of this.ops) results.push([null, await op()])
+    return results
+  }
+}
+
+const MINT_BACKLOG_KEY = 'vortex:mint:backlog'
+
+async function flushTicks(times = 8): Promise<void> {
+  for (let i = 0; i < times; i += 1) {
+    await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+  }
+}
+
+async function waitForAutoMint(count: number): Promise<void> {
+  vi.useRealTimers()
+  for (let i = 0; i < 40; i += 1) {
+    if (stub.autoMints.length >= count) return
+    await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+  }
+  throw new Error(`auto-mint did not finish; saw ${stub.autoMints.length}`)
 }
 
 let stub: StubChain
@@ -267,6 +415,9 @@ async function mint(body: Record<string, unknown>, headers: Record<string, strin
 }
 
 beforeEach(() => {
+  vi.useRealTimers()
+  ambientField.stop()
+  clearRedisClientForTests()
   markMintRebuildReadyForTests()
   counters.deployerKeyReads = 0
   counters.directChainCalls = 0
@@ -286,6 +437,9 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
+  ambientField.stop()
+  clearRedisClientForTests()
   markMintRebuildReadyForTests()
   setChainExecutorForTests(null)
   vi.unstubAllGlobals()
@@ -832,6 +986,7 @@ describe('mint abuse limits', () => {
       })
       const skipped = await autoMintVortex(sampleVortex(autoId, autoHash), 'during-slow-scan')
       expect(refused.status).toBe(503)
+      expect(String(refused.json.error)).toContain('has not finished')
       expect(skipped).toBeNull()
       expect(stub.mints).toEqual([])
       expect(stub.autoMints).toEqual([])
@@ -893,6 +1048,250 @@ describe('mint abuse limits', () => {
       release()
       await first.catch(() => {})
       vi.useRealTimers()
+    }
+  })
+
+  it('boot-dependent init runs while a scan is still pending', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    await redis.lpush('dynamo:containers', JSON.stringify(sampleVortex(id, hash)))
+    let release: () => void = () => {}
+    stub.listHold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const start = vi.spyOn(ambientField, 'start').mockImplementation(() => {})
+    const pointsBefore = temporalManifold.getPointCount()
+    try {
+      await bootServerForTests()
+      expect(stub.scansInFlight).toBe(1)
+      expect(stub.scanStarts).toBe(1)
+      expect(temporalManifold.getPointCount()).toBeGreaterThan(pointsBefore)
+      expect(start).toHaveBeenCalledTimes(1)
+      const refused = await mint(signedMint(id, hash, address(8)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.57.0.1',
+      })
+      expect(refused.status).toBe(503)
+      expect(String(refused.json.error)).toContain('has not finished')
+      expect(stub.mints).toEqual([])
+    } finally {
+      start.mockRestore()
+      release()
+      await rebuildMintedSetFromChain().catch(() => {})
+      ambientField.stop()
+    }
+  })
+
+  it('after one read fails, no further reads are issued by that scan', async () => {
+    const calls: string[] = []
+    const scan = scanMintedContainerIds(async (call: MintScanCall) => {
+      calls.push(call.functionName)
+      if (call.functionName === 'totalSupply') return 4n
+      if (call.functionName === 'tokenByIndex') throw new Error('rpc failed')
+      return 0n
+    })
+    await expect(scan).rejects.toThrow('rpc failed')
+    const stopped = calls.length
+    await new Promise<void>((resolve) => { realSetTimeout(resolve, 30) })
+    expect(calls[0]).toBe('totalSupply')
+    expect(calls.filter((name) => name === 'tokenByIndex').length).toBeGreaterThan(0)
+    expect(calls.filter((name) => name === 'tokenByIndex').length).toBeLessThanOrEqual(MINT_SCAN_CONCURRENCY)
+    expect(calls.filter((name) => name === 'getContainerData')).toEqual([])
+    expect(calls.filter((name) => name === 'tokenByContainerId')).toEqual([])
+    expect(calls.length).toBe(stopped)
+  })
+
+  it('a hung scan is cancelled by the watchdog and the next retry is the only scan running', async () => {
+    vi.useFakeTimers()
+    let release: () => void = () => {}
+    stub.listHold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const first = rebuildMintedSetFromChain()
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(stub.scansInFlight).toBe(1)
+      const pending = await mint(signedMint(nextId(), nextId(), address(8)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.58.0.1',
+      })
+      expect(String(pending.json.error)).toContain('has not finished')
+      await vi.advanceTimersByTimeAsync(MINT_REBUILD_WATCHDOG_MS)
+      await first
+      expect(stub.scanStarts).toBe(1)
+      expect(stub.scansInFlight).toBe(0)
+      expect(mintRebuildRetryDelayForTests()).toBe(5_000)
+      const failed = await mint(signedMint(nextId(), nextId(), address(8)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.58.0.2',
+      })
+      expect(failed.status).toBe(503)
+      expect(String(failed.json.error)).toContain('rebuild failed')
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect(stub.scanStarts).toBe(2)
+      expect(stub.scansInFlight).toBe(1)
+      expect(stub.maxConcurrentScans).toBe(1)
+    } finally {
+      release()
+      await rebuildMintedSetFromChain().catch(() => {})
+      vi.useRealTimers()
+    }
+  })
+
+  it('an entry pushed during the closed window gets minted after open', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    rememberContainerForTests(vortex)
+    stub.listError = new Error('rpc down')
+    await rebuildMintedSetFromChain()
+    const logs: string[] = []
+    const spy = vi.spyOn(console, 'log').mockImplementation((message?: unknown) => {
+      logs.push(String(message))
+    })
+    try {
+      const skipped = await autoMintVortex(vortex, 'closed-window')
+      expect(skipped).toBeNull()
+      expect(stub.autoMints).toEqual([])
+      expect(logs.some((line) => line.includes(`containerId=${id}`))).toBe(true)
+      const stored = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as {
+        containerId: string
+        containerHash: string
+        skippedAt: string
+        reason: string
+      }
+      expect(stored.containerId).toBe(id)
+      expect(stored.containerHash).toBe(hash)
+      expect(stored.reason).toContain('rebuild failed')
+      expect(stored.skippedAt.length).toBeGreaterThan(0)
+      stub.listError = null
+      await runScheduledMintRebuildRetryForTests()
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('an entry whose token is hash-keyed is skipped', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    stub.mintedOnChain.set(hash.toLowerCase(), '2')
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'Mint rebuild failed; minting is closed',
+    }))
+    const logs: string[] = []
+    const spy = vi.spyOn(console, 'log').mockImplementation((message?: unknown) => {
+      logs.push(String(message))
+    })
+    try {
+      await rebuildMintedSetFromChain()
+      expect(stub.autoMints).toEqual([])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      expect(logs.some((line) => line.includes('backlog skip') && line.includes(id))).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('a drain that errors mid-list keeps the rest', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const firstId = nextId()
+    const secondId = nextId()
+    const thirdId = nextId()
+    const firstHash = nextId()
+    const secondHash = nextId()
+    const thirdHash = nextId()
+    rememberContainerForTests(sampleVortex(firstId, firstHash))
+    rememberContainerForTests(sampleVortex(secondId, secondHash))
+    rememberContainerForTests(sampleVortex(thirdId, thirdHash))
+    for (const entry of [
+      { containerId: firstId, containerHash: firstHash },
+      { containerId: secondId, containerHash: secondHash },
+      { containerId: thirdId, containerHash: thirdHash },
+    ]) {
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        ...entry,
+        skippedAt: new Date().toISOString(),
+        reason: 'Mint rebuild failed; minting is closed',
+      }))
+    }
+    stub.existingMintErrorIds.add(secondId.toLowerCase())
+    await rebuildMintedSetFromChain()
+    expect(stub.autoMints).toEqual([onChainMintId(firstId)])
+    const rest = await redis.lrange(MINT_BACKLOG_KEY, 0, -1)
+    expect(rest.map((raw) => (JSON.parse(raw) as { containerId: string }).containerId)).toEqual([secondId, thirdId])
+  })
+
+  it('a server restart with the same Redis list still replays it', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    await redis.lpush('dynamo:containers', JSON.stringify(vortex))
+    stub.listError = new Error('rpc down')
+    await rebuildMintedSetFromChain()
+    const skipped = await autoMintVortex(vortex, 'before-restart')
+    expect(skipped).toBeNull()
+    expect(stub.autoMints).toEqual([])
+    expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toContain(id)
+    resetBootMemoryForTests()
+    resetWriteGuardsForTests()
+    stub.listError = null
+    stub.autoMints = []
+    await runScheduledMintRebuildRetryForTests()
+    expect(stub.autoMints).toEqual([onChainMintId(id)])
+    expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+  })
+
+  it('no double mint when the drain and a new govern race', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    rememberContainerForTests(vortex)
+    stub.listError = new Error('rpc down')
+    await rebuildMintedSetFromChain()
+    expect(await autoMintVortex(vortex, 'closed-window')).toBeNull()
+    let release: () => void = () => {}
+    stub.autoMintHold = new Promise<void>((resolve) => {
+      release = () => {
+        stub.autoMintHold = null
+        resolve()
+      }
+    })
+    stub.listError = null
+    const pending = runScheduledMintRebuildRetryForTests()
+    try {
+      for (let i = 0; i < 20 && stub.autoMintEntered < 1; i += 1) await flushTicks(1)
+      expect(stub.autoMintEntered).toBe(1)
+      const govern = autoMintVortex(vortex, 'race')
+      await flushTicks(4)
+      expect(stub.autoMintEntered).toBe(1)
+      expect(stub.autoMints).toEqual([])
+      release()
+      await pending
+      expect(await govern).toBeNull()
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      await rebuildMintedSetFromChain()
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+    } finally {
+      release()
+      await pending.catch(() => {})
     }
   })
 
@@ -1163,9 +1562,7 @@ describe('write-route auth', () => {
       expect(first.status).toBe(200)
       expect(typeof first.json.finalRecommendation).toBe('string')
       expect(stub.persists).toBe(1)
-      await vi.waitFor(() => {
-        expect(stub.autoMints.length).toBe(1)
-      })
+      await waitForAutoMint(1)
       const chainBefore = stub.chainCalls
       const keyBefore = stub.keyReads
       const second = await postJson('/govern_with_solar', body, authHeader())
