@@ -5,15 +5,16 @@ emitter.setMaxListeners(100)
 
 let redisClient: any = null
 let redisSubscriber: any = null
-let redisClientForTests: { enabled: true; client: unknown } | null = null
 
-/** Tests inject a client without opening a real connection. `null` means Redis is down. */
-export function setRedisClientForTests(client: unknown | null): void {
-  redisClientForTests = { enabled: true, client }
+interface ChronoTestGlobal {
+  __chronoWarpRedisTestClient?: { enabled: true; client: unknown }
 }
 
-export function clearRedisClientForTests(): void {
-  redisClientForTests = null
+function redisTestClient(): unknown | undefined {
+  if (!process.env.VITEST) return undefined
+  const slot = (globalThis as ChronoTestGlobal).__chronoWarpRedisTestClient
+  if (!slot?.enabled) return undefined
+  return slot.client
 }
 
 let pubsubMode: 'redis' | 'memory' = 'memory'
@@ -74,7 +75,10 @@ export function getMode() {
 
 /** Get the shared Redis client for data storage (not just pub/sub). */
 export async function getRedisClient(): Promise<any> {
-  if (redisClientForTests?.enabled) return redisClientForTests.client
+  if (process.env.VITEST) {
+    const override = redisTestClient()
+    if (override !== undefined) return override
+  }
   if (pubsubMode === 'redis') {
     const { client } = await getRedis()
     return client

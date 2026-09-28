@@ -65,7 +65,7 @@ export interface ChainExecutor {
    * and containerHash (old auto-mint). Does not read the deployer key.
    */
   existingMint(containerId: string, containerHash: string): Promise<string | null>
-  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }>
+  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }>
 }
 
 /** The single bytes32 both mint paths pass to VortexToken.mint. */
@@ -89,6 +89,11 @@ function errorText(err: unknown): string {
  */
 function isNoTokenRevert(err: unknown): boolean {
   return errorText(err).includes('No token for this container')
+}
+
+/** A real registry miss. Any other failure, including an RPC error, must not look like "not found". */
+function isContainerNotFound(err: unknown): boolean {
+  return errorText(err).includes('ContainerNotFound')
 }
 
 function isMintKey(value: string | undefined): value is string {
@@ -180,8 +185,9 @@ class LiveChainExecutor implements ChainExecutor {
       if (returned.toLowerCase() === ZERO_BYTES32) return null
       if (returned.toLowerCase() !== containerId.toLowerCase()) return null
       return container
-    } catch {
-      return null
+    } catch (err) {
+      if (isContainerNotFound(err)) return null
+      throw err
     }
   }
 
@@ -337,46 +343,54 @@ class LiveChainExecutor implements ChainExecutor {
     return null
   }
 
-  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string }> {
-    const { walletClient, publicClient } = this.wallet()
+  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }> {
+    const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
     const abi = await loadAbi('token')
     const truncated = proposalText.slice(0, 140)
     const s = (value: number) => BigInt(Math.round(value * 1e18))
     const id = onChainMintId(mintId)
-    const txHash = await walletClient.writeContract({
-      address: VORTEX_TOKEN_ADDRESS,
-      abi,
-      functionName: 'mint',
-      args: [
-        VORTEX_TREASURY,
-        id,
-        {
-          containerId: id,
-          timestamp: BigInt(Math.floor(container.timestamp)),
-          verdict: container.resonanceProfile.verdict,
-          fullBox7DComposite: s(container.resonanceProfile.fullBox7DComposite),
-          trinitariumMoralScore: s(container.moralOverlay.trinitariumMoralScore),
-          trinitariumGematriaFusion: s(container.moralOverlay.trinitariumGematriaFusion),
-          moralTension: container.moralOverlay.moralNumerologicalTension,
-          waveProximity: s(container.resonanceProfile.waveProximity),
-          phaseAlignment: s(container.resonanceProfile.phaseAlignment),
-          calibratedVortex: s(container.resonanceProfile.calibratedVortex),
-          calibratedSync: s(container.resonanceProfile.calibratedSync),
-          neuralProximity: s(container.resonanceProfile.neuralProximity),
-          neuralVortex: s(container.resonanceProfile.neuralVortex),
-          gematriaResonance: s(container.resonanceProfile.gematriaResonance),
-          virtueAlignment: s(container.moralOverlay.virtueAlignment),
-          moralSafety: s(container.moralOverlay.moralSafety),
-          intentAlignment: s(container.moralOverlay.intentAlignment),
-          source: container.source,
-          containerHash: container.containerHash,
-          hammerReason: container.hammerReason || '',
-          proposalText: truncated,
-        },
-      ],
+    const mintArgs = [
+      VORTEX_TREASURY,
+      id,
+      {
+        containerId: id,
+        timestamp: BigInt(Math.floor(container.timestamp)),
+        verdict: container.resonanceProfile.verdict,
+        fullBox7DComposite: s(container.resonanceProfile.fullBox7DComposite),
+        trinitariumMoralScore: s(container.moralOverlay.trinitariumMoralScore),
+        trinitariumGematriaFusion: s(container.moralOverlay.trinitariumGematriaFusion),
+        moralTension: container.moralOverlay.moralNumerologicalTension,
+        waveProximity: s(container.resonanceProfile.waveProximity),
+        phaseAlignment: s(container.resonanceProfile.phaseAlignment),
+        calibratedVortex: s(container.resonanceProfile.calibratedVortex),
+        calibratedSync: s(container.resonanceProfile.calibratedSync),
+        neuralProximity: s(container.resonanceProfile.neuralProximity),
+        neuralVortex: s(container.resonanceProfile.neuralVortex),
+        gematriaResonance: s(container.resonanceProfile.gematriaResonance),
+        virtueAlignment: s(container.moralOverlay.virtueAlignment),
+        moralSafety: s(container.moralOverlay.moralSafety),
+        intentAlignment: s(container.moralOverlay.intentAlignment),
+        source: container.source,
+        containerHash: container.containerHash,
+        hammerReason: container.hammerReason || '',
+        proposalText: truncated,
+      },
+    ]
+    const txHash = await withWriteLock(async () => {
+      const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
+      return walletClient.writeContract({
+        address: VORTEX_TOKEN_ADDRESS,
+        abi,
+        functionName: 'mint',
+        nonce: mintNonce,
+        args: mintArgs,
+      })
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+    if (receipt.status !== 'success') {
+      return { txHash: receipt.transactionHash, receiptStatus: 'reverted' }
+    }
     try {
       const tid = await publicClient.readContract({
         address: VORTEX_TOKEN_ADDRESS,
@@ -389,7 +403,7 @@ class LiveChainExecutor implements ChainExecutor {
         if (client) await client.hset('dynamo:vortex:mint', id.toLowerCase(), tid.toString())
       }
     } catch { /* Redis optional */ }
-    return { txHash: receipt.transactionHash }
+    return { txHash: receipt.transactionHash, receiptStatus: 'success' }
   }
 }
 
