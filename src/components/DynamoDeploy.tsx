@@ -14,6 +14,48 @@ import {
   STELLAR_MCP_URL as STELLAR_URL,
 } from '@/config/platform-env';
 
+let chainSaveTurnstileToken = ''
+
+interface TurnstileApi {
+  render: (element: HTMLElement, options: { sitekey: string; callback: (token: string) => void }) => void
+}
+
+function turnstileFromWindow(): TurnstileApi | null {
+  const host = window as Window & { turnstile?: TurnstileApi }
+  return host.turnstile ?? null
+}
+
+function ChainSaveTurnstile() {
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY
+  const holder = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!siteKey || !holder.current) return
+    let cancelled = false
+    const render = () => {
+      if (cancelled || !holder.current) return
+      const api = turnstileFromWindow()
+      if (!api) return
+      api.render(holder.current, {
+        sitekey: siteKey,
+        callback: (token: string) => { chainSaveTurnstileToken = token },
+      })
+    }
+    const existing = turnstileFromWindow()
+    if (existing) {
+      render()
+      return () => { cancelled = true }
+    }
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.onload = render
+    document.head.appendChild(script)
+    return () => { cancelled = true }
+  }, [siteKey])
+  if (!siteKey) return null
+  return <div ref={holder} className="mt-2" />
+}
+
 function formatTime(iso: string): string {
   const d = new Date(iso)
   const now = new Date()
@@ -265,8 +307,26 @@ interface GovernanceResult {
   } | null;
 }
 
+const GOVERNANCE_NULL_KEYS = [
+  'metamorphosisIndex', 'confidenceScore', 'reconstructionError', 'governanceConfidence',
+  'resonanceScore', 'structuralResonance', 'proximity', 'phaseAlignment', 'vortexAlignment',
+  'crossCorrelationLag', 'signalTiming', 'synchronization', 'waveProximity', 'waveVortexAlignment',
+  'waveSynchronization', 'hybrid4DComposite', 'hybridVerdict', 'hybridVortexAlignment',
+  'fullWave4DComposite', 'calibratedWave4DComposite', 'fullBoxProximity', 'fullBoxVortexAlignment',
+  'fullBoxSynchronization', 'fullBoxNeuralProximity', 'fullBoxNeuralVortex', 'fullBox4DComposite',
+  'fullBoxVerdict', 'fullBoxThresholds', 'fullBoxGematriaResonance', 'fullBox7DComposite',
+  'fullBox7DVerdict', 'neuralWaveProximity', 'neuralWaveVortexAlignment', 'smoothedResonance',
+  'trend', 'momentum', 'peakForecast', 'adaptiveThresholds', 'trinitariumMoralScore',
+  'trinitariumVirtueAlignment', 'trinitariumHarmPotential', 'trinitariumIntentAlignment',
+  'trinitariumSacredTextAffinity', 'trinitariumDetectedVirtues', 'trinitariumDetectedConcerns',
+  'trinitariumGematriaFusion', 'moralNumerologicalTension',
+] as const
+
 function chainSaveErrorResult(message: string): GovernanceResult {
+  const nulls: Record<string, null> = {}
+  for (const key of GOVERNANCE_NULL_KEYS) nulls[key] = null
   return {
+    ...nulls,
     answer: 'error',
     detail: message,
     phrase: message,
@@ -274,61 +334,14 @@ function chainSaveErrorResult(message: string): GovernanceResult {
     signal: '',
     weight: 1,
     gain: 0,
-    metamorphosisIndex: null,
-    confidenceScore: null,
-    reconstructionError: null,
-    governanceConfidence: null,
     solarApplied: false,
-    resonanceScore: null,
-    structuralResonance: null,
-    proximity: null,
-    phaseAlignment: null,
-    vortexAlignment: null,
-    crossCorrelationLag: null,
-    signalTiming: null,
-    synchronization: null,
-    waveProximity: null,
-    waveVortexAlignment: null,
-    waveSynchronization: null,
-    hybrid4DComposite: null,
-    hybridVerdict: null,
-    hybridVortexAlignment: null,
-    fullWave4DComposite: null,
-    calibratedWave4DComposite: null,
-    fullBoxProximity: null,
-    fullBoxVortexAlignment: null,
-    fullBoxSynchronization: null,
-    fullBoxNeuralProximity: null,
-    fullBoxNeuralVortex: null,
-    fullBox4DComposite: null,
-    fullBoxVerdict: null,
-    fullBoxThresholds: null,
-    fullBoxGematriaResonance: null,
-    fullBox7DComposite: null,
-    fullBox7DVerdict: null,
-    neuralWaveProximity: null,
-    neuralWaveVortexAlignment: null,
-    smoothedResonance: null,
-    trend: null,
-    momentum: null,
-    peakForecast: null,
-    adaptiveThresholds: null,
     diagnostics: { isotopicRatio: null, vortexVolume: null, historicalCoherence: null },
     signature: '',
     alignmentRec: null,
     alignmentReason: message,
     source: 'human',
     neuralContextUsed: false,
-    trinitariumMoralScore: null,
-    trinitariumVirtueAlignment: null,
-    trinitariumHarmPotential: null,
-    trinitariumIntentAlignment: null,
-    trinitariumSacredTextAffinity: null,
-    trinitariumDetectedVirtues: null,
-    trinitariumDetectedConcerns: null,
-    trinitariumGematriaFusion: null,
-    moralNumerologicalTension: null,
-  }
+  } as GovernanceResult
 }
 
 async function checkGovernance(proposal: string, sharePublicly: boolean, persistToChain: boolean = false): Promise<GovernanceResult | null> {
@@ -346,7 +359,15 @@ async function checkGovernance(proposal: string, sharePublicly: boolean, persist
     const spectralQuality = neuralRes?.neuralOutput?.spectralQuality ?? neuralRes?.spectralQuality ?? null;
     const neuralEmbedding16 = neuralRes?.neuralOutput?.neuralEmbedding16 ?? neuralRes?.neuralEmbedding16 ?? null;
 
-    const chainPayload = { proposal, baseVoteWeight: 1, sharePublicly, persistToChain, spectralQuality, sunNeuralEmbedding: neuralEmbedding16 }
+    const chainPayload = {
+      proposal,
+      baseVoteWeight: 1,
+      sharePublicly,
+      persistToChain,
+      spectralQuality,
+      sunNeuralEmbedding: neuralEmbedding16,
+      turnstileToken: chainSaveTurnstileToken,
+    }
     const alignmentPromise = fetch(`${MCP_URL}/governance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -784,6 +805,7 @@ export default function DynamoDeploy() {
                 />
                 <span className="text-xs text-white/50">Post to blockchain</span>
               </label>
+              {persistToChain ? <ChainSaveTurnstile /> : null}
             </div>
           </div>
           {showExamples && (

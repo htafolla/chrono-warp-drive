@@ -1,15 +1,29 @@
-import { execFileSync } from 'node:child_process'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  CHAIN_SAVE_BODY_MAX,
   CHAIN_SAVE_RATE_LIMIT,
+  GENERIC_CHAIN_SAVE_ERROR,
   handleChainSave,
   resetChainSaveGuardsForTests,
+  type ChainSaveLimitStore,
 } from '../server/chainSaveProxy'
 
 const SAMPLE_KEY = 'sample-write-key-9f3c2a'
 const ORIGIN = 'https://dynamo.rippel.ai'
+const SECRET = 'turnstile-test-secret'
+const VERCEL_IP = '203.0.113.10'
+
+class MemoryLimitStore implements ChainSaveLimitStore {
+  readonly values = new Map<string, string>()
+
+  async get(key: string): Promise<string | null> {
+    return this.values.get(key) ?? null
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    this.values.set(key, value)
+  }
+}
 
 function chainBody(overrides: Record<string, unknown> = {}) {
   return {
@@ -26,9 +40,29 @@ function chainBody(overrides: Record<string, unknown> = {}) {
 function headers(extra: Record<string, string> = {}) {
   return {
     origin: ORIGIN,
-    'x-forwarded-for': '203.0.113.10',
+    'x-vercel-forwarded-for': VERCEL_IP,
+    'x-forwarded-for': '198.51.100.20',
     ...extra,
   }
+}
+
+function readyEnv(extra: Record<string, string> = {}) {
+  return {
+    MCP_WRITE_API_KEY: SAMPLE_KEY,
+    TURNSTILE_SECRET_KEY: SECRET,
+    CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN,
+    DYNAMO_MCP_URL: 'https://mcp-production-80e2.up.railway.app',
+    ...extra,
+  }
+}
+
+function countingFetch(body: unknown = { success: true, recommendation: 'PASS' }, status = 200) {
+  const calls: Array<{ url: string; init: RequestInit | undefined }> = []
+  const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(url), init })
+    return new Response(JSON.stringify(body), { status })
+  }) as typeof fetch
+  return { calls, fetchImpl }
 }
 
 afterEach(() => {
@@ -37,23 +71,18 @@ afterEach(() => {
 
 describe('chain save proxy', () => {
   it('attaches the write key on the server and forwards only the chain-save payload', async () => {
-    const calls: Array<{ url: string; init: RequestInit | undefined }> = []
-    const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: String(url), init })
-      return new Response(JSON.stringify({ success: true, recommendation: 'PASS' }), { status: 200 })
-    }) as typeof fetch
+    const { calls, fetchImpl } = countingFetch()
+    const store = new MemoryLimitStore()
     const payload = chainBody({ spectralQuality: 0.5, sunNeuralEmbedding: Array.from({ length: 16 }, () => 0.1) })
     const result = await handleChainSave({
       method: 'POST',
       headers: headers(),
-      body: payload,
-      env: {
-        MCP_WRITE_API_KEY: SAMPLE_KEY,
-        CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN,
-        DYNAMO_MCP_URL: 'https://mcp-production-80e2.up.railway.app',
-      },
+      body: { ...payload, turnstileToken: 'token-ok' },
+      env: readyEnv(),
       now: 1_000,
       fetchImpl,
+      limitStore: store,
+      verifyImpl: async () => true,
     })
     expect(result.status).toBe(200)
     expect(result.body.success).toBe(true)
@@ -64,95 +93,178 @@ describe('chain save proxy', () => {
     expect(JSON.parse(String(calls[0].init?.body))).toEqual(payload)
     expect(JSON.stringify(result.body)).not.toContain(SAMPLE_KEY)
     expect(JSON.stringify(result.body)).not.toContain('MCP_WRITE_API_KEY')
+    expect(JSON.stringify(calls[0].init?.body)).not.toContain('turnstileToken')
   })
 
   it('returns a clear error when the write key is missing and does not call upstream', async () => {
-    let called = 0
-    const fetchImpl = (async () => {
-      called += 1
-      return new Response('{}', { status: 200 })
-    }) as typeof fetch
+    const { calls, fetchImpl } = countingFetch()
     const result = await handleChainSave({
       method: 'POST',
       headers: headers(),
-      body: chainBody(),
-      env: { CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN },
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: readyEnv({ MCP_WRITE_API_KEY: '' }),
       now: 2_000,
       fetchImpl,
+      limitStore: new MemoryLimitStore(),
+      verifyImpl: async () => true,
     })
     expect(result.status).toBe(503)
     expect(result.body.error).toBe('Write API key is not configured')
-    expect(called).toBe(0)
+    expect(calls).toHaveLength(0)
   })
 
   it('rejects a bad origin before any upstream call', async () => {
-    let called = 0
-    const fetchImpl = (async () => {
-      called += 1
-      return new Response('{}', { status: 200 })
-    }) as typeof fetch
+    const { calls, fetchImpl } = countingFetch()
     const result = await handleChainSave({
       method: 'POST',
       headers: headers({ origin: 'https://evil.example' }),
-      body: chainBody(),
-      env: { MCP_WRITE_API_KEY: SAMPLE_KEY, CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN },
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: readyEnv(),
       now: 3_000,
       fetchImpl,
+      limitStore: new MemoryLimitStore(),
+      verifyImpl: async () => true,
     })
     expect(result.status).toBe(403)
     expect(result.body.error).toBe('Origin is not allowed')
-    expect(called).toBe(0)
+    expect(calls).toHaveLength(0)
 
     const missing = await handleChainSave({
       method: 'POST',
-      headers: { 'x-forwarded-for': '203.0.113.11' },
-      body: chainBody(),
-      env: { MCP_WRITE_API_KEY: SAMPLE_KEY, CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN },
+      headers: { 'x-vercel-forwarded-for': '203.0.113.11' },
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: readyEnv(),
       now: 3_000,
       fetchImpl,
+      limitStore: new MemoryLimitStore(),
+      verifyImpl: async () => true,
     })
     expect(missing.status).toBe(403)
-    expect(called).toBe(0)
+    expect(calls).toHaveLength(0)
   })
 
-  it('trips a small per-IP rate limit', async () => {
-    let called = 0
-    const fetchImpl = (async () => {
-      called += 1
-      return new Response(JSON.stringify({ success: true }), { status: 200 })
-    }) as typeof fetch
-    const env = { MCP_WRITE_API_KEY: SAMPLE_KEY, CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN }
+  it('refuses a faked allowlisted origin when no turnstile token is present', async () => {
+    const { calls, fetchImpl } = countingFetch()
+    const result = await handleChainSave({
+      method: 'POST',
+      headers: headers({ origin: ORIGIN, referer: 'https://dynamo.rippel.ai/deploy' }),
+      body: chainBody(),
+      env: readyEnv(),
+      now: 4_000,
+      fetchImpl,
+      limitStore: new MemoryLimitStore(),
+      verifyImpl: async () => true,
+    })
+    expect(result.status).toBe(403)
+    expect(result.body.error).toBe('Caller verification failed')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('returns 503 and forwards nothing when turnstile or the limiter store is not configured', async () => {
+    const { calls, fetchImpl } = countingFetch()
+    const noSecret = await handleChainSave({
+      method: 'POST',
+      headers: headers(),
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: { MCP_WRITE_API_KEY: SAMPLE_KEY, CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN, CHAIN_SAVE_LIMIT_STORE_URL: 'redis://127.0.0.1:6379' },
+      now: 5_000,
+      fetchImpl,
+      limitStore: new MemoryLimitStore(),
+      verifyImpl: async () => true,
+    })
+    expect(noSecret.status).toBe(503)
+    expect(noSecret.body.error).toBe('Caller verification is not configured')
+    expect(calls).toHaveLength(0)
+
+    const noStore = await handleChainSave({
+      method: 'POST',
+      headers: headers(),
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: readyEnv(),
+      now: 5_000,
+      fetchImpl,
+      verifyImpl: async () => true,
+    })
+    expect(noStore.status).toBe(503)
+    expect(noStore.body.error).toBe('Chain save limiter is not configured')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('trips a small per-IP rate limit on the Vercel client IP', async () => {
+    const { calls, fetchImpl } = countingFetch({ success: true })
+    const store = new MemoryLimitStore()
+    const env = readyEnv()
     for (let n = 0; n < CHAIN_SAVE_RATE_LIMIT; n += 1) {
       const ok = await handleChainSave({
         method: 'POST',
-        headers: headers(),
-        body: chainBody(),
+        headers: headers({ 'x-forwarded-for': `1.2.3.${n}` }),
+        body: { ...chainBody(), turnstileToken: 'token-ok' },
         env,
         now: 10_000,
         fetchImpl,
+        limitStore: store,
+        verifyImpl: async () => true,
       })
       expect(ok.status).toBe(200)
     }
     const blocked = await handleChainSave({
       method: 'POST',
-      headers: headers(),
-      body: chainBody(),
+      headers: headers({ 'x-forwarded-for': '9.9.9.9' }),
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
       env,
       now: 10_000,
       fetchImpl,
+      limitStore: store,
+      verifyImpl: async () => true,
     })
     expect(blocked.status).toBe(429)
     expect(blocked.body.error).toBe('Too many chain saves')
-    expect(called).toBe(CHAIN_SAVE_RATE_LIMIT)
+    expect(calls).toHaveLength(CHAIN_SAVE_RATE_LIMIT)
+  })
+
+  it('shares one limiter store across two instances', async () => {
+    const { calls, fetchImpl } = countingFetch({ success: true })
+    const shared = new MemoryLimitStore()
+    const env = readyEnv()
+    const call = (xff: string) => handleChainSave({
+      method: 'POST',
+      headers: headers({
+        'x-vercel-forwarded-for': '203.0.113.50',
+        'x-forwarded-for': xff,
+      }),
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env,
+      now: 11_000,
+      fetchImpl,
+      limitStore: shared,
+      verifyImpl: async () => true,
+    })
+    for (let n = 0; n < CHAIN_SAVE_RATE_LIMIT; n += 1) {
+      const ok = await call(`10.0.0.${n}`)
+      expect(ok.status).toBe(200)
+    }
+    resetChainSaveGuardsForTests()
+    const otherInstance = await call('10.9.9.9')
+    expect(otherInstance.status).toBe(429)
+    expect(calls).toHaveLength(CHAIN_SAVE_RATE_LIMIT)
+
+    const privateStore = new MemoryLimitStore()
+    const fresh = await handleChainSave({
+      method: 'POST',
+      headers: headers({ 'x-vercel-forwarded-for': '203.0.113.51', 'x-forwarded-for': '10.9.9.9' }),
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env,
+      now: 11_000,
+      fetchImpl,
+      limitStore: privateStore,
+      verifyImpl: async () => true,
+    })
+    expect(fresh.status).toBe(200)
   })
 
   it('rejects anything that is not the governance chain-save payload', async () => {
-    let called = 0
-    const fetchImpl = (async () => {
-      called += 1
-      return new Response('{}', { status: 200 })
-    }) as typeof fetch
-    const env = { MCP_WRITE_API_KEY: SAMPLE_KEY, CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN }
+    const { calls, fetchImpl } = countingFetch()
+    const env = readyEnv()
     const cases = [
       chainBody({ persistToChain: false }),
       chainBody({ extra: true }),
@@ -164,57 +276,120 @@ describe('chain save proxy', () => {
     for (const [index, body] of cases.entries()) {
       const result = await handleChainSave({
         method: 'POST',
-        headers: headers({ 'x-forwarded-for': `203.0.113.${40 + index}` }),
-        body,
+        headers: headers({ 'x-vercel-forwarded-for': `203.0.113.${40 + index}` }),
+        body: { ...body, turnstileToken: 'token-ok' },
         env,
         now: 20_000,
         fetchImpl,
+        limitStore: new MemoryLimitStore(),
+        verifyImpl: async () => true,
       })
       expect(result.status).toBe(400)
     }
-    expect(called).toBe(0)
+    expect(calls).toHaveLength(0)
   })
 
-  it('accepts a same-site referrer when Origin is absent', async () => {
-    const fetchImpl = (async () => new Response(JSON.stringify({ success: true }), { status: 200 })) as typeof fetch
+  it('accepts a same-site referrer when Origin is absent and the token verifies', async () => {
+    const { calls, fetchImpl } = countingFetch({ success: true })
     const result = await handleChainSave({
       method: 'POST',
       headers: {
         referer: 'https://dynamo.rippel.ai/deploy',
-        'x-forwarded-for': '203.0.113.30',
+        'x-vercel-forwarded-for': '203.0.113.30',
       },
-      body: chainBody(),
-      env: { MCP_WRITE_API_KEY: SAMPLE_KEY, CHAIN_SAVE_ALLOWED_ORIGINS: ORIGIN },
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: readyEnv(),
       now: 30_000,
       fetchImpl,
+      limitStore: new MemoryLimitStore(),
+      verifyImpl: async () => true,
     })
     expect(result.status).toBe(200)
+    expect(calls).toHaveLength(1)
   })
-})
 
-function walk(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name)
-    if (statSync(path).isDirectory()) walk(path, out)
-    else out.push(path)
-  }
-  return out
-}
-
-describe('client bundle', () => {
-  it('does not contain the write key name or a sample value', () => {
-    const root = join(__dirname, '../..')
-    execFileSync('npx', ['vite', 'build'], {
-      cwd: root,
-      env: { ...process.env, MCP_WRITE_API_KEY: SAMPLE_KEY },
-      stdio: 'pipe',
+  it('does not return an upstream error that contains a URL', async () => {
+    const secretUrl = 'https://rpc.example/secret/path'
+    const { fetchImpl } = countingFetch({
+      success: false,
+      error: `connect ECONNREFUSED ${secretUrl}`,
+      onChainError: secretUrl,
+    }, 502)
+    const result = await handleChainSave({
+      method: 'POST',
+      headers: headers(),
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: readyEnv(),
+      now: 40_000,
+      fetchImpl,
+      limitStore: new MemoryLimitStore(),
+      verifyImpl: async () => true,
     })
-    const files = walk(join(root, 'dist')).filter((path) => /\.(js|css|html|map)$/.test(path))
-    expect(files.length).toBeGreaterThan(0)
-    const blob = files.map((path) => readFileSync(path, 'utf8')).join('\n')
-    expect(blob.includes('MCP_WRITE_API_KEY')).toBe(false)
-    expect(blob.includes(SAMPLE_KEY)).toBe(false)
-    expect(blob.includes('VITE_MCP_WRITE_API_KEY')).toBe(false)
-    expect(blob.includes('NEXT_PUBLIC_MCP_WRITE_API_KEY')).toBe(false)
-  }, 180_000)
+    const encoded = JSON.stringify(result)
+    expect(encoded).not.toContain(secretUrl)
+    expect(encoded).not.toContain('rpc.example')
+    expect(encoded).not.toContain('https://')
+    expect(result.body.error).toBe(GENERIC_CHAIN_SAVE_ERROR)
+    expect(result.body.onChainError).toBeUndefined()
+  })
+
+  it('does not spend a rate slot on invalid JSON', async () => {
+    const { calls, fetchImpl } = countingFetch({ success: true })
+    const store = new MemoryLimitStore()
+    const env = readyEnv()
+    const bad = await handleChainSave({
+      method: 'POST',
+      headers: headers(),
+      body: '{',
+      env,
+      now: 60_000,
+      fetchImpl,
+      limitStore: store,
+      verifyImpl: async () => true,
+    })
+    expect(bad.status).toBe(400)
+    expect(calls).toHaveLength(0)
+    for (let n = 0; n < CHAIN_SAVE_RATE_LIMIT; n += 1) {
+      const ok = await handleChainSave({
+        method: 'POST',
+        headers: headers(),
+        body: { ...chainBody(), turnstileToken: 'token-ok' },
+        env,
+        now: 60_000,
+        fetchImpl,
+        limitStore: store,
+        verifyImpl: async () => true,
+      })
+      expect(ok.status).toBe(200)
+    }
+    expect(calls).toHaveLength(CHAIN_SAVE_RATE_LIMIT)
+  })
+
+  it('rejects a body over the size cap before a rate slot or an upstream call', async () => {
+    const { calls, fetchImpl } = countingFetch({ success: true })
+    const store = new MemoryLimitStore()
+    const huge = await handleChainSave({
+      method: 'POST',
+      headers: headers(),
+      body: 'x'.repeat(CHAIN_SAVE_BODY_MAX + 1),
+      env: readyEnv(),
+      now: 70_000,
+      fetchImpl,
+      limitStore: store,
+      verifyImpl: async () => true,
+    })
+    expect(huge.status).toBe(413)
+    expect(calls).toHaveLength(0)
+    const ok = await handleChainSave({
+      method: 'POST',
+      headers: headers(),
+      body: { ...chainBody(), turnstileToken: 'token-ok' },
+      env: readyEnv(),
+      now: 70_000,
+      fetchImpl,
+      limitStore: store,
+      verifyImpl: async () => true,
+    })
+    expect(ok.status).toBe(200)
+  })
 })

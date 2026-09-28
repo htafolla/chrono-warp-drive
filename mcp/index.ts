@@ -1925,7 +1925,8 @@ app.post('/govern_with_solar', async (c: Context) => {
     let onChain: { txHash: string } | null = null
     try {
       onChain = await getChainExecutor().persistGovernedContainer(container)
-    } catch (err: any) {
+    } catch {
+      console.error('[govern] persist failed')
       return c.json({
         success: true,
         ...result,
@@ -1938,7 +1939,7 @@ app.post('/govern_with_solar', async (c: Context) => {
           source: container.source,
           timestamp: container.timestamp,
         },
-        onChainError: err.message,
+        onChainError: 'Chain persist failed',
       })
     }
 
