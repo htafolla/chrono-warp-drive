@@ -91,6 +91,11 @@ class StubChain implements ChainExecutor {
   autoMintEntered = 0
   mintHold: Promise<void> | null = null
   mintEntered = 0
+  /** Every simulated writeContract, including a revert and a crash after broadcast. */
+  writeCalls = 0
+  crashAfterWrite = false
+  txByNonce = new Map<number, string>()
+  deployer = '0x' + 'ab'.repeat(20)
   readError: Error | null = null
 
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
@@ -122,6 +127,7 @@ class StubChain implements ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
+    onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
     onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
   }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' | 'pending'; nonce: number }> {
     this.keyReads += 1
@@ -137,6 +143,14 @@ class StubChain implements ChainExecutor {
     let txHash = '0x' + '11'.repeat(32)
     if (status === 'pending') txHash = this.pendingTxHash
     else if (status === 'reverted') txHash = '0x' + '44'.repeat(32)
+    if (input.onPrepared) await input.onPrepared({ deployer: this.deployer, nonce })
+    this.writeCalls += 1
+    this.txByNonce.set(nonce, txHash)
+    if (this.crashAfterWrite) {
+      this.crashAfterWrite = false
+      this.nonceNow = Math.max(this.nonceNow, nonce + 1)
+      throw new Error('killed after writeContract')
+    }
     if (input.onSubmitted) await input.onSubmitted({ txHash, nonce })
     if (this.mintHold) await this.mintHold
     this.nextReceiptStatus = 'success'
@@ -171,7 +185,10 @@ class StubChain implements ChainExecutor {
     mintId: string,
     _container: ContainerVortex,
     proposalText: string,
-    hooks?: { onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void> },
+    hooks?: {
+      onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
+      onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
+    },
   ): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' | 'pending'; nonce: number }> {
     this.proposalTexts.push(proposalText)
     this.autoMintEntered += 1
@@ -194,6 +211,14 @@ class StubChain implements ChainExecutor {
       this.nextReceiptStatus = 'success'
       this.revertLeavesToken = false
     }
+    if (hooks?.onPrepared) await hooks.onPrepared({ deployer: this.deployer, nonce })
+    this.writeCalls += 1
+    this.txByNonce.set(nonce, txHash)
+    if (this.crashAfterWrite) {
+      this.crashAfterWrite = false
+      this.nonceNow = Math.max(this.nonceNow, nonce + 1)
+      throw new Error('killed after writeContract')
+    }
     if (hooks?.onSubmitted) await hooks.onSubmitted({ txHash, nonce })
     if (this.autoMintHold) await this.autoMintHold
     if (status === 'pending') return { txHash, receiptStatus: 'pending', nonce }
@@ -214,6 +239,10 @@ class StubChain implements ChainExecutor {
 
   async senderNonce(): Promise<number> {
     return this.nonceNow
+  }
+
+  async findTxByNonce(nonce: number): Promise<string | null> {
+    return this.txByNonce.get(nonce) ?? null
   }
 }
 
@@ -1420,7 +1449,7 @@ describe('mint abuse limits', () => {
     }
   })
 
-  it('a reverted replay removes the entry when a token exists and keeps it when none does', async () => {
+  it('a reverted replay removes the entry when a token exists and dead-letters the first send when none does', async () => {
     const redis = new MemoryRedis()
     setRedisClientForTests(redis)
     const landedId = nextId()
@@ -1456,7 +1485,12 @@ describe('mint abuse limits', () => {
       stub.revertLeavesToken = false
       await replayMintBacklog()
       expect(stub.autoMints).toEqual([])
-      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(missedId)
+      expect(stub.writeCalls).toBe(2)
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      expect(dead[0]).toContain('reverted')
+      expect(dead[0]).toContain(missedId)
     } finally {
       errorSpy.mockRestore()
       logSpy.mockRestore()
@@ -1553,8 +1587,12 @@ describe('mint abuse limits', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     try {
       await replayMintBacklog()
-      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(id)
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      expect(stub.writeCalls).toBe(1)
       expect(stub.autoMints).toEqual([])
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      expect(dead[0]).toContain('reverted')
       const otherId = nextId()
       const otherHash = nextId()
       stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
@@ -1658,15 +1696,12 @@ describe('mint abuse limits', () => {
     }
   })
 
-  it('a head that reverts three times is dead-lettered and the drain continues', async () => {
+  it('dead-letters a reverted auto-mint on the first send', async () => {
     const redis = new MemoryRedis()
     setRedisClientForTests(redis)
     const badId = nextId()
     const badHash = nextId()
-    const goodId = nextId()
-    const goodHash = nextId()
     rememberContainerForTests(sampleVortex(badId, badHash))
-    rememberContainerForTests(sampleVortex(goodId, goodHash))
     await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
       containerId: badId,
       containerHash: badHash,
@@ -1674,30 +1709,20 @@ describe('mint abuse limits', () => {
       reason: 'rpc down',
       proposalText: 'again',
     }))
-    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
-      containerId: goodId,
-      containerHash: goodHash,
-      skippedAt: new Date().toISOString(),
-      reason: 'rpc down',
-      proposalText: 'next',
-    }))
     stub.revertRemaining = 3
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     try {
       await replayMintBacklog()
-      const once = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { containerId: string; attempts: number }
-      expect(once.containerId).toBe(badId)
-      expect(once.attempts).toBe(1)
+      expect(stub.writeCalls).toBe(1)
       expect(stub.autoMints).toEqual([])
-      await replayMintBacklog()
-      const twice = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { attempts: number }
-      expect(twice.attempts).toBe(2)
-      await replayMintBacklog()
-      expect(stub.autoMints).toEqual([onChainMintId(goodId)])
-      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
       const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
-      expect(dead.some((row) => row.includes(badId) && row.includes('reverted'))).toBe(true)
+      expect(dead).toHaveLength(1)
+      expect(dead[0]).toContain('reverted')
+      expect(dead[0]).toContain(badId)
+      await replayMintBacklog()
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
     } finally {
       errorSpy.mockRestore()
       logSpy.mockRestore()
@@ -2752,6 +2777,18 @@ describe('mint abuse limits', () => {
       expect(first.status).toBe(202)
       expect(first.json.txHash).toBe(deadHash)
       expect(stub.mintEntered).toBe(1)
+      expect(stub.writeCalls).toBe(1)
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        containerId: id,
+        containerHash: hash,
+        skippedAt: new Date().toISOString(),
+        reason: 'mint transaction pending',
+        proposalText: 'the real proposal',
+        state: 'pending',
+        txHash: deadHash,
+        nonce: 4,
+        expiresAt: Date.now() + 60_000,
+      }))
       stub.nonceNow = 5
       stub.submitNonce = 5
       stub.nextReceiptStatus = 'success'
@@ -2767,11 +2804,15 @@ describe('mint abuse limits', () => {
       expect(stored.state).toBe('dropped')
       const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
       expect(dead).toHaveLength(1)
-      const letter = JSON.parse(dead[0]) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string }
-      expect(letter.proposal).toBe(hash)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; containerHash?: string; oldHash?: string; reason?: string; timestamp?: string }
+      expect(letter.proposal).toBe('the real proposal')
+      expect(letter.containerHash).toBe(hash)
       expect(letter.oldHash).toBe(deadHash)
       expect(letter.reason).toBe('dropped')
       expect(letter.timestamp).toEqual(expect.any(String))
+      await replayMintBacklog()
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+      expect(stub.writeCalls).toBe(1)
       expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
       const again = await mint(signedMint(id, hash, to), authHeader())
       expect(again.status).toBe(409)
@@ -2782,6 +2823,42 @@ describe('mint abuse limits', () => {
       const still = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string; state?: string }
       expect(still.state).toBe('dropped')
       expect(still.txHash).toBe(deadHash)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a crash after writeContract and before the hash is saved does not send again', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(84)
+    const crashedHash = '0x' + '84'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = crashedHash
+    stub.submitNonce = 7
+    stub.nonceNow = 7
+    stub.crashAfterWrite = true
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const crashed = await mint(signedMint(id, hash, to), authHeader())
+      expect(crashed.status).toBe(500)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.hget('vortex:mint:pending', hash.toLowerCase())).toBeNull()
+      const presend = JSON.parse(String(await redis.hget('vortex:mint:presend', hash.toLowerCase()))) as { nonce?: number; deployer?: string }
+      expect(presend.nonce).toBe(7)
+      expect(presend.deployer).toBe(stub.deployer)
+      await redis.del('vortex:mint:send:' + hash.toLowerCase())
+      resetWriteGuardsForTests()
+      stub.pendingTxHash = '0x' + '11'.repeat(32)
+      stub.nextReceiptStatus = 'success'
+      const retry = await mint(signedMint(id, hash, to), authHeader())
+      expect(retry.status).toBe(202)
+      expect(retry.json.txHash).toBe(crashedHash)
+      expect(stub.writeCalls).toBe(1)
+      expect(stub.mintEntered).toBe(1)
     } finally {
       errorSpy.mockRestore()
     }

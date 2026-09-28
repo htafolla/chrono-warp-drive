@@ -61,6 +61,8 @@ export interface ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
+    /** Runs after the nonce is chosen and before writeContract. */
+    onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
     onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
   }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus; nonce: number }>
   /**
@@ -72,12 +74,17 @@ export interface ChainExecutor {
     mintId: string,
     container: ContainerVortex,
     proposalText: string,
-    hooks?: { onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void> },
+    hooks?: {
+      onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
+      onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
+    },
   ): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }>
   /** success, reverted, or missing when the node has no receipt for this hash. */
   mintReceipt(txHash: string): Promise<'success' | 'reverted' | 'missing'>
   /** Confirmed nonce. Pending replacements do not move this count. */
   senderNonce(): Promise<number>
+  /** Hash of the mint that consumed this deployer nonce, when the node can name it. */
+  findTxByNonce(nonce: number): Promise<string | null>
 }
 
 export type MintReceiptStatus = 'success' | 'reverted' | 'pending'
@@ -370,6 +377,7 @@ class LiveChainExecutor implements ChainExecutor {
     ]
     const submitted = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
+      if (input.onPrepared) await input.onPrepared({ deployer: account.address, nonce: mintNonce })
       const hash = await writeOnChain(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
@@ -448,11 +456,19 @@ class LiveChainExecutor implements ChainExecutor {
     return publicClient.getTransactionCount({ address: account.address, blockTag: 'latest' })
   }
 
+  async findTxByNonce(_nonce: number): Promise<string | null> {
+    // A standard JSON-RPC node does not map a sender nonce back to a hash.
+    return null
+  }
+
   async autoMint(
     mintId: string,
     container: ContainerVortex,
     proposalText: string,
-    hooks?: { onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void> },
+    hooks?: {
+      onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
+      onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
+    },
   ): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }> {
     if (!proposalText.trim()) throw new Error('empty proposal text')
     const { walletClient, publicClient, account } = this.wallet()
@@ -490,6 +506,7 @@ class LiveChainExecutor implements ChainExecutor {
     ]
     const submitted = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
+      if (hooks?.onPrepared) await hooks.onPrepared({ deployer: account.address, nonce: mintNonce })
       const hash = await writeOnChain(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,

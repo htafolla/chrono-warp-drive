@@ -83,8 +83,10 @@ const MINT_BACKLOG_DEAD_KEY = 'vortex:mint:backlog:dead'
 const MINT_BACKLOG_LOCK_KEY = 'vortex:mint:backlog:lock'
 /** Same Redis the drain uses. Field is the containerHash. */
 const MINT_PENDING_KEY = 'vortex:mint:pending'
-/** SET NX claim taken before a send. Held through the receipt wait. */
+/** SET NX claim taken before a send. Held through the receipt wait. Expiry of this key is not permission to send again. */
 const MINT_SEND_PREFIX = 'vortex:mint:send:'
+/** Nonce reserved before writeContract. No TTL. A crash after broadcast leaves this row. */
+const MINT_PRESEND_KEY = 'vortex:mint:presend'
 /** Atomic INCR cap. The key expires with MINT_ADDRESS_CAP_WINDOW_MS. */
 const MINT_CAP_PREFIX = 'vortex:mint:cap:'
 const MINT_CAP_HOLD_PREFIX = 'vortex:mint:cap-hold:'
@@ -94,7 +96,6 @@ const PENDING_MINT_TTL_MS = 10 * 60 * 1000
 export const MINT_DRAIN_INTERVAL_MS = 60_000
 /** Longer than viem's 180s receipt default and longer than MINT_RECEIPT_TIMEOUT_MS (120s). */
 const MINT_BACKLOG_LOCK_PX = 240_000
-const MINT_BACKLOG_MAX_ATTEMPTS = 3
 const MINT_BACKLOG_DEAD_CAP = 1000
 const AUTO_MINT_RATE_KEY = 'auto-mint'
 const REPLAY_RATE_KEY = 'mint-replay'
@@ -2904,7 +2905,7 @@ async function releaseIfProvenDead(record: DurableMint): Promise<'landed' | 'exp
     return 'failed'
   }
   const nonce = await getChainExecutor().senderNonce()
-  if (receipt !== 'reverted' && nonce <= record.nonce) {
+  if (nonce <= record.nonce) {
     record.state = 'expired'
     await saveDurableMint(record, 'same')
     return 'expired'
@@ -2961,25 +2962,169 @@ function vortexSignatureRejection(
   }
 }
 
-async function appendMintDeadLetter(proposal: string, oldHash: string, reason: string): Promise<void> {
+interface MintDeadLetterInput {
+  proposal: string
+  containerHash: string
+  oldHash: string
+  reason: string
+  nonce?: number
+}
+
+function deadLetterIdentity(row: { containerHash?: string; oldHash?: string; nonce?: number }): string {
+  const hash = typeof row.containerHash === 'string' ? row.containerHash.toLowerCase() : ''
+  const old = typeof row.oldHash === 'string' ? row.oldHash.toLowerCase() : ''
+  if (/^0x[0-9a-f]{64}$/.test(old)) return `${hash}|${old}`
+  return `${hash}|nonce:${row.nonce ?? ''}`
+}
+
+/** One letter per containerHash and old hash. A second writer, including the drain, does not append again. */
+async function recordMintDeadLetter(input: MintDeadLetterInput): Promise<void> {
   const client = await getRedisClient()
   if (!client) return
+  const identity = deadLetterIdentity(input)
+  const existing = await client.lrange(MINT_BACKLOG_DEAD_KEY, 0, -1) as string[]
+  for (const row of existing ?? []) {
+    try {
+      const parsed = JSON.parse(row) as { containerHash?: string; oldHash?: string; nonce?: number }
+      if (deadLetterIdentity(parsed) === identity) return
+    } catch { /* skip a malformed letter */ }
+  }
   const record = JSON.stringify({
-    proposal,
-    oldHash,
-    reason,
+    proposal: input.proposal,
+    containerHash: input.containerHash,
+    oldHash: input.oldHash,
+    reason: input.reason,
     timestamp: new Date().toISOString(),
+    ...(input.nonce !== undefined ? { nonce: input.nonce } : {}),
   })
   await client.rpush(MINT_BACKLOG_DEAD_KEY, record)
   await client.ltrim(MINT_BACKLOG_DEAD_KEY, -MINT_BACKLOG_DEAD_CAP, -1)
 }
 
+async function proposalTextForHash(containerHash: string): Promise<string> {
+  const client = await getRedisClient()
+  if (!client) return ''
+  const rows = await client.lrange(MINT_BACKLOG_KEY, 0, -1) as string[]
+  const want = containerHash.toLowerCase()
+  for (const row of rows ?? []) {
+    try {
+      const parsed = JSON.parse(row) as { containerHash?: string; proposalText?: string }
+      if (parsed.containerHash?.toLowerCase() === want && typeof parsed.proposalText === 'string' && parsed.proposalText.trim()) {
+        return parsed.proposalText
+      }
+    } catch { /* skip */ }
+  }
+  return ''
+}
+
+async function realProposal(containerHash: string, proposal: string): Promise<string> {
+  if (proposal.trim() && !isBytes32(proposal)) return proposal
+  const found = await proposalTextForHash(containerHash)
+  return found || proposal
+}
+
 /** One letter on the transition into dropped. A later read of the same hash does not write again. */
 async function noteDroppedMint(record: DurableMint, proposal: string): Promise<void> {
-  if (record.state === 'dropped') return
-  record.state = 'dropped'
-  await saveDurableMint(record, 'same')
-  await appendMintDeadLetter(proposal, record.txHash, 'dropped')
+  if (record.state !== 'dropped') {
+    record.state = 'dropped'
+    await saveDurableMint(record, 'same')
+  }
+  await recordMintDeadLetter({
+    proposal: await realProposal(record.containerHash, proposal),
+    containerHash: record.containerHash,
+    oldHash: record.txHash,
+    reason: 'dropped',
+  })
+}
+
+interface PreSendMint {
+  containerId: string
+  containerHash: string
+  recipient: string
+  deployer: string
+  nonce: number
+  proposal: string
+}
+
+function parsePreSend(raw: string): PreSendMint | null {
+  try {
+    const parsed = JSON.parse(raw) as Partial<PreSendMint>
+    if (!parsed || typeof parsed.containerId !== 'string' || typeof parsed.containerHash !== 'string') return null
+    if (typeof parsed.recipient !== 'string' || typeof parsed.deployer !== 'string') return null
+    if (typeof parsed.nonce !== 'number' || !Number.isFinite(parsed.nonce)) return null
+    return {
+      containerId: parsed.containerId,
+      containerHash: parsed.containerHash,
+      recipient: parsed.recipient,
+      deployer: parsed.deployer,
+      nonce: parsed.nonce,
+      proposal: typeof parsed.proposal === 'string' ? parsed.proposal : '',
+    }
+  } catch {
+    return null
+  }
+}
+
+async function savePreSend(record: PreSendMint): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  await client.hset(MINT_PRESEND_KEY, durableField(record.containerHash), JSON.stringify(record))
+}
+
+async function loadPreSend(containerHash: string): Promise<PreSendMint | null> {
+  const client = await getRedisClient()
+  if (!client) return null
+  const raw = await client.hget(MINT_PRESEND_KEY, durableField(containerHash))
+  if (typeof raw !== 'string' || raw.length === 0) return null
+  return parsePreSend(raw)
+}
+
+async function clearPreSend(containerHash: string): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  await client.hdel(MINT_PRESEND_KEY, durableField(containerHash))
+}
+
+type PreSendRecovery = 'absent' | 'send' | 'adopted' | 'unresolved'
+
+/** A pre-send row with no hash is resolved from the deployer nonce. It is never broadcast again while that nonce is unresolved. */
+async function recoverPreSend(containerHash: string): Promise<PreSendRecovery> {
+  const pre = await loadPreSend(containerHash)
+  if (!pre) return 'absent'
+  let chainNonce: number
+  try {
+    chainNonce = await getChainExecutor().senderNonce()
+  } catch {
+    return 'unresolved'
+  }
+  if (chainNonce > pre.nonce) {
+    const hash = await getChainExecutor().findTxByNonce(pre.nonce)
+    if (hash && /^0x[0-9a-fA-F]{64}$/.test(hash)) {
+      await saveDurableMint(pendingMintRecord({
+        txHash: hash,
+        containerId: pre.containerId,
+        containerHash: pre.containerHash,
+        recipient: pre.recipient,
+        nonce: pre.nonce,
+      }), 'insert')
+      await clearPreSend(containerHash)
+      return 'adopted'
+    }
+    await recordMintDeadLetter({
+      proposal: await realProposal(pre.containerHash, pre.proposal),
+      containerHash: pre.containerHash,
+      oldHash: '',
+      reason: 'nonce-used',
+      nonce: pre.nonce,
+    })
+    return 'unresolved'
+  }
+  if (chainNonce === pre.nonce) {
+    await clearPreSend(containerHash)
+    await clearMintSend(containerHash)
+    return 'send'
+  }
+  return 'unresolved'
 }
 
 function jsonMintAccepted(c: Context, containerId: string, to: string, tokenId: string, txHash: string): Response {
@@ -3087,7 +3232,6 @@ async function jsonMintPending(
       return c.json({ success: false, pending: true, error: msg, txHash: record.txHash }, 500)
     }
     if (judgment === 'landed') {
-      if (record.state === 'landed') return jsonMintTaken(c, null, record.txHash)
       await landSavedMint(record, containerId, containerHash)
       const found = await readMintToken(containerId, containerHash)
       if ('error' in found) {
@@ -3171,6 +3315,19 @@ app.post('/vortex/mint', async (c: Context) => {
     const pendingRetry = await jsonMintPending(c, containerId, containerHash, to, expiresAt, signature)
     if (pendingRetry) return pendingRetry
 
+    if (await loadPreSend(containerHash)) {
+      const deniedPre = vortexSignatureRejection(c, containerHash, containerId, to, expiresAt, signature)
+      if (deniedPre) return deniedPre
+      const recovered = await recoverPreSend(containerHash)
+      if (recovered === 'adopted') {
+        const adopted = await loadDurableMint(containerHash)
+        if (adopted) return jsonMintWaiting(c, adopted.txHash)
+      }
+      if (recovered === 'unresolved') {
+        return c.json({ success: false, status: 'dropped', error: 'Mint nonce is unresolved' }, 409)
+      }
+    }
+
     if (!await getRedisClient()) {
       const deniedSig = vortexSignatureRejection(c, containerHash, containerId, to, expiresAt, signature)
       if (deniedSig) return deniedSig
@@ -3250,19 +3407,32 @@ app.post('/vortex/mint', async (c: Context) => {
     writeStarted = true
     const priorFailed = await loadDurableMint(containerHash)
     const writeMode: DurableWrite = priorFailed?.state === 'failed' ? 'replace-failed' : 'insert'
+    let mintedRecord: DurableMint | null = null
     const minted = await getChainExecutor().mintRegistered({
       to,
       containerId,
       container,
+      onPrepared: async (prepared) => {
+        await savePreSend({
+          containerId,
+          containerHash,
+          recipient: to,
+          deployer: prepared.deployer,
+          nonce: prepared.nonce,
+          proposal: await proposalTextForHash(containerHash),
+        })
+      },
       onSubmitted: async (submitted) => {
         submittedHash = submitted.txHash
-        await rememberSubmittedMint(pendingMintRecord({
+        mintedRecord = pendingMintRecord({
           txHash: submitted.txHash,
           containerId,
           containerHash,
           recipient: to,
           nonce: submitted.nonce,
-        }), writeMode)
+        })
+        await rememberSubmittedMint(mintedRecord, writeMode)
+        await clearPreSend(containerHash)
       },
     })
     if (minted.receiptStatus === 'pending') {
@@ -3283,14 +3453,15 @@ app.post('/vortex/mint', async (c: Context) => {
         return c.json({ success: false, error: found.error, txHash: minted.txHash }, 500)
       }
       if (!found.tokenId) {
-        await saveDurableMint(pendingMintRecord({
+        const failedMint = mintedRecord ?? pendingMintRecord({
           txHash: minted.txHash,
           containerId,
           containerHash,
           recipient: to,
           nonce: minted.nonce,
-          state: 'failed',
-        }), 'same')
+        })
+        failedMint.state = 'failed'
+        await saveDurableMint(failedMint, 'same')
         forgetPendingMint(containerId)
         abortMintWrite(containerId)
         await releaseDurableCap(containerId)
@@ -3318,14 +3489,14 @@ app.post('/vortex/mint', async (c: Context) => {
       }
       tokenId = found.tokenId
     }
-    await landSavedMint(pendingMintRecord({
+    const landedMint = mintedRecord ?? pendingMintRecord({
       txHash: minted.txHash,
       containerId,
       containerHash,
       recipient: to,
       nonce: minted.nonce,
-      state: 'landed',
-    }), containerId, containerHash)
+    })
+    await landSavedMint(landedMint, containerId, containerHash)
     await clearMintSend(containerHash)
     sendClaim = null
     commitMintSlot(containerId, to)
@@ -3343,6 +3514,11 @@ app.post('/vortex/mint', async (c: Context) => {
       explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
     })
   } catch (err: any) {
+    if (activeHash && await loadPreSend(activeHash)) {
+      const msg = friendlyMintError(err)
+      console.error(`[mint] ${err.message}`)
+      return c.json({ success: false, error: msg }, 500)
+    }
     if (reservedId) {
     if (submittedHash) {
       markPendingMint(reservedId, submittedHash, activeRecipient)
@@ -3598,6 +3774,22 @@ function truncateProposal(proposalText: string): string {
   return proposalText.slice(0, PROPOSAL_TEXT_LIMIT)
 }
 
+async function holdRecordedMint(
+  record: DurableMint,
+  proposal: string,
+  reason: 'dropped' | 'expired' | 'pending',
+): Promise<AutoMintOutcome> {
+  if (reason === 'dropped') {
+    await noteDroppedMint(record, proposal)
+    return { kind: 'skipped', reason: 'Mint transaction dropped' }
+  }
+  if (reason === 'expired' && record.state !== 'expired') {
+    record.state = 'expired'
+    await saveDurableMint(record, 'same')
+  }
+  return { kind: 'pending', txHash: record.txHash, nonce: record.nonce, expiresAt: record.expiresAt, submitted: false }
+}
+
 async function settleFailedWrite(containerId: string, writeFailureBudget: 'keep' | 'release'): Promise<void> {
   await releaseDurableCap(containerId)
   if (writeFailureBudget === 'release') releaseMintSlot(containerId)
@@ -3623,25 +3815,8 @@ async function runAutoMint(
         await landSavedMint(alreadyPending, container.containerId, container.containerHash)
         return { kind: 'on-chain' }
       }
-      if (judgment === 'dropped') {
-        await noteDroppedMint(alreadyPending, container.containerHash)
-        return { kind: 'skipped', reason: 'Mint transaction dropped' }
-      }
-      if (judgment === 'pending' || judgment === 'expired') {
-        if (judgment === 'expired') {
-          alreadyPending.state = 'expired'
-          await saveDurableMint(alreadyPending, 'same')
-        }
-        return { kind: 'pending', txHash: alreadyPending.txHash, nonce: alreadyPending.nonce, expiresAt: alreadyPending.expiresAt, submitted: false }
-      }
-      const proven = await releaseIfProvenDead(alreadyPending)
-      if (proven === 'landed') return { kind: 'on-chain' }
-      if (proven === 'dropped') {
-        await noteDroppedMint(alreadyPending, container.containerHash)
-        return { kind: 'skipped', reason: 'Mint transaction dropped' }
-      }
-      if (proven === 'expired') {
-        return { kind: 'pending', txHash: alreadyPending.txHash, nonce: alreadyPending.nonce, expiresAt: alreadyPending.expiresAt, submitted: false }
+      if (judgment === 'dropped' || judgment === 'expired' || judgment === 'pending') {
+        return holdRecordedMint(alreadyPending, proposalText, judgment)
       }
       const found = await readMintToken(container.containerId, container.containerHash)
       if ('error' in found) return { kind: 'error', error: new Error(found.error) }
@@ -3649,10 +3824,17 @@ async function runAutoMint(
         await landSavedMint(alreadyPending, container.containerId, container.containerHash)
         return { kind: 'on-chain' }
       }
+      return { kind: 'reverted' }
     } catch (err: unknown) {
       return { kind: 'error', error: err }
     }
   }
+  const recovered = await recoverPreSend(container.containerHash)
+  if (recovered === 'adopted') {
+    const adopted = await loadDurableMint(container.containerHash)
+    if (adopted) return { kind: 'pending', txHash: adopted.txHash, nonce: adopted.nonce, expiresAt: adopted.expiresAt, submitted: false }
+  }
+  if (recovered === 'unresolved') return { kind: 'skipped', reason: 'Mint nonce is unresolved' }
   const redisCount = await redisAddressCount(VORTEX_TREASURY)
   if (redisCount === null) return { kind: 'skipped', reason: MINT_GUARD_UNAVAILABLE }
   const claim = claimMintSlot({
@@ -3695,20 +3877,43 @@ async function runAutoMint(
     const priorFailed = await loadDurableMint(container.containerHash)
     const writeMode: DurableWrite = priorFailed?.state === 'failed' ? 'replace-failed' : 'insert'
     let pendingExpiresAt = Date.now() + PENDING_MINT_TTL_MS
+    let mintedRecord: DurableMint | null = null
     const result = await getChainExecutor().autoMint(onChainMintId(container.containerId), container, proposalText, {
+      onPrepared: async (prepared) => {
+        await savePreSend({
+          containerId: container.containerId,
+          containerHash: container.containerHash,
+          recipient: VORTEX_TREASURY,
+          deployer: prepared.deployer,
+          nonce: prepared.nonce,
+          proposal: proposalText,
+        })
+      },
       onSubmitted: async (submitted) => {
         submittedHash = submitted.txHash
         pendingExpiresAt = Date.now() + PENDING_MINT_TTL_MS
-        await rememberSubmittedMint(pendingMintRecord({
+        mintedRecord = pendingMintRecord({
           txHash: submitted.txHash,
           containerId: container.containerId,
           containerHash: container.containerHash,
           recipient: VORTEX_TREASURY,
           nonce: submitted.nonce,
           expiresAt: pendingExpiresAt,
-        }), writeMode)
+        })
+        await rememberSubmittedMint(mintedRecord, writeMode)
+        await clearPreSend(container.containerHash)
       },
     })
+    if (!mintedRecord) {
+      mintedRecord = pendingMintRecord({
+        txHash: result.txHash,
+        containerId: container.containerId,
+        containerHash: container.containerHash,
+        recipient: VORTEX_TREASURY,
+        nonce: result.nonce,
+        expiresAt: pendingExpiresAt,
+      })
+    }
     if (result.receiptStatus === 'pending') {
       markPendingMint(container.containerId, result.txHash, VORTEX_TREASURY)
       return { kind: 'pending', txHash: result.txHash, nonce: result.nonce, expiresAt: pendingExpiresAt, submitted: true }
@@ -3717,44 +3922,27 @@ async function runAutoMint(
       const found = await readMintToken(container.containerId, container.containerHash)
       if ('error' in found) return { kind: 'error', error: new Error(found.error) }
       if (found.tokenId) {
-        await landSavedMint(pendingMintRecord({
-          txHash: result.txHash,
-          containerId: container.containerId,
-          containerHash: container.containerHash,
-          recipient: VORTEX_TREASURY,
-          nonce: result.nonce,
-          state: 'landed',
-        }), container.containerId, container.containerHash)
+        mintedRecord.state = 'landed'
+        await landSavedMint(mintedRecord, container.containerId, container.containerHash)
         releaseMintSlot(container.containerId)
         await clearMintSend(container.containerHash)
         return { kind: 'on-chain' }
       }
-      await saveDurableMint(pendingMintRecord({
-        txHash: result.txHash,
-        containerId: container.containerId,
-        containerHash: container.containerHash,
-        recipient: VORTEX_TREASURY,
-        nonce: result.nonce,
-        state: 'failed',
-      }), 'same')
+      mintedRecord.state = 'failed'
+      await saveDurableMint(mintedRecord, 'same')
       forgetPendingMint(container.containerId)
       await clearMintSend(container.containerHash)
       await settleFailedWrite(container.containerId, writeFailureBudget)
       return { kind: 'reverted' }
     }
-    await landSavedMint(pendingMintRecord({
-      txHash: result.txHash,
-      containerId: container.containerId,
-      containerHash: container.containerHash,
-      recipient: VORTEX_TREASURY,
-      nonce: result.nonce,
-      state: 'landed',
-    }), container.containerId, container.containerHash)
+    mintedRecord.state = 'landed'
+    await landSavedMint(mintedRecord, container.containerId, container.containerHash)
     await clearMintSend(container.containerHash)
     commitMintSlot(container.containerId, VORTEX_TREASURY)
     console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`)
     return { kind: 'minted', txHash: result.txHash }
   } catch (err: unknown) {
+    if (await loadPreSend(container.containerHash)) return { kind: 'error', error: err }
     if (submittedHash) {
       markPendingMint(container.containerId, submittedHash, VORTEX_TREASURY)
     } else if (writeStarted) {
@@ -3824,30 +4012,25 @@ async function removeExactBacklogEntry(client: { lrem: (key: string, count: numb
   await client.lrem(MINT_BACKLOG_KEY, 1, raw)
 }
 
-async function deadLetterObservedMint(
+async function settleObservedMint(
   client: BacklogRedis,
   raw: string,
+  judged: DurableMint,
   proposal: string,
-  oldHash: string,
-  reason: string,
+  reason: 'expired' | 'dropped',
 ): Promise<void> {
-  const record = JSON.stringify({
-    proposal,
-    oldHash,
+  if (judged.state !== reason) {
+    judged.state = reason
+    await saveDurableMint(judged, 'same')
+  }
+  console.error(`[mint] backlog pending ${reason}; cap held containerId=${judged.containerId} txHash=${judged.txHash}`)
+  await recordMintDeadLetter({
+    proposal: await realProposal(judged.containerHash, proposal),
+    containerHash: judged.containerHash,
+    oldHash: judged.txHash,
     reason,
-    timestamp: new Date().toISOString(),
   })
-  await client.eval(
-    DEAD_LETTER_LUA,
-    2,
-    MINT_BACKLOG_KEY,
-    MINT_BACKLOG_DEAD_KEY,
-    raw,
-    record,
-    String(-MINT_BACKLOG_DEAD_CAP),
-    '-1',
-  )
-  console.error(`[mint] backlog dead-lettered reason=${reason}`)
+  await removeExactBacklogEntry(client, raw)
 }
 
 async function deadLetterBacklogEntry(client: BacklogRedis, raw: string, reason: string): Promise<void> {
@@ -4017,13 +4200,7 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
         continue
       }
       if (judgment === 'expired' || judgment === 'dropped') {
-        const reason = judgment
-        if (judged.state !== reason) {
-          judged.state = reason
-          await saveDurableMint(judged, 'same')
-        }
-        console.error(`[mint] backlog pending ${reason}; cap held containerId=${entry.containerId} txHash=${pendingTx}`)
-        await deadLetterObservedMint(client, raw, String(record.proposalText), pendingTx, reason)
+        await settleObservedMint(client, raw, judged, String(record.proposalText), judgment)
         return
       }
       const proven = await releaseIfProvenDead(judged)
@@ -4032,16 +4209,10 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
         continue
       }
       if (proven === 'expired' || proven === 'dropped') {
-        if (proven === 'dropped' && judged.state !== 'dropped') {
-          judged.state = 'dropped'
-          await saveDurableMint(judged, 'same')
-        }
-        const reason = proven
-        console.error(`[mint] backlog pending ${reason}; cap held containerId=${entry.containerId} txHash=${pendingTx}`)
-        await deadLetterObservedMint(client, raw, String(record.proposalText), pendingTx, reason)
+        await settleObservedMint(client, raw, judged, String(record.proposalText), proven)
         return
       }
-      console.error(`[mint] backlog pending reverted; cap released containerId=${entry.containerId} txHash=${pendingTx}`)
+      console.error(`[mint] backlog pending reverted; no resend containerId=${entry.containerId} txHash=${pendingTx}`)
       await deadLetterBacklogEntry(client, raw, 'reverted')
       continue
     }
@@ -4097,15 +4268,9 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
       return
     }
     if (outcome.kind === 'reverted') {
-      const attempts = (entry.attempts ?? 0) + 1
-      if (attempts >= MINT_BACKLOG_MAX_ATTEMPTS) {
-        await deadLetterBacklogEntry(client, raw, 'reverted')
-        continue
-      }
-      const updated = JSON.stringify({ ...record, attempts })
-      await client.eval(REPLACE_HEAD_LUA, 1, MINT_BACKLOG_KEY, raw, updated)
-      console.error(`[mint] backlog revert kept containerId=${entry.containerId} attempts=${attempts}`)
-      return
+      console.error(`[mint] backlog revert dead-lettered containerId=${entry.containerId}`)
+      await deadLetterBacklogEntry(client, raw, 'reverted')
+      continue
     }
     if (outcome.kind === 'minted' || outcome.kind === 'on-chain') {
       const removed = await removeIfChainConfirms(client, raw, entry)
