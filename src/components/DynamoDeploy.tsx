@@ -265,6 +265,72 @@ interface GovernanceResult {
   } | null;
 }
 
+function chainSaveErrorResult(message: string): GovernanceResult {
+  return {
+    answer: 'error',
+    detail: message,
+    phrase: message,
+    level: '',
+    signal: '',
+    weight: 1,
+    gain: 0,
+    metamorphosisIndex: null,
+    confidenceScore: null,
+    reconstructionError: null,
+    governanceConfidence: null,
+    solarApplied: false,
+    resonanceScore: null,
+    structuralResonance: null,
+    proximity: null,
+    phaseAlignment: null,
+    vortexAlignment: null,
+    crossCorrelationLag: null,
+    signalTiming: null,
+    synchronization: null,
+    waveProximity: null,
+    waveVortexAlignment: null,
+    waveSynchronization: null,
+    hybrid4DComposite: null,
+    hybridVerdict: null,
+    hybridVortexAlignment: null,
+    fullWave4DComposite: null,
+    calibratedWave4DComposite: null,
+    fullBoxProximity: null,
+    fullBoxVortexAlignment: null,
+    fullBoxSynchronization: null,
+    fullBoxNeuralProximity: null,
+    fullBoxNeuralVortex: null,
+    fullBox4DComposite: null,
+    fullBoxVerdict: null,
+    fullBoxThresholds: null,
+    fullBoxGematriaResonance: null,
+    fullBox7DComposite: null,
+    fullBox7DVerdict: null,
+    neuralWaveProximity: null,
+    neuralWaveVortexAlignment: null,
+    smoothedResonance: null,
+    trend: null,
+    momentum: null,
+    peakForecast: null,
+    adaptiveThresholds: null,
+    diagnostics: { isotopicRatio: null, vortexVolume: null, historicalCoherence: null },
+    signature: '',
+    alignmentRec: null,
+    alignmentReason: message,
+    source: 'human',
+    neuralContextUsed: false,
+    trinitariumMoralScore: null,
+    trinitariumVirtueAlignment: null,
+    trinitariumHarmPotential: null,
+    trinitariumIntentAlignment: null,
+    trinitariumSacredTextAffinity: null,
+    trinitariumDetectedVirtues: null,
+    trinitariumDetectedConcerns: null,
+    trinitariumGematriaFusion: null,
+    moralNumerologicalTension: null,
+  }
+}
+
 async function checkGovernance(proposal: string, sharePublicly: boolean, persistToChain: boolean = false): Promise<GovernanceResult | null> {
   try {
     const proposalLabel = proposal.length < 30 ? proposal + ' — via Dynamo governance' : proposal;
@@ -280,24 +346,44 @@ async function checkGovernance(proposal: string, sharePublicly: boolean, persist
     const spectralQuality = neuralRes?.neuralOutput?.spectralQuality ?? neuralRes?.spectralQuality ?? null;
     const neuralEmbedding16 = neuralRes?.neuralOutput?.neuralEmbedding16 ?? neuralRes?.neuralEmbedding16 ?? null;
 
-    // Then call governance with spectralQuality, plus alignment in parallel
-    const [solarRes, alignRes] = await Promise.allSettled([
-      fetch(`${MCP_URL}/govern_with_solar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly, persistToChain, spectralQuality, sunNeuralEmbedding: neuralEmbedding16 }),
-        signal: AbortSignal.timeout(15000),
-      }).then(async r => r.ok ? r.json() : null),
-      fetch(`${MCP_URL}/governance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposalId: `ui-${Date.now()}`, proposalText: proposalLabel, agentReviews: ['UI submission'] }),
-        signal: AbortSignal.timeout(15000),
-      }).then(async r => r.ok ? r.json() : null),
-    ]);
+    const chainPayload = { proposal, baseVoteWeight: 1, sharePublicly, persistToChain, spectralQuality, sunNeuralEmbedding: neuralEmbedding16 }
+    const alignmentPromise = fetch(`${MCP_URL}/governance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposalId: `ui-${Date.now()}`, proposalText: proposalLabel, agentReviews: ['UI submission'] }),
+      signal: AbortSignal.timeout(15000),
+    }).then(async r => r.ok ? r.json() : null).catch(() => null)
 
-    const solar = solarRes.status === 'fulfilled' ? solarRes.value : null;
-    const alignment = alignRes.status === 'fulfilled' ? alignRes.value : null;
+    let solar = null
+    let alignment = null
+    if (persistToChain) {
+      // Same-origin server route. The write key stays on the server.
+      const solarRes = await fetch('/api/govern-chain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chainPayload),
+        signal: AbortSignal.timeout(60000),
+      })
+      const solarBody = await solarRes.json().catch(() => null)
+      if (!solarRes.ok) {
+        const message = solarBody && typeof solarBody.error === 'string' ? solarBody.error : 'Chain save failed'
+        return chainSaveErrorResult(message)
+      }
+      solar = solarBody
+      alignment = await alignmentPromise
+    } else {
+      const [solarRes, alignRes] = await Promise.allSettled([
+        fetch(`${MCP_URL}/govern_with_solar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chainPayload),
+          signal: AbortSignal.timeout(15000),
+        }).then(async r => r.ok ? r.json() : null),
+        alignmentPromise,
+      ])
+      solar = solarRes.status === 'fulfilled' ? solarRes.value : null
+      alignment = alignRes.status === 'fulfilled' ? alignRes.value : null
+    }
     const neural = neuralRes;
 
     if (!solar && !alignment && !neural) return null;
@@ -735,7 +821,11 @@ export default function DynamoDeploy() {
         </div>
 
         {/* Result — every governance result is a self-authenticating temporal document */}
-        {result && !loading && (
+        {result && !loading && result.answer === 'error' && (
+          <p className="text-sm text-red-300 text-center">{result.phrase}</p>
+        )}
+
+        {result && !loading && result.answer !== 'error' && (
           <div className={`rounded-2xl p-5 text-center space-y-3 border shadow-xl ${
             result.answer === 'yes' ? 'bg-emerald-500/[0.07] border-emerald-500/30 shadow-emerald-500/5' :
             result.answer === 'no' ? 'bg-red-500/[0.07] border-red-500/30 shadow-red-500/5' :
