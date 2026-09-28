@@ -309,13 +309,12 @@ export function isVortexSignature(value: unknown): value is string {
 }
 
 /**
- * The caller can prepend anything to X-Forwarded-For. Our proxy appends the
- * peer it actually accepted, so the trusted hop is the rightmost one.
- * With no header, the request hit this process directly.
+ * Railway's edge proxy sets X-Real-IP and overwrites a client-supplied value.
+ * X-Forwarded-For is not a rate-lane input. A missing header shares one local bucket.
  */
-export function clientRateKey(forwardedFor: string | undefined): string {
-  if (!forwardedFor) return 'local'
-  const hops = forwardedFor.split(',').map((hop) => hop.trim()).filter((hop) => hop.length > 0)
+export function clientRateKey(realIp: string | undefined): string {
+  if (!realIp) return 'local'
+  const hops = realIp.split(',').map((hop) => hop.trim()).filter((hop) => hop.length > 0)
   const trusted = hops[hops.length - 1]
   return trusted ? trusted : 'local'
 }

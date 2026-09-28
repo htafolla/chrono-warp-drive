@@ -2887,7 +2887,7 @@ app.post('/vortex/mint', async (c: Context) => {
     const claim = claimMintSlot({
       containerId,
       recipient: to,
-      rateKey: clientRateKey(c.req.header('x-forwarded-for')),
+      rateKey: clientRateKey(c.req.header('x-real-ip')),
     })
     const claimDenied = rejectedMint(claim)
     if (claimDenied) return c.json({ success: false, error: claimDenied.error }, claimDenied.status)

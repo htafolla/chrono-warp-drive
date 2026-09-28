@@ -717,14 +717,14 @@ describe('mint abuse limits', () => {
       const id = nextId()
       const hash = nextId()
       stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
-      const res = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-forwarded-for': `10.0.0.${i + 1}` })
+      const res = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-real-ip': `10.0.0.${i + 1}`, 'x-forwarded-for': `9.9.9.${i}` })
       expect(res.status).toBe(200)
     }
     const chainBefore = stub.chainCalls
     const keyBefore = stub.keyReads
     const id = nextId()
     const hash = nextId()
-    const blocked = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-forwarded-for': '10.1.0.9' })
+    const blocked = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-real-ip': '10.1.0.9', 'x-forwarded-for': '8.8.8.8' })
     expect(blocked.status).toBe(429)
     expect(String(blocked.json.error)).toContain('cap')
     expectNoChainOrKey(chainBefore, keyBefore)
@@ -1512,7 +1512,8 @@ describe('mint abuse limits', () => {
     try {
       const first = await mint(signedMint(id, hash, to), {
         ...authHeader(),
-        'x-forwarded-for': '10.94.0.1',
+        'x-real-ip': '10.94.0.1',
+        'x-forwarded-for': '1.1.1.1',
       })
       expect(first.status).toBe(500)
       expect(first.json.success).toBe(false)
@@ -1520,7 +1521,8 @@ describe('mint abuse limits', () => {
       expect(stub.mints).toEqual([])
       const second = await mint(signedMint(id, hash, to), {
         ...authHeader(),
-        'x-forwarded-for': '10.94.0.2',
+        'x-real-ip': '10.94.0.2',
+        'x-forwarded-for': '1.1.1.2',
       })
       expect(second.status).toBe(200)
       expect(second.json.tokenId).toBe('7')
@@ -1530,7 +1532,8 @@ describe('mint abuse limits', () => {
         stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
         const extra = await mint(signedMint(extraId, extraHash, to), {
           ...authHeader(),
-          'x-forwarded-for': `10.94.1.${n}`,
+          'x-real-ip': `10.94.1.${n}`,
+          'x-forwarded-for': `1.1.2.${n}`,
         })
         expect(extra.status).toBe(200)
       }
@@ -2013,13 +2016,15 @@ describe('mint abuse limits', () => {
         stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
         const extra = await mint(signedMint(extraId, extraHash, to), {
           ...authHeader(),
-          'x-forwarded-for': `10.71.1.${n}`,
+          'x-real-ip': `10.71.1.${n}`,
+          'x-forwarded-for': `9.9.9.${n}`,
         })
         expect(extra.status).toBe(200)
       }
       const capped = await mint(signedMint(nextId(), nextId(), to), {
         ...authHeader(),
-        'x-forwarded-for': '10.71.2.1',
+        'x-real-ip': '10.71.2.1',
+        'x-forwarded-for': '9.9.9.9',
       })
       expect(capped.status).toBe(429)
       expect(String(capped.json.error)).toBe('Per-address mint cap exceeded')
@@ -2033,7 +2038,8 @@ describe('mint abuse limits', () => {
       stub.pendingTxHash = pendingHash
       const held = await mint(signedMint(laterId, laterHash, laterTo), {
         ...authHeader(),
-        'x-forwarded-for': '10.72.0.1',
+        'x-real-ip': '10.72.0.1',
+        'x-forwarded-for': '8.8.8.1',
       })
       expect(held.status).toBe(202)
       expect(held.json.txHash).toBe(pendingHash)
@@ -2060,13 +2066,15 @@ describe('mint abuse limits', () => {
         stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
         const extra = await mint(signedMint(extraId, extraHash, laterTo), {
           ...authHeader(),
-          'x-forwarded-for': `10.72.1.${n}`,
+          'x-real-ip': `10.72.1.${n}`,
+          'x-forwarded-for': `8.8.4.${n}`,
         })
         expect(extra.status).toBe(200)
       }
       const laterCapped = await mint(signedMint(nextId(), nextId(), laterTo), {
         ...authHeader(),
-        'x-forwarded-for': '10.72.2.1',
+        'x-real-ip': '10.72.2.1',
+        'x-forwarded-for': '8.8.8.8',
       })
       expect(laterCapped.status).toBe(429)
       expect(String(laterCapped.json.error)).toBe('Per-address mint cap exceeded')
@@ -2092,7 +2100,8 @@ describe('mint abuse limits', () => {
         stub.pendingTxHash = '0x' + n.toString(16).padStart(64, 'a')
         const res = await mint(signedMint(id, hash, to), {
           ...authHeader(),
-          'x-forwarded-for': `198.51.100.${n + 1}`,
+          'x-real-ip': `198.51.100.${n + 1}`,
+          'x-forwarded-for': `203.0.113.${n + 1}`,
         })
         if (res.status === 202) accepted += 1
         else if (res.status === 429) refused += 1
@@ -2105,7 +2114,7 @@ describe('mint abuse limits', () => {
     }
   })
 
-  it('rate-limits the rightmost forwarded hop when the caller rotates the left side', async () => {
+  it('does not trust X-Forwarded-For for the mint rate lane', async () => {
     process.env.MINT_GLOBAL_BUDGET = '20'
     const to = address(17)
     for (let n = 0; n < MINT_RATE_LIMIT; n += 1) {
@@ -2114,7 +2123,8 @@ describe('mint abuse limits', () => {
       stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
       const res = await mint(signedMint(id, hash, to), {
         ...authHeader(),
-        'x-forwarded-for': `1.2.3.${n}, 203.0.113.9`,
+        'x-real-ip': '203.0.113.9',
+        'x-forwarded-for': `1.2.3.${n}`,
       })
       expect(res.status).toBe(200)
     }
@@ -2123,11 +2133,23 @@ describe('mint abuse limits', () => {
     stub.containers.set(blockedId.toLowerCase(), registryContainer(blockedId, blockedHash))
     const blocked = await mint(signedMint(blockedId, blockedHash, to), {
       ...authHeader(),
-      'x-forwarded-for': '9.9.9.9, 203.0.113.9',
+      'x-real-ip': '203.0.113.9',
+      'x-forwarded-for': '9.9.9.9',
     })
     expect(blocked.status).toBe(429)
     expect(String(blocked.json.error)).toBe('Mint rate limit exceeded')
     expect(stub.mints).toHaveLength(MINT_RATE_LIMIT)
+
+    const otherId = nextId()
+    const otherHash = nextId()
+    stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
+    const otherLane = await mint(signedMint(otherId, otherHash, address(170)), {
+      ...authHeader(),
+      'x-real-ip': '203.0.113.10',
+      'x-forwarded-for': '9.9.9.9',
+    })
+    expect(otherLane.status).toBe(200)
+    expect(stub.mints).toHaveLength(MINT_RATE_LIMIT + 1)
   })
 
   it('returns the original pending hash after a restart and does not send a second transaction', async () => {
@@ -2352,13 +2374,15 @@ describe('mint abuse limits', () => {
         stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
         const extra = await mint(signedMint(extraId, extraHash, to), {
           ...authHeader(),
-          'x-forwarded-for': `203.0.113.${90 + n}`,
+          'x-real-ip': `203.0.113.${90 + n}`,
+          'x-forwarded-for': `198.51.100.${n}`,
         })
         expect(extra.status).toBe(200)
       }
       const blocked = await mint(signedMint(nextId(), nextId(), to), {
         ...authHeader(),
-        'x-forwarded-for': '203.0.113.120',
+        'x-real-ip': '203.0.113.120',
+        'x-forwarded-for': '198.51.100.50',
       })
       expect(blocked.status).toBe(429)
       expect(String(blocked.json.error)).toBe('Per-address mint cap exceeded')
