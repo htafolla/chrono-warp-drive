@@ -5,7 +5,7 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { ContainerItem } from '@/pages/VortexClaim'
+import { CLAIMS_PAUSED_NOTICE, type ContainerItem } from '@/pages/VortexClaim'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
@@ -69,6 +69,7 @@ interface VortexDetailModalProps {
   tokenId?: string | null
   onChainMetadata?: any
   onClaim?: () => void
+  claimsPaused?: boolean
   isMinting?: boolean
   mintError?: string
   mintResult?: string
@@ -163,6 +164,7 @@ export function VortexDetailModal({
   tokenId,
   onChainMetadata,
   onClaim,
+  claimsPaused,
   isMinting,
   mintError,
   mintResult,
@@ -340,7 +342,10 @@ export function VortexDetailModal({
               {inRegistry !== false ? (
                 <>
                   <div className="text-[10px] text-zinc-600 uppercase tracking-wide mb-3">Mint VortexToken</div>
-                  {isConnected ? (
+                  {claimsPaused && (
+                    <p className="text-zinc-200 text-sm mb-3">{CLAIMS_PAUSED_NOTICE}</p>
+                  )}
+                  {isConnected || claimsPaused ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <input
@@ -349,7 +354,13 @@ export function VortexDetailModal({
                           onChange={e => onDonationChange?.(e.target.value)}
                           step="0.001"
                           min="0"
-                          className="w-20 px-2 py-1.5 text-xs rounded bg-zinc-800 border border-zinc-700 text-zinc-200 focus:outline-none focus:border-emerald-500/50"
+                          disabled={!!claimsPaused}
+                          className={cn(
+                            'w-20 px-2 py-1.5 text-xs rounded border focus:outline-none',
+                            claimsPaused
+                              ? 'bg-zinc-900 border-zinc-800 text-zinc-500 opacity-60 cursor-not-allowed'
+                              : 'bg-zinc-800 border-zinc-700 text-zinc-200 focus:border-emerald-500/50',
+                          )}
                           placeholder="ETH"
                         />
                         {ethPrice && (
@@ -369,15 +380,17 @@ export function VortexDetailModal({
                           <div className="flex items-center gap-2">
                             <button
                               onClick={onClaim}
-                              disabled={isMinting || insufficient}
+                              disabled={isMinting || insufficient || claimsPaused}
                               className={cn(
-                                'px-4 py-1.5 text-xs font-medium rounded-lg transition-all text-white',
-                                insufficient
-                                  ? 'bg-red-600/50 cursor-not-allowed'
-                                  : 'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 shadow-lg shadow-fuchsia-600/20'
+                                'px-4 py-1.5 text-xs font-medium rounded-lg transition-all',
+                                claimsPaused
+                                  ? 'bg-zinc-700 text-zinc-400 opacity-60 cursor-not-allowed shadow-none'
+                                  : insufficient
+                                    ? 'bg-red-600/50 text-white cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 text-white shadow-lg shadow-fuchsia-600/20 disabled:opacity-50 disabled:cursor-not-allowed',
                               )}
                             >
-                              {isMinting ? 'Minting...' : insufficient ? 'Low Balance' : 'Mint'}
+                              {isMinting ? 'Minting...' : insufficient && !claimsPaused ? 'Low Balance' : 'Mint'}
                             </button>
                             {insufficient && (
                               <span className="text-[11px] text-red-400">Insufficient ETH for donation + gas</span>
@@ -391,7 +404,7 @@ export function VortexDetailModal({
                       Connect your wallet to mint this container as a VortexToken
                     </div>
                   )}
-                  {mintError && (
+                  {mintError && !claimsPaused && (
                     <div className="text-[11px] text-red-400 mt-2">{mintError}</div>
                   )}
                   {mintResult && (
@@ -411,8 +424,13 @@ export function VortexDetailModal({
                   </p>
                   <button
                     onClick={onSaveToChain}
-                    disabled={isSaving}
-                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-amber-600/80 hover:bg-amber-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSaving || !!claimsPaused}
+                    className={cn(
+                      'px-4 py-1.5 text-xs font-medium rounded-lg transition-all',
+                      claimsPaused
+                        ? 'bg-zinc-700 text-zinc-400 opacity-60 cursor-not-allowed shadow-none'
+                        : 'bg-amber-600/80 hover:bg-amber-500/80 text-white disabled:opacity-50 disabled:cursor-not-allowed',
+                    )}
                   >
                     {isSaving ? 'Saving...' : 'Save to Chain'}
                   </button>
