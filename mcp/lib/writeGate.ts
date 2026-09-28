@@ -38,14 +38,16 @@ const rateBuckets = new Map<string, number[]>()
 const globalBudgetStamps: number[] = []
 const pendingBudget = new Map<string, number>()
 /**
- * KNOWN LIMIT. Pending mint transactions are recorded by containerId only.
- * A transaction still in flight under the historical containerHash key
- * (old auto-mint) is not marked here, so this map will not stop a resubmit
- * for that hash key. tokenByContainerId on the hash is the read once it
- * lands; until then the contract require is the backstop. The map is also
- * process-local and is empty after a restart.
+ * KNOWN LIMIT. The durable pending line is the Redis hash `vortex:mint:pending`,
+ * keyed by containerHash, with an expiry and the sender nonce. This map is only
+ * a same-process cache of that hash. It is empty after a restart, and a second
+ * instance must read Redis before it sends another mint. The address-cap counts
+ * below are also process-local: a restart drops them, while the Redis record
+ * still blocks a second transaction for the same containerHash.
  */
 const pendingMints = new Map<string, { txHash: string; recipient: string }>()
+/** containerId → recipient whose cap slot was reserved when the mint was submitted. */
+const capHolds = new Map<string, string>()
 let nextVerifyError: Error | null = null
 
 export function signingKeyReadCount(): number {
@@ -62,6 +64,7 @@ export function resetWriteGuardsForTests(): void {
   globalBudgetStamps.length = 0
   pendingBudget.clear()
   pendingMints.clear()
+  capHolds.clear()
   nextVerifyError = null
 }
 
@@ -83,18 +86,44 @@ export function readPendingMint(containerId: string): PendingMint | null {
   return pendingMints.get(containerId.toLowerCase()) ?? null
 }
 
-/** Counts the address cap once, for the recipient stored with the pending hash. */
+/**
+ * The cap slot was reserved at submit. Confirming keeps that count and forgets
+ * the hold so a later release cannot drop it.
+ */
 export function confirmPendingMint(containerId: string): PendingMint | null {
   const id = containerId.toLowerCase()
-  const row = pendingMints.get(id)
-  if (!row) return null
+  const row = pendingMints.get(id) ?? null
   pendingMints.delete(id)
   inFlightContainers.delete(id)
   pendingBudget.delete(id)
   mintedContainers.add(id)
-  const addr = row.recipient
-  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  settleAddressCap(id)
   return row
+}
+
+/** Count one cap slot for a mint that has been submitted and is not yet settled. */
+export function reserveAddressCap(containerId: string, recipient: string): void {
+  const id = containerId.toLowerCase()
+  if (capHolds.has(id)) return
+  const addr = recipient.toLowerCase()
+  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  capHolds.set(id, addr)
+}
+
+/** Give the slot back when the mint reverts, is dropped, or expires. */
+export function releaseAddressCap(containerId: string): void {
+  const id = containerId.toLowerCase()
+  const addr = capHolds.get(id)
+  if (!addr) return
+  capHolds.delete(id)
+  const next = (addressMintCounts.get(addr) ?? 1) - 1
+  if (next <= 0) addressMintCounts.delete(addr)
+  else addressMintCounts.set(addr, next)
+}
+
+/** Keep the reserved count. The hold is finished. */
+export function settleAddressCap(containerId: string): void {
+  capHolds.delete(containerId.toLowerCase())
 }
 
 /** Test seam. The next verifyVortexSignature call throws instead of returning. */
@@ -260,9 +289,16 @@ export function isVortexSignature(value: unknown): value is string {
   return typeof value === 'string' && /^(?:0x)?[0-9a-fA-F]{64}$/.test(value.trim())
 }
 
+/**
+ * The caller can prepend anything to X-Forwarded-For. Our proxy appends the
+ * peer it actually accepted, so the trusted hop is the rightmost one.
+ * With no header, the request hit this process directly.
+ */
 export function clientRateKey(forwardedFor: string | undefined): string {
-  const first = forwardedFor?.split(',')[0]?.trim()
-  return first ? first : 'local'
+  if (!forwardedFor) return 'local'
+  const hops = forwardedFor.split(',').map((hop) => hop.trim()).filter((hop) => hop.length > 0)
+  const trusted = hops[hops.length - 1]
+  return trusted ? trusted : 'local'
 }
 
 export type MintClaim =
@@ -327,6 +363,10 @@ export function commitMintSlot(containerId: string, recipient: string): void {
   inFlightContainers.delete(id)
   pendingBudget.delete(id)
   mintedContainers.add(id)
+  if (capHolds.has(id)) {
+    settleAddressCap(id)
+    return
+  }
   const addr = recipient.toLowerCase()
   addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
 }
@@ -349,6 +389,7 @@ export function abortMintWrite(containerId: string): void {
   const id = containerId.toLowerCase()
   inFlightContainers.delete(id)
   pendingBudget.delete(id)
+  releaseAddressCap(id)
 }
 
 export function rememberMintedContainers(containerIds: string[]): void {

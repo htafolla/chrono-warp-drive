@@ -61,13 +61,17 @@ export interface ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
-  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus }>
+  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus; nonce: number }>
   /**
    * Token id when either historical key already has a mint: containerId (route)
    * and containerHash (old auto-mint). Does not read the deployer key.
    */
   existingMint(containerId: string, containerHash: string): Promise<string | null>
-  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus }>
+  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }>
+  /** success, reverted, or missing when the node has no receipt for this hash. */
+  mintReceipt(txHash: string): Promise<'success' | 'reverted' | 'missing'>
+  /** Confirmed nonce. Pending replacements do not move this count. */
+  senderNonce(): Promise<number>
 }
 
 export type MintReceiptStatus = 'success' | 'reverted' | 'pending'
@@ -134,6 +138,14 @@ function isContainerNotFound(err: unknown): boolean {
 
 function isMintKey(value: string | undefined): value is string {
   return typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value) && value.toLowerCase() !== ZERO_MINT_KEY
+}
+
+/** A missing receipt is not an RPC failure. The transaction was dropped or has not landed. */
+function isReceiptMissing(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const named = err as { name?: unknown; message?: unknown }
+  if (named.name === 'TransactionReceiptNotFoundError') return true
+  return typeof named.message === 'string' && named.message.toLowerCase().includes('could not be found')
 }
 
 interface WalletBundle {
@@ -316,7 +328,7 @@ class LiveChainExecutor implements ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
-  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus }> {
+  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus; nonce: number }> {
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
     const abi = await loadAbi('token')
@@ -349,22 +361,24 @@ class LiveChainExecutor implements ChainExecutor {
         proposalText: '',
       },
     ]
-    const txHash = await withWriteLock(async () => {
+    const submitted = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
-      return writeOnChain(walletClient, {
+      const hash = await writeOnChain(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'mint',
         nonce: mintNonce,
         args: mintArgs,
       })
+      return { txHash: hash, nonce: mintNonce }
     })
+    const txHash = submitted.txHash
     const settled = await settleMintReceipt(publicClient, txHash)
     if (settled.status === 'pending') {
-      return { txHash: settled.txHash, tokenId: null, receiptStatus: 'pending' }
+      return { txHash: settled.txHash, tokenId: null, receiptStatus: 'pending', nonce: submitted.nonce }
     }
     if (settled.status !== 'success') {
-      return { txHash: settled.txHash, tokenId: null, receiptStatus: 'reverted' }
+      return { txHash: settled.txHash, tokenId: null, receiptStatus: 'reverted', nonce: submitted.nonce }
     }
     let tokenId: string | null = null
     try {
@@ -376,7 +390,7 @@ class LiveChainExecutor implements ChainExecutor {
       }) as bigint
       if (tid !== 0n) tokenId = tid.toString()
     } catch { /* token id is read again by the route */ }
-    return { txHash: settled.txHash, tokenId, receiptStatus: 'success' }
+    return { txHash: settled.txHash, tokenId, receiptStatus: 'success', nonce: submitted.nonce }
   }
 
   async existingMint(containerId: string, containerHash: string): Promise<string | null> {
@@ -407,7 +421,26 @@ class LiveChainExecutor implements ChainExecutor {
     return null
   }
 
-  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus }> {
+  async mintReceipt(txHash: string): Promise<'success' | 'reverted' | 'missing'> {
+    const publicClient = readClient()
+    this.chainCalls += 1
+    try {
+      const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` })
+      if (receipt.status === 'success') return 'success'
+      return 'reverted'
+    } catch (err) {
+      if (isReceiptMissing(err)) return 'missing'
+      throw err
+    }
+  }
+
+  async senderNonce(): Promise<number> {
+    const { publicClient, account } = this.wallet()
+    this.chainCalls += 1
+    return publicClient.getTransactionCount({ address: account.address, blockTag: 'latest' })
+  }
+
+  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }> {
     if (!proposalText.trim()) throw new Error('empty proposal text')
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
@@ -442,20 +475,22 @@ class LiveChainExecutor implements ChainExecutor {
         proposalText: truncated,
       },
     ]
-    const txHash = await withWriteLock(async () => {
+    const submitted = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
-      return writeOnChain(walletClient, {
+      const hash = await writeOnChain(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'mint',
         nonce: mintNonce,
         args: mintArgs,
       })
+      return { txHash: hash, nonce: mintNonce }
     })
+    const txHash = submitted.txHash
     const settled = await settleMintReceipt(publicClient, txHash)
-    if (settled.status === 'pending') return { txHash: settled.txHash, receiptStatus: 'pending' }
+    if (settled.status === 'pending') return { txHash: settled.txHash, receiptStatus: 'pending', nonce: submitted.nonce }
     if (settled.status !== 'success') {
-      return { txHash: settled.txHash, receiptStatus: 'reverted' }
+      return { txHash: settled.txHash, receiptStatus: 'reverted', nonce: submitted.nonce }
     }
     try {
       const tid = await readOnChain(publicClient, {
@@ -469,7 +504,7 @@ class LiveChainExecutor implements ChainExecutor {
         if (client) await client.hset('dynamo:vortex:mint', id.toLowerCase(), tid.toString())
       }
     } catch { /* Redis optional */ }
-    return { txHash: settled.txHash, receiptStatus: 'success' }
+    return { txHash: settled.txHash, receiptStatus: 'success', nonce: submitted.nonce }
   }
 }
 
