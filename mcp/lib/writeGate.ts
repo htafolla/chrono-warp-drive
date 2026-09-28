@@ -19,6 +19,11 @@ export const MINT_RATE_LIMIT = 5
 export const MINT_RATE_WINDOW_MS = 60_000
 /** Extra cap on the `to` address. Callers choose `to`, so this is not the wallet protection. */
 export const MINT_ADDRESS_CAP = 8
+/**
+ * Redis INCR window for that cap. A restart inside the window still sees the
+ * count. When the key expires, the window starts over.
+ */
+export const MINT_ADDRESS_CAP_WINDOW_MS = 10 * 60 * 1000
 /** How long a server-issued mint signature stays valid. */
 export const MINT_SIGNATURE_TTL_SECONDS = 600
 /** Reject expiries further ahead than this, including millisecond timestamps. */
@@ -38,14 +43,12 @@ const rateBuckets = new Map<string, number[]>()
 const globalBudgetStamps: number[] = []
 const pendingBudget = new Map<string, number>()
 /**
- * KNOWN LIMIT. The durable pending line is the Redis hash `vortex:mint:pending`,
- * keyed by containerHash, with an expiry and the sender nonce. This map is only
- * a same-process cache of that hash. It is empty after a restart, and a second
- * instance must read Redis before it sends another mint. The address-cap counts
- * below are also process-local: a restart drops them, while the Redis record
- * still blocks a second transaction for the same containerHash.
+ * Same-process cache of `vortex:mint:pending`. Empty after a restart. The Redis
+ * hash is the source of truth, and the address cap lives in Redis under
+ * `vortex:mint:cap:` with an INCR and a TTL window. This map is not.
  */
 const pendingMints = new Map<string, { txHash: string; recipient: string }>()
+let writeClockOffset = 0
 /** containerId → recipient whose cap slot was reserved when the mint was submitted. */
 const capHolds = new Map<string, string>()
 /** containerIds whose cap count is still owed, including after the hold is settled. */
@@ -69,6 +72,16 @@ export function resetWriteGuardsForTests(): void {
   capHolds.clear()
   capCounted.clear()
   nextVerifyError = null
+  writeClockOffset = 0
+}
+
+/** Moves the mint rate and budget clock without changing Date.now(). */
+export function advanceWriteClockForTests(ms: number): void {
+  writeClockOffset += ms
+}
+
+function writeNow(explicit?: number): number {
+  return explicit ?? Date.now() + writeClockOffset
 }
 
 export interface PendingMint {
@@ -83,6 +96,16 @@ export function markPendingMint(containerId: string, txHash: string, recipient: 
   pendingBudget.delete(id)
   if (pendingMints.has(id)) return
   pendingMints.set(id, { txHash, recipient: recipient.toLowerCase() })
+}
+
+/** Drop a hash that reverted before it was durable, so the retry is not stuck on it. */
+export function forgetPendingMint(containerId: string): void {
+  pendingMints.delete(containerId.toLowerCase())
+}
+
+/** A proven-dead resubmit replaces the hash the next retry will return. The budget stamp stays until the route settles it. */
+export function replacePendingMint(containerId: string, txHash: string, recipient: string): void {
+  pendingMints.set(containerId.toLowerCase(), { txHash, recipient: recipient.toLowerCase() })
 }
 
 export function readPendingMint(containerId: string): PendingMint | null {
@@ -309,14 +332,16 @@ export function isVortexSignature(value: unknown): value is string {
 }
 
 /**
- * Railway's edge proxy sets X-Real-IP and overwrites a client-supplied value.
- * X-Forwarded-For is not a rate-lane input. A missing header shares one local bucket.
+ * One bucket for every caller. Railway staff say the public docs do not give a
+ * formal anti-spoofing guarantee for X-Real-IP or X-Forwarded-For, and the
+ * forum replies disagree about which hop is the client. Vercel's
+ * x-vercel-forwarded-for is not set on this Railway service. Client headers
+ * are not a rate-lane input.
  */
-export function clientRateKey(realIp: string | undefined): string {
-  if (!realIp) return 'local'
-  const hops = realIp.split(',').map((hop) => hop.trim()).filter((hop) => hop.length > 0)
-  const trusted = hops[hops.length - 1]
-  return trusted ? trusted : 'local'
+export const MINT_RATE_KEY = 'global'
+
+export function clientRateKey(): string {
+  return MINT_RATE_KEY
 }
 
 export type MintClaim =
@@ -348,19 +373,23 @@ export function claimMintSlot(input: {
   recipient: string
   rateKey: string
   now?: number
+  /** Redis INCR value when the cap is persisted. The higher of this and memory wins. */
+  addressCount?: number
 }): MintClaim {
   const id = input.containerId.toLowerCase()
   if (mintedContainers.has(id) || inFlightContainers.has(id)) {
     return { ok: false, status: 409, error: 'Container already has a vortex token' }
   }
-  const now = input.now ?? Date.now()
+  const now = writeNow(input.now)
   const bucket = (rateBuckets.get(input.rateKey) ?? []).filter((stamp) => now - stamp < MINT_RATE_WINDOW_MS)
   if (bucket.length >= MINT_RATE_LIMIT) {
     rateBuckets.set(input.rateKey, bucket)
     return { ok: false, status: 429, error: 'Mint rate limit exceeded' }
   }
   const recipient = input.recipient.toLowerCase()
-  if ((addressMintCounts.get(recipient) ?? 0) >= MINT_ADDRESS_CAP) {
+  const memoryCount = addressMintCounts.get(recipient) ?? 0
+  const counted = Math.max(memoryCount, input.addressCount ?? 0)
+  if (counted >= MINT_ADDRESS_CAP) {
     return { ok: false, status: 429, error: 'Per-address mint cap exceeded' }
   }
   const windowMs = mintGlobalWindowMs()

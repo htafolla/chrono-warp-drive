@@ -61,13 +61,19 @@ export interface ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
+    onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
   }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus; nonce: number }>
   /**
    * Token id when either historical key already has a mint: containerId (route)
    * and containerHash (old auto-mint). Does not read the deployer key.
    */
   existingMint(containerId: string, containerHash: string): Promise<string | null>
-  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }>
+  autoMint(
+    mintId: string,
+    container: ContainerVortex,
+    proposalText: string,
+    hooks?: { onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void> },
+  ): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }>
   /** success, reverted, or missing when the node has no receipt for this hash. */
   mintReceipt(txHash: string): Promise<'success' | 'reverted' | 'missing'>
   /** Confirmed nonce. Pending replacements do not move this count. */
@@ -328,6 +334,7 @@ class LiveChainExecutor implements ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
+    onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
   }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus; nonce: number }> {
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
@@ -373,6 +380,7 @@ class LiveChainExecutor implements ChainExecutor {
       return { txHash: hash, nonce: mintNonce }
     })
     const txHash = submitted.txHash
+    if (input.onSubmitted) await input.onSubmitted({ txHash, nonce: submitted.nonce })
     const settled = await settleMintReceipt(publicClient, txHash)
     if (settled.status === 'pending') {
       return { txHash: settled.txHash, tokenId: null, receiptStatus: 'pending', nonce: submitted.nonce }
@@ -440,7 +448,12 @@ class LiveChainExecutor implements ChainExecutor {
     return publicClient.getTransactionCount({ address: account.address, blockTag: 'latest' })
   }
 
-  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }> {
+  async autoMint(
+    mintId: string,
+    container: ContainerVortex,
+    proposalText: string,
+    hooks?: { onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void> },
+  ): Promise<{ txHash: string; receiptStatus: MintReceiptStatus; nonce: number }> {
     if (!proposalText.trim()) throw new Error('empty proposal text')
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
@@ -487,6 +500,7 @@ class LiveChainExecutor implements ChainExecutor {
       return { txHash: hash, nonce: mintNonce }
     })
     const txHash = submitted.txHash
+    if (hooks?.onSubmitted) await hooks.onSubmitted({ txHash, nonce: submitted.nonce })
     const settled = await settleMintReceipt(publicClient, txHash)
     if (settled.status === 'pending') return { txHash: settled.txHash, receiptStatus: 'pending', nonce: submitted.nonce }
     if (settled.status !== 'success') {
