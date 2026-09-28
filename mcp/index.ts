@@ -52,7 +52,7 @@ import {
   signVortex,
   verifyVortexSignature,
 } from './lib/writeGate.js'
-import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
+import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, isMintNotSent, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -3085,46 +3085,39 @@ async function clearPreSend(containerHash: string): Promise<void> {
   await client.hdel(MINT_PRESEND_KEY, durableField(containerHash))
 }
 
-type PreSendRecovery = 'absent' | 'send' | 'adopted' | 'unresolved'
+type PreSendRecovery = 'absent' | 'adopted' | 'unresolved'
 
-/** A pre-send row with no hash is resolved from the deployer nonce. It is never broadcast again while that nonce is unresolved. */
+/**
+ * A leftover pre-send row may have been broadcast. It is dead-lettered once and never sent again, whatever the nonce says.
+ * The row and the cap slot stay. findTxByNonce adoption works only with the test stub; a live node returns null.
+ */
 async function recoverPreSend(containerHash: string): Promise<PreSendRecovery> {
   const pre = await loadPreSend(containerHash)
   if (!pre) return 'absent'
-  let chainNonce: number
-  try {
-    chainNonce = await getChainExecutor().senderNonce()
-  } catch {
-    return 'unresolved'
-  }
-  if (chainNonce > pre.nonce) {
-    const hash = await getChainExecutor().findTxByNonce(pre.nonce)
-    if (hash && /^0x[0-9a-fA-F]{64}$/.test(hash)) {
-      await saveDurableMint(pendingMintRecord({
-        txHash: hash,
-        containerId: pre.containerId,
-        containerHash: pre.containerHash,
-        recipient: pre.recipient,
-        nonce: pre.nonce,
-      }), 'insert')
-      await clearPreSend(containerHash)
-      return 'adopted'
-    }
-    await recordMintDeadLetter({
-      proposal: await realProposal(pre.containerHash, pre.proposal),
+  const hash = await getChainExecutor().findTxByNonce(pre.nonce)
+  if (hash && /^0x[0-9a-fA-F]{64}$/.test(hash)) {
+    await saveDurableMint(pendingMintRecord({
+      txHash: hash,
+      containerId: pre.containerId,
       containerHash: pre.containerHash,
-      oldHash: '',
-      reason: 'nonce-used',
+      recipient: pre.recipient,
       nonce: pre.nonce,
-    })
-    return 'unresolved'
-  }
-  if (chainNonce === pre.nonce) {
+    }), 'insert')
     await clearPreSend(containerHash)
-    await clearMintSend(containerHash)
-    return 'send'
+    return 'adopted'
   }
+  await letterPreSend(pre)
   return 'unresolved'
+}
+
+async function letterPreSend(pre: PreSendMint): Promise<void> {
+  await recordMintDeadLetter({
+    proposal: await realProposal(pre.containerHash, pre.proposal || pre.containerHash),
+    containerHash: pre.containerHash,
+    oldHash: '',
+    reason: 'possibly-sent',
+    nonce: pre.nonce,
+  })
 }
 
 function jsonMintAccepted(c: Context, containerId: string, to: string, tokenId: string, txHash: string): Response {
@@ -3514,10 +3507,14 @@ app.post('/vortex/mint', async (c: Context) => {
       explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
     })
   } catch (err: any) {
-    if (activeHash && await loadPreSend(activeHash)) {
-      const msg = friendlyMintError(err)
-      console.error(`[mint] ${err.message}`)
-      return c.json({ success: false, error: msg }, 500)
+    const pre = activeHash ? await loadPreSend(activeHash) : null
+    if (pre) {
+      if (!isMintNotSent(err)) {
+        await letterPreSend(pre)
+        console.error(`[mint] ${err.message}`)
+        return c.json({ success: false, error: friendlyMintError(err) }, 500)
+      }
+      await clearPreSend(activeHash)
     }
     if (reservedId) {
     if (submittedHash) {
@@ -3942,7 +3939,14 @@ async function runAutoMint(
     console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`)
     return { kind: 'minted', txHash: result.txHash }
   } catch (err: unknown) {
-    if (await loadPreSend(container.containerHash)) return { kind: 'error', error: err }
+    const pre = await loadPreSend(container.containerHash)
+    if (pre) {
+      if (!isMintNotSent(err)) {
+        await letterPreSend(pre)
+        return { kind: 'error', error: err }
+      }
+      await clearPreSend(container.containerHash)
+    }
     if (submittedHash) {
       markPendingMint(container.containerId, submittedHash, VORTEX_TREASURY)
     } else if (writeStarted) {

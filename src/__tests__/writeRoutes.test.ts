@@ -94,6 +94,8 @@ class StubChain implements ChainExecutor {
   /** Every simulated writeContract, including a revert and a crash after broadcast. */
   writeCalls = 0
   crashAfterWrite = false
+  failBeforeSend = false
+  writeHold: Promise<void> | null = null
   txByNonce = new Map<number, string>()
   deployer = '0x' + 'ab'.repeat(20)
   readError: Error | null = null
@@ -144,6 +146,10 @@ class StubChain implements ChainExecutor {
     if (status === 'pending') txHash = this.pendingTxHash
     else if (status === 'reverted') txHash = '0x' + '44'.repeat(32)
     if (input.onPrepared) await input.onPrepared({ deployer: this.deployer, nonce })
+    if (this.failBeforeSend) {
+      this.failBeforeSend = false
+      throw Object.assign(new Error('estimate gas failed'), { mintNotSent: true })
+    }
     this.writeCalls += 1
     this.txByNonce.set(nonce, txHash)
     if (this.crashAfterWrite) {
@@ -151,6 +157,7 @@ class StubChain implements ChainExecutor {
       this.nonceNow = Math.max(this.nonceNow, nonce + 1)
       throw new Error('killed after writeContract')
     }
+    if (this.writeHold) await this.writeHold
     if (input.onSubmitted) await input.onSubmitted({ txHash, nonce })
     if (this.mintHold) await this.mintHold
     this.nextReceiptStatus = 'success'
@@ -2859,6 +2866,109 @@ describe('mint abuse limits', () => {
       expect(retry.json.txHash).toBe(crashedHash)
       expect(stub.writeCalls).toBe(1)
       expect(stub.mintEntered).toBe(1)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('(a) a crash with the tx unconfirmed and the nonce still latest: retry after claim expiry sends 0 and letters 1', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(85)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.submitNonce = 9
+    stub.nonceNow = 9
+    stub.writeHold = new Promise<void>(() => {})
+    vi.spyOn(stub, 'findTxByNonce').mockResolvedValue(null)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    void mint(signedMint(id, hash, to), authHeader())
+    try {
+      for (let i = 0; i < 40 && stub.writeCalls < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.hget('vortex:mint:presend', hash.toLowerCase())).not.toBeNull()
+      vi.resetModules()
+      const hooks = await import('../../mcp/redisTestHooks')
+      hooks.setRedisClientForTests(redis)
+      const chain = await import('../../mcp/lib/chainPort')
+      chain.setChainExecutorForTests(stub)
+      const second = await import('../../mcp/index')
+      await redis.del('vortex:mint:send:' + hash.toLowerCase())
+      stub.writeHold = null
+      const retry = await second.app.request('/vortex/mint', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeader() },
+        body: JSON.stringify(signedMint(id, hash, to)),
+      })
+      expect(retry.status).toBe(409)
+      expect(stub.writeCalls).toBe(1)
+      await second.replayMintBacklog()
+      expect(stub.writeCalls).toBe(1)
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; nonce?: number; reason?: string }
+      expect(letter.proposal).toBe(hash)
+      expect(letter.nonce).toBe(9)
+      expect(letter.reason).toBe('possibly-sent')
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('(b) a failure before broadcast deletes the pre-send row, frees both cap slots, and the retry mints once', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(86)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.failBeforeSend = true
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const failed = await mint(signedMint(id, hash, to), authHeader())
+      expect(failed.status).toBe(500)
+      expect(stub.writeCalls).toBe(0)
+      expect(await redis.hget('vortex:mint:presend', hash.toLowerCase())).toBeNull()
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBeNull()
+      expect(await redis.get('vortex:mint:send:' + hash.toLowerCase())).toBeNull()
+      const retry = await mint(signedMint(id, hash, to), authHeader())
+      expect(retry.status).toBe(200)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(0)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('(c) a send call that throws after the tx went out: the retry sends 0 and letters 1', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(87)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.submitNonce = 10
+    stub.nonceNow = 10
+    stub.crashAfterWrite = true
+    vi.spyOn(stub, 'findTxByNonce').mockResolvedValue(null)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const failed = await mint(signedMint(id, hash, to), authHeader())
+      expect(failed.status).toBe(500)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.hget('vortex:mint:presend', hash.toLowerCase())).not.toBeNull()
+      await redis.del('vortex:mint:send:' + hash.toLowerCase())
+      resetWriteGuardsForTests()
+      const retry = await mint(signedMint(id, hash, to), authHeader())
+      expect(retry.status).toBe(409)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
     } finally {
       errorSpy.mockRestore()
     }

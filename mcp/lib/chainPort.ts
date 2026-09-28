@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, type Abi } from 'viem'
+import { createPublicClient, createWalletClient, encodeFunctionData, type Abi } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   CONTRACT_ADDRESS,
@@ -205,6 +205,24 @@ function writeOnChain(client: ChainWriter, args: {
   return client.writeContract(args as never)
 }
 
+/** True when the mint failed before the signed transaction reached the node (estimate, sign). */
+export function isMintNotSent(err: unknown): boolean {
+  return !!err && typeof err === 'object' && (err as { mintNotSent?: unknown }).mintNotSent === true
+}
+
+/** Prepare and sign are tagged not-sent. A throw from sendRawTransaction may still have reached the node. */
+async function sendMint(client: WalletBundle['walletClient'], args: Parameters<typeof writeOnChain>[1]): Promise<`0x${string}`> {
+  let signed: `0x${string}`
+  try {
+    const data = encodeFunctionData({ abi: args.abi, functionName: args.functionName, args: args.args } as never)
+    const request = await client.prepareTransactionRequest({ to: args.address, data, nonce: args.nonce } as never)
+    signed = await client.signTransaction(request as never)
+  } catch (err) {
+    throw Object.assign(err instanceof Error ? err : new Error(String(err)), { mintNotSent: true })
+  }
+  return client.sendRawTransaction({ serializedTransaction: signed })
+}
+
 async function loadAbi(which: 'registry' | 'token'): Promise<Abi> {
   if (which === 'registry') {
     const mod = await import('./abi/TemporalContainerRegistry.json', { with: { type: 'json' } })
@@ -341,6 +359,7 @@ class LiveChainExecutor implements ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
+    onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
     onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
   }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus; nonce: number }> {
     const { walletClient, publicClient, account } = this.wallet()
@@ -378,7 +397,7 @@ class LiveChainExecutor implements ChainExecutor {
     const submitted = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
       if (input.onPrepared) await input.onPrepared({ deployer: account.address, nonce: mintNonce })
-      const hash = await writeOnChain(walletClient, {
+      const hash = await sendMint(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'mint',
@@ -507,7 +526,7 @@ class LiveChainExecutor implements ChainExecutor {
     const submitted = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
       if (hooks?.onPrepared) await hooks.onPrepared({ deployer: account.address, nonce: mintNonce })
-      const hash = await writeOnChain(walletClient, {
+      const hash = await sendMint(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'mint',
