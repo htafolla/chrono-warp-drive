@@ -14,6 +14,8 @@ import { getRedisClient } from '../pubsub.js'
 
 export const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9' as const
 export const VORTEX_TREASURY = '0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43' as const
+/** Shorter than viem's 180s default so a 240s drain lock outlives one mint receipt. */
+export const MINT_RECEIPT_TIMEOUT_MS = 120_000
 
 const ZERO_BYTES32 = '0x' + '00'.repeat(32)
 
@@ -59,7 +61,7 @@ export interface ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
-  }): Promise<{ txHash: string; tokenId: string | null }>
+  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' }>
   /**
    * Token id when either historical key already has a mint: containerId (route)
    * and containerHash (old auto-mint). Does not read the deployer key.
@@ -122,6 +124,28 @@ async function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+type ChainReader = { readContract: (args: never) => Promise<unknown> }
+type ChainWriter = { writeContract: (args: never) => Promise<`0x${string}`> }
+
+function readOnChain(client: ChainReader, args: {
+  address: `0x${string}`
+  abi: Abi
+  functionName: string
+  args: readonly unknown[]
+}): Promise<unknown> {
+  return client.readContract(args as never)
+}
+
+function writeOnChain(client: ChainWriter, args: {
+  address: `0x${string}`
+  abi: Abi
+  functionName: string
+  nonce: number
+  args: readonly unknown[]
+}): Promise<`0x${string}`> {
+  return client.writeContract(args as never)
+}
+
 async function loadAbi(which: 'registry' | 'token'): Promise<Abi> {
   if (which === 'registry') {
     const mod = await import('./abi/TemporalContainerRegistry.json', { with: { type: 'json' } })
@@ -174,7 +198,7 @@ class LiveChainExecutor implements ChainExecutor {
     try {
       const publicClient = readClient()
       const abi = await loadAbi('registry')
-      const container = await publicClient.readContract({
+      const container = await readOnChain(publicClient, {
         address: CONTRACT_ADDRESS,
         abi,
         functionName: 'getContainer',
@@ -204,7 +228,7 @@ class LiveChainExecutor implements ChainExecutor {
     const params = containerToContractParams(container)
     const regNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
     const txHash = await withWriteLock(async () => {
-      return walletClient.writeContract({
+      return writeOnChain(walletClient, {
         address: CONTRACT_ADDRESS,
         abi,
         functionName: 'storeContainer',
@@ -258,7 +282,7 @@ class LiveChainExecutor implements ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
-  }): Promise<{ txHash: string; tokenId: string | null }> {
+  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' }> {
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
     const abi = await loadAbi('token')
@@ -293,7 +317,7 @@ class LiveChainExecutor implements ChainExecutor {
     ]
     const txHash = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
-      return walletClient.writeContract({
+      return writeOnChain(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'mint',
@@ -301,18 +325,21 @@ class LiveChainExecutor implements ChainExecutor {
         args: mintArgs,
       })
     })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: MINT_RECEIPT_TIMEOUT_MS })
+    if (receipt.status !== 'success') {
+      return { txHash: receipt.transactionHash, tokenId: null, receiptStatus: 'reverted' }
+    }
     let tokenId: string | null = null
     try {
-      const tid = await publicClient.readContract({
+      const tid = await readOnChain(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'tokenByContainerId',
         args: [mintId],
       }) as bigint
       if (tid !== 0n) tokenId = tid.toString()
-    } catch { /* token id is optional */ }
-    return { txHash: receipt.transactionHash, tokenId }
+    } catch { /* token id is read again by the route */ }
+    return { txHash: receipt.transactionHash, tokenId, receiptStatus: 'success' }
   }
 
   async existingMint(containerId: string, containerHash: string): Promise<string | null> {
@@ -327,7 +354,7 @@ class LiveChainExecutor implements ChainExecutor {
       this.chainCalls += 1
       let tid = 0n
       try {
-        tid = await publicClient.readContract({
+        tid = await readOnChain(publicClient, {
           address: VORTEX_TOKEN_ADDRESS,
           abi,
           functionName: 'tokenByContainerId',
@@ -344,6 +371,7 @@ class LiveChainExecutor implements ChainExecutor {
   }
 
   async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }> {
+    if (!proposalText.trim()) throw new Error('empty proposal text')
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
     const abi = await loadAbi('token')
@@ -379,7 +407,7 @@ class LiveChainExecutor implements ChainExecutor {
     ]
     const txHash = await withWriteLock(async () => {
       const mintNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
-      return walletClient.writeContract({
+      return writeOnChain(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'mint',
@@ -387,12 +415,12 @@ class LiveChainExecutor implements ChainExecutor {
         args: mintArgs,
       })
     })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: MINT_RECEIPT_TIMEOUT_MS })
     if (receipt.status !== 'success') {
       return { txHash: receipt.transactionHash, receiptStatus: 'reverted' }
     }
     try {
-      const tid = await publicClient.readContract({
+      const tid = await readOnChain(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'tokenByContainerId',

@@ -27,12 +27,16 @@ import {
   claimMintSlot,
   clientRateKey,
   commitMintSlot,
+  cooldownDenial,
   isAddress,
   isBytes32,
   isUnixSeconds,
   isVortexSignature,
   persistCooldownRemaining,
   readVortexSigningKey,
+  rejectedMint,
+  rejectedSignature,
+  rejectedWrite,
   releaseMintSlot,
   rememberMintedContainers,
   signVortex,
@@ -67,8 +71,46 @@ const TOKEN_IMAGE_TTL = 86400
 const MINT_BACKLOG_KEY = 'vortex:mint:backlog'
 const MINT_BACKLOG_DEAD_KEY = 'vortex:mint:backlog:dead'
 const MINT_BACKLOG_LOCK_KEY = 'vortex:mint:backlog:lock'
-const MINT_BACKLOG_LOCK_PX = 120_000
+/** Longer than viem's 180s receipt default and longer than MINT_RECEIPT_TIMEOUT_MS (120s). */
+const MINT_BACKLOG_LOCK_PX = 240_000
+const MINT_BACKLOG_MAX_ATTEMPTS = 3
+const MINT_BACKLOG_DEAD_CAP = 1000
+const AUTO_MINT_RATE_KEY = 'auto-mint'
+const REPLAY_RATE_KEY = 'mint-replay'
 const PROPOSAL_TEXT_LIMIT = 140
+
+const REFRESH_LOCK_LUA = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
+end
+return nil
+`
+
+const RELEASE_LOCK_LUA = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`
+
+const DEAD_LETTER_LUA = `
+local removed = redis.call('LREM', KEYS[1], 1, ARGV[1])
+if removed == 0 then
+  return 0
+end
+redis.call('RPUSH', KEYS[2], ARGV[2])
+redis.call('LTRIM', KEYS[2], ARGV[3], ARGV[4])
+return removed
+`
+
+const REPLACE_HEAD_LUA = `
+local removed = redis.call('LREM', KEYS[1], 1, ARGV[1])
+if removed == 0 then
+  return 0
+end
+redis.call('LPUSH', KEYS[1], ARGV[2])
+return 1
+`
 
 let drainInFlight: Promise<void> | null = null
 
@@ -78,6 +120,7 @@ interface MintBacklogEntry {
   skippedAt: string
   reason: string
   proposalText?: string
+  attempts?: number
 }
 
 async function restoreBootState(): Promise<void> {
@@ -1797,7 +1840,8 @@ app.post('/govern_with_solar', async (c: Context) => {
   let persistSigningKey: string | null = null
   if (persistToChain) {
     const auth = authorizeWrite(c.req.header('authorization'))
-    if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+    const denied = rejectedWrite(auth)
+    if (denied) return c.json({ success: false, error: denied.error }, denied.status)
     persistSigningKey = readVortexSigningKey()
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
@@ -1833,12 +1877,13 @@ app.post('/govern_with_solar', async (c: Context) => {
       })
     }
     const acquired = acquirePersistCooldown()
-    if (!acquired.ok) {
+    const retryAfterSecondsHeld = cooldownDenial(acquired)
+    if (retryAfterSecondsHeld !== null) {
       return c.json({
         success: true,
         ...result,
         temporalContainer: {
-          onChainError: `Rate-limited. Try again in ${acquired.retryAfterSeconds}s (${PERSIST_COOLDOWN_MS / 1000}s cooldown).`,
+          onChainError: `Rate-limited. Try again in ${retryAfterSecondsHeld}s (${PERSIST_COOLDOWN_MS / 1000}s cooldown).`,
         },
       })
     }
@@ -2491,7 +2536,8 @@ const friendlyMintError = (err: any): string => {
 
 app.post('/vortex/persist', async (c: Context) => {
   const auth = authorizeWrite(c.req.header('authorization'))
-  if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+  const denied = rejectedWrite(auth)
+  if (denied) return c.json({ success: false, error: denied.error }, denied.status)
   try {
     const { containerId } = await c.req.json() as { containerId: string }
     if (!containerId) return c.json({ success: false, error: 'containerId required' }, 400)
@@ -2521,7 +2567,8 @@ app.post('/vortex/persist', async (c: Context) => {
 // Exact containerId match only. No store fallback, no listContainers scan, no prefix match.
 app.post('/vortex/mint', async (c: Context) => {
   const auth = authorizeWrite(c.req.header('authorization'))
-  if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+  const denied = rejectedWrite(auth)
+  if (denied) return c.json({ success: false, error: denied.error }, denied.status)
   let reservedId: string | null = null
   let writeStarted = false
   try {
@@ -2554,7 +2601,8 @@ app.post('/vortex/mint', async (c: Context) => {
       recipient: to,
       rateKey: clientRateKey(c.req.header('x-forwarded-for')),
     })
-    if (!claim.ok) return c.json({ success: false, error: claim.error }, claim.status)
+    const claimDenied = rejectedMint(claim)
+    if (claimDenied) return c.json({ success: false, error: claimDenied.error }, claimDenied.status)
     reservedId = containerId
 
     const signingKey = readVortexSigningKey()
@@ -2571,10 +2619,11 @@ app.post('/vortex/mint', async (c: Context) => {
       reservedId = null
       return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
     }
-    if (!verdict.ok) {
+    const signatureFailure = rejectedSignature(verdict)
+    if (signatureFailure) {
       releaseMintSlot(containerId)
       reservedId = null
-      const error = verdict.reason === 'expired' ? 'Vortex signature expired' : 'Invalid vortex signature'
+      const error = signatureFailure === 'expired' ? 'Vortex signature expired' : 'Invalid vortex signature'
       return c.json({ success: false, error }, 401)
     }
 
@@ -2603,17 +2652,55 @@ app.post('/vortex/mint', async (c: Context) => {
 
     writeStarted = true
     const minted = await getChainExecutor().mintRegistered({ to, containerId, container })
+    let tokenId = minted.tokenId
+    if (minted.receiptStatus !== 'success') {
+      let landed: string | null = null
+      try {
+        landed = await getChainExecutor().existingMint(containerId, registryHash)
+      } catch (err: unknown) {
+        abortMintWrite(containerId)
+        reservedId = null
+        writeStarted = false
+        const msg = friendlyMintError(err)
+        console.error(`[mint] ${msg}`)
+        return c.json({ success: false, error: msg }, 500)
+      }
+      if (!landed) {
+        abortMintWrite(containerId)
+        reservedId = null
+        writeStarted = false
+        return c.json({ success: false, error: 'Mint transaction reverted' }, 500)
+      }
+      tokenId = landed
+    } else if (!tokenId) {
+      try {
+        tokenId = await getChainExecutor().existingMint(containerId, registryHash)
+      } catch (err: unknown) {
+        abortMintWrite(containerId)
+        reservedId = null
+        writeStarted = false
+        const msg = friendlyMintError(err)
+        console.error(`[mint] ${msg}`)
+        return c.json({ success: false, error: msg }, 500)
+      }
+      if (!tokenId) {
+        abortMintWrite(containerId)
+        reservedId = null
+        writeStarted = false
+        return c.json({ success: false, error: 'Mint transaction did not produce a token' }, 500)
+      }
+    }
     commitMintSlot(containerId, to)
     reservedId = null
     writeStarted = false
-    if (minted.tokenId) await storeVortexStatusInRedis(containerId, minted.tokenId)
+    if (tokenId) await storeVortexStatusInRedis(containerId, tokenId)
 
     return c.json({
       success: true,
       tokenAddress: VORTEX_TOKEN_ADDRESS,
       containerId,
       to,
-      tokenId: minted.tokenId,
+      tokenId,
       txHash: minted.txHash,
       explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
     })
@@ -2848,8 +2935,17 @@ async function storeVortexStatusInRedis(containerId: string, tokenId: string) {
 
 type AutoMintOutcome =
   | { kind: 'minted'; txHash: string }
+  | { kind: 'on-chain' }
   | { kind: 'skipped'; reason: string }
+  | { kind: 'reverted' }
   | { kind: 'error'; error: unknown }
+
+type BacklogRedis = {
+  eval: (script: string, numKeys: number, ...args: Array<string | number>) => Promise<unknown>
+  lindex: (key: string, index: number) => Promise<string | null>
+  lrem: (key: string, count: number, element: string) => Promise<unknown>
+  get: (key: string) => Promise<string | null>
+}
 
 function truncateProposal(proposalText: string): string {
   return proposalText.slice(0, PROPOSAL_TEXT_LIMIT)
@@ -2869,20 +2965,26 @@ async function runAutoMint(
   container: ContainerVortex,
   proposalText: string,
   writeFailureBudget: 'keep' | 'release' = 'keep',
+  rateKey: string = AUTO_MINT_RATE_KEY,
 ): Promise<AutoMintOutcome> {
   const claim = claimMintSlot({
     containerId: container.containerId,
     recipient: VORTEX_TREASURY,
-    rateKey: 'auto-mint',
+    rateKey,
   })
-  if (!claim.ok) return { kind: 'skipped', reason: claim.error }
+  const denied = rejectedMint(claim)
+  if (denied) return { kind: 'skipped', reason: denied.error }
   let writeStarted = false
   try {
     const existing = await getChainExecutor().existingMint(container.containerId, container.containerHash)
     if (existing) {
       rememberMintedContainers([container.containerId, container.containerHash])
       releaseMintSlot(container.containerId)
-      return { kind: 'skipped', reason: 'Container already has a vortex token' }
+      return { kind: 'on-chain' }
+    }
+    if (!proposalText.trim()) {
+      releaseMintSlot(container.containerId)
+      return { kind: 'error', error: new Error('empty proposal text') }
     }
     writeStarted = true
     const result = await getChainExecutor().autoMint(onChainMintId(container.containerId), container, proposalText)
@@ -2897,10 +2999,10 @@ async function runAutoMint(
       if (landed) {
         rememberMintedContainers([container.containerId, container.containerHash])
         releaseMintSlot(container.containerId)
-        return { kind: 'skipped', reason: 'Container already has a vortex token' }
+        return { kind: 'on-chain' }
       }
       settleFailedWrite(container.containerId, writeFailureBudget)
-      return { kind: 'error', error: new Error('mint transaction reverted') }
+      return { kind: 'reverted' }
     }
     commitMintSlot(container.containerId, VORTEX_TREASURY)
     console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`)
@@ -2962,17 +3064,22 @@ async function removeExactBacklogEntry(client: { lrem: (key: string, count: numb
   await client.lrem(MINT_BACKLOG_KEY, 1, raw)
 }
 
-async function deadLetterBacklogEntry(
-  client: { lrem: (key: string, count: number, element: string) => Promise<unknown>; rpush: (key: string, value: string) => Promise<unknown> },
-  raw: string,
-  reason: string,
-): Promise<void> {
-  await removeExactBacklogEntry(client, raw)
-  await client.rpush(MINT_BACKLOG_DEAD_KEY, JSON.stringify({
+async function deadLetterBacklogEntry(client: BacklogRedis, raw: string, reason: string): Promise<void> {
+  const record = JSON.stringify({
     raw,
     reason,
     deadAt: new Date().toISOString(),
-  }))
+  })
+  await client.eval(
+    DEAD_LETTER_LUA,
+    2,
+    MINT_BACKLOG_KEY,
+    MINT_BACKLOG_DEAD_KEY,
+    raw,
+    record,
+    String(-MINT_BACKLOG_DEAD_CAP),
+    '-1',
+  )
   console.error(`[mint] backlog dead-lettered reason=${reason}`)
 }
 
@@ -2980,41 +3087,69 @@ function drainLockToken(): string {
   return `${process.pid}:${Date.now()}:${Math.random().toString(16).slice(2)}`
 }
 
-async function ownDrainLock(client: { get: (key: string) => Promise<string | null> }, token: string): Promise<boolean> {
-  const current = await client.get(MINT_BACKLOG_LOCK_KEY)
-  return current === token
+function backlogRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, unknown>
 }
 
-/** One pass. Each removal is LREM of the raw string that was checked, not LPOP of whatever is now at the head. */
-async function drainMintBacklogOnce(
-  client: {
-    lindex: (key: string, index: number) => Promise<string | null>
-    lrem: (key: string, count: number, element: string) => Promise<unknown>
-    rpush: (key: string, value: string) => Promise<unknown>
-    get: (key: string) => Promise<string | null>
-    set: (key: string, value: string, px: string, ttl: number) => Promise<unknown>
-  },
-  token: string,
-): Promise<void> {
+function validBacklogId(value: unknown): value is string {
+  return typeof value === 'string' && isBytes32(value)
+}
+
+function validProposalText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+async function removeIfChainConfirms(client: BacklogRedis, raw: string, entry: MintBacklogEntry): Promise<boolean> {
+  let already = false
+  try {
+    already = await confirmedBacklogSkip(entry)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+    return false
+  }
+  if (!already) {
+    console.error(`[mint] backlog left in place; chain has no token containerId=${entry.containerId}`)
+    return false
+  }
+  await removeExactBacklogEntry(client, raw)
+  return true
+}
+
+/** One pass. Removal happens only after existingMint finds a token for the raw string that was checked. */
+async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promise<void> {
   for (;;) {
-    if (!await ownDrainLock(client, token)) return
-    await client.set(MINT_BACKLOG_LOCK_KEY, token, 'PX', MINT_BACKLOG_LOCK_PX)
+    const refreshed = await client.eval(REFRESH_LOCK_LUA, 1, MINT_BACKLOG_LOCK_KEY, token, String(MINT_BACKLOG_LOCK_PX))
+    if (refreshed !== 'OK') return
     const raw = await client.lindex(MINT_BACKLOG_KEY, 0) as string | null
     if (!raw) return
-    let entry: MintBacklogEntry | null
+    let record: Record<string, unknown> | null
     try {
-      const parsed: unknown = JSON.parse(raw)
-      entry = parsed && typeof parsed === 'object' ? parsed as MintBacklogEntry : null
+      record = backlogRecord(JSON.parse(raw) as unknown)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       console.error(`[mint] backlog dead-letter; head entry is not JSON: ${message}`)
       await deadLetterBacklogEntry(client, raw, 'invalid json')
       continue
     }
-    if (!entry?.containerId || !entry.containerHash) {
-      console.error('[mint] backlog dead-letter; head entry is missing ids')
+    if (!record || !validBacklogId(record.containerId) || !validBacklogId(record.containerHash)) {
+      console.error('[mint] backlog dead-letter; head entry has a bad id')
       await deadLetterBacklogEntry(client, raw, 'missing ids')
       continue
+    }
+    if (!validProposalText(record.proposalText)) {
+      console.error(`[mint] backlog dead-letter; proposal text missing containerId=${record.containerId}`)
+      await deadLetterBacklogEntry(client, raw, 'missing proposal text')
+      continue
+    }
+    const entry: MintBacklogEntry = {
+      containerId: record.containerId,
+      containerHash: record.containerHash,
+      skippedAt: typeof record.skippedAt === 'string' ? record.skippedAt : '',
+      reason: typeof record.reason === 'string' ? record.reason : '',
+      proposalText: record.proposalText,
+      attempts: typeof record.attempts === 'number' ? record.attempts : 0,
     }
     const stored = await containerForBacklog(entry)
     if (!stored) {
@@ -3041,15 +3176,27 @@ async function drainMintBacklogOnce(
       continue
     }
     // Saved on the entry when the mint was skipped. dynamo:containers is not a source for this text.
-    const proposalText = typeof entry.proposalText === 'string' ? entry.proposalText : ''
-    const outcome = await runAutoMint(container, proposalText, 'release')
+    const proposalText = record.proposalText
+    const outcome = await runAutoMint(container, proposalText, 'release', REPLAY_RATE_KEY)
     if (outcome.kind === 'error') {
       const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error)
       console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
       return
     }
-    if (outcome.kind === 'minted' || outcome.reason === 'Container already has a vortex token') {
-      await removeExactBacklogEntry(client, raw)
+    if (outcome.kind === 'reverted') {
+      const attempts = (entry.attempts ?? 0) + 1
+      if (attempts >= MINT_BACKLOG_MAX_ATTEMPTS) {
+        await deadLetterBacklogEntry(client, raw, 'reverted')
+        continue
+      }
+      const updated = JSON.stringify({ ...record, attempts })
+      await client.eval(REPLACE_HEAD_LUA, 1, MINT_BACKLOG_KEY, raw, updated)
+      console.error(`[mint] backlog revert kept containerId=${entry.containerId} attempts=${attempts}`)
+      return
+    }
+    if (outcome.kind === 'minted' || outcome.kind === 'on-chain') {
+      const removed = await removeIfChainConfirms(client, raw, entry)
+      if (!removed) return
       continue
     }
     console.error(`[mint] backlog left in place containerId=${entry.containerId} reason=${outcome.reason}`)
@@ -3070,7 +3217,7 @@ export async function replayMintBacklog(): Promise<void> {
   try {
     await drainMintBacklogOnce(client, token)
   } finally {
-    if (await ownDrainLock(client, token)) await client.del(MINT_BACKLOG_LOCK_KEY)
+    await client.eval(RELEASE_LOCK_LUA, 1, MINT_BACKLOG_LOCK_KEY, token)
   }
 }
 
@@ -3093,8 +3240,13 @@ export async function autoMintVortex(container: ContainerVortex, proposalText: s
     await pushMintBacklog(container, message, proposalText)
     return null
   }
-  if (outcome.kind === 'skipped') {
-    console.log(`[vortex] Auto-mint skipped: ${outcome.reason}`)
+  if (outcome.kind === 'reverted') {
+    await pushMintBacklog(container, 'mint transaction reverted', proposalText)
+    return null
+  }
+  if (outcome.kind === 'skipped' || outcome.kind === 'on-chain') {
+    const reason = outcome.kind === 'skipped' ? outcome.reason : 'Container already has a vortex token'
+    console.log(`[vortex] Auto-mint skipped: ${reason}`)
     return null
   }
   try {
@@ -3109,7 +3261,8 @@ export async function autoMintVortex(container: ContainerVortex, proposalText: s
 // === Dev: seed test containers ===
 mountDevSeedRoute(app, async (c: Context) => {
   const auth = authorizeWrite(c.req.header('authorization'))
-  if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
+  const denied = rejectedWrite(auth)
+  if (denied) return c.json({ success: false, error: denied.error }, denied.status)
   const signingKey = readVortexSigningKey()
   if (!signingKey) return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
   try {

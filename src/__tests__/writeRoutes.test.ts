@@ -14,6 +14,14 @@ const counters = vi.hoisted(() => {
   return { deployerKeyReads: 0, directChainCalls: 0 }
 })
 
+vi.mock('../../mcp/lib/wavePropagation.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../mcp/lib/wavePropagation.js')>()
+  return {
+    ...actual,
+    sentenceToEmbedding16: async () => Array.from({ length: 16 }, () => 0),
+  }
+})
+
 vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../mcp/lib/contractClient.js')>()
   return {
@@ -70,8 +78,11 @@ class StubChain implements ChainExecutor {
   proposalTexts: string[] = []
   nextReceiptStatus: 'success' | 'reverted' = 'success'
   revertLeavesToken = false
+  revertRemaining = 0
   autoMintHold: Promise<void> | null = null
   autoMintEntered = 0
+  mintHold: Promise<void> | null = null
+  mintEntered = 0
   readError: Error | null = null
 
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
@@ -99,17 +110,23 @@ class StubChain implements ChainExecutor {
     return { txHash: '0x' + 'cd'.repeat(32) }
   }
 
-  async mintRegistered(input: { to: string; containerId: string; container: RegistryContainer }): Promise<{ txHash: string; tokenId: string | null }> {
+  async mintRegistered(input: { to: string; containerId: string; container: RegistryContainer }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' }> {
     this.keyReads += 1
     this.chainCalls += 1
+    this.mintEntered += 1
+    if (this.mintHold) await this.mintHold
     if (this.failNextMint) {
       this.failNextMint = false
       throw new Error('mint reverted')
     }
     const mintId = onChainMintId(input.containerId)
+    if (this.nextReceiptStatus === 'reverted') {
+      this.nextReceiptStatus = 'success'
+      return { txHash: '0x' + '44'.repeat(32), tokenId: null, receiptStatus: 'reverted' }
+    }
     this.mints.push(mintId)
     this.mintedOnChain.set(mintId.toLowerCase(), '7')
-    return { txHash: '0x' + '11'.repeat(32), tokenId: '7' }
+    return { txHash: '0x' + '11'.repeat(32), tokenId: '7', receiptStatus: 'success' }
   }
 
   async existingMint(containerId: string, containerHash: string): Promise<string | null> {
@@ -136,6 +153,10 @@ class StubChain implements ChainExecutor {
     this.proposalTexts.push(proposalText)
     this.autoMintEntered += 1
     if (this.autoMintHold) await this.autoMintHold
+    if (this.revertRemaining > 0) {
+      this.revertRemaining -= 1
+      return { txHash: '0x' + '33'.repeat(32), receiptStatus: 'reverted' }
+    }
     if (this.nextReceiptStatus === 'reverted') {
       const leaveToken = this.revertLeavesToken
       this.nextReceiptStatus = 'success'
@@ -201,8 +222,49 @@ class MemoryRedis {
     return values.slice(start, stop + 1)
   }
 
-  async ltrim(): Promise<string> {
+  async ltrim(key: string, start: number, end: number): Promise<string> {
+    const values = this.list(key)
+    const len = values.length
+    const norm = (index: number) => {
+      if (index < 0) return Math.max(len + index, 0)
+      return Math.min(index, len)
+    }
+    const from = norm(start)
+    const to = norm(end)
+    const next = to < from ? [] : values.slice(from, to + 1)
+    values.length = 0
+    values.push(...next)
     return 'OK'
+  }
+
+  async eval(script: string, numKeys: number, ...rest: Array<string | number>): Promise<unknown> {
+    const keys = rest.slice(0, numKeys).map(String)
+    const args = rest.slice(numKeys).map(String)
+    if (script.includes("redis.call('GET'") && script.includes("redis.call('SET'")) {
+      const current = await this.get(keys[0])
+      if (current !== args[0]) return null
+      await this.set(keys[0], args[0], 'PX', Number(args[1]))
+      return 'OK'
+    }
+    if (script.includes("redis.call('DEL'")) {
+      const current = await this.get(keys[0])
+      if (current !== args[0]) return 0
+      return this.del(keys[0])
+    }
+    if (script.includes("redis.call('LREM'") && script.includes("redis.call('RPUSH'")) {
+      const removed = await this.lrem(keys[0], 1, args[0])
+      if (removed === 0) return 0
+      await this.rpush(keys[1], args[1])
+      await this.ltrim(keys[1], Number(args[2]), Number(args[3]))
+      return removed
+    }
+    if (script.includes("redis.call('LREM'") && script.includes("redis.call('LPUSH'")) {
+      const removed = await this.lrem(keys[0], 1, args[0])
+      if (removed === 0) return 0
+      await this.lpush(keys[0], args[1])
+      return 1
+    }
+    throw new Error('unexpected redis script')
   }
 
   async lrem(key: string, count: number, element: string): Promise<number> {
@@ -283,8 +345,8 @@ class MemoryRedisMulti {
     return this
   }
 
-  ltrim(): this {
-    this.ops.push(async () => 'OK')
+  ltrim(key: string, start: number, end: number): this {
+    this.ops.push(() => this.redis.ltrim(key, start, end))
     return this
   }
 
@@ -1052,6 +1114,7 @@ describe('mint abuse limits', () => {
       containerHash: hash,
       skippedAt: new Date().toISOString(),
       reason: 'rpc down',
+      proposalText: 'hash keyed',
     }))
     const logs: string[] = []
     const spy = vi.spyOn(console, 'log').mockImplementation((message?: unknown) => {
@@ -1088,6 +1151,7 @@ describe('mint abuse limits', () => {
         ...entry,
         skippedAt: new Date().toISOString(),
         reason: 'rpc down',
+        proposalText: 'mid list',
       }))
     }
     stub.existingMintErrorIds.add(secondId.toLowerCase())
@@ -1355,6 +1419,301 @@ describe('mint abuse limits', () => {
     }
   })
 
+  it('a POST for X is in flight during the drain and then fails; X\'s entry must stay', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const raw = JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'held during post',
+    })
+    await redis.rpush(MINT_BACKLOG_KEY, raw)
+    let releaseMint: () => void = () => {}
+    stub.mintHold = new Promise<void>((resolve) => { releaseMint = resolve })
+    stub.nextReceiptStatus = 'reverted'
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const pending = mint(signedMint(id, hash, address(93)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.93.0.1',
+    })
+    try {
+      for (let i = 0; i < 40 && stub.mintEntered < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.mintEntered).toBe(1)
+      await replayMintBacklog()
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBe(raw)
+      expect(stub.autoMints).toEqual([])
+      releaseMint()
+      const failed = await pending
+      expect(failed.status).toBe(500)
+      expect(failed.json.success).toBe(false)
+      expect(failed.json.tokenId).toBeUndefined()
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBe(raw)
+    } finally {
+      releaseMint()
+      await pending.catch(() => {})
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a revert frees the container and a retry isn\'t 409', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(94)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'reverted'
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '10.94.0.1',
+      })
+      expect(first.status).toBe(500)
+      expect(first.json.success).toBe(false)
+      expect(first.json.tokenId).toBeUndefined()
+      expect(stub.mints).toEqual([])
+      const second = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '10.94.0.2',
+      })
+      expect(second.status).toBe(200)
+      expect(second.json.tokenId).toBe('7')
+      for (let n = 0; n < MINT_ADDRESS_CAP - 1; n += 1) {
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, to), {
+          ...authHeader(),
+          'x-forwarded-for': `10.94.1.${n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      expect(stub.mints).toHaveLength(MINT_ADDRESS_CAP)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a head that reverts three times is dead-lettered and the drain continues', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const badId = nextId()
+    const badHash = nextId()
+    const goodId = nextId()
+    const goodHash = nextId()
+    rememberContainerForTests(sampleVortex(badId, badHash))
+    rememberContainerForTests(sampleVortex(goodId, goodHash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: badId,
+      containerHash: badHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'again',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'next',
+    }))
+    stub.revertRemaining = 3
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      const once = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { containerId: string; attempts: number }
+      expect(once.containerId).toBe(badId)
+      expect(once.attempts).toBe(1)
+      expect(stub.autoMints).toEqual([])
+      await replayMintBacklog()
+      const twice = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { attempts: number }
+      expect(twice.attempts).toBe(2)
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(goodId)])
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead.some((row) => row.includes(badId) && row.includes('reverted'))).toBe(true)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a numeric, empty, or untyped id and an empty proposal text are dead-lettered', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const goodId = nextId()
+    const goodHash = nextId()
+    const otherHash = nextId()
+    rememberContainerForTests(sampleVortex(goodId, goodHash))
+    const stamp = new Date().toISOString()
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: 12,
+      containerHash: otherHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'numeric',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: '',
+      containerHash: otherHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'blank id',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: { bad: true },
+      containerHash: otherHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'wrong type',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: '',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'kept text',
+    }))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(goodId)])
+      expect(stub.proposalTexts).toEqual(['kept text'])
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(5)
+      expect(dead.filter((row) => row.includes('missing ids'))).toHaveLength(3)
+      expect(dead.filter((row) => row.includes('missing proposal text'))).toHaveLength(2)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a replay uses its own rate lane and does not consume the auto-mint limit', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      for (let n = 0; n < MINT_RATE_LIMIT; n += 1) {
+        const id = nextId()
+        const hash = nextId()
+        expect(typeof await autoMintVortex(sampleVortex(id, hash), `lane ${n}`)).toBe('string')
+      }
+      expect(stub.autoMints).toHaveLength(MINT_RATE_LIMIT)
+      const blocked = await autoMintVortex(sampleVortex(nextId(), nextId()), 'blocked lane')
+      expect(blocked).toBeNull()
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+      const replayId = nextId()
+      const replayHash = nextId()
+      rememberContainerForTests(sampleVortex(replayId, replayHash))
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        containerId: replayId,
+        containerHash: replayHash,
+        skippedAt: new Date().toISOString(),
+        reason: 'rpc down',
+        proposalText: 'replay lane',
+      }))
+      await replayMintBacklog()
+      expect(stub.autoMints).toContain(onChainMintId(replayId))
+      expect(stub.proposalTexts).toContain('replay lane')
+    } finally {
+      logSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a stolen drain lock is not released or extended by the old holder', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const laterId = nextId()
+    const laterHash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    rememberContainerForTests(sampleVortex(laterId, laterHash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'first',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: laterId,
+      containerHash: laterHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'second',
+    }))
+    let releaseHold: () => void = () => {}
+    stub.autoMintHold = new Promise<void>((resolve) => { releaseHold = resolve })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const draining = replayMintBacklog()
+    try {
+      for (let i = 0; i < 40 && stub.autoMintEntered < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.autoMintEntered).toBe(1)
+      await redis.set('vortex:mint:backlog:lock', 'intruder', 'PX', 240000)
+      releaseHold()
+      await draining
+      expect(await redis.get('vortex:mint:backlog:lock')).toBe('intruder')
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(laterId)
+    } finally {
+      releaseHold()
+      await draining.catch(() => {})
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('the dead list keeps the newest 1000 entries', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    for (let n = 0; n < 1001; n += 1) await redis.rpush(MINT_BACKLOG_KEY, `{bad ${n}`)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1000)
+      expect(dead[0]).toContain('{bad 1')
+      expect(dead[999]).toContain('{bad 1000')
+      expect(dead.join('\n')).not.toContain('{bad 0')
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('a registry RPC error returns 500 and a missing container returns 404', async () => {
     const id = nextId()
     const hash = nextId()
@@ -1572,8 +1931,8 @@ describe('write-route auth', () => {
     expect(stub.autoMints).toEqual([])
   })
 
-  it('keeps the 60s auto-mint cooldown and does not call the chain on the limited request', async () => {
-    expect(PERSIST_COOLDOWN_MS).toBe(60_000)
+  it('keeps the 10s persist cooldown and does not call the chain on the limited request', async () => {
+    expect(PERSIST_COOLDOWN_MS).toBe(10_000)
     const original = dynamoSolarGovernance.enhanceGovernanceDecision.bind(dynamoSolarGovernance)
     const spy = vi.spyOn(dynamoSolarGovernance, 'enhanceGovernanceDecision').mockImplementation(async (...args) => {
       const real = await original(...args)
@@ -1599,7 +1958,7 @@ describe('write-route auth', () => {
       const second = await postJson('/govern_with_solar', body, authHeader())
       expect(second.status).toBe(200)
       expect(typeof second.json.finalRecommendation).toBe('string')
-      expect(String((second.json.temporalContainer as { onChainError?: string })?.onChainError)).toContain('60s cooldown')
+      expect(String((second.json.temporalContainer as { onChainError?: string })?.onChainError)).toContain('10s cooldown')
       expectNoChainOrKey(chainBefore, keyBefore)
       expect(counters.deployerKeyReads).toBe(0)
       expect(counters.directChainCalls).toBe(0)

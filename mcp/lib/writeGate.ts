@@ -12,8 +12,8 @@ export const MCP_WRITE_API_KEY_ENV = 'MCP_WRITE_API_KEY'
 export const MINT_GLOBAL_BUDGET_ENV = 'MINT_GLOBAL_BUDGET'
 export const MINT_GLOBAL_WINDOW_ENV = 'MINT_GLOBAL_WINDOW_MS'
 
-/** Persist + the auto-mint it triggers. Kept at 60 seconds so this constant matches the handler comment (the old 10_000 value did not). */
-export const PERSIST_COOLDOWN_MS = 60_000
+/** Persist cooldown: 1 per 10 seconds globally, same as main. */
+export const PERSIST_COOLDOWN_MS = 10_000
 
 export const MINT_RATE_LIMIT = 5
 export const MINT_RATE_WINDOW_MS = 60_000
@@ -94,6 +94,13 @@ export type WriteAuth =
   | { ok: true }
   | { ok: false; status: 401 | 503; error: string }
 
+/** Failure fields. `in` checks so this narrows without strictNullChecks. */
+export function rejectedWrite(auth: WriteAuth): { status: 401 | 503; error: string } | null {
+  if (auth.ok) return null
+  if ('status' in auth && 'error' in auth) return { status: auth.status, error: auth.error }
+  return { status: 401, error: 'Unauthorized' }
+}
+
 /** Fail closed when MCP_WRITE_API_KEY is unset. Comparison is constant-time. */
 export function authorizeWrite(authorizationHeader: string | undefined): WriteAuth {
   const expected = process.env[MCP_WRITE_API_KEY_ENV]
@@ -144,6 +151,13 @@ function fixedTimeFalse(expected: Buffer): boolean {
 export type VortexSignatureVerdict =
   | { ok: true }
   | { ok: false; reason: 'invalid' | 'expired' }
+
+/** Failure reason. `in` checks so this narrows without strictNullChecks. */
+export function rejectedSignature(verdict: VortexSignatureVerdict): 'invalid' | 'expired' | null {
+  if (verdict.ok) return null
+  if ('reason' in verdict) return verdict.reason
+  return 'invalid'
+}
 
 /**
  * Fail closed when key is null. MAC is checked before expiry so a copied
@@ -212,6 +226,13 @@ export function clientRateKey(forwardedFor: string | undefined): string {
 export type MintClaim =
   | { ok: true }
   | { ok: false; status: 409 | 429; error: string }
+
+/** Failure fields. `in` checks so this narrows without strictNullChecks. */
+export function rejectedMint(claim: MintClaim): { status: 409 | 429; error: string } | null {
+  if (claim.ok) return null
+  if ('status' in claim && 'error' in claim) return { status: claim.status, error: claim.error }
+  return { status: 409, error: 'Container already has a vortex token' }
+}
 
 function pruneBudget(now: number, windowMs: number): void {
   const oldestKept = now - windowMs
@@ -304,4 +325,11 @@ export function acquirePersistCooldown(now = Date.now()): { ok: true } | { ok: f
   }
   lastPersistAt = now
   return { ok: true }
+}
+
+/** Seconds still on the cooldown, or null when the attempt acquired it. */
+export function cooldownDenial(result: { ok: true } | { ok: false; retryAfterSeconds: number }): number | null {
+  if (result.ok) return null
+  if ('retryAfterSeconds' in result) return result.retryAfterSeconds
+  return 0
 }
