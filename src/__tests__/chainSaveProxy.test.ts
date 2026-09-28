@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
+import { maxDuration } from '../../api/govern-chain'
 import {
   CHAIN_SAVE_BODY_MAX,
   CHAIN_SAVE_RATE_LIMIT,
@@ -391,5 +393,13 @@ describe('chain save proxy', () => {
       verifyImpl: async () => true,
     })
     expect(ok.status).toBe(200)
+  })
+
+  it('sets maxDuration to 90 so the function outlasts the 60s upstream timeout', () => {
+    expect(maxDuration).toBe(90)
+    const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as {
+      functions: Record<string, { maxDuration: number }>
+    }
+    expect(vercel.functions['api/govern-chain.ts'].maxDuration).toBe(90)
   })
 })
