@@ -132,39 +132,33 @@ export async function rebuildMintedSetFromChain(): Promise<void> {
   if (rebuildInFlight) return rebuildInFlight
   clearMintRebuildRetry()
   mintRebuildGate = 'pending'
-  let timedOut = false
-  const run = new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      timedOut = true
+  const run = (async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const ids = await new Promise<string[]>((resolve, reject) => {
+        timer = setTimeout(() => {
+          if (mintRebuildGate === 'ready') return
+          mintRebuildGate = 'closed'
+          console.error(`[mint] rebuild still running after ${MINT_REBUILD_TIMEOUT_MS}ms; minting stays closed until this scan settles`)
+        }, MINT_REBUILD_TIMEOUT_MS)
+        unrefTimer(timer)
+        getChainExecutor().listMintedContainerIds().then(resolve, reject)
+      })
+      replaceMintedContainers(ids)
+      mintRebuildGate = 'ready'
+      rebuildRetryAttempt = 0
+      rebuildRetryDelayMs = null
+      clearMintRebuildRetry()
+      console.log(`[mint] rebuilt minted set from chain (${ids.length} ids)`)
+    } catch (err: unknown) {
       mintRebuildGate = 'closed'
-      console.error(`[mint] rebuild timed out after ${MINT_REBUILD_TIMEOUT_MS}ms; minting stays closed`)
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[mint] rebuild failed; minting stays closed: ${message}`)
       scheduleMintRebuildRetry()
-      resolve()
-    }, MINT_REBUILD_TIMEOUT_MS)
-    unrefTimer(timer)
-    getChainExecutor().listMintedContainerIds().then(
-      (ids) => {
-        clearTimeout(timer)
-        if (timedOut) return
-        replaceMintedContainers(ids)
-        mintRebuildGate = 'ready'
-        rebuildRetryAttempt = 0
-        rebuildRetryDelayMs = null
-        clearMintRebuildRetry()
-        console.log(`[mint] rebuilt minted set from chain (${ids.length} ids)`)
-        resolve()
-      },
-      (err: unknown) => {
-        clearTimeout(timer)
-        if (timedOut) return
-        mintRebuildGate = 'closed'
-        const message = err instanceof Error ? err.message : String(err)
-        console.error(`[mint] rebuild failed; minting stays closed: ${message}`)
-        scheduleMintRebuildRetry()
-        resolve()
-      },
-    )
-  })
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  })()
   rebuildInFlight = run
   try {
     await run
@@ -174,9 +168,9 @@ export async function rebuildMintedSetFromChain(): Promise<void> {
 }
 
 // Bootstrap: load containers from Redis on module init.
-// One chain scan, then background retries only after a failure or timeout.
+// One chain scan. A slow scan stays in flight until it settles; the 20s mark
+// does not start another. An error schedules a background retry (5s, 10s, 20s, up to 5min).
 // Tests skip this import-time scan and open the gate themselves.
-// Minting stays closed until a scan succeeds. Retries wait 5s, 10s, 20s, up to 5min.
 ;(async () => {
   if (!process.env.VITEST) {
     await rebuildMintedSetFromChain()

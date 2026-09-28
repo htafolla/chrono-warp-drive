@@ -2,6 +2,9 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  // Default `npx playwright test` is the local claims-paused spec only.
+  // Live prod specs: PLAYWRIGHT_LIVE=1 npx playwright test e2e/vortex.spec.ts e2e/validate.spec.ts
+  testMatch: process.env.PLAYWRIGHT_LIVE === '1' ? '**/*.spec.ts' : '**/claims-paused.spec.ts',
   timeout: 180000,
   retries: 1,
   workers: 1,

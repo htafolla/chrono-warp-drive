@@ -76,6 +76,25 @@ export function onChainMintId(containerId: string): `0x${string}` {
 }
 
 const ZERO_MINT_KEY = '0x' + '00'.repeat(32)
+/** Per-token reads during a rebuild. Wider fan-out is rejected by the public Base RPC. */
+const MINT_SCAN_CONCURRENCY = 2
+
+async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const workers = Math.min(Math.max(limit, 0), items.length)
+  async function run(): Promise<void> {
+    for (;;) {
+      const index = cursor
+      cursor += 1
+      if (index >= items.length) return
+      results[index] = await fn(items[index])
+    }
+  }
+  if (workers === 0) return results
+  await Promise.all(Array.from({ length: workers }, () => run()))
+  return results
+}
 
 function isMintKey(value: string | undefined): value is string {
   return typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value) && value.toLowerCase() !== ZERO_MINT_KEY
@@ -373,8 +392,10 @@ class LiveChainExecutor implements ChainExecutor {
       abi,
       functionName: 'totalSupply',
     }) as bigint
-    const records: ChainMintRecord[] = []
-    for (let i = 0n; i < supply; i++) {
+    const count = Number(supply)
+    if (!Number.isSafeInteger(count)) throw new Error('totalSupply is too large to scan')
+    const indexes = Array.from({ length: count }, (_, i) => BigInt(i))
+    const records = await mapWithConcurrency(indexes, MINT_SCAN_CONCURRENCY, async (i) => {
       const tokenId = await publicClient.readContract({
         address: VORTEX_TOKEN_ADDRESS,
         abi,
@@ -394,16 +415,22 @@ class LiveChainExecutor implements ChainExecutor {
         if (!isMintKey(key)) continue
         const lower = key.toLowerCase()
         if (lower in tokenByKey) continue
-        const tid = await publicClient.readContract({
-          address: VORTEX_TOKEN_ADDRESS,
-          abi,
-          functionName: 'tokenByContainerId',
-          args: [key as `0x${string}`],
-        }) as bigint
+        let tid = 0n
+        try {
+          tid = await publicClient.readContract({
+            address: VORTEX_TOKEN_ADDRESS,
+            abi,
+            functionName: 'tokenByContainerId',
+            args: [key as `0x${string}`],
+          }) as bigint
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          if (!message.includes('No token for this container')) throw err
+        }
         tokenByKey[lower] = tid === 0n ? null : tid.toString()
       }
-      records.push({ containerId, containerHash, tokenByKey })
-    }
+      return { containerId, containerHash, tokenByKey }
+    })
     return mintedIdsFromChainRecords(records)
   }
 

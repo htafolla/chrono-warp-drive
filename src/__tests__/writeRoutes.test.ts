@@ -63,6 +63,9 @@ class StubChain implements ChainExecutor {
   tokenRecords: ChainMintRecord[] = []
   listHold: Promise<void> | null = null
   listError: Error | null = null
+  scanStarts = 0
+  scansInFlight = 0
+  maxConcurrentScans = 0
 
   async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
     this.chainCalls += 1
@@ -113,10 +116,17 @@ class StubChain implements ChainExecutor {
 
   async listMintedContainerIds(): Promise<string[]> {
     this.chainCalls += 1
-    if (this.listHold) await this.listHold
-    if (this.listError) throw this.listError
-    if (this.tokenRecords.length > 0) return mintedIdsFromChainRecords(this.tokenRecords)
-    return this.bootIds.length > 0 ? [...this.bootIds] : [...this.mintedOnChain.keys()]
+    this.scanStarts += 1
+    this.scansInFlight += 1
+    this.maxConcurrentScans = Math.max(this.maxConcurrentScans, this.scansInFlight)
+    try {
+      if (this.listHold) await this.listHold
+      if (this.listError) throw this.listError
+      if (this.tokenRecords.length > 0) return mintedIdsFromChainRecords(this.tokenRecords)
+      return this.bootIds.length > 0 ? [...this.bootIds] : [...this.mintedOnChain.keys()]
+    } finally {
+      this.scansInFlight -= 1
+    }
   }
 
   async autoMint(mintId: string): Promise<{ txHash: string }> {
@@ -795,6 +805,95 @@ describe('mint abuse limits', () => {
     expect(stub.autoMints).toEqual([])
     expect(counters.deployerKeyReads).toBe(0)
     expect(counters.directChainCalls).toBe(0)
+  })
+
+  it('(a) a scan that takes 25s opens minting when it completes', async () => {
+    vi.useFakeTimers()
+    let release: () => void = () => {}
+    const id = nextId()
+    const hash = nextId()
+    const autoId = nextId()
+    const autoHash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.containers.set(autoId.toLowerCase(), registryContainer(autoId, autoHash))
+    stub.listHold = new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 25_000)
+      release = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+    })
+    const pending = rebuildMintedSetFromChain()
+    try {
+      await vi.advanceTimersByTimeAsync(20_000)
+      const refused = await mint(signedMint(id, hash, address(6)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.55.0.1',
+      })
+      const skipped = await autoMintVortex(sampleVortex(autoId, autoHash), 'during-slow-scan')
+      expect(refused.status).toBe(503)
+      expect(skipped).toBeNull()
+      expect(stub.mints).toEqual([])
+      expect(stub.autoMints).toEqual([])
+      expect(stub.maxConcurrentScans).toBe(1)
+      expect(mintRebuildRetryDelayForTests()).toBeNull()
+      await vi.advanceTimersByTimeAsync(5_000)
+      await pending
+      const allowed = await mint(signedMint(id, hash, address(6)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.55.0.1',
+      })
+      const autoTx = await autoMintVortex(sampleVortex(autoId, autoHash), 'after-slow-scan')
+      expect(allowed.status).toBe(200)
+      expect(autoTx).toBe('0x' + '22'.repeat(32))
+      expect(stub.mints).toEqual([id])
+      expect(stub.autoMints).toEqual([onChainMintId(autoId)])
+      expect(stub.scanStarts).toBe(1)
+      expect(stub.maxConcurrentScans).toBe(1)
+      expect(counters.deployerKeyReads).toBe(0)
+    } finally {
+      release()
+      await pending.catch(() => {})
+      vi.useRealTimers()
+    }
+  })
+
+  it('(b) a hung scan never runs more than one scan', async () => {
+    vi.useFakeTimers()
+    let release: () => void = () => {}
+    stub.listHold = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const first = rebuildMintedSetFromChain()
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(20_000)
+      await vi.advanceTimersByTimeAsync(5_000 + 10_000 + 20_000 + 5 * 60_000)
+      void rebuildMintedSetFromChain()
+      void rebuildMintedSetFromChain()
+      await vi.advanceTimersByTimeAsync(0)
+      const refused = await mint(signedMint(nextId(), nextId(), address(7)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.56.0.1',
+      })
+      const skipped = await autoMintVortex(sampleVortex(nextId(), nextId()), 'hung-scan')
+      expect(refused.status).toBe(503)
+      expect(skipped).toBeNull()
+      expect(stub.scanStarts).toBe(1)
+      expect(stub.maxConcurrentScans).toBe(1)
+      expect(stub.scansInFlight).toBe(1)
+      expect(mintRebuildRetryDelayForTests()).toBeNull()
+      expect(stub.mints).toEqual([])
+      expect(stub.autoMints).toEqual([])
+      release()
+      await first
+      expect(stub.scanStarts).toBe(1)
+      expect(stub.maxConcurrentScans).toBe(1)
+    } finally {
+      release()
+      await first.catch(() => {})
+      vi.useRealTimers()
+    }
   })
 
   it('(1b-race) an auto-mint or signed mint arriving before the rebuild completes is refused', async () => {
