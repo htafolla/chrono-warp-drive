@@ -48,6 +48,8 @@ const pendingBudget = new Map<string, number>()
 const pendingMints = new Map<string, { txHash: string; recipient: string }>()
 /** containerId → recipient whose cap slot was reserved when the mint was submitted. */
 const capHolds = new Map<string, string>()
+/** containerIds whose cap count is still owed, including after the hold is settled. */
+const capCounted = new Set<string>()
 let nextVerifyError: Error | null = null
 
 export function signingKeyReadCount(): number {
@@ -65,6 +67,7 @@ export function resetWriteGuardsForTests(): void {
   pendingBudget.clear()
   pendingMints.clear()
   capHolds.clear()
+  capCounted.clear()
   nextVerifyError = null
 }
 
@@ -97,25 +100,41 @@ export function confirmPendingMint(containerId: string): PendingMint | null {
   inFlightContainers.delete(id)
   pendingBudget.delete(id)
   mintedContainers.add(id)
-  settleAddressCap(id)
+  if (row) ensureLandedCap(id, row.recipient)
+  else settleAddressCap(id)
   return row
 }
 
 /** Count one cap slot for a mint that has been submitted and is not yet settled. */
 export function reserveAddressCap(containerId: string, recipient: string): void {
   const id = containerId.toLowerCase()
-  if (capHolds.has(id)) return
+  if (capCounted.has(id)) return
   const addr = recipient.toLowerCase()
   addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
   capHolds.set(id, addr)
+  capCounted.add(id)
 }
 
-/** Give the slot back when the mint reverts, is dropped, or expires. */
+/**
+ * The slot stays counted. Call this when a receipt or nonce check shows the
+ * mint landed, including when an earlier pass had already given the slot back.
+ */
+export function ensureLandedCap(containerId: string, recipient: string): void {
+  const id = containerId.toLowerCase()
+  capHolds.delete(id)
+  if (capCounted.has(id)) return
+  const addr = recipient.toLowerCase()
+  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  capCounted.add(id)
+}
+
+/** Give the slot back only after a receipt revert or a nonce that moved past the submit. */
 export function releaseAddressCap(containerId: string): void {
   const id = containerId.toLowerCase()
   const addr = capHolds.get(id)
   if (!addr) return
   capHolds.delete(id)
+  capCounted.delete(id)
   const next = (addressMintCounts.get(addr) ?? 1) - 1
   if (next <= 0) addressMintCounts.delete(addr)
   else addressMintCounts.set(addr, next)
@@ -363,12 +382,7 @@ export function commitMintSlot(containerId: string, recipient: string): void {
   inFlightContainers.delete(id)
   pendingBudget.delete(id)
   mintedContainers.add(id)
-  if (capHolds.has(id)) {
-    settleAddressCap(id)
-    return
-  }
-  const addr = recipient.toLowerCase()
-  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  ensureLandedCap(id, recipient)
 }
 
 export function releaseMintSlot(containerId: string): void {

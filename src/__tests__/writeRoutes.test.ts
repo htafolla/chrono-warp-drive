@@ -2211,7 +2211,7 @@ describe('mint abuse limits', () => {
       expect(stub.autoMints).not.toContain(onChainMintId(idA))
       expect(stub.mintEntered).toBe(0)
       const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hashA.toLowerCase()))) as { state?: string; txHash?: string }
-      expect(stored.state).toBe('failed')
+      expect(stored.state).toBe('expired')
       expect(stored.txHash).toBe(pendingHash)
       expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
 
@@ -2294,6 +2294,77 @@ describe('mint abuse limits', () => {
     } finally {
       errorSpy.mockRestore()
       logSpy.mockRestore()
+    }
+  })
+
+  it('keeps the cap when an expired mint lands late and does not mint twice', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '40'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(23)
+    const pendingHash = '0x' + '88'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    stub.nonceNow = stub.submitNonce
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.80',
+      })
+      expect(first.status).toBe(202)
+      expect(first.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+
+      const storedRaw = await redis.hget('vortex:mint:pending', hash.toLowerCase())
+      const stored = JSON.parse(String(storedRaw)) as { expiresAt: number; state: string }
+      stored.expiresAt = Date.now() - 1_000
+      await redis.hset('vortex:mint:pending', hash.toLowerCase(), JSON.stringify(stored))
+
+      stub.pendingTxHash = '0x' + '99'.repeat(32)
+      const expired = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.81',
+      })
+      expect(expired.status).toBe(202)
+      expect(expired.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+      const afterExpiry = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { state?: string }
+      expect(afterExpiry.state).toBe('expired')
+
+      stub.receipts.set(pendingHash.toLowerCase(), 'success')
+      stub.mintedOnChain.set(id.toLowerCase(), '13')
+      const late = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.82',
+      })
+      expect(late.status).toBe(409)
+      expect(late.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(stub.mints).not.toContain(onChainMintId(id))
+
+      for (let n = 0; n < MINT_ADDRESS_CAP - 1; n += 1) {
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, to), {
+          ...authHeader(),
+          'x-forwarded-for': `203.0.113.${90 + n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      const blocked = await mint(signedMint(nextId(), nextId(), to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.120',
+      })
+      expect(blocked.status).toBe(429)
+      expect(String(blocked.json.error)).toBe('Per-address mint cap exceeded')
+      expect(stub.mintEntered).toBe(MINT_ADDRESS_CAP)
+    } finally {
+      errorSpy.mockRestore()
     }
   })
 })
