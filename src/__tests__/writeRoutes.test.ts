@@ -1288,41 +1288,32 @@ describe('mint abuse limits', () => {
     }
   })
 
-  it('rate-limited and address-capped auto-mints are backlogged', async () => {
+  it('an entry whose container was evicted from dynamo:containers replays with its saved text', async () => {
     const redis = new MemoryRedis()
     setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    rememberContainerForTests(vortex)
+    const original = 'saved at skip '.repeat(12)
+    const saved = original.slice(0, 140)
+    await redis.lpush('dynamo:containers', JSON.stringify(sampleVortex(nextId(), nextId())))
+    const listed = await redis.lrange('dynamo:containers', 0, -1)
+    expect(listed.join('\n')).not.toContain(id)
+    expect(listed.join('\n')).not.toContain(saved)
+    stub.existingMintErrorIds.add(id.toLowerCase())
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const now = { value: 1_700_000_000_000 }
-    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now.value)
     try {
-      for (let i = 0; i < MINT_RATE_LIMIT; i += 1) {
-        const id = nextId()
-        expect(await autoMintVortex(sampleVortex(id, nextId()), `rate-${i}`)).toBe('0x' + '22'.repeat(32))
-      }
-      const limitedId = nextId()
-      expect(await autoMintVortex(sampleVortex(limitedId, nextId()), 'over-rate')).toBeNull()
-      expect(stub.autoMints).toHaveLength(MINT_RATE_LIMIT)
-      const limited = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { containerId: string; reason: string }
-      expect(limited.containerId).toBe(limitedId)
-      expect(limited.reason).toBe('rate_limited')
-      redis.lists.set(MINT_BACKLOG_KEY, [])
-
-      now.value += 61_000
-      const already = stub.autoMints.length
-      for (let i = already; i < MINT_ADDRESS_CAP; i += 1) {
-        const id = nextId()
-        expect(await autoMintVortex(sampleVortex(id, nextId()), `cap-${i}`)).toBe('0x' + '22'.repeat(32))
-      }
-      const cappedId = nextId()
-      expect(await autoMintVortex(sampleVortex(cappedId, nextId()), 'over-cap')).toBeNull()
-      expect(stub.autoMints).toHaveLength(MINT_ADDRESS_CAP)
-      const rows = await redis.lrange(MINT_BACKLOG_KEY, 0, -1)
-      const capped = JSON.parse(rows[rows.length - 1]) as { containerId: string; reason: string }
-      expect(capped.containerId).toBe(cappedId)
-      expect(capped.reason).toBe('address_cap')
+      expect(await autoMintVortex(vortex, original)).toBeNull()
+      const stored = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { proposalText: string }
+      expect(stored.proposalText).toBe(saved)
+      stub.existingMintErrorIds.delete(id.toLowerCase())
+      stub.proposalTexts = []
+      await replayMintBacklog()
+      expect(stub.proposalTexts).toEqual([saved])
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
     } finally {
-      clock.mockRestore()
       logSpy.mockRestore()
       errorSpy.mockRestore()
     }

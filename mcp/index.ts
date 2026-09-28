@@ -2851,12 +2851,6 @@ type AutoMintOutcome =
   | { kind: 'skipped'; reason: string }
   | { kind: 'error'; error: unknown }
 
-function claimBacklogReason(error: string): 'rate_limited' | 'address_cap' | null {
-  if (error === 'Mint rate limit exceeded') return 'rate_limited'
-  if (error === 'Per-address mint cap exceeded') return 'address_cap'
-  return null
-}
-
 function truncateProposal(proposalText: string): string {
   return proposalText.slice(0, PROPOSAL_TEXT_LIMIT)
 }
@@ -2881,10 +2875,7 @@ async function runAutoMint(
     recipient: VORTEX_TREASURY,
     rateKey: 'auto-mint',
   })
-  if (!claim.ok) {
-    const backlogReason = claimBacklogReason(claim.error)
-    return { kind: 'skipped', reason: backlogReason ?? claim.error }
-  }
+  if (!claim.ok) return { kind: 'skipped', reason: claim.error }
   let writeStarted = false
   try {
     const existing = await getChainExecutor().existingMint(container.containerId, container.containerHash)
@@ -3049,6 +3040,7 @@ async function drainMintBacklogOnce(
       await removeExactBacklogEntry(client, raw)
       continue
     }
+    // Saved on the entry when the mint was skipped. dynamo:containers is not a source for this text.
     const proposalText = typeof entry.proposalText === 'string' ? entry.proposalText : ''
     const outcome = await runAutoMint(container, proposalText, 'release')
     if (outcome.kind === 'error') {
@@ -3102,10 +3094,6 @@ export async function autoMintVortex(container: ContainerVortex, proposalText: s
     return null
   }
   if (outcome.kind === 'skipped') {
-    if (outcome.reason === 'rate_limited' || outcome.reason === 'address_cap') {
-      await pushMintBacklog(container, outcome.reason, proposalText)
-      return null
-    }
     console.log(`[vortex] Auto-mint skipped: ${outcome.reason}`)
     return null
   }
