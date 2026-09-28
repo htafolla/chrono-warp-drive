@@ -288,12 +288,6 @@ export function abortMintWrite(containerId: string): void {
   pendingBudget.delete(id)
 }
 
-/** Boot and the pre-mint chain check use this so a restart cannot mint a second token. */
-export function replaceMintedContainers(containerIds: string[]): void {
-  mintedContainers.clear()
-  for (const id of containerIds) mintedContainers.add(id.toLowerCase())
-}
-
 export function rememberMintedContainers(containerIds: string[]): void {
   for (const id of containerIds) mintedContainers.add(id.toLowerCase())
 }

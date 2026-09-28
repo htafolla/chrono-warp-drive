@@ -35,7 +35,6 @@ import {
   readVortexSigningKey,
   releaseMintSlot,
   rememberMintedContainers,
-  replaceMintedContainers,
   signVortex,
   verifyVortexSignature,
 } from './lib/writeGate.js'
@@ -65,24 +64,8 @@ const REDIS_VORTEX_KEY_REGISTERED = 'dynamo:vortex:registered'
 const REDIS_VORTEX_TOKEN_IMAGE = 'dynamo:vortex:token-image'
 const TOKEN_IMAGE_TTL = 86400
 
-/** Logged while a scan is still running. The gate stays pending until the scan settles. */
-const MINT_REBUILD_TIMEOUT_MS = 20_000
-/** Cancels a hung scan. The retry starts only after that scan's workers have stopped. */
-export const MINT_REBUILD_WATCHDOG_MS = 15 * 60 * 1000
-/** First background retry. Later waits double, and never drop below this. */
-const MINT_REBUILD_RETRY_BASE_MS = 5_000
-/** Ceiling for the background retry. The RPC is never polled in a hot loop. */
-const MINT_REBUILD_RETRY_MAX_MS = 5 * 60 * 1000
 const MINT_BACKLOG_KEY = 'vortex:mint:backlog'
 
-type MintRebuildGate = 'pending' | 'ready' | 'closed'
-
-/** Pending while a scan runs. Failed only after the scan errors or the watchdog cancels it. */
-let mintRebuildGate: MintRebuildGate = 'pending'
-let rebuildInFlight: Promise<void> | null = null
-let rebuildRetryAttempt = 0
-let rebuildRetryTimer: ReturnType<typeof setTimeout> | null = null
-let rebuildRetryDelayMs: number | null = null
 let drainInFlight: Promise<void> | null = null
 
 interface MintBacklogEntry {
@@ -90,124 +73,6 @@ interface MintBacklogEntry {
   containerHash: string
   skippedAt: string
   reason: string
-}
-
-function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
-  if (typeof timer.unref === 'function') timer.unref()
-}
-
-function clearMintRebuildRetry(): void {
-  if (rebuildRetryTimer) {
-    clearTimeout(rebuildRetryTimer)
-    rebuildRetryTimer = null
-  }
-}
-
-function retryDelayForAttempt(attempt: number): number {
-  const cappedAttempt = Math.min(Math.max(attempt, 0), 16)
-  return Math.min(MINT_REBUILD_RETRY_BASE_MS * (2 ** cappedAttempt), MINT_REBUILD_RETRY_MAX_MS)
-}
-
-/** One background retry after a failure. The wait is at least 5s and at most 5min. */
-function scheduleMintRebuildRetry(): void {
-  clearMintRebuildRetry()
-  const delay = retryDelayForAttempt(rebuildRetryAttempt)
-  rebuildRetryAttempt += 1
-  rebuildRetryDelayMs = delay
-  console.error(`[mint] rebuild retry scheduled in ${delay}ms; minting stays closed until it succeeds`)
-  const timer = setTimeout(() => {
-    if (rebuildRetryTimer !== timer) return
-    rebuildRetryTimer = null
-    void rebuildMintedSetFromChain()
-  }, delay)
-  rebuildRetryTimer = timer
-  unrefTimer(timer)
-}
-
-export function markMintRebuildReadyForTests(): void {
-  clearMintRebuildRetry()
-  rebuildRetryAttempt = 0
-  rebuildRetryDelayMs = null
-  mintRebuildGate = 'ready'
-}
-
-/** Delay of the pending background retry, or null when none is scheduled. */
-export function mintRebuildRetryDelayForTests(): number | null {
-  return rebuildRetryTimer ? rebuildRetryDelayMs : null
-}
-
-/** Runs the scheduled retry now and cancels its timer. Tests do not wait out the backoff. */
-export async function runScheduledMintRebuildRetryForTests(): Promise<void> {
-  if (!rebuildRetryTimer) throw new Error('no mint rebuild retry is scheduled')
-  clearMintRebuildRetry()
-  await rebuildMintedSetFromChain()
-}
-
-function mintRebuildBlock(): { error: string } | null {
-  if (mintRebuildGate === 'ready') return null
-  if (mintRebuildGate === 'pending') {
-    return { error: 'Mint rebuild has not finished' }
-  }
-  return { error: 'Mint rebuild failed; minting is closed' }
-}
-
-export async function rebuildMintedSetFromChain(): Promise<void> {
-  if (rebuildInFlight) return rebuildInFlight
-  clearMintRebuildRetry()
-  mintRebuildGate = 'pending'
-  const controller = new AbortController()
-  const run = (async () => {
-    let slowTimer: ReturnType<typeof setTimeout> | undefined
-    let watchdog: ReturnType<typeof setTimeout> | undefined
-    try {
-      const ids = await new Promise<string[]>((resolve, reject) => {
-        slowTimer = setTimeout(() => {
-          if (mintRebuildGate !== 'pending') return
-          console.error(`[mint] rebuild still running after ${MINT_REBUILD_TIMEOUT_MS}ms; minting stays closed until this scan settles`)
-        }, MINT_REBUILD_TIMEOUT_MS)
-        unrefTimer(slowTimer)
-        watchdog = setTimeout(() => {
-          console.error(`[mint] rebuild watchdog after ${MINT_REBUILD_WATCHDOG_MS}ms; cancelling hung scan`)
-          controller.abort()
-        }, MINT_REBUILD_WATCHDOG_MS)
-        unrefTimer(watchdog)
-        getChainExecutor().listMintedContainerIds(controller.signal).then(resolve, reject)
-      })
-      replaceMintedContainers(ids)
-      mintRebuildGate = 'ready'
-      rebuildRetryAttempt = 0
-      rebuildRetryDelayMs = null
-      clearMintRebuildRetry()
-      console.log(`[mint] rebuilt minted set from chain (${ids.length} ids)`)
-      try {
-        await drainMintBacklog()
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        console.error(`[mint] backlog drain failed: ${message}`)
-      }
-    } catch (err: unknown) {
-      mintRebuildGate = 'closed'
-      const message = err instanceof Error ? err.message : String(err)
-      console.error(`[mint] rebuild failed; minting stays closed: ${message}`)
-      scheduleMintRebuildRetry()
-    } finally {
-      if (slowTimer) clearTimeout(slowTimer)
-      if (watchdog) clearTimeout(watchdog)
-    }
-  })()
-  rebuildInFlight = run
-  try {
-    await run
-  } finally {
-    if (rebuildInFlight === run) rebuildInFlight = null
-  }
-}
-
-function startMintRebuildWithoutWaiting(): void {
-  void rebuildMintedSetFromChain().catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error(`[mint] rebuild failed: ${message}`)
-  })
 }
 
 async function restoreBootState(): Promise<void> {
@@ -301,32 +166,18 @@ async function restoreBootState(): Promise<void> {
       } catch { /* registry sync failed */ }
     } catch { /* sync failed */ }
   } catch { /* Redis unavailable */ }
-  if (mintRebuildGate === 'ready') {
-    try {
-      await drainMintBacklog()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      console.error(`[mint] backlog drain failed: ${message}`)
-    }
-  }
-}
-
-/** Same boot the process runs: the chain scan does not block Redis, the Manifold, or the ambient field. */
-export async function bootServerForTests(): Promise<void> {
-  startMintRebuildWithoutWaiting()
-  await restoreBootState()
 }
 
 // Bootstrap: load containers from Redis on module init.
-// The chain scan is fire-and-forget. Minting stays closed until it succeeds.
-// A slow scan stays in flight until it settles or the 15 minute watchdog cancels it.
-// An error schedules a background retry (5s, 10s, 20s, up to 5min).
-// Tests skip this import-time scan and open the gate themselves.
+// Mint checks are per request. Boot does not scan the token set.
+// A backlog of auto-mints whose chain read failed is replayed without blocking boot.
 ;(async () => {
-  if (!process.env.VITEST) {
-    startMintRebuildWithoutWaiting()
-  }
   await restoreBootState()
+  if (process.env.VITEST) return
+  void drainMintBacklog().catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(`[mint] backlog drain failed: ${message}`)
+  })
 })()
 
 function temporalManifoldProposalHash(text: string): string {
@@ -2663,8 +2514,6 @@ app.post('/vortex/persist', async (c: Context) => {
 
 // Exact containerId match only. No store fallback, no listContainers scan, no prefix match.
 app.post('/vortex/mint', async (c: Context) => {
-  const rebuildBlock = mintRebuildBlock()
-  if (rebuildBlock) return c.json({ success: false, error: rebuildBlock.error }, 503)
   const auth = authorizeWrite(c.req.header('authorization'))
   if (!auth.ok) return c.json({ success: false, error: auth.error }, auth.status)
   let reservedId: string | null = null
@@ -2729,13 +2578,16 @@ app.post('/vortex/mint', async (c: Context) => {
       reservedId = null
       return c.json({ success: false, error: 'Container not found' }, 404)
     }
-    if ((container.containerHash || '').toLowerCase() !== containerHash.toLowerCase()) {
+    const registryHash = container.containerHash || ''
+    // The hash checked here is the on-chain registry value, after it matches the signed request.
+    // dynamo:containers is trimmed to 1000 and is never the source of this hash.
+    if (registryHash.toLowerCase() !== containerHash.toLowerCase()) {
       releaseMintSlot(containerId)
       reservedId = null
       return c.json({ success: false, error: 'Signed containerHash does not match the registry' }, 401)
     }
 
-    const existing = await getChainExecutor().existingMint(containerId, containerHash)
+    const existing = await getChainExecutor().existingMint(containerId, registryHash)
     if (existing) {
       rememberMintedContainers([containerId, containerHash])
       releaseMintSlot(containerId)
@@ -2994,7 +2846,8 @@ type AutoMintOutcome =
   | { kind: 'error'; error: unknown }
 
 // Auto-mint token for newly governed containers (v4).
-// Same containerId, caller limit, address cap, and global mint budget as POST /vortex/mint.
+// Same containerId, caller limit, address cap, global mint budget, and in-process slot as POST /vortex/mint.
+// The hash checked is this container's own hash (the governed payload), not a row from dynamo:containers.
 // The on-chain mint id is container.containerId, the same id POST /vortex/mint writes.
 async function runAutoMint(container: ContainerVortex, proposalText: string): Promise<AutoMintOutcome> {
   const claim = claimMintSlot({
@@ -3081,11 +2934,9 @@ async function drainMintBacklog(): Promise<void> {
 }
 
 async function drainMintBacklogOnce(): Promise<void> {
-  if (mintRebuildGate !== 'ready') return
   const client = await getRedisClient()
   if (!client) return
   for (;;) {
-    if (mintRebuildGate !== 'ready') return
     const raw = await client.lindex(MINT_BACKLOG_KEY, 0) as string | null
     if (!raw) return
     let entry: MintBacklogEntry
@@ -3100,10 +2951,16 @@ async function drainMintBacklogOnce(): Promise<void> {
       console.error('[mint] backlog drain stopped; head entry is missing ids')
       return
     }
-    const container = await containerForBacklog(entry)
-    if (!container) {
+    const stored = await containerForBacklog(entry)
+    if (!stored) {
       console.error(`[mint] backlog replay waiting for container containerId=${entry.containerId}`)
       return
+    }
+    // Replay checks and submits the backlog entry's own hash, not a trimmed redis substitute.
+    const container: ContainerVortex = {
+      ...stored,
+      containerId: entry.containerId,
+      containerHash: entry.containerHash,
     }
     let already: boolean
     try {
@@ -3142,20 +2999,28 @@ async function drainMintBacklogOnce(): Promise<void> {
   }
 }
 
+/** Single-flight replay of auto-mints whose chain read or mint submission failed. */
+export async function replayMintBacklog(): Promise<void> {
+  await drainMintBacklog()
+}
+
 export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
-  const rebuildBlock = mintRebuildBlock()
-  if (rebuildBlock) {
-    await pushMintBacklog(container, rebuildBlock.error)
-    return null
-  }
   const outcome = await runAutoMint(container, proposalText)
-  if (outcome.kind === 'minted') return outcome.txHash
-  if (outcome.kind === 'skipped') {
-    console.log(`[vortex] Auto-mint skipped: ${outcome.reason}`)
+  if (outcome.kind === 'error') {
+    const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error)
+    await pushMintBacklog(container, message)
     return null
   }
-  const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error)
-  console.log(`[vortex] Auto-mint skipped: ${message}`)
+  if (outcome.kind === 'minted') {
+    try {
+      await drainMintBacklog()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[mint] backlog drain failed: ${message}`)
+    }
+    return outcome.txHash
+  }
+  console.log(`[vortex] Auto-mint skipped: ${outcome.reason}`)
   return null
 }
 
