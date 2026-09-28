@@ -37,6 +37,15 @@ const addressMintCounts = new Map<string, number>()
 const rateBuckets = new Map<string, number[]>()
 const globalBudgetStamps: number[] = []
 const pendingBudget = new Map<string, number>()
+/**
+ * KNOWN LIMIT. Pending mint transactions are recorded by containerId only.
+ * A transaction still in flight under the historical containerHash key
+ * (old auto-mint) is not marked here, so this map will not stop a resubmit
+ * for that hash key. tokenByContainerId on the hash is the read once it
+ * lands; until then the contract require is the backstop. The map is also
+ * process-local and is empty after a restart.
+ */
+const pendingMints = new Map<string, { txHash: string; recipient: string }>()
 let nextVerifyError: Error | null = null
 
 export function signingKeyReadCount(): number {
@@ -52,7 +61,40 @@ export function resetWriteGuardsForTests(): void {
   rateBuckets.clear()
   globalBudgetStamps.length = 0
   pendingBudget.clear()
+  pendingMints.clear()
   nextVerifyError = null
+}
+
+export interface PendingMint {
+  txHash: string
+  recipient: string
+}
+
+/** The first timed-out hash for this container. A later mark does not replace it. */
+export function markPendingMint(containerId: string, txHash: string, recipient: string): void {
+  const id = containerId.toLowerCase()
+  inFlightContainers.delete(id)
+  pendingBudget.delete(id)
+  if (pendingMints.has(id)) return
+  pendingMints.set(id, { txHash, recipient: recipient.toLowerCase() })
+}
+
+export function readPendingMint(containerId: string): PendingMint | null {
+  return pendingMints.get(containerId.toLowerCase()) ?? null
+}
+
+/** Counts the address cap once, for the recipient stored with the pending hash. */
+export function confirmPendingMint(containerId: string): PendingMint | null {
+  const id = containerId.toLowerCase()
+  const row = pendingMints.get(id)
+  if (!row) return null
+  pendingMints.delete(id)
+  inFlightContainers.delete(id)
+  pendingBudget.delete(id)
+  mintedContainers.add(id)
+  const addr = row.recipient
+  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  return row
 }
 
 /** Test seam. The next verifyVortexSignature call throws instead of returning. */

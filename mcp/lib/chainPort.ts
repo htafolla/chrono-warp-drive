@@ -61,13 +61,47 @@ export interface ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
-  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' }>
+  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus }>
   /**
    * Token id when either historical key already has a mint: containerId (route)
    * and containerHash (old auto-mint). Does not read the deployer key.
    */
   existingMint(containerId: string, containerHash: string): Promise<string | null>
-  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }>
+  autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus }>
+}
+
+export type MintReceiptStatus = 'success' | 'reverted' | 'pending'
+
+/** Viem's wait throws this when the receipt does not arrive before MINT_RECEIPT_TIMEOUT_MS. */
+export function isReceiptTimeout(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const named = err as { name?: unknown; message?: unknown }
+  if (named.name === 'WaitForTransactionReceiptTimeoutError') return true
+  return typeof named.message === 'string' && named.message.includes('Timed out while waiting for transaction')
+}
+
+type SettledMintReceipt =
+  | { status: 'success' | 'reverted'; txHash: `0x${string}` }
+  | { status: 'pending'; txHash: `0x${string}` }
+
+/**
+ * A timeout means the transaction is in flight. Return that hash as pending
+ * instead of throwing, so callers mark it and do not submit a second mint.
+ */
+async function settleMintReceipt(
+  publicClient: {
+    waitForTransactionReceipt: (args: { hash: `0x${string}`; timeout: number }) => Promise<{ status: string; transactionHash: `0x${string}` }>
+  },
+  txHash: `0x${string}`,
+): Promise<SettledMintReceipt> {
+  try {
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: MINT_RECEIPT_TIMEOUT_MS })
+    if (receipt.status !== 'success') return { status: 'reverted', txHash: receipt.transactionHash }
+    return { status: 'success', txHash: receipt.transactionHash }
+  } catch (err) {
+    if (isReceiptTimeout(err)) return { status: 'pending', txHash }
+    throw err
+  }
 }
 
 /** The single bytes32 both mint paths pass to VortexToken.mint. */
@@ -282,7 +316,7 @@ class LiveChainExecutor implements ChainExecutor {
     to: string
     containerId: string
     container: RegistryContainer
-  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' }> {
+  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: MintReceiptStatus }> {
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
     const abi = await loadAbi('token')
@@ -325,9 +359,12 @@ class LiveChainExecutor implements ChainExecutor {
         args: mintArgs,
       })
     })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: MINT_RECEIPT_TIMEOUT_MS })
-    if (receipt.status !== 'success') {
-      return { txHash: receipt.transactionHash, tokenId: null, receiptStatus: 'reverted' }
+    const settled = await settleMintReceipt(publicClient, txHash)
+    if (settled.status === 'pending') {
+      return { txHash: settled.txHash, tokenId: null, receiptStatus: 'pending' }
+    }
+    if (settled.status !== 'success') {
+      return { txHash: settled.txHash, tokenId: null, receiptStatus: 'reverted' }
     }
     let tokenId: string | null = null
     try {
@@ -339,7 +376,7 @@ class LiveChainExecutor implements ChainExecutor {
       }) as bigint
       if (tid !== 0n) tokenId = tid.toString()
     } catch { /* token id is read again by the route */ }
-    return { txHash: receipt.transactionHash, tokenId, receiptStatus: 'success' }
+    return { txHash: settled.txHash, tokenId, receiptStatus: 'success' }
   }
 
   async existingMint(containerId: string, containerHash: string): Promise<string | null> {
@@ -370,7 +407,7 @@ class LiveChainExecutor implements ChainExecutor {
     return null
   }
 
-  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }> {
+  async autoMint(mintId: string, container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: MintReceiptStatus }> {
     if (!proposalText.trim()) throw new Error('empty proposal text')
     const { walletClient, publicClient, account } = this.wallet()
     this.chainCalls += 1
@@ -415,9 +452,10 @@ class LiveChainExecutor implements ChainExecutor {
         args: mintArgs,
       })
     })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: MINT_RECEIPT_TIMEOUT_MS })
-    if (receipt.status !== 'success') {
-      return { txHash: receipt.transactionHash, receiptStatus: 'reverted' }
+    const settled = await settleMintReceipt(publicClient, txHash)
+    if (settled.status === 'pending') return { txHash: settled.txHash, receiptStatus: 'pending' }
+    if (settled.status !== 'success') {
+      return { txHash: settled.txHash, receiptStatus: 'reverted' }
     }
     try {
       const tid = await readOnChain(publicClient, {
@@ -431,7 +469,7 @@ class LiveChainExecutor implements ChainExecutor {
         if (client) await client.hset('dynamo:vortex:mint', id.toLowerCase(), tid.toString())
       }
     } catch { /* Redis optional */ }
-    return { txHash: receipt.transactionHash, receiptStatus: 'success' }
+    return { txHash: settled.txHash, receiptStatus: 'success' }
   }
 }
 

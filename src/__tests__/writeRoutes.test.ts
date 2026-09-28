@@ -40,7 +40,7 @@ vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
 
 import { app, autoMintVortex, rememberContainerForTests, replayMintBacklog, resetBootMemoryForTests } from '../../mcp/index'
 import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
-import { onChainMintId, setChainExecutorForTests } from '../../mcp/lib/chainPort'
+import { isReceiptTimeout, onChainMintId, setChainExecutorForTests } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
 import {
   DEFAULT_MINT_GLOBAL_BUDGET,
@@ -76,7 +76,8 @@ class StubChain implements ChainExecutor {
   existingWaiters = 0
   existingMintErrorIds = new Set<string>()
   proposalTexts: string[] = []
-  nextReceiptStatus: 'success' | 'reverted' = 'success'
+  nextReceiptStatus: 'success' | 'reverted' | 'pending' = 'success'
+  pendingTxHash = '0x' + '55'.repeat(32)
   revertLeavesToken = false
   revertRemaining = 0
   autoMintHold: Promise<void> | null = null
@@ -110,7 +111,7 @@ class StubChain implements ChainExecutor {
     return { txHash: '0x' + 'cd'.repeat(32) }
   }
 
-  async mintRegistered(input: { to: string; containerId: string; container: RegistryContainer }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' }> {
+  async mintRegistered(input: { to: string; containerId: string; container: RegistryContainer }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' | 'pending' }> {
     this.keyReads += 1
     this.chainCalls += 1
     this.mintEntered += 1
@@ -120,6 +121,10 @@ class StubChain implements ChainExecutor {
       throw new Error('mint reverted')
     }
     const mintId = onChainMintId(input.containerId)
+    if (this.nextReceiptStatus === 'pending') {
+      this.nextReceiptStatus = 'success'
+      return { txHash: this.pendingTxHash, tokenId: null, receiptStatus: 'pending' }
+    }
     if (this.nextReceiptStatus === 'reverted') {
       this.nextReceiptStatus = 'success'
       return { txHash: '0x' + '44'.repeat(32), tokenId: null, receiptStatus: 'reverted' }
@@ -149,10 +154,14 @@ class StubChain implements ChainExecutor {
     return found
   }
 
-  async autoMint(mintId: string, _container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }> {
+  async autoMint(mintId: string, _container: ContainerVortex, proposalText: string): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' | 'pending' }> {
     this.proposalTexts.push(proposalText)
     this.autoMintEntered += 1
     if (this.autoMintHold) await this.autoMintHold
+    if (this.nextReceiptStatus === 'pending') {
+      this.nextReceiptStatus = 'success'
+      return { txHash: this.pendingTxHash, receiptStatus: 'pending' }
+    }
     if (this.revertRemaining > 0) {
       this.revertRemaining -= 1
       return { txHash: '0x' + '33'.repeat(32), receiptStatus: 'reverted' }
@@ -175,6 +184,7 @@ class StubChain implements ChainExecutor {
 class MemoryRedis {
   lists = new Map<string, string[]>()
   hashes = new Map<string, Record<string, string>>()
+  lockRefreshes = 0
   private kv = new Map<string, { value: string; expiresAt: number | null }>()
 
   private live(key: string): string | null {
@@ -244,6 +254,7 @@ class MemoryRedis {
       const current = await this.get(keys[0])
       if (current !== args[0]) return null
       await this.set(keys[0], args[0], 'PX', Number(args[1]))
+      this.lockRefreshes += 1
       return 'OK'
     }
     if (script.includes("redis.call('DEL'")) {
@@ -1839,6 +1850,194 @@ describe('mint abuse limits', () => {
     expect(blocked.status).toBe(429)
     expect(String(blocked.json.error)).toBe('Mint budget exceeded')
     expect(stub.mints).toEqual([onChainMintId(id)])
+  })
+
+  it('classifies a chain receipt timeout', () => {
+    const timeout = new Error('Timed out while waiting for transaction with hash "0xabc" to be confirmed.')
+    timeout.name = 'WaitForTransactionReceiptTimeoutError'
+    expect(isReceiptTimeout(timeout)).toBe(true)
+    expect(isReceiptTimeout(new Error('Timed out while waiting for transaction with hash "0xabc" to be confirmed.'))).toBe(true)
+    expect(isReceiptTimeout(new Error('mint reverted'))).toBe(false)
+    expect(isReceiptTimeout(null)).toBe(false)
+  })
+
+  it('a chain timeout marks the pending txHash and does not resubmit it', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const pendingHash = '0x' + '55'.repeat(32)
+    rememberContainerForTests(sampleVortex(id, hash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'timeout',
+    }))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      const marked = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { state?: string; txHash?: string }
+      expect(marked.state).toBe('pending')
+      expect(marked.txHash).toBe(pendingHash)
+      expect(stub.autoMintEntered).toBe(1)
+      expect(stub.autoMints).toEqual([])
+      stub.pendingTxHash = '0x' + '66'.repeat(32)
+      await replayMintBacklog()
+      const still = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { state?: string; txHash?: string }
+      expect(still.state).toBe('pending')
+      expect(still.txHash).toBe(pendingHash)
+      expect(stub.autoMintEntered).toBe(1)
+      const otherId = nextId()
+      const otherHash = nextId()
+      stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
+      const blocked = await mint(signedMint(otherId, otherHash, address(70)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.70.0.1',
+      })
+      expect(blocked.status).toBe(429)
+      expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+      stub.mintedOnChain.set(id.toLowerCase(), '4')
+      await replayMintBacklog()
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      expect(stub.autoMintEntered).toBe(1)
+      expect(stub.autoMints).toEqual([])
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('renews the drain lock inside each backlog entry', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'hold the lock',
+    }))
+    let releaseHold: () => void = () => {}
+    stub.autoMintHold = new Promise<void>((resolve) => { releaseHold = resolve })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const draining = replayMintBacklog()
+    try {
+      for (let i = 0; i < 40 && stub.autoMintEntered < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.autoMintEntered).toBe(1)
+      expect(redis.lockRefreshes).toBeGreaterThanOrEqual(2)
+      releaseHold()
+      await draining
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+    } finally {
+      releaseHold()
+      await draining.catch(() => {})
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a POST retry keeps the pending txHash and does not charge the address cap twice', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '40'
+    const id = nextId()
+    const hash = nextId()
+    const to = address(71)
+    const pendingHash = '0x' + '55'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '10.71.0.1',
+      })
+      expect(first.status).toBe(202)
+      expect(first.json.pending).toBe(true)
+      expect(first.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(stub.mints).toEqual([])
+
+      stub.pendingTxHash = '0x' + '66'.repeat(32)
+      const retry = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '10.71.0.2',
+      })
+      expect(retry.status).toBe(202)
+      expect(retry.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+
+      for (let n = 0; n < MINT_ADDRESS_CAP; n += 1) {
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, to), {
+          ...authHeader(),
+          'x-forwarded-for': `10.71.1.${n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      const capped = await mint(signedMint(nextId(), nextId(), to), {
+        ...authHeader(),
+        'x-forwarded-for': '10.71.2.1',
+      })
+      expect(capped.status).toBe(429)
+      expect(String(capped.json.error)).toBe('Per-address mint cap exceeded')
+      expect(stub.mintEntered).toBe(1 + MINT_ADDRESS_CAP)
+
+      const laterId = nextId()
+      const laterHash = nextId()
+      const laterTo = address(72)
+      stub.containers.set(laterId.toLowerCase(), registryContainer(laterId, laterHash))
+      stub.nextReceiptStatus = 'pending'
+      stub.pendingTxHash = pendingHash
+      const held = await mint(signedMint(laterId, laterHash, laterTo), {
+        ...authHeader(),
+        'x-forwarded-for': '10.72.0.1',
+      })
+      expect(held.status).toBe(202)
+      expect(held.json.txHash).toBe(pendingHash)
+      stub.mintedOnChain.set(laterId.toLowerCase(), '7')
+      stub.pendingTxHash = '0x' + '77'.repeat(32)
+      const confirmed = await mint(signedMint(laterId, laterHash, laterTo), {
+        ...authHeader(),
+        'x-forwarded-for': '10.72.0.2',
+      })
+      expect(confirmed.status).toBe(200)
+      expect(confirmed.json.txHash).toBe(pendingHash)
+      expect(confirmed.json.tokenId).toBe('7')
+      expect(stub.mints).not.toContain(onChainMintId(laterId))
+      for (let n = 0; n < MINT_ADDRESS_CAP - 1; n += 1) {
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, laterTo), {
+          ...authHeader(),
+          'x-forwarded-for': `10.72.1.${n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      const laterCapped = await mint(signedMint(nextId(), nextId(), laterTo), {
+        ...authHeader(),
+        'x-forwarded-for': '10.72.2.1',
+      })
+      expect(laterCapped.status).toBe(429)
+      expect(String(laterCapped.json.error)).toBe('Per-address mint cap exceeded')
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 })
 

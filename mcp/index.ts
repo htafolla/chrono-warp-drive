@@ -27,12 +27,15 @@ import {
   claimMintSlot,
   clientRateKey,
   commitMintSlot,
+  confirmPendingMint,
   cooldownDenial,
   isAddress,
   isBytes32,
   isUnixSeconds,
   isVortexSignature,
+  markPendingMint,
   persistCooldownRemaining,
+  readPendingMint,
   readVortexSigningKey,
   rejectedMint,
   rejectedSignature,
@@ -121,6 +124,8 @@ interface MintBacklogEntry {
   reason: string
   proposalText?: string
   attempts?: number
+  state?: 'pending'
+  txHash?: string
 }
 
 async function restoreBootState(): Promise<void> {
@@ -2564,6 +2569,65 @@ app.post('/vortex/persist', async (c: Context) => {
   }
 })
 
+// A timed-out mint stays pending. The retry returns the original txHash and does not submit again.
+async function jsonMintPending(
+  c: Context,
+  containerId: string,
+  containerHash: string,
+  to: string,
+  expiresAt: number,
+  signature: string,
+): Promise<Response | null> {
+  const pending = readPendingMint(containerId)
+  if (!pending) return null
+  const signingKey = readVortexSigningKey()
+  if (!signingKey) return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+  let verdict: { ok: true } | { ok: false; reason: 'invalid' | 'expired' }
+  try {
+    verdict = verifyVortexSignature(containerHash, containerId, to, expiresAt, signature, signingKey)
+  } catch {
+    return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
+  }
+  const signatureFailure = rejectedSignature(verdict)
+  if (signatureFailure) {
+    const error = signatureFailure === 'expired' ? 'Vortex signature expired' : 'Invalid vortex signature'
+    return c.json({ success: false, error }, 401)
+  }
+  let tokenId: string | null
+  try {
+    tokenId = await getChainExecutor().existingMint(containerId, containerHash)
+  } catch (err: unknown) {
+    const msg = friendlyMintError(err)
+    console.error(`[mint] ${msg}`)
+    return c.json({ success: false, pending: true, error: msg, txHash: pending.txHash }, 500)
+  }
+  if (!tokenId) {
+    return c.json({
+      success: false,
+      pending: true,
+      error: 'Mint transaction is pending',
+      txHash: pending.txHash,
+      explorerUrl: `https://basescan.org/tx/${pending.txHash}`,
+    }, 202)
+  }
+  const confirmed = confirmPendingMint(containerId)
+  const txHash = confirmed?.txHash ?? pending.txHash
+  rememberMintedContainers([containerId, containerHash])
+  await storeVortexStatusInRedis(containerId, tokenId)
+  if (pending.recipient !== to.toLowerCase()) {
+    return c.json({ success: false, error: 'Container already has a vortex token', tokenId, txHash }, 409)
+  }
+  return c.json({
+    success: true,
+    tokenAddress: VORTEX_TOKEN_ADDRESS,
+    containerId,
+    to,
+    tokenId,
+    txHash,
+    explorerUrl: `https://basescan.org/tx/${txHash}`,
+  })
+}
+
 // Exact containerId match only. No store fallback, no listContainers scan, no prefix match.
 app.post('/vortex/mint', async (c: Context) => {
   const auth = authorizeWrite(c.req.header('authorization'))
@@ -2595,6 +2659,9 @@ app.post('/vortex/mint', async (c: Context) => {
     if (expiresAt > nowSeconds + MINT_SIGNATURE_MAX_AHEAD_SECONDS) {
       return c.json({ success: false, error: 'expiresAt must be a unix second at most 1 hour ahead' }, 400)
     }
+
+    const pendingRetry = await jsonMintPending(c, containerId, containerHash, to, expiresAt, signature)
+    if (pendingRetry) return pendingRetry
 
     const claim = claimMintSlot({
       containerId,
@@ -2652,6 +2719,47 @@ app.post('/vortex/mint', async (c: Context) => {
 
     writeStarted = true
     const minted = await getChainExecutor().mintRegistered({ to, containerId, container })
+    if (minted.receiptStatus === 'pending') {
+      markPendingMint(containerId, minted.txHash, to)
+      reservedId = null
+      writeStarted = false
+      let landedNow: string | null = null
+      try {
+        landedNow = await getChainExecutor().existingMint(containerId, registryHash)
+      } catch (err: unknown) {
+        const msg = friendlyMintError(err)
+        console.error(`[mint] ${msg}`)
+        return c.json({
+          success: false,
+          pending: true,
+          error: msg,
+          txHash: minted.txHash,
+          explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
+        }, 500)
+      }
+      if (!landedNow) {
+        return c.json({
+          success: false,
+          pending: true,
+          error: 'Mint transaction is pending',
+          txHash: minted.txHash,
+          explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
+        }, 202)
+      }
+      const confirmed = confirmPendingMint(containerId)
+      const txHash = confirmed?.txHash ?? minted.txHash
+      rememberMintedContainers([containerId, containerHash])
+      await storeVortexStatusInRedis(containerId, landedNow)
+      return c.json({
+        success: true,
+        tokenAddress: VORTEX_TOKEN_ADDRESS,
+        containerId,
+        to,
+        tokenId: landedNow,
+        txHash,
+        explorerUrl: `https://basescan.org/tx/${txHash}`,
+      })
+    }
     let tokenId = minted.tokenId
     if (minted.receiptStatus !== 'success') {
       let landed: string | null = null
@@ -2938,6 +3046,7 @@ type AutoMintOutcome =
   | { kind: 'on-chain' }
   | { kind: 'skipped'; reason: string }
   | { kind: 'reverted' }
+  | { kind: 'pending'; txHash: string }
   | { kind: 'error'; error: unknown }
 
 type BacklogRedis = {
@@ -2967,6 +3076,20 @@ async function runAutoMint(
   writeFailureBudget: 'keep' | 'release' = 'keep',
   rateKey: string = AUTO_MINT_RATE_KEY,
 ): Promise<AutoMintOutcome> {
+  const alreadyPending = readPendingMint(container.containerId)
+  if (alreadyPending) {
+    try {
+      const existing = await getChainExecutor().existingMint(container.containerId, container.containerHash)
+      if (existing) {
+        rememberMintedContainers([container.containerId, container.containerHash])
+        confirmPendingMint(container.containerId)
+        return { kind: 'on-chain' }
+      }
+    } catch (err: unknown) {
+      return { kind: 'error', error: err }
+    }
+    return { kind: 'pending', txHash: alreadyPending.txHash }
+  }
   const claim = claimMintSlot({
     containerId: container.containerId,
     recipient: VORTEX_TREASURY,
@@ -2988,6 +3111,10 @@ async function runAutoMint(
     }
     writeStarted = true
     const result = await getChainExecutor().autoMint(onChainMintId(container.containerId), container, proposalText)
+    if (result.receiptStatus === 'pending') {
+      markPendingMint(container.containerId, result.txHash, VORTEX_TREASURY)
+      return { kind: 'pending', txHash: result.txHash }
+    }
     if (result.receiptStatus !== 'success') {
       let landed: string | null
       try {
@@ -3014,13 +3141,14 @@ async function runAutoMint(
   }
 }
 
-async function pushMintBacklog(container: ContainerVortex, reason: string, proposalText: string): Promise<void> {
+async function pushMintBacklog(container: ContainerVortex, reason: string, proposalText: string, pendingTxHash?: string): Promise<void> {
   const entry: MintBacklogEntry = {
     containerId: container.containerId,
     containerHash: container.containerHash,
     skippedAt: new Date().toISOString(),
     reason,
     proposalText: truncateProposal(proposalText),
+    ...(pendingTxHash ? { state: 'pending' as const, txHash: pendingTxHash } : {}),
   }
   console.log(`[vortex] Auto-mint skipped: ${reason} containerId=${container.containerId}`)
   try {
@@ -3117,11 +3245,21 @@ async function removeIfChainConfirms(client: BacklogRedis, raw: string, entry: M
   return true
 }
 
+function backlogPendingTx(record: Record<string, unknown>): string | null {
+  if (record.state !== 'pending') return null
+  if (typeof record.txHash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(record.txHash)) return record.txHash
+  return ''
+}
+
+async function renewDrainLock(client: BacklogRedis, token: string): Promise<boolean> {
+  const refreshed = await client.eval(REFRESH_LOCK_LUA, 1, MINT_BACKLOG_LOCK_KEY, token, String(MINT_BACKLOG_LOCK_PX))
+  return refreshed === 'OK'
+}
+
 /** One pass. Removal happens only after existingMint finds a token for the raw string that was checked. */
 async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promise<void> {
   for (;;) {
-    const refreshed = await client.eval(REFRESH_LOCK_LUA, 1, MINT_BACKLOG_LOCK_KEY, token, String(MINT_BACKLOG_LOCK_PX))
-    if (refreshed !== 'OK') return
+    if (!await renewDrainLock(client, token)) return
     const raw = await client.lindex(MINT_BACKLOG_KEY, 0) as string | null
     if (!raw) return
     let record: Record<string, unknown> | null
@@ -3150,6 +3288,33 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
       reason: typeof record.reason === 'string' ? record.reason : '',
       proposalText: record.proposalText,
       attempts: typeof record.attempts === 'number' ? record.attempts : 0,
+      state: record.state === 'pending' ? 'pending' : undefined,
+      txHash: typeof record.txHash === 'string' ? record.txHash : undefined,
+    }
+    const pendingTx = backlogPendingTx(record)
+    if (pendingTx !== null) {
+      if (pendingTx === '') {
+        console.error(`[mint] backlog dead-letter; pending tx missing containerId=${entry.containerId}`)
+        await deadLetterBacklogEntry(client, raw, 'bad pending tx')
+        continue
+      }
+      // Renew inside this entry before the chain read. A pending hash is not resubmitted.
+      if (!await renewDrainLock(client, token)) return
+      let landed = false
+      try {
+        landed = await confirmedBacklogSkip(entry)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+        return
+      }
+      if (landed) {
+        confirmPendingMint(entry.containerId)
+        await removeExactBacklogEntry(client, raw)
+        continue
+      }
+      console.error(`[mint] backlog pending left in place containerId=${entry.containerId} txHash=${pendingTx}`)
+      return
     }
     const stored = await containerForBacklog(entry)
     if (!stored) {
@@ -3175,9 +3340,18 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
       await removeExactBacklogEntry(client, raw)
       continue
     }
+    // Renew inside this entry, immediately before the mint, so the receipt wait
+    // starts under a fresh lock TTL instead of the TTL left from the loop gate.
+    if (!await renewDrainLock(client, token)) return
     // Saved on the entry when the mint was skipped. dynamo:containers is not a source for this text.
     const proposalText = record.proposalText
     const outcome = await runAutoMint(container, proposalText, 'release', REPLAY_RATE_KEY)
+    if (outcome.kind === 'pending') {
+      const updated = JSON.stringify({ ...record, state: 'pending', txHash: outcome.txHash })
+      await client.eval(REPLACE_HEAD_LUA, 1, MINT_BACKLOG_KEY, raw, updated)
+      console.error(`[mint] backlog pending containerId=${entry.containerId} txHash=${outcome.txHash}`)
+      return
+    }
     if (outcome.kind === 'error') {
       const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error)
       console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
@@ -3242,6 +3416,10 @@ export async function autoMintVortex(container: ContainerVortex, proposalText: s
   }
   if (outcome.kind === 'reverted') {
     await pushMintBacklog(container, 'mint transaction reverted', proposalText)
+    return null
+  }
+  if (outcome.kind === 'pending') {
+    await pushMintBacklog(container, 'mint transaction pending', proposalText, outcome.txHash)
     return null
   }
   if (outcome.kind === 'skipped' || outcome.kind === 'on-chain') {
