@@ -31,6 +31,12 @@ function readNumber(record: Record<string, unknown>, key: string, fallback: numb
   return typeof value === 'number' ? value : fallback
 }
 
+/** Same as `payload.metamorphosisIndex ?? payload`. The index is often an object, not a number. */
+function spectrumIndex(payload: Record<string, unknown>): unknown {
+  const raw = payload.metamorphosisIndex
+  return raw == null ? payload : raw
+}
+
 async function callRealBackend(endpoint: string, body: unknown): Promise<Record<string, unknown>> {
   const response = await fetch(`${REAL_BACKEND_URL}${endpoint}`, {
     method: 'POST',
@@ -56,8 +62,7 @@ app.post('/stellar_process_spectrum', async (c: Context) => {
   if (!parsed.success) return fail(c, parsed.error.issues.map((i: any) => i.message).join('; '))
   try {
     const result = await callRealBackend('/process-spectrum', parsed.data)
-    const rawIndex = result.metamorphosisIndex
-    return ok(c, { metamorphosisIndex: typeof rawIndex === 'number' ? rawIndex : result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}` })
+    return ok(c, { metamorphosisIndex: spectrumIndex(result), neuralSpectraLength: 100, signalId: `stellar-${Date.now()}` })
   } catch (error) {
     return fail(c, 'Real backend unavailable', 503)
   }
@@ -220,8 +225,7 @@ const TOOL_DEFINITIONS = [
 const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   stellar_process_spectrum: async (args: any) => {
     const result = await callRealBackend('/process-spectrum', { wavelengths: args.wavelengths, fluxes: args.fluxes, objectType: args.objectType ?? 'star' })
-    const rawIndex = result.metamorphosisIndex
-    return { metamorphosisIndex: typeof rawIndex === 'number' ? rawIndex : result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}`, engine: 'real-tensorflow' }
+    return { metamorphosisIndex: spectrumIndex(result), neuralSpectraLength: 100, signalId: `stellar-${Date.now()}`, engine: 'real-tensorflow' }
   },
   stellar_calculate_metamorphosis_index: async (args: any) => {
     const result = await callRealBackend('/calculate-metamorphosis-index', { wavelengths: args.wavelengths, fluxes: args.fluxes, objectType: args.objectType ?? 'star' })
