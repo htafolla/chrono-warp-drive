@@ -2,6 +2,7 @@ import { http, createWalletClient, createPublicClient, defineChain, fallback, no
 import { privateKeyToAccount } from 'viem/accounts'
 import type { ContainerVortex } from './temporalContainer.js'
 import { containerToContractParams } from './temporalContainer.js'
+import { writeContractTx } from './looseContract.js'
 
 const RPC_URLS = [
   'https://mainnet.base.org',
@@ -45,13 +46,12 @@ let cachedClients: { walletClient: ReturnType<typeof createWalletClient>; public
 
 function getContractClient() {
   if (cachedClients) return cachedClients
-  const account = privateKeyToAccount(getPrivateKey())
+  const account = privateKeyToAccount(getPrivateKey(), { nonceManager })
 
   const walletClient = createWalletClient({
     account,
     chain: baseMainnet,
     transport: buildFallbackTransport(),
-    nonceManager,
   })
 
   const publicClient = createPublicClient({
@@ -68,7 +68,7 @@ export async function persistContainerToChain(container: ContainerVortex): Promi
   const params = containerToContractParams(container)
   const { walletClient, publicClient } = getContractClient()
 
-  const txHash = await walletClient.writeContract({
+  const txHash = await writeContractTx(walletClient, {
     address: CONTRACT_ADDRESS,
     abi,
     functionName: 'storeContainer',

@@ -16,6 +16,7 @@ import type { ContainerVortex } from './lib/temporalContainer.js'
 import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
+import { asAddress, asBigint, asContainerPage, asOnChainContainer, containerIdOf, readContractView, writeContractTx } from './lib/looseContract.js'
 import { temporalManifold } from './lib/temporalManifold.js'
 import {
   PERSIST_COOLDOWN_MS,
@@ -255,25 +256,26 @@ async function restoreBootState(): Promise<void> {
       const redisCount = existing ? Object.keys(existing).length : 0
       const { publicClient } = getVortexTokenClient()
       const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-      const onChainSupply = await publicClient.readContract({
+      const supplyRaw = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS, abi,
         functionName: 'totalSupply',
-      }).catch(() => 0n) as bigint
+      }).catch(() => 0n)
+      const onChainSupply = typeof supplyRaw === 'bigint' ? supplyRaw : 0n
       if (redisCount < Number(onChainSupply)) {
         let synced = 0
         for (let i = 0n; i < onChainSupply; i++) {
           try {
-            const tokenId = await publicClient.readContract({
+            const tokenId = asBigint(await readContractView(publicClient, {
               address: VORTEX_TOKEN_ADDRESS, abi,
               functionName: 'tokenByIndex',
               args: [i],
-            }) as bigint
-            const data = await publicClient.readContract({
+            }))
+            const data = await readContractView(publicClient, {
               address: VORTEX_TOKEN_ADDRESS, abi,
               functionName: 'getContainerData',
               args: [tokenId],
-            }) as any
-            const containerId = (data.containerId ?? data[0]) as string
+            })
+            const containerId = containerIdOf(data)
             if (!existing?.[containerId.toLowerCase()]) {
               await client.hset(REDIS_VORTEX_KEY_MINT, containerId.toLowerCase(), tokenId.toString())
               synced++
@@ -286,20 +288,20 @@ async function restoreBootState(): Promise<void> {
       try {
         const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
         const existingReg = await client.scard(REDIS_VORTEX_KEY_REGISTERED).catch(() => 0)
-        const [firstPage, regTotal] = await publicClient.readContract({
+        const [firstPage, regTotal] = asContainerPage(await readContractView(publicClient, {
           address: CONTRACT_ADDRESS, abi: registryAbi,
           functionName: 'listContainers',
           args: [0n, 500n],
-        }) as [string[], bigint]
+        }))
         if (firstPage.length > 0 && Number(regTotal) !== existingReg) {
           const allIds = [...firstPage]
           let offset = BigInt(firstPage.length)
           while (allIds.length < Number(regTotal)) {
-            const [page] = await publicClient.readContract({
+            const [page] = asContainerPage(await readContractView(publicClient, {
               address: CONTRACT_ADDRESS, abi: registryAbi,
               functionName: 'listContainers',
               args: [offset, 500n],
-            }) as [string[], bigint]
+            }))
             allIds.push(...page)
             offset += BigInt(page.length)
           }
@@ -2068,7 +2070,7 @@ app.post('/govern_with_solar', async (c: Context) => {
     solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
     resonance7D: result.fullBox7DComposite ?? 0.5,
     phaseAlignment: result.phaseAlignment ?? 0.5,
-    vortexAlignment: result.calibratedVortex ?? 0.5,
+    vortexAlignment: result.vortexAlignment ?? 0.5,
     synchronization: result.synchronization ?? 0.5,
     gematriaResonance: result.gematriaResonance ?? 0.5,
     tmoScore: result.trinitariumMoralScore ?? 0.5,
@@ -2502,9 +2504,15 @@ app.post('/messages', async (c: Context) => {
 
 // ---------- Vortex Token endpoints ----------
 
-let cachedVortexClient: ReturnType<typeof getVortexTokenClient> | null = null
+type VortexTokenClients = {
+  walletClient: ReturnType<typeof createWalletClient>
+  publicClient: ReturnType<typeof createPublicClient>
+  account: ReturnType<typeof privateKeyToAccount>
+}
 
-function getVortexTokenClient() {
+let cachedVortexClient: VortexTokenClients | null = null
+
+function getVortexTokenClient(): VortexTokenClients {
   if (cachedVortexClient) return cachedVortexClient
   const account = privateKeyToAccount(getPrivateKey())
   const walletClient = createWalletClient({
@@ -2525,9 +2533,9 @@ app.get('/vortex/info', async (c: Context) => {
     const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
     const [totalSupply, totalDonations, treasury] = await Promise.all([
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }) as Promise<bigint>,
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalDonations' }) as Promise<bigint>,
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'treasury' }) as Promise<string>,
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }).then(asBigint),
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalDonations' }).then(asBigint),
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'treasury' }).then(asAddress),
     ])
     return c.json({
       success: true,
@@ -2565,11 +2573,11 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
     } catch { /* Redis optional */ }
 
     if (!hasToken) {
-      const tid = await publicClient.readContract({
+      const tid = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS, abi,
         functionName: 'tokenByContainerId',
         args: [containerId],
-      }).catch(() => 0n) as bigint
+      }).then(asBigint).catch(() => 0n)
       hasToken = tid !== 0n
       tokenId = hasToken ? tid : null
       // Write back to Redis so /vortex/statuses stays in sync
@@ -2585,11 +2593,11 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
     let containerData: Record<string, any> | null = null
     try {
       const registryClient = createPublicClient({ chain: baseMainnet, transport: buildReadTransport() })
-      const container = await registryClient.readContract({
+      const container = asOnChainContainer(await readContractView(registryClient, {
         address: CONTRACT_ADDRESS, abi: registryAbi,
         functionName: 'getContainer',
         args: [containerId],
-      }) as any
+      }))
       containerData = {
         containerId,
         timestamp: Number(container.timestamp),
@@ -3718,7 +3726,7 @@ app.get('/vortex/token-image/:tokenId', async (c: Context) => {
     if (!data) {
       const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
       const { publicClient } = getVortexTokenClient()
-      data = await publicClient.readContract({
+      data = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'getContainerData',
@@ -4521,7 +4529,7 @@ mountDevSeedRoute(app, async (c: Context) => {
       try {
         const params = containerToContractParams(c)
         const currentNonce = BigInt(nonce) + BigInt(i)
-        const txHash = await walletClient.writeContract({
+        const txHash = await writeContractTx(walletClient, {
           address: CONTRACT_ADDRESS,
           abi: registryAbi,
           functionName: 'storeContainer',

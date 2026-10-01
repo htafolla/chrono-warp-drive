@@ -440,7 +440,5 @@ export class SolarGovernanceIntegration {
     }
   }
 }
-    }
-  }
 
-}
+export const solarGovernance = new SolarGovernanceIntegration()

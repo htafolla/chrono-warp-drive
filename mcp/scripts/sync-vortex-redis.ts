@@ -13,6 +13,7 @@
 import { http, createPublicClient, defineChain, createWalletClient, fallback } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { getRedisClient } from '../pubsub.js'
+import { asBigint, asContainerPage, readContractView } from '../lib/looseContract.js'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const REGISTRY_ADDRESS = '0xCB418F081D4fDAD6B2b17027294865B26cb26855'
@@ -50,11 +51,11 @@ async function loadRegistryAbi() {
 async function getTokenId(containerId: string): Promise<bigint | null> {
   try {
     const abi = await loadVortexAbi()
-    const tid = await publicClient.readContract({
+    const tid = asBigint(await readContractView(publicClient, {
       address: VORTEX_TOKEN_ADDRESS, abi,
       functionName: 'tokenByContainerId',
       args: [containerId as `0x${string}`],
-    }) as bigint
+    }))
     return tid
   } catch {
     return null
@@ -87,11 +88,11 @@ async function main() {
 
   // 2) From on-chain registry
   try {
-    const [ids] = await publicClient.readContract({
+    const [ids] = asContainerPage(await readContractView(publicClient, {
       address: REGISTRY_ADDRESS, abi: registryAbi,
       functionName: 'listContainers',
       args: [0n, 100n],
-    }) as [string[], bigint]
+    }))
     for (const id of ids as string[]) containerIds.add(id)
     console.log(`  From on-chain registry: ${(ids as string[]).length} containers`)
   } catch (err: any) {

@@ -244,6 +244,7 @@ export interface FullBoxResonanceResult {
   fullBoxGematriaResonance: number
   fullBox7DComposite: number
   fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  signalPurity: number
 }
 
 export function computeCalibratedWaveSync(rawSync: number): number {

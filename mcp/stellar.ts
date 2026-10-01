@@ -22,14 +22,25 @@ function fail(c: Context, message: string, status: ContentfulStatusCode = 400) {
   return c.json({ success: false, error: message }, status)
 }
 
-async function callRealBackend(endpoint: string, body: any) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function readNumber(record: Record<string, unknown>, key: string, fallback: number): number {
+  const value = record[key]
+  return typeof value === 'number' ? value : fallback
+}
+
+async function callRealBackend(endpoint: string, body: unknown): Promise<Record<string, unknown>> {
   const response = await fetch(`${REAL_BACKEND_URL}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (!response.ok) throw new Error(`Backend error: ${response.status}`)
-  return await response.json()
+  const payload: unknown = await response.json()
+  if (!isRecord(payload)) throw new Error('Backend returned a non-object')
+  return payload
 }
 
 // ===== REST Endpoints (real backend + local fallbacks) =====
@@ -45,7 +56,8 @@ app.post('/stellar_process_spectrum', async (c: Context) => {
   if (!parsed.success) return fail(c, parsed.error.issues.map((i: any) => i.message).join('; '))
   try {
     const result = await callRealBackend('/process-spectrum', parsed.data)
-    return ok(c, { metamorphosisIndex: result.metamorphosisIndex ?? result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}` })
+    const rawIndex = result.metamorphosisIndex
+    return ok(c, { metamorphosisIndex: typeof rawIndex === 'number' ? rawIndex : result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}` })
   } catch (error) {
     return fail(c, 'Real backend unavailable', 503)
   }
@@ -98,7 +110,8 @@ app.post('/stellar_isotopic_embedding', async (c: Context) => {
   if (!parsed.success) return fail(c, parsed.error.issues.map((i: any) => i.message).join('; '))
   try {
     const result = await callRealBackend('/isotopic-embedding', parsed.data)
-    return ok(c, { signalId: `stellar-${Date.now()}`, isotopicRatio: result.isotopicRatio ?? 0.9, phaseCoherence: result.resonance ?? 0.85, tdfValue: Date.now() * 1e6, embedding: Array.from({ length: 8 }, (_, i) => ((result.resonance ?? 0.85) * PHI) + i * 0.01), provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'] })
+    const resonance = readNumber(result, 'resonance', 0.85)
+    return ok(c, { signalId: `stellar-${Date.now()}`, isotopicRatio: readNumber(result, 'isotopicRatio', 0.9), phaseCoherence: resonance, tdfValue: Date.now() * 1e6, embedding: Array.from({ length: 8 }, (_, i) => (resonance * PHI) + i * 0.01), provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'] })
   } catch (error) {
     return fail(c, 'Real backend unavailable', 503)
   }
@@ -146,7 +159,8 @@ app.post('/process_current_sun', async (c: Context) => {
 app.get('/list_real_stars', async (c: Context) => {
   try {
     const response = await fetch(`${REAL_BACKEND_URL}/list-stars`)
-    const data = await response.json()
+    const data: unknown = await response.json()
+    if (!isRecord(data)) throw new Error('list-stars returned a non-object')
     return ok(c, data)
   } catch (error) {
     return fail(c, 'Real backend unavailable', 503)
@@ -206,7 +220,8 @@ const TOOL_DEFINITIONS = [
 const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   stellar_process_spectrum: async (args: any) => {
     const result = await callRealBackend('/process-spectrum', { wavelengths: args.wavelengths, fluxes: args.fluxes, objectType: args.objectType ?? 'star' })
-    return { metamorphosisIndex: result.metamorphosisIndex ?? result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}`, engine: 'real-tensorflow' }
+    const rawIndex = result.metamorphosisIndex
+    return { metamorphosisIndex: typeof rawIndex === 'number' ? rawIndex : result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}`, engine: 'real-tensorflow' }
   },
   stellar_calculate_metamorphosis_index: async (args: any) => {
     const result = await callRealBackend('/calculate-metamorphosis-index', { wavelengths: args.wavelengths, fluxes: args.fluxes, objectType: args.objectType ?? 'star' })
@@ -218,7 +233,8 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   },
   stellar_isotopic_embedding: async (args: any) => {
     const result = await callRealBackend('/isotopic-embedding', { wavelengths: args.wavelengths, fluxes: args.fluxes, cascadeIndex: args.cascadeIndex ?? 0 })
-    return { signalId: `stellar-${Date.now()}`, isotopicRatio: result.isotopicRatio ?? 0.9, phaseCoherence: result.resonance ?? 0.85, tdfValue: Date.now() * 1e6, embedding: Array.from({ length: 8 }, (_, i) => ((result.resonance ?? 0.85) * PHI) + i * 0.01), provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'] }
+    const resonance = readNumber(result, 'resonance', 0.85)
+    return { signalId: `stellar-${Date.now()}`, isotopicRatio: readNumber(result, 'isotopicRatio', 0.9), phaseCoherence: resonance, tdfValue: Date.now() * 1e6, embedding: Array.from({ length: 8 }, (_, i) => (resonance * PHI) + i * 0.01), provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'] }
   },
   stellar_cross_correlate: () => ({ strength: 0.91, vortexVolume: 3.34e25, isotopicRatio: 0.94, note: 'Stellar signals show high resonance' }),
   stellar_triangulate: (args: any) => ({ signalCount: args.signals.length, coreResonance: 0.95, vortexVolume: 3.34e25 }),
