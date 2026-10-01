@@ -88,7 +88,7 @@ export function governanceToContainer(
     fullBox7DComposite: decision.fullBox7DComposite ?? 0,
     fullBox7DVerdict: decision.fullBox7DVerdict ?? 'NEEDS_REVISION',
     waveProximity: decision.waveProximity ?? 0,
-    phaseAlignment: decision.solarContext?.phaseAlignment as number ?? 0,
+    phaseAlignment: decision.phaseAlignment ?? 0,
     calibratedVortex: decision.resonanceScore ?? decision.fullBoxVortexAlignment ?? 0,
     calibratedSync: decision.synchronization ?? 0,
     neuralProximity: decision.fullBoxNeuralProximity ?? 0,

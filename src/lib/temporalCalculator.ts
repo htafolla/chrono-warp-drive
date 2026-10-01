@@ -2,7 +2,8 @@
 // Based on Codex v3.6 by @blaze0x1
 
 // Core Constants from TLM (L, PHI sourced from tlmConstants → trinitarium SSOT)
-export { L, PHI } from './tlmConstants';
+import { L, PHI } from './tlmConstants';
+export { L, PHI };
 export const FREQ = 528; // Hz harmonic frequency  
 export const C = 3e8; // Speed of light (m/s)
 export const DELTA_T = 1e-6; // Time step

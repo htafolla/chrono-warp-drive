@@ -22,12 +22,22 @@ let isInitialized = false
 let isTrained = false
 let trainingSnapshot: SolarSnapshot | null = null
 
+interface ClassicWorkerScope {
+  importScripts(...urls: string[]): void
+  tf?: unknown
+}
+
+function classicWorkerScope(): ClassicWorkerScope {
+  return self as unknown as ClassicWorkerScope
+}
+
 async function loadTensorFlow(): Promise<boolean> {
   while (loadAttempts < maxAttempts && !tf) {
     try {
       loadAttempts++
-      self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js')
-      tf = (self as any).tf
+      const scope = classicWorkerScope()
+      scope.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js')
+      tf = scope.tf
       return true
     } catch {
       if (loadAttempts >= maxAttempts) return false

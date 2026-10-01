@@ -13,6 +13,7 @@ export interface EnhancedGovernanceDecision {
     solarActivityModifier: number;
     recommendation: string;
     solarIsotopicResonance?: number;
+    solarResonance?: number;
     proposalTdf?: number;
     solarReferenceTdf?: number;
   };
