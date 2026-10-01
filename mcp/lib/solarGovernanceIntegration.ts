@@ -39,7 +39,7 @@ function fnvHash(text: string): number {
 const MIN_FINGERPRINT_WORDS = 3;
 const ANCHOR_WORDS = ['general', 'proposal', 'matter'];
 
-function deriveProposalCodexParams(words: string[], solarData: SolarData): VortexTdfParams {
+export function deriveProposalCodexParams(words: string[], solarData: SolarData): VortexTdfParams {
   const effective = words.length >= MIN_FINGERPRINT_WORDS
     ? words
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
@@ -47,11 +47,9 @@ function deriveProposalCodexParams(words: string[], solarData: SolarData): Vorte
   const combined = effective.join(' ')
   const totalChars = combined.length
   const uniqueChars = new Set(combined).size
-  // Temporal nonce: current second XORed with solar micro-variation.
-  // Ensures a different TDF fingerprint for the same text at different moments,
-  // making each vortex a unique record of "this exact instant."
-  const temporalNonce = Math.floor(Date.now() / 1000) ^ Math.floor((solarData.xray?.long ?? 0) * 1e6)
-  const hashVal = fnvHash(combined + String(temporalNonce))
+  // The proposal fingerprint is the text. Solar flux still changes the sun TDF.
+  // A clock nonce made the same proposal a different proposal one second later.
+  const hashVal = fnvHash(combined)
 
   // T_c: Word count + character diversity. Dense text = larger time constant.
   const T_c = 0.5 + (wordCount / 50) + (uniqueChars / Math.max(totalChars, 1)) * 0.5
@@ -197,6 +195,7 @@ export interface StructuralResonanceResult {
   trinitariumDetectedConcerns?: string[]
   trinitariumGematriaFusion?: number
   moralNumerologicalTension?: string
+  measurementFailed?: boolean
 }
 
 export class SolarGovernanceIntegration {
@@ -240,11 +239,11 @@ export class SolarGovernanceIntegration {
     } catch (error) {
       console.error('Error getting solar governance context:', error)
       return {
-        solarActivityLevel: 'moderate',
-        solarActivityModifier: 0,
+        solarActivityLevel: 'storm',
+        solarActivityModifier: -0.15,
         currentSunMetamorphosisIndex: 0.5,
         timestamp: new Date().toISOString(),
-        recommendation: 'Unable to fetch solar data - using neutral context',
+        recommendation: 'Solar data unavailable — fail closed',
       }
     }
   }
@@ -449,11 +448,12 @@ export class SolarGovernanceIntegration {
         moralNumerologicalTension,
       }
     } catch (error) {
-      console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
+      console.error('[SolarHammer] resonance computation failed, fail closed:', error)
       const fallbackTdf = 5.781e12 + 424242
 
       return {
-        structuralResonance: 0.80,
+        structuralResonance: 0.10,
+        measurementFailed: true,
         proximity: 0.80,
         phaseAlignment: 0.80,
         vortexAlignment: 0.80,
@@ -462,7 +462,7 @@ export class SolarGovernanceIntegration {
         crossCorrelationLag: 1,
         signalTiming: 'synced' as const,
         solarIsotopicResonance: 0.80,
-        solarActivityLevel: 'moderate',
+        solarActivityLevel: 'storm',
         solarReferenceTdf: fallbackTdf,
         proposalTdf: fallbackTdf,
         phaseCoherenceProposal: 0.75,
@@ -478,7 +478,7 @@ export class SolarGovernanceIntegration {
         waveSynchronization: 0.80,
         hybridVortexAlignment: 0.80,
         hybrid4DComposite: 0.80,
-        hybridVerdict: 'PASS' as const,
+        hybridVerdict: 'REJECT' as const,
         fullWave4DComposite: 0.80,
         calibratedWave4DComposite: 0.80,
         fullBoxProximity: 0.80,
@@ -487,11 +487,11 @@ export class SolarGovernanceIntegration {
         fullBoxNeuralProximity: 0.80,
         fullBoxNeuralVortex: 0.80,
         fullBox4DComposite: 0.80,
-        fullBoxVerdict: 'PASS' as const,
+        fullBoxVerdict: 'REJECT' as const,
         fullBoxThresholds: { strong: 0.85, good: 0.75, weak: 0.52 },
         fullBoxGematriaResonance: 0.80,
         fullBox7DComposite: 0.80,
-        fullBox7DVerdict: 'PASS' as const,
+        fullBox7DVerdict: 'REJECT' as const,
         signalPurity: 0.85,
         neuralSunEmbedding: undefined,
         neuralProposalEmbedding: undefined,

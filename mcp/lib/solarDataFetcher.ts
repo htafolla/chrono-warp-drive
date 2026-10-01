@@ -114,7 +114,8 @@ export class SolarDataFetcher {
     const magnetometer = parseMagnetometer(magRaw)
     const solarWind = parseSolarWind(plasmaRaw, windMagRaw)
     const kpIndex = parseKp(kpRaw)
-    const activityLevel = classifyActivity(xray, particles, kpIndex)
+    const measuredActivity = classifyActivity(xray, particles, kpIndex)
+    const activityLevel = resolveActivityLevel(measuredActivity, status.xray, status.kp)
 
     const data: SolarData = {
       timestamp: new Date().toISOString(),
@@ -251,6 +252,15 @@ function classifyFlare(long: number): XrayChannel['flareClass'] {
   return 'A'
 }
 
+export function resolveActivityLevel(
+  measured: ActivityLevel,
+  xrayStatus: 'ok' | 'fallback',
+  kpStatus: 'ok' | 'fallback',
+): ActivityLevel {
+  if (xrayStatus === 'fallback' || kpStatus === 'fallback') return 'storm'
+  return measured
+}
+
 function classifyActivity(x: XrayChannel, _p: ParticleChannel, kp: number): ActivityLevel {
   if (x.long > 1e-4 || kp >= 7) return 'storm'
   if (x.long > 1e-5 || kp >= 5) return 'active'
@@ -366,7 +376,7 @@ export async function fetchCurrentSolarData(): Promise<SolarActivityData> {
       magnetometer: { hp: 0, he: 0, hn: 0, total: 0, perturbation: 0 },
       solarWind: { speed: 400, density: 5, temperature: 1e5, bz: 0, bt: 0 },
       kpIndex: 0,
-      activityLevel: 'quiet',
+      activityLevel: 'storm',
       channelStatus: { xray: 'fallback', protons: 'fallback', electrons: 'fallback', mag: 'fallback', wind: 'fallback', kp: 'fallback' },
     }
     const spec = solarDataFetcher.solarDataToSpectrum(quiet, 50)
@@ -374,7 +384,7 @@ export async function fetchCurrentSolarData(): Promise<SolarActivityData> {
       timestamp: quiet.timestamp,
       xrayFlux: 1e-8,
       xrayFluxString: '1.0e-8',
-      activityLevel: 'quiet',
+      activityLevel: 'storm',
       wavelengths: spec.wavelengths.map((a) => a / 10),
       flux: spec.intensities,
       source: 'NOAA-GOES (fallback)',
