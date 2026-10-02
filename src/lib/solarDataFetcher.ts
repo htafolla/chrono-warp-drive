@@ -16,6 +16,16 @@ import type { SpectrumData } from '@/types/sdss';
 
 export type ActivityLevel = 'quiet' | 'moderate' | 'active' | 'storm';
 
+/** The X-ray or Kp channel returned no measurement. Callers fail closed. */
+export class SolarMeasurementMissing extends Error {
+  readonly channel: 'xray' | 'kp';
+  constructor(channel: 'xray' | 'kp') {
+    super(`Solar measurement missing: ${channel}`);
+    this.name = 'SolarMeasurementMissing';
+    this.channel = channel;
+  }
+}
+
 export interface XrayChannel {
   short: number;        // 0.05–0.4 nm  W/m^2
   long: number;         // 0.1–0.8 nm   W/m^2
@@ -100,10 +110,12 @@ export class SolarDataFetcher {
       ]);
 
     const xray = parseXray(xrayRaw);
+    if (!xray) throw new SolarMeasurementMissing('xray');
     const particles = parseParticles(protonsRaw, electronsRaw);
     const magnetometer = parseMagnetometer(magRaw);
     const solarWind = parseSolarWind(plasmaRaw, windMagRaw);
     const kpIndex = parseKp(kpRaw);
+    if (kpIndex === null) throw new SolarMeasurementMissing('kp');
 
     const activityLevel = classifyActivity(xray, particles, kpIndex);
 
@@ -124,8 +136,7 @@ export class SolarDataFetcher {
       const r = await fetch(url);
       if (!r.ok) throw new Error(`${url} -> ${r.status}`);
       return await r.json();
-    } catch (e) {
-      console.warn('[solarDataFetcher] channel failed:', e);
+    } catch {
       onFail();
       return null;
     }
@@ -263,12 +274,20 @@ function classifyActivity(x: XrayChannel, p: ParticleChannel, kp: number): Activ
   return 'quiet';
 }
 
-function parseXray(raw: any): XrayChannel {
-  if (!Array.isArray(raw) || raw.length === 0) return { short: 1e-9, long: 1e-8, hardnessRatio: 0.1, flareClass: 'A' };
-  const shortRows = raw.filter((r: any) => /0\.05/.test(r.energy));
-  const longRows  = raw.filter((r: any) => /0\.1-0\.8/.test(r.energy));
-  const short = Number(shortRows[shortRows.length - 1]?.flux ?? 1e-9);
-  const long  = Number(longRows[longRows.length - 1]?.flux  ?? 1e-8);
+function finiteReading(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseXray(raw: unknown): XrayChannel | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const rows = raw.filter((row): row is { energy?: string; flux?: unknown } => typeof row === 'object' && row !== null);
+  const shortRows = rows.filter((row) => typeof row.energy === 'string' && /0\.05/.test(row.energy));
+  const longRows = rows.filter((row) => typeof row.energy === 'string' && /0\.1-0\.8/.test(row.energy));
+  const short = finiteReading(shortRows[shortRows.length - 1]?.flux);
+  const long = finiteReading(longRows[longRows.length - 1]?.flux);
+  if (short === null || long === null) return null;
   return { short, long, hardnessRatio: long > 0 ? short / long : 0, flareClass: classifyFlare(long) };
 }
 
@@ -320,9 +339,13 @@ function parseSolarWind(plasmaRaw: any, windMagRaw: any): SolarWindChannel {
   return { speed, density, temperature, bz, bt };
 }
 
-function parseKp(raw: any): number {
-  if (!Array.isArray(raw) || raw.length === 0) return 0;
-  return Number(raw[raw.length - 1].kp_index ?? 0);
+function parseKp(raw: unknown): number | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const last = raw[raw.length - 1];
+  if (typeof last !== 'object' || last === null) return null;
+  const kp = finiteReading((last as { kp_index?: unknown }).kp_index);
+  if (kp === null || kp < 0 || kp > 9) return null;
+  return kp;
 }
 
 export const solarDataFetcher = new SolarDataFetcher();
