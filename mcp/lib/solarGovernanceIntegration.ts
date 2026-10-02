@@ -4,7 +4,7 @@
 // The mapping layer derives Codex parameters (T_c, P_s, E_t, delta_t, voids, bhs_n)
 // from proposal text and NOAA solar data.
 
-import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataFetcher.js'
+import { solarDataFetcher, SolarData } from './solarDataFetcher.js'
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
 import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
@@ -113,12 +113,20 @@ function tdfCascade(tdf: number): number {
   return Math.floor((tdf % 1e6) / 10000) % 100;
 }
 
+function planetaryKp(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0
+  return Math.min(value, 9)
+}
+
 export interface SolarGovernanceContext {
   solarActivityLevel: string
   solarActivityModifier: number // -0.15 to +0.05
   currentSunMetamorphosisIndex: number
   timestamp: string
   recommendation: string
+  // Planetary Kp from the NOAA reading, 0..9. Not the signed activity modifier.
+  // Absent (stored as 0) when that channel did not return a reading.
+  kpIndex?: number
   // New: per-proposal isotopic resonance from the sun (the hammer)
   solarIsotopicResonance?: number
   proposalTdf?: number
@@ -202,7 +210,7 @@ export class SolarGovernanceIntegration {
 
   async getSolarContextForGovernance(): Promise<SolarGovernanceContext> {
     try {
-      const solarData = await fetchCurrentSolarData()
+      const solarData = await solarDataFetcher.fetchCurrentSolarData()
 
       // Generic solar context (activity level + modifier only).
       // The real per-proposal resonance is the calculated solar isotopic hammer
@@ -232,6 +240,7 @@ export class SolarGovernanceIntegration {
       return {
         solarActivityLevel: solarData.activityLevel,
         solarActivityModifier: activityModifier,
+        kpIndex: planetaryKp(solarData.kpIndex),
         currentSunMetamorphosisIndex: 0.5, // legacy neutral placeholder (real resonance is the hammer)
         timestamp: solarData.timestamp,
         recommendation,
@@ -241,6 +250,7 @@ export class SolarGovernanceIntegration {
       return {
         solarActivityLevel: 'storm',
         solarActivityModifier: -0.15,
+        kpIndex: 0,
         currentSunMetamorphosisIndex: 0.5,
         timestamp: new Date().toISOString(),
         recommendation: 'Solar data unavailable — fail closed',

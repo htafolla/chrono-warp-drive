@@ -25,6 +25,7 @@ export interface EnhancedGovernanceDecision {
     solarActivityLevel: string
     solarActivityModifier: number
     recommendation: string
+    kpIndex?: number
     solarIsotopicResonance?: number
     solarResonance?: number
     proposalTdf?: number
@@ -428,6 +429,7 @@ export class DynamoSolarGovernance {
       solarContext: {
         solarActivityLevel: solarContext.solarActivityLevel,
         solarActivityModifier: solarContext.solarActivityModifier,
+        kpIndex: solarContext.kpIndex,
         recommendation: solarContext.recommendation,
         solarIsotopicResonance: hammer.solarIsotopicResonance,
         solarResonance: hammer.solarIsotopicResonance,

@@ -66,6 +66,11 @@ function scaleKp(value: number): bigint {
   return BigInt(Math.round(value * KP_SCALE))
 }
 
+function planetaryKp(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0
+  return Math.min(value, 9)
+}
+
 export function governanceToContainer(
   decision: EnhancedGovernanceDecision,
   proposalText: string,
@@ -79,7 +84,7 @@ export function governanceToContainer(
     timestamp,
     activityLevel: decision.solarContext?.solarActivityLevel ?? 'quiet',
     xrayFlux: decision.solarContext?.solarIsotopicResonance ?? 0,
-    kpIndex: decision.solarContext?.solarActivityModifier ?? 0,
+    kpIndex: planetaryKp(decision.solarContext?.kpIndex),
     protonFlux: 0,
     magnetometer: 0,
     solarTdf: decision.solarContext?.proposalTdf ?? 0,
