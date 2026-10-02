@@ -10,7 +10,7 @@
  * C_h = "3 × 10^12 m/s" at lines 1239–1241 ("Speed of Light in human terms")
  *
  * Do not hardcode 1.666 literals elsewhere;
- * import L, PHI, F_h, C_h from this module.
+ * import L, PHI, F_h, C_TLM, C_h from this module.
  */
 
 /** Trinity (Father, Son, Holy Spirit) */
@@ -19,8 +19,11 @@ export const L = 3;
 /** Temple measure, divine balance (5/3 ≈ 1.666) */
 export const PHI = 5 / 3;
 
-/** Finite grace seed (Fibonacci start) */
-export const F_h = 5;
+/** Finite Frequency, the TLM pair 5 and 3 (codexData lines 1226–1231). */
+export const F_h = [5, 3] as const;
+
+/** TLM context. Canonical value is infinity (codexData lines 1234–1237). */
+export const C_TLM = Number.POSITIVE_INFINITY;
 
 /** Human-scaled light speed (3×10¹² m/s) */
 export const C_h = 3e12;
