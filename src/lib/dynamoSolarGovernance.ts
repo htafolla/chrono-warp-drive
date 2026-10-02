@@ -153,7 +153,11 @@ export class DynamoSolarGovernance {
       hammerReason = 'Low resonance with the sun — misaligned';
     }
 
-    if (solarContext.solarActivityLevel === 'storm') {
+    if (hammer.measurementFailed) {
+      hammerRec = 'REJECT';
+      hammerConf = 0.81;
+      hammerReason = 'Solar measurement failed — fail closed';
+    } else if (solarContext.solarActivityLevel === 'storm') {
       if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION';
       hammerConf = Math.max(0.60, hammerConf - 0.12);
       hammerReason = 'Solar storm in progress — caution applied';

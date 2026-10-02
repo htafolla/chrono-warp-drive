@@ -315,14 +315,12 @@ export class DynamoSolarGovernance {
       hammerReason = 'Low resonance with the sun — misaligned'
     }
 
+    // A missing measurement stays a rejection. A real storm only downgrades a pass.
     if (hammer.measurementFailed) {
       hammerRec = 'REJECT'
       hammerConf = 0.81
       hammerReason = 'Solar measurement failed — fail closed'
-    }
-
-    // Storm override already built into thresholds, but still downgrade PASS
-    if (solarContext.solarActivityLevel === 'storm') {
+    } else if (solarContext.solarActivityLevel === 'storm') {
       if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION'
       hammerConf = Math.max(0.60, hammerConf - 0.12)
       hammerReason = 'Solar storm in progress — caution applied'
