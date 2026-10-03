@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Download, Upload, Copy, FileText, Database } from 'lucide-react';
 import { type Isotope } from '@/lib/temporalCalculator';
+import { PHI } from '@/lib/tlmConstants';
 
 interface TemporalState {
   time: number;
@@ -266,7 +267,7 @@ export function ExportImport({ currentState, onImport }: ExportImportProps) {
       isotope: { type: "C-14", factor: 0.8 },
       cycle: 1000,
       e_t: 0.75,
-      phi: 1.618,
+      phi: PHI,
       delta_t: 1e-6,
       timestamp: new Date().toISOString()
     };

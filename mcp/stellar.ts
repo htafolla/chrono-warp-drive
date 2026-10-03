@@ -7,6 +7,7 @@ import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { publish, subscribe } from './pubsub'
+import { PHI } from './lib/tlmConstants.js'
 import { crossTexts, triangulateTexts, resolveTimestampMs, fuseTexts } from './lib/signalFromText.js'
 
 const REAL_BACKEND_URL = process.env.REAL_NEURAL_BACKEND_URL || 'http://localhost:3001'

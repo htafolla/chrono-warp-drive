@@ -276,7 +276,7 @@ The momentum metric is the first feedback loop: higher resonance + higher moral 
 
 ## Relationship to the Blurrn Quantum Codex
 
-The Codex (v4.5→v4.7) is the cosmological foundation — it defines TLM (L=3, φ=1.666), temporal displacement theory, and the broader "light flows time" framework. Dynamo extracts one concept — the Temporal Displacement Factor — and operationalizes it into a working governance system.
+The Codex (v4.5→v4.7) is the cosmological foundation — it defines TLM (L=3, φ=5/3). This markdown file cannot import the TypeScript constants module, temporal displacement theory, and the broader "light flows time" framework. Dynamo extracts one concept — the Temporal Displacement Factor — and operationalizes it into a working governance system.
 
 | Codex Concept | Dynamo Implementation |
 |---------------|----------------------|

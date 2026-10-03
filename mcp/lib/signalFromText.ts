@@ -3,9 +3,8 @@
 // isotopicRatio only as a pairwise comparison. See "Needs Blaze" in the PR.
 
 import { computeFullTDF } from './vortexMath.js'
+import { PHI } from './tlmConstants.js'
 
-/** φ = 1.666 — documentation/docs/mathematical-reference.md:13 */
-const PHI = 1.666
 /** τ = 0.865 — documentation/docs/mathematical-reference.md:14 */
 const TAU = 0.865
 

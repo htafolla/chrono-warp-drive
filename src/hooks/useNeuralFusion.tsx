@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createNeuralWorker, type NeuralWorkerMessage, type NeuralWorkerResponse } from '@/lib/neuralWorker';
+import { PHI } from '@/lib/tlmConstants';
 import type { SolarFeatures } from '@/lib/solarDataFetcher';
 
 export interface NeuralFusionResult {
@@ -138,7 +139,7 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
   }, [enabled, autoInitialize]);
 
   const computeQEnt = useCallback(
-    async (delta_phase: number, n: number, phi: number = 1.666, solarFeatures?: SolarFeatures | null): Promise<number> => {
+    async (delta_phase: number, n: number, phi: number = PHI, solarFeatures?: SolarFeatures | null): Promise<number> => {
       if (!workerRef.current) {
         const phase_factor = Math.abs(Math.cos(phi * n / 2) / Math.PI);
         const cascade_factor = Math.sin(phi * n / 4) * Math.exp(-n / 20);
@@ -167,7 +168,7 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
       tdf_value: number,
       n: number,
       tau: number = 0.865,
-      phi: number = 1.666
+      phi: number = PHI
     ): Promise<{ cascade_index: number; efficiency: number }> => {
       if (!workerRef.current) {
         const cascade_index = Math.floor(Math.PI / 7) + n;
@@ -202,7 +203,7 @@ export function useNeuralFusion(options: NeuralFusionOptions = {}) {
       n: number,
       tdf_value: number,
       tau: number = 0.865,
-      phi: number = 1.666,
+      phi: number = PHI,
       solar?: SolarFeatures | null
     ): Promise<NeuralFusionResult> => {
       const startTime = performance.now();

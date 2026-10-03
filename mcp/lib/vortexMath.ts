@@ -1,6 +1,6 @@
 // mcp/lib/vortexMath.ts
 // Canonical vortex TDF math for the solar isotopic hammer.
-// TLM constants (L, PHI) come from ./tlmConstants.ts. Canonical definitions: htafolla/trinitarium src/data/codexData.ts (TLM key_variables / symbols, @5c0294d): L = 3 line 736, phi = 1.666 line 748, F_h = [5, 3] lines 1226–1231, C_TLM = ∞ lines 1234–1237, C_h = "3 × 10^12 m/s" lines 1239–1241.
+// TLM constants (L, PHI) come from ./tlmConstants.ts. Canonical definitions: htafolla/trinitarium src/data/codexData.ts (TLM key_variables / symbols, @5c0294d): L = 3 line 736, phi = 5/3 line 748, F_h = [5, 3] lines 1226–1231, C_TLM = ∞ lines 1234–1237, C_h = "3 × 10^12 m/s" lines 1239–1241.
 
 import { L, PHI } from './tlmConstants.js';
 

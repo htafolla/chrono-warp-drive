@@ -3,6 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, harmonicOscillator, type Isotope } from '@/lib/temporalCalculator';
+import { PHI } from '@/lib/tlmConstants';
 import { useMemoryManager, memoryManager } from '@/lib/memoryManager';
 
 interface WavePlaneProps {
@@ -38,7 +39,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
       const geometry = geometryRef.current;
       const position = geometry.attributes.position;
       const phase = phases[index % phases.length] || 0;
-      const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
+      const phaseType = (cycle % PHI) > PHI / 2 ? "push" : "pull";
       
       // Update vertices with wave calculations
       for (let i = 0; i < position.count; i++) {

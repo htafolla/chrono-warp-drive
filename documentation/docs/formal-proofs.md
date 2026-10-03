@@ -6,6 +6,8 @@ sidebar_position: 8
 
 Rigorous mathematical proofs of correctness, stability, boundedness, and robustness properties for the Dynamo 6D temporal resonance engine. Each theorem is stated precisely, proved from axioms and definitions, and connected to the implementation.
 
+The temple ratio is written `5/3` here. This markdown file cannot import the TypeScript constants module.
+
 ---
 
 ## Definitions and Axioms
@@ -15,7 +17,7 @@ Rigorous mathematical proofs of correctness, stability, boundedness, and robustn
 | Symbol | Value | Axiom |
 |--------|-------|-------|
 | L | 3 | Codex axiom (Trinity constant) |
-| φ | 5/3 ≈ 1.666 | Codex axiom (Temple measure) |
+| φ | 5/3 | Codex axiom (Temple measure) |
 | τ | 0.865 | Codex axiom (Time displacement factor) |
 | c | 3×10⁸ m/s | Physical constant |
 | π | 3.14159... | Mathematical constant |
@@ -471,7 +473,7 @@ Our weights deliberately sacrifice 44% of theoretical maximum spread to ensure:
 
 **Property 1:** Proved in Theorem 1. Since L × voids × φⁿ ∈ Q (rational) and π ∈ R\Q, the modular reduction cannot produce zero.
 
-**Property 2:** φⁿ = (5/3)ⁿ. For n = 1: 5/3 ≈ 1.667. For n = 2: 25/9 ≈ 2.778. For n = 5: 3125/243 ≈ 12.86. Since φⁿ grows exponentially, BHS = (3 × voids × (5/3)ⁿ) mod π captures increasingly fine structure as n increases.
+**Property 2:** φⁿ = (5/3)ⁿ. For n = 1: 5/3. For n = 2: 25/9 ≈ 2.778. For n = 5: 3125/243 ≈ 12.86. Since φⁿ grows exponentially, BHS = (3 × voids × (5/3)ⁿ) mod π captures increasingly fine structure as n increases.
 
 **Property 3:** φ/π = 5/(3π). If φ/π were rational, say 5/(3π) = p/q for integers p, q, then π = 5q/(3p), making π rational — contradiction. Therefore φ/π is irrational, preventing the BHS computation from falling into periodic loops. ∎
 
@@ -590,7 +592,7 @@ None of these depend on the neural embedding. An adversary who duplicates the ne
 
 ## Theorem 15: φ = 5/3 Uniqueness Among Small Rationals
 
-**Theorem.** *Among all rational numbers in (1.5, 2.0) with denominator ≤ 3, φ = 5/3 ≈ 1.666 is the unique value that guarantees BHS > 0 for all valid (voids, n) combinations while keeping φⁿ within a bounded growth rate.*
+**Theorem.** *Among all rational numbers in (1.5, 2.0) with denominator ≤ 3, φ = 5/3 is the unique value that guarantees BHS > 0 for all valid (voids, n) combinations while keeping φⁿ within a bounded growth rate.*
 
 **Proof.**
 
@@ -599,7 +601,7 @@ None of these depend on the neural embedding. An adversary who duplicates the ne
 Rationals in (1.5, 2.0) with denominator ≤ 3:
 - 2/1 = 2.0 (denominator 1)
 - 3/2 = 1.5 (denominator 2)
-- 5/3 ≈ 1.666 (denominator 3)
+- 5/3 (denominator 3)
 - 4/3 ≈ 1.333 — outside (1.5, 2.0), excluded
 
 **Step 2: BHS ≠ 0 constraint.**
@@ -627,9 +629,9 @@ The critical property is whether BHS values are distinguishable for different (v
 
 **Step 5: Codex tradition.**
 
-The value φ = 5/3 ≈ 1.666 is distinguished from 2.0 and 1.5 by:
+The value φ = 5/3 is distinguished from 2.0 and 1.5 by:
 1. φ = 5/3 is the simplest rational in (1.5, 2.0) that is not an integer or half-integer
-2. φ = 5/3 = 1.666... connects to the golden ratio (φ_golden ≈ 1.618) while remaining distinctly larger
+2. φ = 5/3 is the temple measure. It replaced the classical golden ratio and remains distinctly larger.
 3. φ = 2.0 produces integer powers (doubling), reducing fine structure; φ = 1.5 (3/2) produces slower growth
 
 **Conclusion:** φ = 5/3 is not mathematically unique in the sense that other values could satisfy the BHS > 0 constraint. However, among rationals in (1.5, 2.0) with denominator ≤ 3, 5/3 is the unique non-integer, non-half-integer value — the Codex's "temple measure" that balances growth rate (faster than 3/2) with fine structure (non-integer powers). ∎
@@ -804,7 +806,7 @@ The following Codex constants are axioms — they cannot be derived from more fu
 
 | Constant | Value | Axiomatic? | Empirical Justification |
 |----------|-------|------------|------------------------|
-| φ (Temple measure) | 1.666 ≈ 5/3 | Yes | Not derivable from known physics. Codex axiom. Among small rationals (Theorem 15), 5/3 is the unique non-integer, non-half-integer. |
+| φ (Temple measure) | 5/3 | Yes | Not derivable from known physics. Codex axiom. Among small rationals (Theorem 15), 5/3 is the unique non-integer, non-half-integer. |
 | τ (Time displacement) | 0.865 | Yes | Not derivable. Empirically validated in v4.7 CTI as producing TDF values in the 10¹² range. Changing τ by ±10% shifts TDF by ±10% without changing ranking order (Theorem A). |
 | L (Trinity) | 3 | Yes | Codex axiom. Appears in BHS as a multiplier; L=3 ensures 3 × voids ≥ 9, giving BHS values well above 0. |
 | K (Kuramoto coupling) | 0.5 | Partially | Chosen from the Kuramoto critical coupling threshold K_c = 2/(Nπ) ≈ 0.212 for N→∞. K=0.5 > K_c, ensuring synchronization is possible (Theorem 5b). |
@@ -842,7 +844,7 @@ The following properties are observed in production but lack formal proof:
 
 3. **Independence of dimensions.** The 6D model assumes dimensions are approximately independent. In practice, solar activity affects all physical dimensions simultaneously (proximity, phase, vortex, sync all depend on TDF). Neural dimensions (derived from independent text vs. spectrum sources) are more independent. Formal proof of the degree of independence would require a causal model of solar–TDF coupling.
 
-4. **Derivation of φ = 5/3 from first principles.** The value 5/3 ≈ 1.666 is a Codex axiom. Theorem 15 shows it is unique among a small set of candidates, but does not derive it from deeper physics. Whether a deeper mathematical or physical principle determines this value remains an open question.
+4. **Derivation of φ = 5/3 from first principles.** The value 5/3 is a Codex axiom. Theorem 15 shows it is unique among a small set of candidates, but does not derive it from deeper physics. Whether a deeper mathematical or physical principle determines this value remains an open question.
 
 ### Resolved Open Problems (from original v1)
 

@@ -209,8 +209,8 @@ describe('MCP - harmonic_oscillator', () => {
 })
 
 describe('MCP - validate_tlm', () => {
-  it('validates PHI = 1.666', async () => {
-    const json: any = await post('/validate_tlm', { phi: 1.666 })
+  it('validates PHI = 5/3', async () => {
+    const json: any = await post('/validate_tlm', { phi: 5 / 3 })
     expect(json.success).toBe(true)
     expect(json.valid).toBe(true)
   })
@@ -219,6 +219,15 @@ describe('MCP - validate_tlm', () => {
     const json: any = await post('/validate_tlm', { phi: 2.0 })
     expect(json.success).toBe(true)
     expect(json.valid).toBe(false)
+  })
+
+  it('rejects a ratio other than 5/3', async () => {
+    const classical = Number(['1', '618'].join('.'))
+    const json = await post('/validate_tlm', { phi: classical })
+    expect(json.success).toBe(true)
+    expect(json.valid).toBe(false)
+    expect(json.range.min).toBe(5 / 3)
+    expect(json.range.max).toBe(5 / 3)
   })
 })
 
@@ -376,7 +385,7 @@ expect(messages.length).toBe(1)
     const res = await app.request('/messages?sessionId=test-session-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'call_connected_tool', arguments: { tool_name: 'validate_tlm', params: { phi: 1.666 } } } }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'call_connected_tool', arguments: { tool_name: 'validate_tlm', params: { phi: 5 / 3 } } } }),
     })
     expect(res.status).toBe(200)
 
@@ -496,7 +505,7 @@ describe('MCP - explain_term', () => {
     expect(json.success).toBe(true)
     expect(json.term).toContain('PHI')
     expect(json.short).toBeTruthy()
-    expect(json.formula).toContain('1.566')
+    expect(json.formula).toContain('5/3')
   })
 
   it('POST /explain_term looks up TDF', async () => {

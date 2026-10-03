@@ -5,6 +5,7 @@ import { SpectrumData, TPTTv4Result, NeuralOutput } from '@/types/sdss';
 import { TPTTv4_6Result, TDFComponents, TimeShiftMetrics, BlackHoleLightData, BlurrnV46Config, ExperimentLog } from '@/types/blurrn-v4-6';
 import { TPTTv4_7Result, CTIComponents, ChronoTransportResult, DualBlackHoleSequence, CascadeParameters } from '@/types/blurrn-v4-7';
 import { Isotope } from './temporalCalculator';
+import { PHI } from './tlmConstants';
 
 export interface ChronoTransportDebugState {
   isV47Active: boolean;
@@ -265,7 +266,7 @@ export class DebugExporter {
     
     // Import constants for debugging
     const { PHI, FREQ, C, DELTA_T, PHASE_UPDATE_FACTOR } = appState.constants || {
-      PHI: 1.666, FREQ: 528, C: 3e8, DELTA_T: 1e-6, PHASE_UPDATE_FACTOR: 0.016
+      PHI, FREQ: 528, C: 3e8, DELTA_T: 1e-6, PHASE_UPDATE_FACTOR: 0.016
     };
 
     // Check for v4.6 breakthrough data
@@ -305,7 +306,7 @@ export class DebugExporter {
         isotope: appState.isotope || { type: "C-12", factor: 1.0 },
         cycle: appState.cycle || 0,
         e_t: appState.e_t || 0.5,
-        phi: appState.phi || 1.666,
+        phi: appState.phi || PHI,
         delta_t: appState.delta_t || 1e-6,
         tPTT_value: appState.tPTT_value || 0,
         lightWave: appState.lightWave || 0,
@@ -345,7 +346,7 @@ export class DebugExporter {
             blackhole_seq_steps: {
               voids: appState.voids || 1,
               n: appState.n || 1,
-              phi: appState.phi || 1.666,
+              phi: appState.phi || PHI,
               sequence: tpttV46Result.v46_components.BlackHole_Seq
             },
             s_l_dynamic: tpttV46Result.v46_components.S_L,

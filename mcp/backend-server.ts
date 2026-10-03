@@ -23,6 +23,7 @@ import { solarDataFetcher } from './lib/solarDataFetcher.js'
 import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
 import { ambientField } from './lib/ambientField.js'
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
+import { PHI } from './lib/tlmConstants.js'
 
 const app = express()
 app.use(cors())
@@ -116,7 +117,7 @@ app.post('/process-spectrum', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths, intensities: fluxes, granularity: wavelengths.length, source: 'user-upload' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
     res.json({ success: true, metamorphosisIndex: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
@@ -140,7 +141,7 @@ app.post('/process-stellar-spectrum', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths: spectrum.wavelengths, intensities: spectrum.flux, granularity: 100, source: 'STELLAR_LIBRARY' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
     res.json({ success: true, star: spectrum, metamorphosisIndex: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow + real-stellar-library' })
@@ -156,7 +157,7 @@ app.post('/calculate-metamorphosis-index', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths, intensities: fluxes, granularity: wavelengths.length, source: 'user-upload' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
     res.json({ success: true, value: result.metamorphosisIndex, resonance: result.metamorphosisIndex, isotopicRatio: 0.85 + (result.metamorphosisIndex * 0.14), confidence: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
@@ -172,7 +173,7 @@ app.post('/isotopic-embedding', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths, intensities: fluxes, granularity: wavelengths.length, source: 'user-upload' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
     res.json({ success: true, resonance: result.metamorphosisIndex, metamorphosisIndex: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
@@ -194,7 +195,7 @@ app.post('/process-current-sun', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: spectrum,
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
       solarFeatures,
     })

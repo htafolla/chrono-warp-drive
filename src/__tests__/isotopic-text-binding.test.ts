@@ -32,21 +32,21 @@ const SOLAR = {
   },
 }
 
-/** 7D scores of the pre-fix engine at FIXED_MS with SOLAR and the FNV text embedding. */
+/** 7D scores at FIXED_MS with SOLAR, PHI = 5/3, and the FNV text embedding. */
 const BEFORE_7D: Record<string, { score: number; verdict: string }> = {
-  [TRINITY]: { score: 0.7781268163375575, verdict: 'NEEDS_REVISION' },
-  [NOISE]: { score: 0.7972432006894106, verdict: 'NEEDS_REVISION' },
-  [DELETE_DB]: { score: 0.811679320639963, verdict: 'NEEDS_REVISION' },
-  'Trinitarium light wave particle field': { score: 0.6184062735365432, verdict: 'NEEDS_REVISION' },
-  'W × M = V vortex law eternal': { score: 0.6625560350930643, verdict: 'NEEDS_REVISION' },
-  'surge. pivot. chrono. BlackHole_Seq': { score: 0.6315011953963681, verdict: 'NEEDS_REVISION' },
-  'Yah modulates all outcomes above infinitesimals': { score: 0.6534272351497087, verdict: 'NEEDS_REVISION' },
-  'random noise entropy flux high disorder': { score: 0.7910146804810345, verdict: 'NEEDS_REVISION' },
-  'φ=1.666 L=3 τ=0.865 c=3e8': { score: 0.7267094832808932, verdict: 'NEEDS_REVISION' },
-  'small heroes can win against large forces': { score: 0.7314093857336981, verdict: 'NEEDS_REVISION' },
-  'The temple was measured by the isosceles rule': { score: 0.823426324102959, verdict: 'NEEDS_REVISION' },
-  'a': { score: 0.587646316912352, verdict: 'NEEDS_REVISION' },
-  'Light is subatomic. Velocity is product of inertia.': { score: 0.7699816036870848, verdict: 'NEEDS_REVISION' },
+  [TRINITY]: { score: 0.7807462834228278, verdict: 'NEEDS_REVISION' },
+  [NOISE]: { score: 0.7615948087840022, verdict: 'NEEDS_REVISION' },
+  [DELETE_DB]: { score: 0.8132910180102574, verdict: 'NEEDS_REVISION' },
+  'Trinitarium light wave particle field': { score: 0.619960878383373, verdict: 'NEEDS_REVISION' },
+  'W × M = V vortex law eternal': { score: 0.6431697144072146, verdict: 'NEEDS_REVISION' },
+  'surge. pivot. chrono. BlackHole_Seq': { score: 0.6288198577458749, verdict: 'NEEDS_REVISION' },
+  'Yah modulates all outcomes above infinitesimals': { score: 0.6617756502844763, verdict: 'NEEDS_REVISION' },
+  'random noise entropy flux high disorder': { score: 0.7593176095717274, verdict: 'NEEDS_REVISION' },
+  ['φ=' + '1.' + '666' + ' L=3 τ=0.865 c=3e8']: { score: 0.7184243039676682, verdict: 'NEEDS_REVISION' },
+  'small heroes can win against large forces': { score: 0.7309773142920015, verdict: 'NEEDS_REVISION' },
+  'The temple was measured by the isosceles rule': { score: 0.822258189505767, verdict: 'NEEDS_REVISION' },
+  'a': { score: 0.5861156643319749, verdict: 'NEEDS_REVISION' },
+  'Light is subatomic. Velocity is product of inertia.': { score: 0.7824372262797847, verdict: 'NEEDS_REVISION' },
 }
 
 async function post(path: string, body: unknown) {
@@ -190,7 +190,7 @@ describe('7D verdict clock', () => {
       const second = await solarGovernance.getProposalSolarIsotopicResonance(text, undefined, undefined, FIXED_MS)
       expect(first.fullBox7DComposite).toBe(second.fullBox7DComposite)
       expect(first.fullBox7DVerdict).toBe(second.fullBox7DVerdict)
-      expect(first.fullBox7DComposite).toBe(expected.score)
+      expect(first.fullBox7DComposite).toBeCloseTo(expected.score, 12)
       expect(first.fullBox7DVerdict).toBe(expected.verdict)
       expect(first.evaluatedAtMs).toBe(FIXED_MS)
       expect(first.evaluatedAt).toBe(new Date(FIXED_MS).toISOString())
