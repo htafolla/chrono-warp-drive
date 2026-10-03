@@ -10,6 +10,7 @@ import { VortexDetailModal } from '@/components/vortex/VortexDetailModal'
 import { MyVortices } from '@/components/vortex/MyVortices'
 import { ClaimModal } from '@/components/vortex/ClaimModal'
 import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
+import { asBigint, readContractView } from '../../mcp/lib/looseContract'
 
 export const CLAIMS_PAUSED_NOTICE = 'Claims are paused while we add signed vouchers.'
 
@@ -293,21 +294,21 @@ export default function VortexClaim() {
     if (!publicClient || !address) return
     setMyTokensLoading(true)
     try {
-      const balance = await publicClient.readContract({
+      const balance = asBigint(await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi: VORTEX_ABI,
         functionName: 'balanceOf',
         args: [address],
-      })
+      }))
       const tokens: { tokenId: string; containerData: any }[] = []
       for (let i = 0; i < Number(balance); i++) {
-        const tid = await publicClient.readContract({
+        const tid = asBigint(await readContractView(publicClient, {
           address: VORTEX_TOKEN_ADDRESS,
           abi: VORTEX_ABI,
           functionName: 'tokenOfOwnerByIndex',
           args: [address, BigInt(i)],
-        })
-        const data = await publicClient.readContract({
+        }))
+        const data = await readContractView(publicClient, {
           address: VORTEX_TOKEN_ADDRESS,
           abi: VORTEX_ABI,
           functionName: 'getContainerData',
@@ -333,7 +334,7 @@ export default function VortexClaim() {
   async function loadOnChainMetadata(tokenId: string, containerId: string) {
     if (!publicClient) return
     try {
-      const data = await publicClient.readContract({
+      const data = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi: VORTEX_ABI,
         functionName: 'getContainerData',

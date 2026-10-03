@@ -320,8 +320,12 @@ export class DynamoSolarGovernance {
       hammerReason = 'Low resonance with the sun — misaligned'
     }
 
-    // Storm override already built into thresholds, but still downgrade PASS
-    if (solarContext.solarActivityLevel === 'storm') {
+    // A missing measurement stays a rejection. A real storm only downgrades a pass.
+    if (hammer.measurementFailed) {
+      hammerRec = 'REJECT'
+      hammerConf = 0.81
+      hammerReason = 'Solar measurement failed — fail closed'
+    } else if (solarContext.solarActivityLevel === 'storm') {
       if (hammerRec === 'PASS') hammerRec = 'NEEDS_REVISION'
       hammerConf = Math.max(0.60, hammerConf - 0.12)
       hammerReason = 'Solar storm in progress — caution applied'
@@ -463,7 +467,7 @@ export class DynamoSolarGovernance {
       waveSynchronization: hammer.waveSynchronization,
       hybridVortexAlignment: hammer.hybridVortexAlignment,
       hybrid4DComposite: hammer.hybrid4DComposite,
-      hybridVerdict: hammer.hybridVerdict,
+      hybridVerdict: finalRec,
       fullWave4DComposite: hammer.fullWave4DComposite,
       calibratedWave4DComposite: hammer.calibratedWave4DComposite,
       fullBoxProximity: hammer.fullBoxProximity,
@@ -472,11 +476,11 @@ export class DynamoSolarGovernance {
       fullBoxNeuralProximity: hammer.fullBoxNeuralProximity,
       fullBoxNeuralVortex: hammer.fullBoxNeuralVortex,
       fullBox4DComposite: hammer.fullBox4DComposite,
-      fullBoxVerdict: hammer.fullBoxVerdict,
+      fullBoxVerdict: finalRec,
       fullBoxThresholds: hammer.fullBoxThresholds,
       fullBoxGematriaResonance: hammer.fullBoxGematriaResonance,
       fullBox7DComposite: hammer.fullBox7DComposite,
-      fullBox7DVerdict: hammer.fullBox7DVerdict,
+      fullBox7DVerdict: finalRec,
       signalPurity: hammer.signalPurity,
       neuralSunEmbedding: hammer.neuralSunEmbedding,
       neuralProposalEmbedding: hammer.neuralProposalEmbedding,

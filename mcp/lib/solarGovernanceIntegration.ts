@@ -229,6 +229,7 @@ export interface StructuralResonanceResult {
   trinitariumDetectedConcerns?: string[]
   trinitariumGematriaFusion?: number
   moralNumerologicalTension?: string
+  measurementFailed?: boolean
   evaluatedAt: string
   evaluatedAtMs: number
 }
@@ -273,11 +274,11 @@ export class SolarGovernanceIntegration {
       }
     } catch {
       return {
-        solarActivityLevel: 'moderate',
-        solarActivityModifier: 0,
+        solarActivityLevel: 'storm',
+        solarActivityModifier: -0.15,
         currentSunMetamorphosisIndex: 0.5,
         timestamp: new Date().toISOString(),
-        recommendation: 'Unable to fetch solar data - using neutral context',
+        recommendation: 'Solar data unavailable — fail closed',
       }
     }
   }
@@ -487,6 +488,7 @@ export class SolarGovernanceIntegration {
     } catch {
       const derived = new TextDerivedSignal(proposal)
       return {
+        measurementFailed: true,
         structuralResonance: 0,
         proximity: 0,
         phaseAlignment: 0,
