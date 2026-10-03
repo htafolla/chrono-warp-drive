@@ -15,8 +15,10 @@ describe('MCP - emit_isotopic_signal', () => {
     const json: any = await post('/emit_isotopic_signal', { content: 'test signal' })
     expect(json.success).toBe(true)
     expect(json.signalId).toMatch(/^blurrn-core-/)
-    expect(json.isotopicRatio).toBeGreaterThan(0)
+    expect(json.isotopicRatio).toBeUndefined()
+    expect(json.phaseCoherence).toBeGreaterThanOrEqual(0)
     expect(json.tdfValue).toBeGreaterThan(0)
+    expect(typeof json.timestampMs).toBe('number')
   })
 
   it('rejects empty content', async () => {
@@ -108,10 +110,25 @@ describe('MCP - get_phase_coherence', () => {
   })
 
   it('falls back for unknown IDs', async () => {
-    const json: any = await post('/get_phase_coherence', { signalId: 'unknown-id' })
+    const { TextDerivedSignal } = await import('../../mcp/lib/signalFromText.js')
+    const unknownId = 'unknown-id'
+    const otherId = 'other-unknown-id'
+    const json = await post('/get_phase_coherence', { signalId: unknownId }) as {
+      success: boolean
+      phaseCoherence: number
+      tdfValue: number
+      cascadeIndex: number
+      stored: boolean
+    }
+    const derived = new TextDerivedSignal(unknownId)
     expect(json.success).toBe(true)
-    expect(json.phaseCoherence).toBeGreaterThan(0)
+    expect(json.phaseCoherence).toBe(derived.phaseCoherence)
+    expect(json.tdfValue).toBe(derived.tdfValue)
+    expect(json.cascadeIndex).toBe(derived.cascadeIndex)
     expect(json.stored).toBe(false)
+    const other = await post('/get_phase_coherence', { signalId: otherId }) as { phaseCoherence: number }
+    expect(other.phaseCoherence).not.toBe(json.phaseCoherence)
+    expect(other.phaseCoherence).toBe(new TextDerivedSignal(otherId).phaseCoherence)
   })
 })
 

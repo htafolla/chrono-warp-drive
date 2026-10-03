@@ -7,12 +7,22 @@ import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { publish, subscribe } from './pubsub'
+import { crossTexts, triangulateTexts, resolveTimestampMs, fuseTexts } from './lib/signalFromText.js'
 
 const REAL_BACKEND_URL = process.env.REAL_NEURAL_BACKEND_URL || 'http://localhost:3001'
-const PHI = 1.666
 
 const app = new Hono()
 app.use('/*', cors())
+
+function numField(row: Record<string, unknown>, key: string): number | undefined {
+  const value = row[key]
+  return typeof value === 'number' ? value : undefined
+}
+
+function passedIndex(row: Record<string, unknown>): unknown {
+  const value = row['metamorphosisIndex']
+  return value === undefined || value === null ? row : value
+}
 
 function ok(c: Context, data: Record<string, unknown>) {
   return c.json({ success: true, engine: 'real-tensorflow', ...data })
@@ -22,14 +32,18 @@ function fail(c: Context, message: string, status: ContentfulStatusCode = 400) {
   return c.json({ success: false, error: message }, status)
 }
 
-async function callRealBackend(endpoint: string, body: any) {
+async function callRealBackend(endpoint: string, body: unknown): Promise<Record<string, unknown>> {
   const response = await fetch(`${REAL_BACKEND_URL}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (!response.ok) throw new Error(`Backend error: ${response.status}`)
-  return await response.json()
+  const data: unknown = await response.json()
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Backend returned an unexpected body')
+  }
+  return data as Record<string, unknown>
 }
 
 // ===== REST Endpoints (real backend + local fallbacks) =====
@@ -45,7 +59,7 @@ app.post('/stellar_process_spectrum', async (c: Context) => {
   if (!parsed.success) return fail(c, parsed.error.issues.map((i: any) => i.message).join('; '))
   try {
     const result = await callRealBackend('/process-spectrum', parsed.data)
-    return ok(c, { metamorphosisIndex: result.metamorphosisIndex ?? result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}` })
+    return ok(c, { metamorphosisIndex: passedIndex(result), neuralSpectraLength: 100, signalId: `stellar-${Date.now()}` })
   } catch (error) {
     return fail(c, 'Real backend unavailable', 503)
   }
@@ -93,33 +107,77 @@ const IsotopicSchema = z.object({
   cascadeIndex: z.number().int().min(0).default(0),
 })
 
+const ClockSchema = z.union([z.number(), z.string()]).optional()
+
 app.post('/stellar_isotopic_embedding', async (c: Context) => {
-  const parsed = IsotopicSchema.safeParse(await c.req.json())
-  if (!parsed.success) return fail(c, parsed.error.issues.map((i: any) => i.message).join('; '))
+  const parsed = IsotopicSchema.extend({ timestamp: ClockSchema }).safeParse(await c.req.json())
+  if (!parsed.success) return fail(c, parsed.error.issues.map((issue) => issue.message).join('; '))
   try {
-    const result = await callRealBackend('/isotopic-embedding', parsed.data)
-    return ok(c, { signalId: `stellar-${Date.now()}`, isotopicRatio: result.isotopicRatio ?? 0.9, phaseCoherence: result.resonance ?? 0.85, tdfValue: Date.now() * 1e6, embedding: Array.from({ length: 8 }, (_, i) => ((result.resonance ?? 0.85) * PHI) + i * 0.01), provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'] })
+    const clock = resolveTimestampMs(parsed.data.timestamp)
+    const result = await callRealBackend('/isotopic-embedding', {
+      wavelengths: parsed.data.wavelengths,
+      fluxes: parsed.data.fluxes,
+      cascadeIndex: parsed.data.cascadeIndex,
+    })
+    // No Codex formula maps a spectrum to an isotopic ratio, TDF, phase coherence,
+    // or an embedding. Those fields are omitted. See Needs Blaze.
+    // Resonance / metamorphosis index are passed through from the spectrum backend.
+    return ok(c, {
+      timestamp: clock.timestamp,
+      timestampMs: clock.timestampMs,
+      resonance: numField(result, 'resonance'),
+      metamorphosisIndex: numField(result, 'metamorphosisIndex'),
+      confidenceScore: numField(result, 'confidenceScore'),
+      provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'],
+    })
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Real backend unavailable'
+    if (message.startsWith('timestamp')) return fail(c, message)
     return fail(c, 'Real backend unavailable', 503)
   }
 })
 
 app.post('/stellar_cross_correlate', async (c: Context) => {
-  const parsed = z.object({ contentA: z.string(), contentB: z.string().optional() }).safeParse(await c.req.json())
+  const parsed = z.object({ contentA: z.string(), contentB: z.string().optional(), timestamp: ClockSchema }).safeParse(await c.req.json())
   if (!parsed.success) return fail(c, 'Invalid input')
-  return ok(c, { strength: 0.91, vortexVolume: 3.34e25, isotopicRatio: 0.94, note: 'Stellar signals show high resonance' })
+  try {
+    const clock = resolveTimestampMs(parsed.data.timestamp)
+    const score = crossTexts(parsed.data.contentA, parsed.data.contentB ?? 'reference-signal')
+    return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
+  } catch (error) {
+    return fail(c, error instanceof Error ? error.message : 'invalid timestamp')
+  }
 })
 
 app.post('/stellar_triangulate', async (c: Context) => {
-  const parsed = z.object({ signals: z.array(z.object({ content: z.string() })).min(2) }).safeParse(await c.req.json())
+  const parsed = z.object({
+    signals: z.array(z.object({ content: z.string() })).min(2),
+    timestamp: ClockSchema,
+  }).safeParse(await c.req.json())
   if (!parsed.success) return fail(c, 'Need at least 2 signals')
-  return ok(c, { signalCount: parsed.data.signals.length, coreResonance: 0.95, vortexVolume: 3.34e25 })
+  try {
+    const clock = resolveTimestampMs(parsed.data.timestamp)
+    const signals = parsed.data.signals.flatMap((signal) => (signal.content ? [{ content: signal.content }] : []))
+    const score = triangulateTexts(signals)
+    return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
+  } catch (error) {
+    return fail(c, error instanceof Error ? error.message : 'invalid timestamp')
+  }
 })
 
 app.post('/stellar_fuse_symbiotic', async (c: Context) => {
   const parsed = z.object({ partners: z.array(z.object({ content: z.string() })).min(2) }).safeParse(await c.req.json())
   if (!parsed.success) return fail(c, 'Need at least 2 partners')
-  return ok(c, { fused: true, partnerCount: parsed.data.partners.length, fusedIsotopeId: 'stellar-fused-core', resonance: 0.97 })
+  const contents = parsed.data.partners.map((partner) => partner.content)
+  const fused = fuseTexts(contents)
+  const tri = triangulateTexts(contents.map((content) => ({ content })))
+  return ok(c, {
+    fused: true,
+    partnerCount: contents.length,
+    fusedIsotopeId: fused.fusedIsotopeId,
+    fusedEmbedding: fused.fusedEmbedding,
+    resonance: tri.coreResonance,
+  })
 })
 
 const RealStarSchema = z.object({ starName: z.string().min(3) })
@@ -146,8 +204,9 @@ app.post('/process_current_sun', async (c: Context) => {
 app.get('/list_real_stars', async (c: Context) => {
   try {
     const response = await fetch(`${REAL_BACKEND_URL}/list-stars`)
-    const data = await response.json()
-    return ok(c, data)
+    const data: unknown = await response.json()
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return fail(c, 'Real backend unavailable', 503)
+    return ok(c, data as Record<string, unknown>)
   } catch (error) {
     return fail(c, 'Real backend unavailable', 503)
   }
@@ -206,7 +265,7 @@ const TOOL_DEFINITIONS = [
 const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   stellar_process_spectrum: async (args: any) => {
     const result = await callRealBackend('/process-spectrum', { wavelengths: args.wavelengths, fluxes: args.fluxes, objectType: args.objectType ?? 'star' })
-    return { metamorphosisIndex: result.metamorphosisIndex ?? result, neuralSpectraLength: 100, signalId: `stellar-${Date.now()}`, engine: 'real-tensorflow' }
+    return { metamorphosisIndex: passedIndex(result), neuralSpectraLength: 100, signalId: `stellar-${Date.now()}`, engine: 'real-tensorflow' }
   },
   stellar_calculate_metamorphosis_index: async (args: any) => {
     const result = await callRealBackend('/calculate-metamorphosis-index', { wavelengths: args.wavelengths, fluxes: args.fluxes, objectType: args.objectType ?? 'star' })
@@ -216,13 +275,44 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const sed = generateSED(args.temperature ?? 5800, args.luminosity ?? 1.0, args.metallicity ?? 0.0)
     return { sed, parameters: { temperature: args.temperature ?? 5800, luminosity: args.luminosity ?? 1.0, metallicity: args.metallicity ?? 0.0 } }
   },
-  stellar_isotopic_embedding: async (args: any) => {
-    const result = await callRealBackend('/isotopic-embedding', { wavelengths: args.wavelengths, fluxes: args.fluxes, cascadeIndex: args.cascadeIndex ?? 0 })
-    return { signalId: `stellar-${Date.now()}`, isotopicRatio: result.isotopicRatio ?? 0.9, phaseCoherence: result.resonance ?? 0.85, tdfValue: Date.now() * 1e6, embedding: Array.from({ length: 8 }, (_, i) => ((result.resonance ?? 0.85) * PHI) + i * 0.01), provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'] }
+  stellar_isotopic_embedding: async (args: { wavelengths: number[]; fluxes: number[]; cascadeIndex?: number; timestamp?: number | string }) => {
+    const clock = resolveTimestampMs(args.timestamp)
+    const result = await callRealBackend('/isotopic-embedding', { wavelengths: args.wavelengths, fluxes: args.fluxes, cascadeIndex: args.cascadeIndex ?? 0 }) as {
+      resonance?: number
+      metamorphosisIndex?: number
+      confidenceScore?: number
+    }
+    return {
+      timestamp: clock.timestamp,
+      timestampMs: clock.timestampMs,
+      resonance: result.resonance,
+      metamorphosisIndex: result.metamorphosisIndex,
+      confidenceScore: result.confidenceScore,
+      provenance: ['stellar', 'neural-fusion-v4.8.4', 'real-tensorflow'],
+    }
   },
-  stellar_cross_correlate: () => ({ strength: 0.91, vortexVolume: 3.34e25, isotopicRatio: 0.94, note: 'Stellar signals show high resonance' }),
-  stellar_triangulate: (args: any) => ({ signalCount: args.signals.length, coreResonance: 0.95, vortexVolume: 3.34e25 }),
-  stellar_fuse_symbiotic: (args: any) => ({ fused: true, partnerCount: args.partners.length, fusedIsotopeId: 'stellar-fused-core', resonance: 0.97 }),
+  stellar_cross_correlate: (args: { contentA: string; contentB?: string; timestamp?: number | string }) => {
+    const clock = resolveTimestampMs(args.timestamp)
+    const score = crossTexts(args.contentA, args.contentB ?? 'reference-signal')
+    return { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs }
+  },
+  stellar_triangulate: (args: { signals: Array<{ content: string; tdf?: number }>; timestamp?: number | string }) => {
+    const clock = resolveTimestampMs(args.timestamp)
+    const score = triangulateTexts(args.signals)
+    return { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs }
+  },
+  stellar_fuse_symbiotic: (args: { partners?: Array<{ content?: string }> }) => {
+    const contents = (args.partners ?? []).map((partner) => partner.content ?? '')
+    const fused = fuseTexts(contents)
+    const tri = triangulateTexts(contents.map((content) => ({ content })))
+    return {
+      fused: true,
+      partnerCount: contents.length,
+      fusedIsotopeId: fused.fusedIsotopeId,
+      fusedEmbedding: fused.fusedEmbedding,
+      resonance: tri.coreResonance,
+    }
+  },
   process_real_star: async (args: any) => {
     const result = await callRealBackend('/process-stellar-spectrum', { starName: args.starName })
     return result
@@ -304,19 +394,14 @@ app.get('/sse', (c: Context) => {
 app.post('/messages', async (c: Context) => {
   const sessionId = c.req.query('sessionId')
   if (!sessionId) {
-    console.log('[stellar] POST /messages: missing sessionId query param')
     return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
   }
 
-  console.log(`[stellar] POST /messages: session ${sessionId.slice(0, 8)}… ${activeSessions.has(sessionId) ? '' : '(registry missing — SSE may have disconnected)'}`)
 
   const body = await c.req.json()
   const result = await handleMCPMessage(body)
   if (result) {
-    const delivered = await publish(`stellar:${sessionId}`, JSON.stringify(result))
-    if (!delivered) {
-      console.log(`[stellar] POST /messages: session ${sessionId} has no SSE subscriber (response will not reach client)`)
-    }
+    await publish(`stellar:${sessionId}`, JSON.stringify(result))
   }
 
   return c.json({ ok: true })

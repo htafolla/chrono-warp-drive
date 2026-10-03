@@ -3,8 +3,10 @@ import { solarDataFetcher } from './solarDataFetcher.js'
 import { dynamoSolarGovernance, getPublicFeed } from './dynamoSolarGovernance.js'
 import { isStructuredProposal, type StructuredDerivativeProposal } from './structuredProposal.js'
 import { governanceToContainer, type ContainerVortex } from './temporalContainer.js'
+import { readVortexSigningKey } from './writeGate.js'
 import { persistContainerToChain } from './contractClient.js'
 import { getRedisClient } from '../pubsub.js'
+import { containerOriginHashField } from './containerOrigin.js'
 import { temporalManifold } from './temporalManifold.js'
 
 const REDIS_CONTAINER_KEY = 'dynamo:containers'
@@ -108,6 +110,9 @@ export class AmbientField {
         meanMoralScore: 0,
         momentum: 0,
         lastUpdate: new Date().toISOString(),
+        totalVortices: this.vortexCount,
+        persistentVortices: this.persistenceCount,
+        persistenceRatio: this.vortexCount > 0 ? this.persistenceCount / this.vortexCount : 0,
       }
     }
 
@@ -311,7 +316,7 @@ export class AmbientField {
         solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
         resonance7D: result.fullBox7DComposite ?? 0.5,
         phaseAlignment: result.phaseAlignment ?? 0.5,
-        vortexAlignment: result.calibratedVortex ?? 0.5,
+        vortexAlignment: result.vortexAlignment ?? 0.5,
         synchronization: result.synchronization ?? 0.5,
         gematriaResonance: result.gematriaResonance ?? 0.5,
         tmoScore: result.trinitariumMoralScore ?? 0.5,
@@ -331,19 +336,26 @@ export class AmbientField {
         try {
           const source = 'ambient' as const
           const container = governanceToContainer(result, summary, source, this.latestContainerHash)
-          await persistContainerToChain(container)
-          this.latestContainerHash = container.containerHash
-          this.persistenceCount++
+          const signingKey = readVortexSigningKey()
+          if (!signingKey) {
+            // Fail closed: no chain write and no Redis save when this process cannot sign.
+          } else {
+            await persistContainerToChain(container)
+            this.latestContainerHash = container.containerHash
+            this.persistenceCount++
 
-          try {
-            const client = await getRedisClient()
-            if (client) {
-              await client.multi()
-                .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
-                .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
-                .exec()
-            }
-          } catch { /* Redis unavailable */ }
+            try {
+              const client = await getRedisClient()
+              if (client) {
+                const origin = containerOriginHashField(container.containerId, 'real')
+                await client.multi()
+                  .lpush(REDIS_CONTAINER_KEY, JSON.stringify(container))
+                  .ltrim(REDIS_CONTAINER_KEY, 0, MAX_REDIS_CONTAINERS - 1)
+                  .hset(origin.key, origin.field, origin.value)
+                  .exec()
+              }
+            } catch { /* Redis unavailable */ }
+          }
         } catch {
           // on-chain persistence failed — continue
         }
