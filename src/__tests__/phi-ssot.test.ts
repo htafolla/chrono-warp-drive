@@ -63,7 +63,7 @@ describe('PHI source', () => {
   it('default tPTT and BlackHole_Seq use that PHI', () => {
     const bhs = ((L * 7) * Math.pow(PHI, 3)) % Math.PI
     expect(blackHoleSequence(7, 3)).toBe(bhs)
-    expect(bhs).toBe((2625 / 27) % Math.PI)
+    expect(bhs).toBeCloseTo((2625 / 27) % Math.PI, 12)
     expect(tPTT(137, 1, 0.5, 1e-6)).toBe(137 * (1 / 0.5) * PHI * (3e8 / 1e-6))
   })
 

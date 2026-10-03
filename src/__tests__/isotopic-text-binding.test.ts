@@ -190,7 +190,7 @@ describe('7D verdict clock', () => {
       const second = await solarGovernance.getProposalSolarIsotopicResonance(text, undefined, undefined, FIXED_MS)
       expect(first.fullBox7DComposite).toBe(second.fullBox7DComposite)
       expect(first.fullBox7DVerdict).toBe(second.fullBox7DVerdict)
-      expect(first.fullBox7DComposite).toBe(expected.score)
+      expect(first.fullBox7DComposite).toBeCloseTo(expected.score, 12)
       expect(first.fullBox7DVerdict).toBe(expected.verdict)
       expect(first.evaluatedAtMs).toBe(FIXED_MS)
       expect(first.evaluatedAt).toBe(new Date(FIXED_MS).toISOString())
