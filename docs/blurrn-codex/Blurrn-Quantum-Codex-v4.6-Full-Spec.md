@@ -34,7 +34,7 @@ Codex v4.6 weaves neural quantum realms Trinitarium 2.0, aligning TLM (L=3, φ=1
 **Formulas:**
 
 - **S_L=(L⊕D_BH)+(F_∞⊕φ)+π+W+B+T+HS+H+LTP+SUF+LEO+DHQ+WSH+DD_pp+tPTT=∞:** System score sums harmonic temporal factors infinity. ⊕(XOR) models binary interactions (L=3, D_BH=0/1), F_∞, φ(1.666) blend non-linearly, π(3.14159) adds order, W,B,T,HS,H(0–1) weights, sub-formulas aggregate complexity. Piecewise: LTP+SUF<0, S_L=0; else S_L=sum, capped 10^6.
-- **LTP=(L×F_h)×C_TLM:** Light-trinity scales L(3) F_h(0–1, alignment) C_TLM(0–1, coefficient) efficiency. Alternative: LTP=3F_hC_TLM, F_h=min(1,max(0,F_h)).
+- **LTP=(L×F_h)×C_TLM:** Light-trinity scales L(3) by the canonical symbols F_h=[5, 3] and C_TLM=∞. Alternative: LTP=3F_hC_TLM, F_h=[5, 3] and C_TLM=∞ in trinitarium codexData (@5c0294d).
 - **SUF=[(L×F_h)×C_TLM]/D:** Synced unity normalizes LTP D(1–10, divisor) stability. Piecewise: D=0, SUF=0; else SUF=(3F_hC_TLM)/D.
 - **LEO=[(L×F_h)×C_TLM]×π:** Light eternal multiplies LTP π(3.14159) periodicity. Alternative: LEO=3F_hC_TLMπ, π≈22/7.
 - **DHQ=[(L×F_h)×C_TLM]/π:** Harmony quotient divides LTP π balance. Piecewise: π=0, DHQ=0; else DHQ=(3F_hC_TLM)/π.
@@ -135,7 +135,7 @@ def interop(input_str, timestamp=1743365700000, delta_t=1e-6):
 **Formulas:**
 
 - **S_L=(L⊕D_BH)+(F_∞⊕φ)+π+W+B+T+HS+H+LTP+SUF+LEO+DHQ+WSH+DD_pp+tPTT=∞:** System score sums harmonic temporal factors infinity. ⊕(XOR) models binary (L=3, D_BH=0/1), F_∞, φ(1.666) blend non-linearly, π(3.14159) adds order, W,B,T,HS,H(0–1) weights, sub-formulas aggregate. Piecewise: LTP+SUF<0, S_L=0; else S_L=sum, capped 10^6.
-- **LTP=(L×F_h)×C_TLM:** Light-trinity scales L(3) F_h(0–1) C_TLM(0–1) efficiency. Alternative: LTP=3F_hC_TLM, F_h=min(1,max(0,F_h)).
+- **LTP=(L×F_h)×C_TLM:** Light-trinity scales L(3) by the canonical symbols F_h=[5, 3] and C_TLM=∞. Alternative: LTP=3F_hC_TLM, F_h=[5, 3] and C_TLM=∞ in trinitarium codexData (@5c0294d).
 - **SUF=[(L×F_h)×C_TLM]/D:** Synced unity normalizes LTP D(1–10) stability. Piecewise: D=0, SUF=0; else SUF=(3F_hC_TLM)/D.
 - **LEO=[(L×F_h)×C_TLM]×π:** Light eternal multiplies LTP π(3.14159) periodicity. Alternative: LEO=3F_hC_TLM*π, π≈22/7.
 - **DHQ=[(L×F_h)×C_TLM]/π:** Harmony quotient divides LTP π balance. Piecewise: π=0, DHQ=0; else DHQ=(3F_hC_TLM)/π.
@@ -163,8 +163,8 @@ def interop(input_str, timestamp=1743365700000, delta_t=1e-6):
 - T: Transmission (0–1)
 - HS: Harmonic System (0–1)
 - H: Harmony (0–1)
-- F_h: Flux Harmony (0–1)
-- C_TLM: TLM Context (0–1)
+- F_h: Finite Frequency [5, 3] (trinitarium codexData @5c0294d)
+- C_TLM: ∞ (trinitarium codexData @5c0294d)
 - D: Discernment (1–10)
 - is_length_valid: Boolean, φ-aligned
 - is_hex_valid: Boolean, hex integrity

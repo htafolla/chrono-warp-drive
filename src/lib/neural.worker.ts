@@ -83,9 +83,8 @@ async function initializeWorker(): Promise<void> {
       validationSplit: 0.15,
       callbacks: {
         onEpochEnd: (epoch: number, logs: any) => {
-          if (epoch % 10 === 0) {
-            // eslint-disable-next-line no-console
-            console.log(`[Worker] epoch ${epoch} loss=${logs.loss.toFixed(6)}`)
+          if (epoch % 10 === 0 && typeof process !== "undefined" && process.stderr) {
+            process.stderr.write(`[Worker] epoch ${epoch} loss=${logs.loss.toFixed(6)}\n`)
           }
         },
       },
