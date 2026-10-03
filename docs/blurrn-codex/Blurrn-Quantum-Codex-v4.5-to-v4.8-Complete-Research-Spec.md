@@ -84,8 +84,8 @@ Every formula in this Codex is built on L=3 because the entire system is built o
 
 **Element Definitions:**
 - **L** = Trinity constant (3)
-- **F_h** = Flux Harmony (0–1) — how aligned the system is with the flow of light
-- **C_TLM** = TLM Context (0–1) — how well the current context supports light alignment
+- **F_h** = Finite Frequency [5, 3] — the symbol in htafolla/trinitarium src/data/codexData.ts (@5c0294d, lines 1226–1231)
+- **C_TLM** = ∞ — the symbol in that file (lines 1234–1237). Chrono exports both from the TLM constants module.
 
 **Plain Explanation:** Measures how effectively the three aspects of light (wave, particle, field) are working together right now. It is the most direct mathematical expression of Trinitarium.
 

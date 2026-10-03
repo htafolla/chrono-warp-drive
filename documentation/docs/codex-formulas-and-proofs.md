@@ -54,7 +54,7 @@ LTP = (L × F_h) × C_TLM
 
 Alternative: `LTP = 3 × F_h × C_TLM`
 
-where `F_h = min(1, max(0, F_h))` ensures F_h stays in [0, 1].
+`F_h` is the pair `[5, 3]` and `C_TLM` is ∞. Both symbols live in htafolla/trinitarium src/data/codexData.ts (@5c0294d) and in the Chrono TLM constants module. They are not clamped into [0, 1].
 
 **Dynamo status:** The concept of a trinitarian scaling factor (L=3) appears in `blackHole_Sequence` as `L × voids × φⁿ`. The direct LTP formula is not separately implemented.
 
