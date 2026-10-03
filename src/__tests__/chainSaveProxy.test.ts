@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { maxDuration } from '../../api/govern-chain'
 import { app } from '../../mcp/index'
 import { setChainExecutorForTests, type ChainExecutor, type RegistryContainer } from '../../mcp/lib/chainPort'
+import type { ContainerVortex } from '../../mcp/lib/temporalContainer.js'
 import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
 import { clearRedisClientForTests, setRedisClientForTests } from '../../mcp/redisTestHooks'
 import {
@@ -461,6 +462,216 @@ describe('chain save proxy', () => {
       async del(key: string): Promise<number> {
         return this.rows.delete(key) ? 1 : 0
       }
+
+      private hashes = new Map<string, Record<string, string>>()
+      private lists = new Map<string, string[]>()
+
+      private list(key: string): string[] {
+        const current = this.lists.get(key)
+        if (current) return current
+        const created: string[] = []
+        this.lists.set(key, created)
+        return created
+      }
+
+      async rpush(key: string, value: string): Promise<number> {
+        const values = this.list(key)
+        values.push(value)
+        return values.length
+      }
+
+      async lpush(key: string, value: string): Promise<number> {
+        const values = this.list(key)
+        values.unshift(value)
+        return values.length
+      }
+
+      async lpop(key: string): Promise<string | null> {
+        return this.list(key).shift() ?? null
+      }
+
+      async lindex(key: string, index: number): Promise<string | null> {
+        return this.list(key)[index] ?? null
+      }
+
+      async lrange(key: string, start: number, end: number): Promise<string[]> {
+        const values = this.list(key)
+        const stop = end < 0 ? values.length + end : end
+        return values.slice(start, stop + 1)
+      }
+
+      async ltrim(key: string, start: number, end: number): Promise<string> {
+        const values = this.list(key)
+        const len = values.length
+        const norm = (index: number) => index < 0 ? Math.max(len + index, 0) : Math.min(index, len)
+        const from = norm(start)
+        const to = norm(end)
+        const next = to < from ? [] : values.slice(from, to + 1)
+        values.length = 0
+        values.push(...next)
+        return 'OK'
+      }
+
+      async lrem(key: string, count: number, element: string): Promise<number> {
+        const values = this.list(key)
+        let removed = 0
+        const removeAt = (index: number) => {
+          values.splice(index, 1)
+          removed += 1
+        }
+        if (count === 0) {
+          for (let i = values.length - 1; i >= 0; i -= 1) {
+            if (values[i] === element) removeAt(i)
+          }
+          return removed
+        }
+        if (count > 0) {
+          for (let i = 0; i < values.length && removed < count;) {
+            if (values[i] === element) removeAt(i)
+            else i += 1
+          }
+          return removed
+        }
+        for (let i = values.length - 1; i >= 0 && removed < Math.abs(count); i -= 1) {
+          if (values[i] === element) removeAt(i)
+        }
+        return removed
+      }
+
+
+      async incr(key: string): Promise<number> {
+        const next = Number(await this.get(key) ?? '0') + 1
+        const row = this.rows.get(key)
+        this.rows.set(key, { value: String(next), expiresAt: row?.expiresAt ?? null })
+        return next
+      }
+
+      async decr(key: string): Promise<number> {
+        const current = await this.get(key)
+        if (current === null) return -1
+        const next = Number(current) - 1
+        if (next <= 0) {
+          this.rows.delete(key)
+          return next
+        }
+        const row = this.rows.get(key)
+        this.rows.set(key, { value: String(next), expiresAt: row?.expiresAt ?? null })
+        return next
+      }
+
+      async pexpire(key: string, ms: number): Promise<number> {
+        const row = this.rows.get(key)
+        if (!row) return 0
+        row.expiresAt = Date.now() + ms
+        return 1
+      }
+
+      async hgetall(key: string): Promise<Record<string, string>> {
+        return this.hashes.get(key) ?? {}
+      }
+
+      async hget(key: string, field: string): Promise<string | null> {
+        const hash = this.hashes.get(key)
+        if (!hash || !(field in hash)) return null
+        return hash[field]
+      }
+
+      async hset(key: string, field: string, value: string): Promise<number> {
+        const hash = this.hashes.get(key) ?? {}
+        hash[field] = value
+        this.hashes.set(key, hash)
+        return 1
+      }
+
+      async hdel(key: string, field: string): Promise<number> {
+        const hash = this.hashes.get(key)
+        if (!hash || !(field in hash)) return 0
+        delete hash[field]
+        return 1
+      }
+
+      async eval(script: string, numKeys: number, ...rest: Array<string | number>): Promise<unknown> {
+        const keys = rest.slice(0, numKeys).map(String)
+        const args = rest.slice(numKeys).map(String)
+        if (script.includes('durable-mint-write')) {
+          const field = args[0]
+          const mode = args[1]
+          const payload = args[2]
+          const match = args[3]
+          const cur = await this.hget(keys[0], field)
+          if (!cur) {
+            await this.hset(keys[0], field, payload)
+            return 1
+          }
+          if (mode === 'insert') return 0
+          if (mode === 'same' && cur.includes(`"txHash":"${match}"`)) {
+            await this.hset(keys[0], field, payload)
+            return 1
+          }
+          if (mode === 'replace-failed' && cur.includes('"state":"failed"')) {
+            await this.hset(keys[0], field, payload)
+            return 1
+          }
+          return 0
+        }
+        if (script.includes('mint-cap-reserve')) {
+          const windowMs = Number(args[0])
+          const cap = Number(args[1])
+          const addr = args[2]
+          const hold = await this.get(keys[1])
+          if (hold) return Number(await this.get(keys[0]) ?? '0')
+          const n = await this.incr(keys[0])
+          await this.pexpire(keys[0], windowMs)
+          if (n > cap) {
+            await this.decr(keys[0])
+            return -1
+          }
+          await this.set(keys[1], addr, 'PX', windowMs)
+          return n
+        }
+        if (script.includes('mint-cap-ensure')) {
+          const windowMs = Number(args[0])
+          const addr = args[1]
+          const hold = await this.get(keys[1])
+          if (hold) return Number(await this.get(keys[0]) ?? '0')
+          const n = await this.incr(keys[0])
+          await this.pexpire(keys[0], windowMs)
+          await this.set(keys[1], addr, 'PX', windowMs)
+          return n
+        }
+        if (script.includes('mint-cap-release')) {
+          const prefix = args[0]
+          const addr = await this.get(keys[0])
+          if (!addr) return 0
+          await this.del(keys[0])
+          return this.decr(prefix + addr)
+        }
+        if (script.includes("redis.call('GET'") && script.includes("redis.call('SET'")) {
+          const current = await this.get(keys[0])
+          if (current !== args[0]) return null
+          await this.set(keys[0], args[0], 'PX', Number(args[1]))
+          return 'OK'
+        }
+        if (script.includes("redis.call('DEL'")) {
+          const current = await this.get(keys[0])
+          if (current !== args[0]) return 0
+          return this.del(keys[0])
+        }
+        if (script.includes("redis.call('LREM'") && script.includes("redis.call('RPUSH'")) {
+          const removed = await this.lrem(keys[0], 1, args[0])
+          if (removed === 0) return 0
+          await this.rpush(keys[1], args[1])
+          await this.ltrim(keys[1], Number(args[2]), Number(args[3]))
+          return removed
+        }
+        if (script.includes("redis.call('LREM'") && script.includes("redis.call('LPUSH'")) {
+          const removed = await this.lrem(keys[0], 1, args[0])
+          if (removed === 0) return 0
+          await this.lpush(keys[0], args[1])
+          return 1
+        }
+        throw new Error('unexpected redis script')
+      }
     }
     class SlowChain implements ChainExecutor {
       chainCalls = 0
@@ -479,9 +690,21 @@ describe('chain save proxy', () => {
         throw new Error('unused')
       }
       async existingMint(): Promise<string | null> { return null }
-      async autoMint(): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' }> {
+      async autoMint(
+        _mintId: string,
+        _container: ContainerVortex,
+        _proposalText: string,
+        hooks?: {
+          onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
+          onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
+        },
+      ): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted'; nonce: number }> {
         this.mints += 1
-        return { txHash: '0x' + '22'.repeat(32), receiptStatus: 'success' }
+        const nonce = 1
+        const txHash = '0x' + '22'.repeat(32)
+        await hooks?.onPrepared?.({ deployer: '0x' + '11'.repeat(20), nonce })
+        await hooks?.onSubmitted?.({ txHash, nonce })
+        return { txHash, receiptStatus: 'success', nonce }
       }
     }
     const chain = new SlowChain()
