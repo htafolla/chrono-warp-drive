@@ -1,0 +1,3180 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ChainExecutor, RegistryContainer } from '../../mcp/lib/chainPort'
+import type { ContainerVortex } from '../../mcp/lib/temporalContainer'
+import { ambientField } from '../../mcp/lib/ambientField.js'
+import { clearRedisClientForTests, setRedisClientForTests } from '../../mcp/redisTestHooks'
+
+const realSetTimeout = globalThis.setTimeout.bind(globalThis)
+
+const counters = vi.hoisted(() => {
+  delete process.env.REDIS_URL
+  delete process.env.DEPLOYER_PRIVATE_KEY
+  delete process.env.MCP_WRITE_API_KEY
+  delete process.env.VORTEX_SIGNING_KEY
+  return { deployerKeyReads: 0, directChainCalls: 0 }
+})
+
+vi.mock('../../mcp/lib/wavePropagation.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../mcp/lib/wavePropagation.js')>()
+  return {
+    ...actual,
+    sentenceToEmbedding16: async () => Array.from({ length: 16 }, () => 0),
+  }
+})
+
+vi.mock('../../mcp/lib/contractClient.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../mcp/lib/contractClient.js')>()
+  return {
+    ...actual,
+    getPrivateKey: () => {
+      counters.deployerKeyReads += 1
+      throw new Error('DEPLOYER_PRIVATE_KEY read')
+    },
+    persistContainerToChain: async () => {
+      counters.directChainCalls += 1
+      counters.deployerKeyReads += 1
+      throw new Error('persistContainerToChain called')
+    },
+  }
+})
+
+import { app, autoMintVortex, MINT_DRAIN_INTERVAL_MS, mintDrainRunCount, rememberContainerForTests, replayMintBacklog, resetBootMemoryForTests, resetMintDrainRunCountForTests, startMintDrainTimer, stopMintDrainTimerForTests } from '../../mcp/index'
+import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
+import { isReceiptTimeout, onChainMintId, setChainExecutorForTests } from '../../mcp/lib/chainPort'
+import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
+import {
+  DEFAULT_MINT_GLOBAL_BUDGET,
+  DEFAULT_MINT_GLOBAL_WINDOW_MS,
+  MINT_ADDRESS_CAP,
+  MINT_ADDRESS_CAP_WINDOW_MS,
+  MINT_RATE_LIMIT,
+  MINT_RATE_WINDOW_MS,
+  MINT_SIGNATURE_MAX_AHEAD_SECONDS,
+  PERSIST_COOLDOWN_MS,
+  advanceWriteClockForTests,
+  markPendingMint,
+  mintGlobalBudget,
+  mintGlobalWindowMs,
+  resetWriteGuardsForTests,
+  signVortex,
+  signingKeyReadCount,
+  throwOnNextVerifyForTests,
+  verifyVortexSignature,
+} from '../../mcp/lib/writeGate'
+
+const WRITE_KEY = 'write-test-key'
+const SIGN_KEY = 'sign-test-key'
+
+class StubChain implements ChainExecutor {
+  chainCalls = 0
+  keyReads = 0
+  reads: string[] = []
+  mints: string[] = []
+  persists = 0
+  autoMints: string[] = []
+  containers = new Map<string, RegistryContainer>()
+  mintedOnChain = new Map<string, string>()
+  failNextMint = false
+  existingMintPairs: Array<{ containerId: string; containerHash: string }> = []
+  existingHold: Promise<void> | null = null
+  existingWaiters = 0
+  existingMintErrorIds = new Set<string>()
+  proposalTexts: string[] = []
+  nextReceiptStatus: 'success' | 'reverted' | 'pending' = 'success'
+  pendingTxHash = '0x' + '55'.repeat(32)
+  submitNonce = 4
+  nonceNow = 4
+  receipts = new Map<string, 'success' | 'reverted' | 'missing'>()
+  revertLeavesToken = false
+  revertRemaining = 0
+  autoMintHold: Promise<void> | null = null
+  autoMintEntered = 0
+  mintHold: Promise<void> | null = null
+  mintEntered = 0
+  /** Every simulated writeContract, including a revert and a crash after broadcast. */
+  writeCalls = 0
+  crashAfterWrite = false
+  failBeforeSend = false
+  writeHold: Promise<void> | null = null
+  txByNonce = new Map<number, string>()
+  deployer = '0x' + 'ab'.repeat(20)
+  readError: Error | null = null
+
+  async readContainerExact(containerId: string): Promise<RegistryContainer | null> {
+    this.chainCalls += 1
+    this.reads.push(containerId)
+    if (this.readError) {
+      const error = this.readError
+      this.readError = null
+      throw error
+    }
+    return this.containers.get(containerId.toLowerCase()) ?? null
+  }
+
+  async persistStoredContainer(): Promise<{ txHash: string }> {
+    this.keyReads += 1
+    this.chainCalls += 1
+    this.persists += 1
+    return { txHash: '0x' + 'ab'.repeat(32) }
+  }
+
+  async persistGovernedContainer(): Promise<{ txHash: string }> {
+    this.keyReads += 1
+    this.chainCalls += 1
+    this.persists += 1
+    return { txHash: '0x' + 'cd'.repeat(32) }
+  }
+
+  async mintRegistered(input: {
+    to: string
+    containerId: string
+    container: RegistryContainer
+    onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
+    onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
+  }): Promise<{ txHash: string; tokenId: string | null; receiptStatus: 'success' | 'reverted' | 'pending'; nonce: number }> {
+    this.keyReads += 1
+    this.chainCalls += 1
+    this.mintEntered += 1
+    if (this.failNextMint) {
+      this.failNextMint = false
+      throw new Error('mint reverted')
+    }
+    const mintId = onChainMintId(input.containerId)
+    const nonce = this.submitNonce
+    const status = this.nextReceiptStatus
+    let txHash = '0x' + '11'.repeat(32)
+    if (status === 'pending') txHash = this.pendingTxHash
+    else if (status === 'reverted') txHash = '0x' + '44'.repeat(32)
+    if (input.onPrepared) await input.onPrepared({ deployer: this.deployer, nonce })
+    if (this.failBeforeSend) {
+      this.failBeforeSend = false
+      throw Object.assign(new Error('estimate gas failed'), { mintNotSent: true })
+    }
+    this.writeCalls += 1
+    this.txByNonce.set(nonce, txHash)
+    if (this.crashAfterWrite) {
+      this.crashAfterWrite = false
+      this.nonceNow = Math.max(this.nonceNow, nonce + 1)
+      throw new Error('killed after writeContract')
+    }
+    if (this.writeHold) await this.writeHold
+    if (input.onSubmitted) await input.onSubmitted({ txHash, nonce })
+    if (this.mintHold) await this.mintHold
+    this.nextReceiptStatus = 'success'
+    if (status === 'pending') return { txHash, tokenId: null, receiptStatus: 'pending', nonce }
+    if (status === 'reverted') return { txHash, tokenId: null, receiptStatus: 'reverted', nonce }
+    this.mints.push(mintId)
+    this.mintedOnChain.set(mintId.toLowerCase(), '7')
+    return { txHash, tokenId: '7', receiptStatus: 'success', nonce }
+  }
+
+  async existingMint(containerId: string, containerHash: string): Promise<string | null> {
+    this.existingMintPairs.push({ containerId, containerHash })
+    if (this.existingHold) {
+      this.existingWaiters += 1
+      await this.existingHold
+    }
+    if (this.existingMintErrorIds.has(containerId.toLowerCase())) throw new Error('rpc down')
+    const seen = new Set<string>()
+    let found: string | null = null
+    for (const key of [containerId, containerHash]) {
+      const lower = key.toLowerCase()
+      if (seen.has(lower)) continue
+      seen.add(lower)
+      this.chainCalls += 1
+      const hit = this.mintedOnChain.get(lower) ?? null
+      if (hit && !found) found = hit
+    }
+    return found
+  }
+
+  async autoMint(
+    mintId: string,
+    _container: ContainerVortex,
+    proposalText: string,
+    hooks?: {
+      onPrepared?: (prepared: { deployer: string; nonce: number }) => Promise<void>
+      onSubmitted?: (submitted: { txHash: string; nonce: number }) => Promise<void>
+    },
+  ): Promise<{ txHash: string; receiptStatus: 'success' | 'reverted' | 'pending'; nonce: number }> {
+    this.proposalTexts.push(proposalText)
+    this.autoMintEntered += 1
+    const nonce = this.submitNonce
+    let status: 'success' | 'reverted' | 'pending' = 'success'
+    let txHash = '0x' + '22'.repeat(32)
+    let leaveToken = false
+    if (this.nextReceiptStatus === 'pending') {
+      status = 'pending'
+      txHash = this.pendingTxHash
+      this.nextReceiptStatus = 'success'
+    } else if (this.revertRemaining > 0) {
+      this.revertRemaining -= 1
+      status = 'reverted'
+      txHash = '0x' + '33'.repeat(32)
+    } else if (this.nextReceiptStatus === 'reverted') {
+      status = 'reverted'
+      txHash = '0x' + '33'.repeat(32)
+      leaveToken = this.revertLeavesToken
+      this.nextReceiptStatus = 'success'
+      this.revertLeavesToken = false
+    }
+    if (hooks?.onPrepared) await hooks.onPrepared({ deployer: this.deployer, nonce })
+    this.writeCalls += 1
+    this.txByNonce.set(nonce, txHash)
+    if (this.crashAfterWrite) {
+      this.crashAfterWrite = false
+      this.nonceNow = Math.max(this.nonceNow, nonce + 1)
+      throw new Error('killed after writeContract')
+    }
+    if (hooks?.onSubmitted) await hooks.onSubmitted({ txHash, nonce })
+    if (this.autoMintHold) await this.autoMintHold
+    if (status === 'pending') return { txHash, receiptStatus: 'pending', nonce }
+    if (status === 'reverted') {
+      if (leaveToken) this.mintedOnChain.set(mintId.toLowerCase(), '9')
+      return { txHash, receiptStatus: 'reverted', nonce }
+    }
+    this.keyReads += 1
+    this.chainCalls += 1
+    this.autoMints.push(mintId)
+    this.mintedOnChain.set(mintId.toLowerCase(), '8')
+    return { txHash, receiptStatus: 'success', nonce }
+  }
+
+  async mintReceipt(txHash: string): Promise<'success' | 'reverted' | 'missing'> {
+    return this.receipts.get(txHash.toLowerCase()) ?? 'missing'
+  }
+
+  async senderNonce(): Promise<number> {
+    return this.nonceNow
+  }
+
+  async findTxByNonce(nonce: number): Promise<string | null> {
+    return this.txByNonce.get(nonce) ?? null
+  }
+}
+
+class MemoryRedis {
+  lists = new Map<string, string[]>()
+  hashes = new Map<string, Record<string, string>>()
+  lockRefreshes = 0
+  private kv = new Map<string, { value: string; expiresAt: number | null }>()
+
+  private live(key: string): string | null {
+    const row = this.kv.get(key)
+    if (!row) return null
+    if (row.expiresAt !== null && row.expiresAt <= Date.now()) {
+      this.kv.delete(key)
+      return null
+    }
+    return row.value
+  }
+
+  private list(key: string): string[] {
+    const current = this.lists.get(key)
+    if (current) return current
+    const created: string[] = []
+    this.lists.set(key, created)
+    return created
+  }
+
+  async rpush(key: string, value: string): Promise<number> {
+    const values = this.list(key)
+    values.push(value)
+    return values.length
+  }
+
+  async lpush(key: string, value: string): Promise<number> {
+    const values = this.list(key)
+    values.unshift(value)
+    return values.length
+  }
+
+  async lpop(key: string): Promise<string | null> {
+    const values = this.list(key)
+    return values.shift() ?? null
+  }
+
+  async lindex(key: string, index: number): Promise<string | null> {
+    return this.list(key)[index] ?? null
+  }
+
+  async lrange(key: string, start: number, end: number): Promise<string[]> {
+    const values = this.list(key)
+    const stop = end < 0 ? values.length + end : end
+    return values.slice(start, stop + 1)
+  }
+
+  async ltrim(key: string, start: number, end: number): Promise<string> {
+    const values = this.list(key)
+    const len = values.length
+    const norm = (index: number) => {
+      if (index < 0) return Math.max(len + index, 0)
+      return Math.min(index, len)
+    }
+    const from = norm(start)
+    const to = norm(end)
+    const next = to < from ? [] : values.slice(from, to + 1)
+    values.length = 0
+    values.push(...next)
+    return 'OK'
+  }
+
+  async incr(key: string): Promise<number> {
+    const row = this.kv.get(key)
+    if (row && row.expiresAt !== null && row.expiresAt <= Date.now()) this.kv.delete(key)
+    const current = this.kv.get(key)
+    const next = Number(current?.value ?? '0') + 1
+    this.kv.set(key, { value: String(next), expiresAt: current?.expiresAt ?? null })
+    return next
+  }
+
+  async decr(key: string): Promise<number> {
+    const row = this.kv.get(key)
+    if (!row || (row.expiresAt !== null && row.expiresAt <= Date.now())) {
+      this.kv.delete(key)
+      return -1
+    }
+    const next = Number(row.value) - 1
+    if (next <= 0) {
+      this.kv.delete(key)
+      return next
+    }
+    row.value = String(next)
+    return next
+  }
+
+  async pexpire(key: string, ms: number): Promise<number> {
+    const row = this.kv.get(key)
+    if (!row) return 0
+    row.expiresAt = Date.now() + ms
+    return 1
+  }
+
+  async eval(script: string, numKeys: number, ...rest: Array<string | number>): Promise<unknown> {
+    const keys = rest.slice(0, numKeys).map(String)
+    const args = rest.slice(numKeys).map(String)
+    if (script.includes('durable-mint-write')) {
+      const field = args[0]
+      const mode = args[1]
+      const payload = args[2]
+      const match = args[3]
+      const cur = await this.hget(keys[0], field)
+      if (!cur) {
+        await this.hset(keys[0], field, payload)
+        return 1
+      }
+      if (mode === 'insert') return 0
+      if (mode === 'same' && cur.includes(`"txHash":"${match}"`)) {
+        await this.hset(keys[0], field, payload)
+        return 1
+      }
+      if (mode === 'replace-failed' && cur.includes('"state":"failed"')) {
+        await this.hset(keys[0], field, payload)
+        return 1
+      }
+      return 0
+    }
+    if (script.includes('mint-cap-reserve')) {
+      const windowMs = Number(args[0])
+      const cap = Number(args[1])
+      const addr = args[2]
+      const hold = await this.get(keys[1])
+      if (hold) return Number(await this.get(keys[0]) ?? '0')
+      const n = await this.incr(keys[0])
+      await this.pexpire(keys[0], windowMs)
+      if (n > cap) {
+        await this.decr(keys[0])
+        return -1
+      }
+      await this.set(keys[1], addr, 'PX', windowMs)
+      return n
+    }
+    if (script.includes('mint-cap-ensure')) {
+      const windowMs = Number(args[0])
+      const addr = args[1]
+      const hold = await this.get(keys[1])
+      if (hold) return Number(await this.get(keys[0]) ?? '0')
+      const n = await this.incr(keys[0])
+      await this.pexpire(keys[0], windowMs)
+      await this.set(keys[1], addr, 'PX', windowMs)
+      return n
+    }
+    if (script.includes('mint-cap-release')) {
+      const prefix = args[0]
+      const addr = await this.get(keys[0])
+      if (!addr) return 0
+      await this.del(keys[0])
+      return this.decr(prefix + addr)
+    }
+    if (script.includes("redis.call('GET'") && script.includes("redis.call('SET'")) {
+      const current = await this.get(keys[0])
+      if (current !== args[0]) return null
+      await this.set(keys[0], args[0], 'PX', Number(args[1]))
+      this.lockRefreshes += 1
+      return 'OK'
+    }
+    if (script.includes("redis.call('DEL'")) {
+      const current = await this.get(keys[0])
+      if (current !== args[0]) return 0
+      return this.del(keys[0])
+    }
+    if (script.includes("redis.call('LREM'") && script.includes("redis.call('RPUSH'")) {
+      const removed = await this.lrem(keys[0], 1, args[0])
+      if (removed === 0) return 0
+      await this.rpush(keys[1], args[1])
+      await this.ltrim(keys[1], Number(args[2]), Number(args[3]))
+      return removed
+    }
+    if (script.includes("redis.call('LREM'") && script.includes("redis.call('LPUSH'")) {
+      const removed = await this.lrem(keys[0], 1, args[0])
+      if (removed === 0) return 0
+      await this.lpush(keys[0], args[1])
+      return 1
+    }
+    throw new Error('unexpected redis script')
+  }
+
+  async lrem(key: string, count: number, element: string): Promise<number> {
+    const values = this.list(key)
+    let removed = 0
+    const removeAt = (index: number) => {
+      values.splice(index, 1)
+      removed += 1
+    }
+    if (count === 0) {
+      for (let i = values.length - 1; i >= 0; i -= 1) {
+        if (values[i] === element) removeAt(i)
+      }
+      return removed
+    }
+    if (count > 0) {
+      for (let i = 0; i < values.length && removed < count;) {
+        if (values[i] === element) removeAt(i)
+        else i += 1
+      }
+      return removed
+    }
+    for (let i = values.length - 1; i >= 0 && removed < Math.abs(count); i -= 1) {
+      if (values[i] === element) removeAt(i)
+    }
+    return removed
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.live(key)
+  }
+
+  async del(key: string): Promise<number> {
+    return this.kv.delete(key) ? 1 : 0
+  }
+
+  async set(key: string, value: string, ...rest: Array<string | number>): Promise<'OK' | null> {
+    const args = rest.map((part) => String(part))
+    const nx = args.includes('NX')
+    const exists = this.live(key) !== null
+    if (nx && exists) return null
+    if (args.includes('XX') && !exists) return null
+    let expiresAt: number | null = null
+    const pxAt = args.indexOf('PX')
+    if (pxAt >= 0) expiresAt = Date.now() + Number(args[pxAt + 1])
+    this.kv.set(key, { value, expiresAt })
+    return 'OK'
+  }
+
+  async hgetall(key: string): Promise<Record<string, string>> {
+    return this.hashes.get(key) ?? {}
+  }
+
+  async hget(key: string, field: string): Promise<string | null> {
+    const hash = this.hashes.get(key)
+    if (!hash || !(field in hash)) return null
+    return hash[field]
+  }
+
+  async hdel(key: string, field: string): Promise<number> {
+    const hash = this.hashes.get(key)
+    if (!hash || !(field in hash)) return 0
+    delete hash[field]
+    return 1
+  }
+
+  async hset(key: string, field: string, value: string): Promise<number> {
+    const hash = this.hashes.get(key) ?? {}
+    hash[field] = value
+    this.hashes.set(key, hash)
+    return 1
+  }
+
+  multi(): MemoryRedisMulti {
+    return new MemoryRedisMulti(this)
+  }
+}
+
+class MemoryRedisMulti {
+  private ops: Array<() => Promise<unknown>> = []
+
+  constructor(private readonly redis: MemoryRedis) {}
+
+  lpush(key: string, value: string): this {
+    this.ops.push(() => this.redis.lpush(key, value))
+    return this
+  }
+
+  rpush(key: string, value: string): this {
+    this.ops.push(() => this.redis.rpush(key, value))
+    return this
+  }
+
+  ltrim(key: string, start: number, end: number): this {
+    this.ops.push(() => this.redis.ltrim(key, start, end))
+    return this
+  }
+
+  hset(key: string, field: string, value: string): this {
+    this.ops.push(() => this.redis.hset(key, field, value))
+    return this
+  }
+
+  async exec(): Promise<Array<[null, unknown]>> {
+    const results: Array<[null, unknown]> = []
+    for (const op of this.ops) results.push([null, await op()])
+    return results
+  }
+}
+
+const MINT_BACKLOG_KEY = 'vortex:mint:backlog'
+
+async function flushTicks(times = 8): Promise<void> {
+  for (let i = 0; i < times; i += 1) {
+    await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+  }
+}
+
+async function waitForAutoMint(count: number): Promise<void> {
+  vi.useRealTimers()
+  for (let i = 0; i < 40; i += 1) {
+    if (stub.autoMints.length >= count) return
+    await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+  }
+  throw new Error(`auto-mint did not finish; saw ${stub.autoMints.length}`)
+}
+
+let stub: StubChain
+let seq = 0
+
+function bytes32(n: number): string {
+  return '0x' + n.toString(16).padStart(64, '0')
+}
+
+function address(n: number): string {
+  return '0x' + n.toString(16).padStart(40, '0')
+}
+
+function nextId(): string {
+  seq += 1
+  return bytes32(seq)
+}
+
+function registryContainer(id: string, hash: string): RegistryContainer {
+  const one = 10n ** 18n
+  return {
+    containerId: id,
+    timestamp: 1_700_000_000n,
+    source: 'human',
+    containerHash: hash,
+    hammerReason: 'test',
+    resonanceProfile: {
+      verdict: 'PASS',
+      fullBox7DComposite: one,
+      waveProximity: one,
+      phaseAlignment: one,
+      calibratedVortex: one,
+      calibratedSync: one,
+      neuralProximity: one,
+      neuralVortex: one,
+      gematriaResonance: one,
+    },
+    moralOverlay: {
+      trinitariumMoralScore: one,
+      trinitariumGematriaFusion: one,
+      moralNumerologicalTension: 'Mild',
+      virtueAlignment: one,
+      moralSafety: one,
+      intentAlignment: one,
+    },
+  }
+}
+
+function sampleVortex(id: string, hash: string): ContainerVortex {
+  return {
+    containerId: id,
+    timestamp: 1_700_000_000,
+    proposalHash: bytes32(9),
+    solarSnapshot: {
+      timestamp: 1_700_000_000,
+      activityLevel: 'quiet',
+      xrayFlux: 0,
+      kpIndex: 0,
+      protonFlux: 0,
+      magnetometer: 0,
+      solarTdf: 0,
+    },
+    resonanceProfile: {
+      fullBox7DComposite: 0.8,
+      fullBox7DVerdict: 'PASS',
+      waveProximity: 0.8,
+      phaseAlignment: 0.8,
+      calibratedVortex: 0.8,
+      calibratedSync: 0.8,
+      neuralProximity: 0.8,
+      neuralVortex: 0.8,
+      gematriaResonance: 0.8,
+      structuralResonance: 0.8,
+      verdict: 'PASS',
+      confidence: 0.9,
+    },
+    moralOverlay: {
+      trinitariumMoralScore: 0.7,
+      virtueAlignment: 0.7,
+      moralSafety: 0.7,
+      intentAlignment: 0.7,
+      trinitariumGematriaFusion: 0.5,
+      moralNumerologicalTension: 'Mild',
+    },
+    hammerReason: 'test',
+    previousContainerHash: '0x' + '00'.repeat(32),
+    containerHash: hash,
+    source: 'human',
+  }
+}
+
+function futureExpiry(seconds = 3600): number {
+  return Math.floor(Date.now() / 1000) + seconds
+}
+
+function signedMint(id: string, hash: string, to: string, expiresAt = futureExpiry()) {
+  return {
+    containerId: id,
+    containerHash: hash,
+    to,
+    expiresAt,
+    signature: signVortex(hash, id, to, expiresAt, SIGN_KEY),
+  }
+}
+
+function authHeader(key = WRITE_KEY): Record<string, string> {
+  return { authorization: `Bearer ${key}` }
+}
+
+function expectNoChainOrKey(chainBefore = 0, keyBefore = 0): void {
+  expect(stub.chainCalls).toBe(chainBefore)
+  expect(stub.keyReads).toBe(keyBefore)
+  expect(counters.deployerKeyReads).toBe(0)
+  expect(counters.directChainCalls).toBe(0)
+}
+
+async function postJson(path: string, body: unknown, headers: Record<string, string> = {}) {
+  const res = await app.request(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json() as Record<string, unknown>
+  return { status: res.status, json }
+}
+
+async function mint(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+  return postJson('/vortex/mint', body, headers)
+}
+
+function slipMintRate(): void {
+  advanceWriteClockForTests(MINT_RATE_WINDOW_MS + 1)
+}
+
+beforeEach(() => {
+  vi.useRealTimers()
+  ambientField.stop()
+  clearRedisClientForTests()
+  setRedisClientForTests(new MemoryRedis())
+  counters.deployerKeyReads = 0
+  counters.directChainCalls = 0
+  resetWriteGuardsForTests()
+  process.env.MCP_WRITE_API_KEY = WRITE_KEY
+  process.env.VORTEX_SIGNING_KEY = SIGN_KEY
+  delete process.env.MINT_GLOBAL_BUDGET
+  delete process.env.MINT_GLOBAL_WINDOW_MS
+  delete process.env.ALLOW_SEED_ROUTE
+  delete process.env.DEPLOYER_PRIVATE_KEY
+  delete process.env.REDIS_URL
+  stub = new StubChain()
+  setChainExecutorForTests(stub)
+  vi.stubGlobal('fetch', vi.fn(async () => {
+    throw new Error('outbound network blocked in write-route tests')
+  }))
+})
+
+afterEach(() => {
+  stopMintDrainTimerForTests()
+  vi.useRealTimers()
+  ambientField.stop()
+  clearRedisClientForTests()
+  setChainExecutorForTests(null)
+  vi.unstubAllGlobals()
+})
+
+describe('signed vortexes', () => {
+  it('rejects /vortex/mint when the signing key is unset, with 0 chain calls and 0 key reads', async () => {
+    delete process.env.VORTEX_SIGNING_KEY
+    const id = nextId()
+    const hash = nextId()
+    const { status, json } = await mint({
+      containerId: id,
+      containerHash: hash,
+      to: address(1),
+      expiresAt: futureExpiry(),
+      signature: 'ab'.repeat(32),
+    }, authHeader())
+    expect(status).toBe(503)
+    expect(json.success).toBe(false)
+    expectNoChainOrKey()
+    expect(stub.reads).toEqual([])
+    expect(stub.mints).toEqual([])
+  })
+
+  it('rejects a missing or wrong signature before any chain call or deployer key read', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const missing = await mint({ containerId: id, containerHash: hash, to: address(1) }, authHeader())
+    expect(missing.status).toBe(400)
+    expectNoChainOrKey()
+
+    const wrong = await mint({
+      containerId: id,
+      containerHash: hash,
+      to: address(1),
+      expiresAt: futureExpiry(),
+      signature: 'cd'.repeat(32),
+    }, authHeader())
+    expect(wrong.status).toBe(401)
+    expectNoChainOrKey()
+    expect(stub.reads).toEqual([])
+  })
+
+  it('accepts only an HMAC over containerHash, containerId, recipient, and expiry', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(1)
+    const expiresAt = futureExpiry()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const signature = signVortex(hash, id, to, expiresAt, SIGN_KEY)
+    expect(verifyVortexSignature(hash, id, to, expiresAt, signature, SIGN_KEY)).toEqual({ ok: true })
+    expect(verifyVortexSignature(hash, id, to, expiresAt, signature, null)).toEqual({ ok: false, reason: 'invalid' })
+    expect(verifyVortexSignature(hash, nextId(), to, expiresAt, signature, SIGN_KEY).reason).toBe('invalid')
+    expect(verifyVortexSignature(hash, id, address(9), expiresAt, signature, SIGN_KEY).reason).toBe('invalid')
+    expect(verifyVortexSignature(hash, id, to, expiresAt, 'aa', SIGN_KEY).reason).toBe('invalid')
+    const now = Math.floor(Date.now() / 1000)
+    const expiredSig = signVortex(hash, id, to, now, SIGN_KEY)
+    expect(verifyVortexSignature(hash, id, to, now, expiredSig, SIGN_KEY, now).reason).toBe('expired')
+
+    const { status, json } = await mint(signedMint(id, hash, to, expiresAt), authHeader())
+    expect(status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(stub.reads).toEqual([id])
+    expect(stub.mints).toEqual([id])
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+  })
+})
+
+describe('exact mint lookup', () => {
+  it('does not mint a prefix, a store-only id, or a neighbor id', async () => {
+    const full = nextId()
+    const hash = nextId()
+    stub.containers.set(full.toLowerCase(), registryContainer(full, hash))
+    const prefix = full.slice(0, 18)
+    const prefixExpiry = futureExpiry()
+    const prefixRes = await mint({
+      containerId: prefix,
+      containerHash: hash,
+      to: address(1),
+      expiresAt: prefixExpiry,
+      signature: signVortex(hash, prefix, address(1), prefixExpiry, SIGN_KEY),
+    }, authHeader())
+    expect(prefixRes.status).toBe(400)
+    expectNoChainOrKey()
+    expect(stub.reads).toEqual([])
+    expect(stub.mints).toEqual([])
+
+    const unknown = nextId()
+    const unknownHash = nextId()
+    const miss = await mint(signedMint(unknown, unknownHash, address(1)), authHeader())
+    expect(miss.status).toBe(404)
+    expect(stub.reads).toEqual([unknown])
+    expect(stub.mints).toEqual([])
+    expect(stub.persists).toBe(0)
+    expect(stub.keyReads).toBe(0)
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+
+    const neighbor = bytes32(0xabcdef)
+    const neighborHash = nextId()
+    const near = await mint(signedMint(neighbor, neighborHash, address(1)), authHeader())
+    expect(near.status).toBe(404)
+    expect(stub.reads).toEqual([unknown, neighbor])
+    expect(stub.mints).toEqual([])
+    expect(stub.keyReads).toBe(0)
+    expect(counters.deployerKeyReads).toBe(0)
+
+    const mismatchId = nextId()
+    const signedHash = nextId()
+    const registryHash = nextId()
+    stub.containers.set(mismatchId.toLowerCase(), registryContainer(mismatchId, registryHash))
+    const mismatch = await mint(signedMint(mismatchId, signedHash, address(1)), authHeader())
+    expect(mismatch.status).toBe(401)
+    expect(String(mismatch.json.error)).toMatch(/does not match/i)
+    expect(stub.mints).toEqual([])
+    expect(stub.keyReads).toBe(0)
+    expect(counters.deployerKeyReads).toBe(0)
+  })
+})
+
+describe('mint abuse limits', () => {
+  it('rate-limits the next mint with 0 chain calls and 0 key reads', async () => {
+    const to = address(2)
+    for (let i = 0; i < MINT_RATE_LIMIT; i++) {
+      const id = nextId()
+      const hash = nextId()
+      stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+      const res = await mint(signedMint(id, hash, to), authHeader())
+      expect(res.status).toBe(200)
+    }
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+    const blockedId = nextId()
+    const blockedHash = nextId()
+    const blocked = await mint(signedMint(blockedId, blockedHash, to), authHeader())
+    expect(blocked.status).toBe(429)
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+    expect(stub.mints).toHaveLength(MINT_RATE_LIMIT)
+  })
+
+  it('enforces the per-address cap with 0 chain calls and 0 key reads', async () => {
+    const to = address(3)
+    for (let i = 0; i < MINT_ADDRESS_CAP; i++) {
+      if (i > 0 && i % MINT_RATE_LIMIT === 0) slipMintRate()
+      const id = nextId()
+      const hash = nextId()
+      stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+      const res = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-real-ip': `10.0.0.${i + 1}`, 'x-forwarded-for': `9.9.9.${i}` })
+      expect(res.status).toBe(200)
+    }
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const id = nextId()
+    const hash = nextId()
+    const blocked = await mint(signedMint(id, hash, to), { ...authHeader(), 'x-real-ip': '10.1.0.9', 'x-forwarded-for': '8.8.8.8' })
+    expect(blocked.status).toBe(429)
+    expect(String(blocked.json.error)).toContain('cap')
+    expectNoChainOrKey(chainBefore, keyBefore)
+  })
+
+  it('refuses a second token for the same containerId from mint and autoMint before any chain call', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const first = await mint(signedMint(id, hash, address(4)), authHeader())
+    expect(first.status).toBe(200)
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+
+    const secondExpiry = futureExpiry()
+    const second = await mint({
+      containerId: id,
+      containerHash: hash,
+      to: address(5),
+      expiresAt: secondExpiry,
+      signature: signVortex(hash, id, address(5), secondExpiry, SIGN_KEY),
+    }, authHeader())
+    expect(second.status).toBe(409)
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+
+    const auto = await autoMintVortex(sampleVortex(id, hash), 'again')
+    expect(auto).toBeNull()
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(stub.autoMints).toEqual([])
+  })
+
+  it('autoMintVortex uses the same cap and will not call the chain once the container is reserved', async () => {
+    const firstId = nextId()
+    const first = await autoMintVortex(sampleVortex(firstId, nextId()), 'first')
+    expect(first).toBe('0x' + '22'.repeat(32))
+    expect(stub.autoMints).toEqual([firstId])
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const again = await autoMintVortex(sampleVortex(firstId, nextId()), 'second')
+    expect(again).toBeNull()
+    expectNoChainOrKey(chainBefore, keyBefore)
+
+    const mintedId = nextId()
+    await autoMintVortex(sampleVortex(mintedId, nextId()), 'claimed')
+    const after = stub.chainCalls
+    const keys = stub.keyReads
+    const http = await mint({
+      containerId: mintedId,
+      containerHash: nextId(),
+      to: address(6),
+      expiresAt: futureExpiry(),
+      signature: 'ee'.repeat(32),
+    }, authHeader())
+    expect(http.status).toBe(409)
+    expectNoChainOrKey(after, keys)
+  })
+
+  it('rejects a copied signature when the recipient changes, with 0 chain calls', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(11)
+    const other = address(12)
+    const expiresAt = futureExpiry()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const copied = await mint({
+      containerId: id,
+      containerHash: hash,
+      to: other,
+      expiresAt,
+      signature: signVortex(hash, id, to, expiresAt, SIGN_KEY),
+    }, authHeader())
+    expect(copied.status).toBe(401)
+    expect(String(copied.json.error)).toBe('Invalid vortex signature')
+    expectNoChainOrKey()
+    expect(stub.mints).toEqual([])
+
+    const original = await mint(signedMint(id, hash, to, expiresAt), authHeader())
+    expect(original.status).toBe(200)
+    expect(stub.mints).toEqual([id])
+  })
+
+  it('rejects a copied signature after the expiry has passed, with 0 chain calls', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(13)
+    const expiresAt = Math.floor(Date.now() / 1000) - 5
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    const copied = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt,
+      signature: signVortex(hash, id, to, expiresAt, SIGN_KEY),
+    }, authHeader())
+    expect(copied.status).toBe(401)
+    expect(String(copied.json.error)).toMatch(/expired/i)
+    expectNoChainOrKey()
+    expect(stub.mints).toEqual([])
+
+    const freshId = nextId()
+    const freshHash = nextId()
+    stub.containers.set(freshId.toLowerCase(), registryContainer(freshId, freshHash))
+    const later = await mint(signedMint(freshId, freshHash, address(14)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.13.0.2',
+    })
+    expect(later.status).toBe(200)
+    expect(stub.mints).toEqual([freshId])
+  })
+
+  it('blocks on the global mint budget before any chain call or signing-key read', async () => {
+    expect(mintGlobalBudget()).toBe(DEFAULT_MINT_GLOBAL_BUDGET)
+    expect(mintGlobalWindowMs()).toBe(DEFAULT_MINT_GLOBAL_WINDOW_MS)
+    process.env.MINT_GLOBAL_BUDGET = 'nope'
+    process.env.MINT_GLOBAL_WINDOW_MS = '0'
+    expect(mintGlobalBudget()).toBe(DEFAULT_MINT_GLOBAL_BUDGET)
+    expect(mintGlobalWindowMs()).toBe(DEFAULT_MINT_GLOBAL_WINDOW_MS)
+
+    process.env.MINT_GLOBAL_BUDGET = '2'
+    for (let i = 0; i < 2; i++) {
+      const id = nextId()
+      const hash = nextId()
+      stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+      const res = await mint(signedMint(id, hash, address(20 + i)), {
+        ...authHeader(),
+        'x-forwarded-for': `10.20.0.${i + 1}`,
+      })
+      expect(res.status).toBe(200)
+    }
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+    const blockedId = nextId()
+    const blockedHash = nextId()
+    const blocked = await mint(signedMint(blockedId, blockedHash, address(29)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.20.0.9',
+    })
+    expect(blocked.status).toBe(429)
+    expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+    expect(stub.mints).toHaveLength(2)
+    expect(stub.reads).toHaveLength(2)
+  })
+
+  it('lets the global window expire before another mint is allowed', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    process.env.MINT_GLOBAL_WINDOW_MS = '1000'
+    const now = vi.spyOn(Date, 'now')
+    try {
+      now.mockReturnValue(1_700_000_000_000)
+      const expiresAt = 1_700_003_600
+      const id = nextId()
+      const hash = nextId()
+      stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+      const first = await mint(signedMint(id, hash, address(30), expiresAt), {
+        ...authHeader(),
+        'x-forwarded-for': '10.30.0.1',
+      })
+      expect(first.status).toBe(200)
+
+      const chainBefore = stub.chainCalls
+      const keyBefore = stub.keyReads
+      const signingBefore = signingKeyReadCount()
+      const blocked = await mint(signedMint(nextId(), nextId(), address(31), expiresAt), {
+        ...authHeader(),
+        'x-forwarded-for': '10.30.0.2',
+      })
+      expect(blocked.status).toBe(429)
+      expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+      expectNoChainOrKey(chainBefore, keyBefore)
+      expect(signingKeyReadCount()).toBe(signingBefore)
+
+      now.mockReturnValue(1_700_000_000_000 + 1000)
+      const laterId = nextId()
+      const laterHash = nextId()
+      stub.containers.set(laterId.toLowerCase(), registryContainer(laterId, laterHash))
+      const later = await mint(signedMint(laterId, laterHash, address(32), expiresAt), {
+        ...authHeader(),
+        'x-forwarded-for': '10.30.0.3',
+      })
+      expect(later.status).toBe(200)
+      expect(stub.mints).toEqual([id, laterId])
+    } finally {
+      now.mockRestore()
+    }
+  })
+
+  it('counts auto-mint in the global budget and blocks the next mint before the chain', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    const tx = await autoMintVortex(sampleVortex(nextId(), nextId()), 'budget')
+    expect(tx).toBe('0x' + '22'.repeat(32))
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const blocked = await mint(signedMint(id, hash, address(40)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.40.0.1',
+    })
+    expect(blocked.status).toBe(429)
+    expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+    expect(stub.mints).toEqual([])
+  })
+
+  it('refuses a user mint after the same container was auto-minted to the treasury', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const tx = await autoMintVortex(sampleVortex(id, hash), 'treasury')
+    expect(tx).toBe('0x' + '22'.repeat(32))
+    expect(stub.autoMints).toEqual([id])
+    const chainBefore = stub.chainCalls
+    const keyBefore = stub.keyReads
+    const signingBefore = signingKeyReadCount()
+    const user = await mint(signedMint(id, hash, address(41)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.41.0.1',
+    })
+    expect(user.status).toBe(409)
+    expect(String(user.json.error)).toContain('already')
+    expectNoChainOrKey(chainBefore, keyBefore)
+    expect(signingKeyReadCount()).toBe(signingBefore)
+    expect(stub.mints).toEqual([])
+  })
+
+  it('refuses a signed mint after auto-mint and a simulated restart, with no second mint call', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const tx = await autoMintVortex(sampleVortex(id, hash), 'treasury')
+    expect(tx).toBe('0x' + '22'.repeat(32))
+    expect(stub.autoMints).toEqual([onChainMintId(id)])
+    expect(onChainMintId(id).toLowerCase()).not.toBe(hash.toLowerCase())
+    resetWriteGuardsForTests()
+    const mintsBefore = stub.mints.length
+    const signed = await mint(signedMint(id, hash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.50.0.1',
+    })
+    expect(signed.status).toBe(409)
+    expect(String(signed.json.error)).toContain('already')
+    expect(stub.mints).toHaveLength(mintsBefore)
+    expect(stub.keyReads).toBe(1)
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+
+    const routeId = nextId()
+    const routeHash = nextId()
+    const autoId = nextId()
+    const autoHash = nextId()
+    stub.containers.set(routeId.toLowerCase(), registryContainer(routeId, routeHash))
+    stub.containers.set(autoId.toLowerCase(), registryContainer(autoId, autoHash))
+    stub.mintedOnChain.set(routeId.toLowerCase(), '1')
+    stub.mintedOnChain.set(autoHash.toLowerCase(), '2')
+    resetWriteGuardsForTests()
+    const afterCheck = stub.mints.length
+    const routeMint = await mint(signedMint(routeId, routeHash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.50.0.2',
+    })
+    const hashMint = await mint(signedMint(autoId, autoHash, VORTEX_TREASURY), {
+      ...authHeader(),
+      'x-forwarded-for': '10.50.0.3',
+    })
+    expect(routeMint.status).toBe(409)
+    expect(hashMint.status).toBe(409)
+    expect(stub.mints).toHaveLength(afterCheck)
+    expect(counters.deployerKeyReads).toBe(0)
+    expect(counters.directChainCalls).toBe(0)
+  })
+
+  it('a container evicted from dynamo:containers still gets its hash checked, and 409s if hash-keyed', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const registryHash = nextId()
+    const decoyHash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, registryHash))
+    stub.mintedOnChain.set(registryHash.toLowerCase(), '4')
+    await redis.lpush('dynamo:containers', JSON.stringify(sampleVortex(id, decoyHash)))
+    const listed = await redis.lrange('dynamo:containers', 0, -1)
+    expect(listed.join('\n')).not.toContain(registryHash)
+    const signed = await mint(signedMint(id, registryHash, address(80)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.80.0.1',
+    })
+    expect(signed.status).toBe(409)
+    expect(String(signed.json.error)).toContain('already')
+    expect(stub.mints).toEqual([])
+    const checked = stub.existingMintPairs.find((pair) => pair.containerId.toLowerCase() === id.toLowerCase())
+    expect(checked?.containerHash.toLowerCase()).toBe(registryHash.toLowerCase())
+    expect(stub.existingMintPairs.some((pair) => pair.containerHash.toLowerCase() === decoyHash.toLowerCase())).toBe(false)
+  })
+
+  it('a concurrent auto-mint plus signed mint for the same container gives exactly one mint', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    let release: () => void = () => {}
+    stub.existingHold = new Promise<void>((resolve) => {
+      release = () => {
+        stub.existingHold = null
+        resolve()
+      }
+    })
+    const pending = autoMintVortex(sampleVortex(id, hash), 'race')
+    try {
+      for (let i = 0; i < 20 && stub.existingWaiters < 1; i += 1) await flushTicks(1)
+      expect(stub.existingWaiters).toBe(1)
+      const signed = await mint(signedMint(id, hash, address(70)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.70.0.1',
+      })
+      expect(signed.status).toBe(409)
+      expect(String(signed.json.error)).toContain('already')
+      expect(stub.mints).toEqual([])
+      expect(stub.autoMints).toEqual([])
+      release()
+      expect(await pending).toBe('0x' + '22'.repeat(32))
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(stub.mints).toEqual([])
+    } finally {
+      release()
+      await pending.catch(() => {})
+    }
+  })
+
+  it('a failed chain read refuses the mint', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const signedId = nextId()
+    const signedHash = nextId()
+    const autoId = nextId()
+    const autoHash = nextId()
+    stub.containers.set(signedId.toLowerCase(), registryContainer(signedId, signedHash))
+    stub.existingMintErrorIds.add(signedId.toLowerCase())
+    stub.existingMintErrorIds.add(autoId.toLowerCase())
+    const logs: string[] = []
+    const logSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      logs.push(String(chunk))
+      return true
+    })
+    try {
+      const refused = await mint(signedMint(signedId, signedHash, address(81)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.81.0.1',
+      })
+      expect(refused.status).toBe(500)
+      expect(stub.mints).toEqual([])
+      expect(stub.autoMints).toEqual([])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+
+      stub.existingMintErrorIds.delete(signedId.toLowerCase())
+      const allowed = await mint(signedMint(signedId, signedHash, address(81)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.81.0.2',
+      })
+      expect(allowed.status).toBe(200)
+      expect(stub.mints).toEqual([onChainMintId(signedId)])
+
+      const skipped = await autoMintVortex(sampleVortex(autoId, autoHash), 'rpc-down')
+      expect(skipped).toBeNull()
+      expect(stub.autoMints).toEqual([])
+      const stored = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as {
+        containerId: string
+        containerHash: string
+        skippedAt: string
+        reason: string
+      }
+      expect(stored.containerId).toBe(autoId)
+      expect(stored.containerHash).toBe(autoHash)
+      expect(stored.skippedAt.length).toBeGreaterThan(0)
+      expect(stored.reason).toContain('rpc down')
+      expect(logs.some((line) => line.includes(`containerId=${autoId}`))).toBe(true)
+      expect(stub.mints).toEqual([onChainMintId(signedId)])
+    } finally {
+      logSpy.mockRestore()
+    }
+  })
+
+  it('replay mints an auto-mint whose chain read failed', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    rememberContainerForTests(vortex)
+    stub.existingMintErrorIds.add(id.toLowerCase())
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      expect(await autoMintVortex(vortex, 'rpc-down')).toBeNull()
+      expect(stub.autoMints).toEqual([])
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(id)
+      stub.existingMintErrorIds.delete(id.toLowerCase())
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('an entry whose token is hash-keyed is skipped', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    stub.mintedOnChain.set(hash.toLowerCase(), '2')
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'hash keyed',
+    }))
+    const logs: string[] = []
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      logs.push(String(chunk))
+      return true
+    })
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      expect(logs.some((line) => line.includes('backlog skip') && line.includes(id))).toBe(true)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('a drain that errors mid-list keeps the rest', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const firstId = nextId()
+    const secondId = nextId()
+    const thirdId = nextId()
+    const firstHash = nextId()
+    const secondHash = nextId()
+    const thirdHash = nextId()
+    rememberContainerForTests(sampleVortex(firstId, firstHash))
+    rememberContainerForTests(sampleVortex(secondId, secondHash))
+    rememberContainerForTests(sampleVortex(thirdId, thirdHash))
+    for (const entry of [
+      { containerId: firstId, containerHash: firstHash },
+      { containerId: secondId, containerHash: secondHash },
+      { containerId: thirdId, containerHash: thirdHash },
+    ]) {
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        ...entry,
+        skippedAt: new Date().toISOString(),
+        reason: 'rpc down',
+        proposalText: 'mid list',
+      }))
+    }
+    stub.existingMintErrorIds.add(secondId.toLowerCase())
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(firstId)])
+      const rest = await redis.lrange(MINT_BACKLOG_KEY, 0, -1)
+      expect(rest.map((raw) => (JSON.parse(raw) as { containerId: string }).containerId)).toEqual([secondId, thirdId])
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a server restart with the same Redis list still replays it', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    stub.existingMintErrorIds.add(id.toLowerCase())
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      expect(await autoMintVortex(vortex, 'rpc-down')).toBeNull()
+      expect(stub.autoMints).toEqual([])
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(id)
+      await redis.lpush('dynamo:containers', JSON.stringify(vortex))
+      resetBootMemoryForTests()
+      resetWriteGuardsForTests()
+      stub.existingMintErrorIds.delete(id.toLowerCase())
+      stub.autoMints = []
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('two concurrent drains over [X,Y] mint both and lose nothing', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const idX = nextId()
+    const hashX = nextId()
+    const idY = nextId()
+    const hashY = nextId()
+    rememberContainerForTests(sampleVortex(idX, hashX))
+    rememberContainerForTests(sampleVortex(idY, hashY))
+    for (const entry of [
+      { containerId: idX, containerHash: hashX },
+      { containerId: idY, containerHash: hashY },
+    ]) {
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        ...entry,
+        skippedAt: new Date().toISOString(),
+        reason: 'rpc down',
+        proposalText: 'kept',
+      }))
+    }
+    let release: () => void = () => {}
+    stub.autoMintHold = new Promise<void>((resolve) => {
+      release = () => {
+        stub.autoMintHold = null
+        resolve()
+      }
+    })
+    const first = replayMintBacklog()
+    try {
+      for (let i = 0; i < 20 && stub.autoMintEntered < 1; i += 1) await flushTicks(1)
+      expect(stub.autoMintEntered).toBe(1)
+      const second = replayMintBacklog()
+      await flushTicks(4)
+      expect(stub.autoMintEntered).toBe(1)
+      expect(stub.autoMints).toEqual([])
+      release()
+      await first
+      await second
+      expect(stub.autoMints).toEqual([onChainMintId(idX), onChainMintId(idY)])
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+    } finally {
+      release()
+      await first.catch(() => {})
+    }
+  })
+
+  it('replay writes the original truncated proposal text', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    rememberContainerForTests(vortex)
+    const original = 'governed proposal '.repeat(20)
+    const expected = original.slice(0, 140)
+    expect(expected.length).toBe(140)
+    stub.existingMintErrorIds.add(id.toLowerCase())
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(await autoMintVortex(vortex, original)).toBeNull()
+      const stored = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { proposalText: string }
+      expect(stored.proposalText).toBe(expected)
+      stub.existingMintErrorIds.delete(id.toLowerCase())
+      stub.proposalTexts = []
+      await replayMintBacklog()
+      expect(stub.proposalTexts).toEqual([expected])
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+    } finally {
+      logSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a reverted replay removes the entry when a token exists and dead-letters the first send when none does', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const landedId = nextId()
+    const landedHash = nextId()
+    const missedId = nextId()
+    const missedHash = nextId()
+    rememberContainerForTests(sampleVortex(landedId, landedHash))
+    rememberContainerForTests(sampleVortex(missedId, missedHash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: landedId,
+      containerHash: landedHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'landed',
+    }))
+    stub.nextReceiptStatus = 'reverted'
+    stub.revertLeavesToken = true
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        containerId: missedId,
+        containerHash: missedHash,
+        skippedAt: new Date().toISOString(),
+        reason: 'rpc down',
+        proposalText: 'missed',
+      }))
+      stub.nextReceiptStatus = 'reverted'
+      stub.revertLeavesToken = false
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([])
+      expect(stub.writeCalls).toBe(2)
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      expect(dead[0]).toContain('reverted')
+      expect(dead[0]).toContain(missedId)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a bad head entry is dead-lettered and the drain continues', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const missingId = nextId()
+    const missingHash = nextId()
+    const goodId = nextId()
+    const goodHash = nextId()
+    rememberContainerForTests(sampleVortex(goodId, goodHash))
+    await redis.rpush(MINT_BACKLOG_KEY, '{not json')
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: missingId,
+      containerHash: missingHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'gone',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'kept',
+    }))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(goodId)])
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(2)
+      expect(dead[0]).toContain('invalid json')
+      expect(dead[1]).toContain('missing container')
+      expect(dead[1]).toContain(missingId)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('an entry whose container was evicted from dynamo:containers replays with its saved text', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const vortex = sampleVortex(id, hash)
+    rememberContainerForTests(vortex)
+    const original = 'saved at skip '.repeat(12)
+    const saved = original.slice(0, 140)
+    await redis.lpush('dynamo:containers', JSON.stringify(sampleVortex(nextId(), nextId())))
+    const listed = await redis.lrange('dynamo:containers', 0, -1)
+    expect(listed.join('\n')).not.toContain(id)
+    expect(listed.join('\n')).not.toContain(saved)
+    stub.existingMintErrorIds.add(id.toLowerCase())
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(await autoMintVortex(vortex, original)).toBeNull()
+      const stored = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { proposalText: string }
+      expect(stored.proposalText).toBe(saved)
+      stub.existingMintErrorIds.delete(id.toLowerCase())
+      stub.proposalTexts = []
+      await replayMintBacklog()
+      expect(stub.proposalTexts).toEqual([saved])
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+    } finally {
+      logSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a failing replay releases the global mint budget', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'retry',
+    }))
+    stub.nextReceiptStatus = 'reverted'
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      expect(stub.writeCalls).toBe(1)
+      expect(stub.autoMints).toEqual([])
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      expect(dead[0]).toContain('reverted')
+      const otherId = nextId()
+      const otherHash = nextId()
+      stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
+      const signed = await mint(signedMint(otherId, otherHash, address(90)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.90.0.1',
+      })
+      expect(signed.status).toBe(200)
+      expect(stub.mints).toEqual([onChainMintId(otherId)])
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a POST for X is in flight during the drain and then fails; X\'s entry must stay', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const raw = JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'held during post',
+    })
+    await redis.rpush(MINT_BACKLOG_KEY, raw)
+    let releaseMint: () => void = () => {}
+    stub.mintHold = new Promise<void>((resolve) => { releaseMint = resolve })
+    stub.nextReceiptStatus = 'reverted'
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const pending = mint(signedMint(id, hash, address(93)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.93.0.1',
+    })
+    try {
+      for (let i = 0; i < 40 && stub.mintEntered < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.mintEntered).toBe(1)
+      await replayMintBacklog()
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBe(raw)
+      expect(stub.autoMints).toEqual([])
+      releaseMint()
+      const failed = await pending
+      expect(failed.status).toBe(500)
+      expect(failed.json.success).toBe(false)
+      expect(failed.json.tokenId).toBeUndefined()
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBe(raw)
+    } finally {
+      releaseMint()
+      await pending.catch(() => {})
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a revert frees the container and a retry isn\'t 409', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(94)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'reverted'
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-real-ip': '10.94.0.1',
+        'x-forwarded-for': '1.1.1.1',
+      })
+      expect(first.status).toBe(500)
+      expect(first.json.success).toBe(false)
+      expect(first.json.tokenId).toBeUndefined()
+      expect(stub.mints).toEqual([])
+      const second = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-real-ip': '10.94.0.2',
+        'x-forwarded-for': '1.1.1.2',
+      })
+      expect(second.status).toBe(200)
+      expect(second.json.tokenId).toBe('7')
+      for (let n = 0; n < MINT_ADDRESS_CAP - 1; n += 1) {
+        if (n === MINT_RATE_LIMIT - 2) slipMintRate()
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, to), {
+          ...authHeader(),
+          'x-real-ip': `10.94.1.${n}`,
+          'x-forwarded-for': `1.1.2.${n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      expect(stub.mints).toHaveLength(MINT_ADDRESS_CAP)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('dead-letters a reverted auto-mint on the first send', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const badId = nextId()
+    const badHash = nextId()
+    rememberContainerForTests(sampleVortex(badId, badHash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: badId,
+      containerHash: badHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'again',
+    }))
+    stub.revertRemaining = 3
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.writeCalls).toBe(1)
+      expect(stub.autoMints).toEqual([])
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      expect(dead[0]).toContain('reverted')
+      expect(dead[0]).toContain(badId)
+      await replayMintBacklog()
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a numeric, empty, or untyped id and an empty proposal text are dead-lettered', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const goodId = nextId()
+    const goodHash = nextId()
+    const otherHash = nextId()
+    rememberContainerForTests(sampleVortex(goodId, goodHash))
+    const stamp = new Date().toISOString()
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: 12,
+      containerHash: otherHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'numeric',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: '',
+      containerHash: otherHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'blank id',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: { bad: true },
+      containerHash: otherHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'wrong type',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: '',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: goodId,
+      containerHash: goodHash,
+      skippedAt: stamp,
+      reason: 'rpc down',
+      proposalText: 'kept text',
+    }))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(goodId)])
+      expect(stub.proposalTexts).toEqual(['kept text'])
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(5)
+      expect(dead.filter((row) => row.includes('missing ids'))).toHaveLength(3)
+      expect(dead.filter((row) => row.includes('missing proposal text'))).toHaveLength(2)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a replay uses its own rate lane and does not consume the auto-mint limit', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      for (let n = 0; n < MINT_RATE_LIMIT; n += 1) {
+        const id = nextId()
+        const hash = nextId()
+        expect(typeof await autoMintVortex(sampleVortex(id, hash), `lane ${n}`)).toBe('string')
+      }
+      expect(stub.autoMints).toHaveLength(MINT_RATE_LIMIT)
+      const blocked = await autoMintVortex(sampleVortex(nextId(), nextId()), 'blocked lane')
+      expect(blocked).toBeNull()
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+      const replayId = nextId()
+      const replayHash = nextId()
+      rememberContainerForTests(sampleVortex(replayId, replayHash))
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        containerId: replayId,
+        containerHash: replayHash,
+        skippedAt: new Date().toISOString(),
+        reason: 'rpc down',
+        proposalText: 'replay lane',
+      }))
+      await replayMintBacklog()
+      expect(stub.autoMints).toContain(onChainMintId(replayId))
+      expect(stub.proposalTexts).toContain('replay lane')
+    } finally {
+      logSpy.mockRestore()
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a stolen drain lock is not released or extended by the old holder', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const laterId = nextId()
+    const laterHash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    rememberContainerForTests(sampleVortex(laterId, laterHash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'first',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: laterId,
+      containerHash: laterHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'second',
+    }))
+    let releaseHold: () => void = () => {}
+    stub.autoMintHold = new Promise<void>((resolve) => { releaseHold = resolve })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const draining = replayMintBacklog()
+    try {
+      for (let i = 0; i < 40 && stub.autoMintEntered < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.autoMintEntered).toBe(1)
+      await redis.set('vortex:mint:backlog:lock', 'intruder', 'PX', 240000)
+      releaseHold()
+      await draining
+      expect(await redis.get('vortex:mint:backlog:lock')).toBe('intruder')
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(laterId)
+    } finally {
+      releaseHold()
+      await draining.catch(() => {})
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('the dead list keeps the newest 1000 entries', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    for (let n = 0; n < 1001; n += 1) await redis.rpush(MINT_BACKLOG_KEY, `{bad ${n}`)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1000)
+      expect(dead[0]).toContain('{bad 1')
+      expect(dead[999]).toContain('{bad 1000')
+      expect(dead.join('\n')).not.toContain('{bad 0')
+      expect(await redis.lrange(MINT_BACKLOG_KEY, 0, -1)).toEqual([])
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a registry RPC error returns 500 and a missing container returns 404', async () => {
+    const id = nextId()
+    const hash = nextId()
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.readError = new Error('rpc down')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const failed = await mint(signedMint(id, hash, address(91)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.91.0.1',
+      })
+      expect(failed.status).toBe(500)
+      expect(stub.mints).toEqual([])
+      const missing = await mint(signedMint(nextId(), nextId(), address(92)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.91.0.2',
+      })
+      expect(missing.status).toBe(404)
+      expect(String(missing.json.error)).toContain('not found')
+      expect(stub.mints).toEqual([])
+      const retried = await mint(signedMint(id, hash, address(91)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.91.0.3',
+      })
+      expect(retried.status).toBe(200)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('does not export redis test hooks from the production pubsub module', async () => {
+    const pubsub = await import('../../mcp/pubsub')
+    expect('setRedisClientForTests' in pubsub).toBe(false)
+    expect('clearRedisClientForTests' in pubsub).toBe(false)
+  })
+
+  it('does not burn the container on a bad signature, and a later valid mint succeeds', async () => {
+    const id = nextId()
+    const hash = nextId()
+    const to = address(60)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const nonString = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: futureExpiry(),
+      signature: 12345,
+    }, authHeader())
+    expect(nonString.status).toBe(400)
+    expectNoChainOrKey()
+
+    const short = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: futureExpiry(),
+      signature: 'abcd',
+    }, authHeader())
+    expect(short.status).toBe(400)
+    expectNoChainOrKey()
+
+    const tooFar = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: Math.floor(Date.now() / 1000) + MINT_SIGNATURE_MAX_AHEAD_SECONDS + 5,
+      signature: 'ab'.repeat(32),
+    }, authHeader())
+    expect(tooFar.status).toBe(400)
+    expect(String(tooFar.json.error)).toMatch(/1 hour/i)
+    expectNoChainOrKey()
+
+    const millis = await mint({
+      containerId: id,
+      containerHash: hash,
+      to,
+      expiresAt: Date.now(),
+      signature: 'cd'.repeat(32),
+    }, authHeader())
+    expect(millis.status).toBe(400)
+    expectNoChainOrKey()
+
+    throwOnNextVerifyForTests(new Error('verify exploded'))
+    const exploded = await mint(signedMint(id, hash, to), authHeader())
+    expect(exploded.status).toBe(401)
+    expect(String(exploded.json.error)).toMatch(/invalid vortex signature/i)
+    expectNoChainOrKey()
+
+    const ok = await mint(signedMint(id, hash, to), authHeader())
+    expect(ok.status).toBe(200)
+    expect(stub.mints).toEqual([onChainMintId(id)])
+    expect(counters.deployerKeyReads).toBe(0)
+  })
+
+  it('does not lock the container when the chain mint throws, and that attempt still uses budget', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '2'
+    const id = nextId()
+    const hash = nextId()
+    const to = address(61)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.failNextMint = true
+    const failed = await mint(signedMint(id, hash, to), {
+      ...authHeader(),
+      'x-forwarded-for': '10.61.0.1',
+    })
+    expect(failed.status).toBe(500)
+    expect(stub.mints).toEqual([])
+
+    const retry = await mint(signedMint(id, hash, to), {
+      ...authHeader(),
+      'x-forwarded-for': '10.61.0.2',
+    })
+    expect(retry.status).toBe(200)
+    expect(stub.mints).toEqual([onChainMintId(id)])
+
+    const otherId = nextId()
+    const otherHash = nextId()
+    stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
+    const blocked = await mint(signedMint(otherId, otherHash, address(62)), {
+      ...authHeader(),
+      'x-forwarded-for': '10.61.0.3',
+    })
+    expect(blocked.status).toBe(429)
+    expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+    expect(stub.mints).toEqual([onChainMintId(id)])
+  })
+
+  it('classifies a chain receipt timeout', () => {
+    const timeout = new Error('Timed out while waiting for transaction with hash "0xabc" to be confirmed.')
+    timeout.name = 'WaitForTransactionReceiptTimeoutError'
+    expect(isReceiptTimeout(timeout)).toBe(true)
+    expect(isReceiptTimeout(new Error('Timed out while waiting for transaction with hash "0xabc" to be confirmed.'))).toBe(true)
+    expect(isReceiptTimeout(new Error('mint reverted'))).toBe(false)
+    expect(isReceiptTimeout(null)).toBe(false)
+  })
+
+  it('a chain timeout marks the pending txHash and does not resubmit it', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '1'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const pendingHash = '0x' + '55'.repeat(32)
+    rememberContainerForTests(sampleVortex(id, hash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'timeout',
+    }))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      const marked = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { state?: string; txHash?: string }
+      expect(marked.state).toBe('pending')
+      expect(marked.txHash).toBe(pendingHash)
+      expect(stub.autoMintEntered).toBe(1)
+      expect(stub.autoMints).toEqual([])
+      stub.pendingTxHash = '0x' + '66'.repeat(32)
+      await replayMintBacklog()
+      const still = JSON.parse(String(await redis.lindex(MINT_BACKLOG_KEY, 0))) as { state?: string; txHash?: string }
+      expect(still.state).toBe('pending')
+      expect(still.txHash).toBe(pendingHash)
+      expect(stub.autoMintEntered).toBe(1)
+      const otherId = nextId()
+      const otherHash = nextId()
+      stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
+      const blocked = await mint(signedMint(otherId, otherHash, address(70)), {
+        ...authHeader(),
+        'x-forwarded-for': '10.70.0.1',
+      })
+      expect(blocked.status).toBe(429)
+      expect(String(blocked.json.error)).toBe('Mint budget exceeded')
+      stub.mintedOnChain.set(id.toLowerCase(), '4')
+      await replayMintBacklog()
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+      expect(stub.autoMintEntered).toBe(1)
+      expect(stub.autoMints).toEqual([])
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('renews the drain lock inside each backlog entry', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    rememberContainerForTests(sampleVortex(id, hash))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'hold the lock',
+    }))
+    let releaseHold: () => void = () => {}
+    stub.autoMintHold = new Promise<void>((resolve) => { releaseHold = resolve })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const draining = replayMintBacklog()
+    try {
+      for (let i = 0; i < 40 && stub.autoMintEntered < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.autoMintEntered).toBe(1)
+      expect(redis.lockRefreshes).toBeGreaterThanOrEqual(2)
+      releaseHold()
+      await draining
+      expect(stub.autoMints).toEqual([onChainMintId(id)])
+      expect(await redis.lindex(MINT_BACKLOG_KEY, 0)).toBeNull()
+    } finally {
+      releaseHold()
+      await draining.catch(() => {})
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a POST retry keeps the pending txHash and does not charge the address cap twice', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '40'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(71)
+    const pendingHash = '0x' + '55'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '10.71.0.1',
+      })
+      expect(first.status).toBe(202)
+      expect(first.json.pending).toBe(true)
+      expect(first.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(stub.mints).toEqual([])
+
+      stub.pendingTxHash = '0x' + '66'.repeat(32)
+      const retry = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '10.71.0.2',
+      })
+      expect(retry.status).toBe(202)
+      expect(retry.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+
+      slipMintRate()
+      for (let n = 0; n < MINT_ADDRESS_CAP - 1; n += 1) {
+        if (n > 0 && n % MINT_RATE_LIMIT === 0) slipMintRate()
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, to), {
+          ...authHeader(),
+          'x-real-ip': `10.71.1.${n}`,
+          'x-forwarded-for': `9.9.9.${n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      const capped = await mint(signedMint(nextId(), nextId(), to), {
+        ...authHeader(),
+        'x-real-ip': '10.71.2.1',
+        'x-forwarded-for': '9.9.9.9',
+      })
+      expect(capped.status).toBe(429)
+      expect(String(capped.json.error)).toBe('Per-address mint cap exceeded')
+      expect(stub.mintEntered).toBe(MINT_ADDRESS_CAP)
+
+      const laterId = nextId()
+      const laterHash = nextId()
+      const laterTo = address(72)
+      stub.containers.set(laterId.toLowerCase(), registryContainer(laterId, laterHash))
+      stub.nextReceiptStatus = 'pending'
+      stub.pendingTxHash = pendingHash
+      const held = await mint(signedMint(laterId, laterHash, laterTo), {
+        ...authHeader(),
+        'x-real-ip': '10.72.0.1',
+        'x-forwarded-for': '8.8.8.1',
+      })
+      expect(held.status).toBe(202)
+      expect(held.json.txHash).toBe(pendingHash)
+      stub.mintedOnChain.set(laterId.toLowerCase(), '7')
+      stub.pendingTxHash = '0x' + '77'.repeat(32)
+      const confirmed = await mint(signedMint(laterId, laterHash, laterTo), {
+        ...authHeader(),
+        'x-forwarded-for': '10.72.0.2',
+      })
+      expect(confirmed.status).toBe(200)
+      expect(confirmed.json.txHash).toBe(pendingHash)
+      expect(confirmed.json.tokenId).toBe('7')
+      expect(stub.mints).not.toContain(onChainMintId(laterId))
+      const again = await mint(signedMint(laterId, laterHash, laterTo), {
+        ...authHeader(),
+        'x-forwarded-for': '10.72.0.3',
+      })
+      expect(again.status).toBe(409)
+      expect(again.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(MINT_ADDRESS_CAP + 1)
+      slipMintRate()
+      for (let n = 0; n < MINT_ADDRESS_CAP - 1; n += 1) {
+        if (n > 0 && n % MINT_RATE_LIMIT === 0) slipMintRate()
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, laterTo), {
+          ...authHeader(),
+          'x-real-ip': `10.72.1.${n}`,
+          'x-forwarded-for': `8.8.4.${n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      const laterCapped = await mint(signedMint(nextId(), nextId(), laterTo), {
+        ...authHeader(),
+        'x-real-ip': '10.72.2.1',
+        'x-forwarded-for': '8.8.8.8',
+      })
+      expect(laterCapped.status).toBe(429)
+      expect(String(laterCapped.json.error)).toBe('Per-address mint cap exceeded')
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('reserves a cap slot for each pending mint so 14 submissions accept 8', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '40'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const to = address(16)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      let accepted = 0
+      let refused = 0
+      for (let n = 0; n < 14; n += 1) {
+        if (n > 0 && n % MINT_RATE_LIMIT === 0) slipMintRate()
+        const id = nextId()
+        const hash = nextId()
+        stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+        stub.nextReceiptStatus = 'pending'
+        stub.pendingTxHash = '0x' + n.toString(16).padStart(64, 'a')
+        const res = await mint(signedMint(id, hash, to), {
+          ...authHeader(),
+          'x-real-ip': `198.51.100.${n + 1}`,
+          'x-forwarded-for': `203.0.113.${n + 1}`,
+        })
+        if (res.status === 202) accepted += 1
+        else if (res.status === 429) refused += 1
+      }
+      expect(accepted).toBe(MINT_ADDRESS_CAP)
+      expect(refused).toBe(14 - MINT_ADDRESS_CAP)
+      expect(stub.mintEntered).toBe(MINT_ADDRESS_CAP)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('fails closed to one global mint rate bucket when client IP headers rotate', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '20'
+    let accepted = 0
+    for (let n = 0; n < 10; n += 1) {
+      const id = nextId()
+      const hash = nextId()
+      const to = address(170 + n)
+      stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+      const res = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-real-ip': `203.0.113.${n}`,
+        'x-forwarded-for': `1.2.3.${n}`,
+      })
+      if (res.status === 200) accepted += 1
+      else {
+        expect(res.status).toBe(429)
+        expect(String(res.json.error)).toBe('Mint rate limit exceeded')
+      }
+    }
+    expect(accepted).toBe(MINT_RATE_LIMIT)
+    expect(stub.mints).toHaveLength(MINT_RATE_LIMIT)
+  })
+
+  it('returns the original pending hash after a restart and does not send a second transaction', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(18)
+    const pendingHash = '0x' + 'ab'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.20',
+      })
+      expect(first.status).toBe(202)
+      expect(first.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+      resetWriteGuardsForTests()
+      stub.pendingTxHash = '0x' + 'cd'.repeat(32)
+      stub.nextReceiptStatus = 'pending'
+      const retry = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.21',
+      })
+      expect(retry.status).toBe(202)
+      expect(retry.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('an expired pending head cannot block the entries behind it across a restart, and a late landing does not double-mint', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const idA = nextId()
+    const hashA = nextId()
+    const idB = nextId()
+    const hashB = nextId()
+    const pendingHash = '0x' + '55'.repeat(32)
+    rememberContainerForTests(sampleVortex(idA, hashA))
+    rememberContainerForTests(sampleVortex(idB, hashB))
+    const expiredAt = Date.now() - 1_000
+    await redis.hset('vortex:mint:pending', hashA.toLowerCase(), JSON.stringify({
+      txHash: pendingHash,
+      containerId: idA,
+      containerHash: hashA,
+      recipient: VORTEX_TREASURY.toLowerCase(),
+      nonce: 4,
+      expiresAt: expiredAt,
+      state: 'pending',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: idA,
+      containerHash: hashA,
+      skippedAt: new Date().toISOString(),
+      reason: 'mint transaction pending',
+      proposalText: 'expired head',
+      state: 'pending',
+      txHash: pendingHash,
+      nonce: 4,
+      expiresAt: expiredAt,
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: idB,
+      containerHash: hashB,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'behind the expired head',
+    }))
+    resetWriteGuardsForTests()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([])
+      expect(stub.autoMintEntered).toBe(0)
+      expect(stub.mintEntered).toBe(0)
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string }
+      expect(letter.proposal).toBe('expired head')
+      expect(letter.oldHash).toBe(pendingHash)
+      expect(letter.reason).toBe('expired')
+      expect(letter.timestamp).toEqual(expect.any(String))
+      const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hashA.toLowerCase()))) as { state?: string; txHash?: string }
+      expect(stored.state).toBe('expired')
+      expect(stored.txHash).toBe(pendingHash)
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(idB)
+
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([onChainMintId(idB)])
+      expect(stub.autoMints).not.toContain(onChainMintId(idA))
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+
+      stub.receipts.set(pendingHash.toLowerCase(), 'success')
+      stub.mintedOnChain.set(idA.toLowerCase(), '11')
+      stub.containers.set(idA.toLowerCase(), registryContainer(idA, hashA))
+      const late = await mint(signedMint(idA, hashA, address(19)), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.30',
+      })
+      expect(late.status).toBe(409)
+      expect(late.json.txHash).toBe(pendingHash)
+      expect(stub.mints).not.toContain(onChainMintId(idA))
+      expect(stub.mintEntered).toBe(0)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('a pending head whose nonce moved on, with no receipt, is dropped and a late landing does not double-mint', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const idA = nextId()
+    const hashA = nextId()
+    const idB = nextId()
+    const hashB = nextId()
+    const pendingHash = '0x' + '66'.repeat(32)
+    rememberContainerForTests(sampleVortex(idA, hashA))
+    rememberContainerForTests(sampleVortex(idB, hashB))
+    const expiresAt = Date.now() + 60_000
+    await redis.hset('vortex:mint:pending', hashA.toLowerCase(), JSON.stringify({
+      txHash: pendingHash,
+      containerId: idA,
+      containerHash: hashA,
+      recipient: VORTEX_TREASURY.toLowerCase(),
+      nonce: 3,
+      expiresAt,
+      state: 'pending',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: idA,
+      containerHash: hashA,
+      skippedAt: new Date().toISOString(),
+      reason: 'mint transaction pending',
+      proposalText: 'replaced nonce',
+      state: 'pending',
+      txHash: pendingHash,
+      nonce: 3,
+      expiresAt,
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: idB,
+      containerHash: hashB,
+      skippedAt: new Date().toISOString(),
+      reason: 'rpc down',
+      proposalText: 'behind the dropped head',
+    }))
+    stub.nonceNow = 4
+    await redis.set('vortex:mint:cap:' + VORTEX_TREASURY.toLowerCase(), '1')
+    await redis.set('vortex:mint:cap-hold:' + idA.toLowerCase(), VORTEX_TREASURY.toLowerCase())
+    resetWriteGuardsForTests()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      expect(stub.autoMints).toEqual([])
+      expect(stub.autoMintEntered).toBe(0)
+      expect(stub.mintEntered).toBe(0)
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string }
+      expect(letter.proposal).toBe('replaced nonce')
+      expect(letter.oldHash).toBe(pendingHash)
+      expect(letter.reason).toBe('dropped')
+      expect(letter.timestamp).toEqual(expect.any(String))
+      const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hashA.toLowerCase()))) as { state?: string; txHash?: string }
+      expect(stored.state).toBe('dropped')
+      expect(stored.txHash).toBe(pendingHash)
+      expect(await redis.get('vortex:mint:cap:' + VORTEX_TREASURY.toLowerCase())).toBe('1')
+      expect(await redis.get('vortex:mint:cap-hold:' + idA.toLowerCase())).toBe(VORTEX_TREASURY.toLowerCase())
+      expect(String(await redis.lindex(MINT_BACKLOG_KEY, 0))).toContain(idB)
+
+      stub.receipts.set(pendingHash.toLowerCase(), 'success')
+      stub.containers.set(idA.toLowerCase(), registryContainer(idA, hashA))
+      const late = await mint(signedMint(idA, hashA, address(21)), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.31',
+      })
+      expect(late.status).toBe(409)
+      expect(late.json.txHash).toBe(pendingHash)
+      expect(stub.mints).not.toContain(onChainMintId(idA))
+      expect(stub.mintEntered).toBe(0)
+      expect(stub.autoMintEntered).toBe(0)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+    } finally {
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+    }
+  })
+
+  it('keeps the cap when an expired mint lands late and does not mint twice', async () => {
+    process.env.MINT_GLOBAL_BUDGET = '40'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(23)
+    const pendingHash = '0x' + '88'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    stub.nonceNow = stub.submitNonce
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.80',
+      })
+      expect(first.status).toBe(202)
+      expect(first.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+
+      const storedRaw = await redis.hget('vortex:mint:pending', hash.toLowerCase())
+      const stored = JSON.parse(String(storedRaw)) as { expiresAt: number; state: string }
+      stored.expiresAt = Date.now() - 1_000
+      await redis.hset('vortex:mint:pending', hash.toLowerCase(), JSON.stringify(stored))
+
+      stub.pendingTxHash = '0x' + '99'.repeat(32)
+      const expired = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.81',
+      })
+      expect(expired.status).toBe(202)
+      expect(expired.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+      const afterExpiry = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { state?: string }
+      expect(afterExpiry.state).toBe('expired')
+
+      stub.receipts.set(pendingHash.toLowerCase(), 'success')
+      stub.mintedOnChain.set(id.toLowerCase(), '13')
+      const late = await mint(signedMint(id, hash, to), {
+        ...authHeader(),
+        'x-forwarded-for': '203.0.113.82',
+      })
+      expect(late.status).toBe(409)
+      expect(late.json.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(stub.mints).not.toContain(onChainMintId(id))
+
+      slipMintRate()
+      for (let n = 0; n < MINT_ADDRESS_CAP - 1; n += 1) {
+        if (n > 0 && n % MINT_RATE_LIMIT === 0) slipMintRate()
+        const extraId = nextId()
+        const extraHash = nextId()
+        stub.containers.set(extraId.toLowerCase(), registryContainer(extraId, extraHash))
+        const extra = await mint(signedMint(extraId, extraHash, to), {
+          ...authHeader(),
+          'x-real-ip': `203.0.113.${90 + n}`,
+          'x-forwarded-for': `198.51.100.${n}`,
+        })
+        expect(extra.status).toBe(200)
+      }
+      const blocked = await mint(signedMint(nextId(), nextId(), to), {
+        ...authHeader(),
+        'x-real-ip': '203.0.113.120',
+        'x-forwarded-for': '198.51.100.50',
+      })
+      expect(blocked.status).toBe(429)
+      expect(String(blocked.json.error)).toBe('Per-address mint cap exceeded')
+      expect(stub.mintEntered).toBe(MINT_ADDRESS_CAP)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('dead-letters an expired auto-mint and a dropped one across three fake days, and sends nothing', async () => {
+    vi.useFakeTimers()
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const expiredId = nextId()
+    const expiredHash = nextId()
+    const droppedId = nextId()
+    const droppedHash = nextId()
+    const expiredTx = '0x' + '71'.repeat(32)
+    const droppedTx = '0x' + '72'.repeat(32)
+    rememberContainerForTests(sampleVortex(expiredId, expiredHash))
+    rememberContainerForTests(sampleVortex(droppedId, droppedHash))
+    const now = Date.now()
+    await redis.hset('vortex:mint:pending', expiredHash.toLowerCase(), JSON.stringify({
+      txHash: expiredTx,
+      containerId: expiredId,
+      containerHash: expiredHash,
+      recipient: VORTEX_TREASURY.toLowerCase(),
+      nonce: 4,
+      expiresAt: now - 1_000,
+      state: 'pending',
+    }))
+    await redis.hset('vortex:mint:pending', droppedHash.toLowerCase(), JSON.stringify({
+      txHash: droppedTx,
+      containerId: droppedId,
+      containerHash: droppedHash,
+      recipient: VORTEX_TREASURY.toLowerCase(),
+      nonce: 2,
+      expiresAt: now + 60_000,
+      state: 'pending',
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: expiredId,
+      containerHash: expiredHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'mint transaction pending',
+      proposalText: 'expired over days',
+      state: 'pending',
+      txHash: expiredTx,
+      nonce: 4,
+      expiresAt: now - 1_000,
+    }))
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: droppedId,
+      containerHash: droppedHash,
+      skippedAt: new Date().toISOString(),
+      reason: 'mint transaction pending',
+      proposalText: 'dropped over days',
+      state: 'pending',
+      txHash: droppedTx,
+      nonce: 2,
+      expiresAt: now + 60_000,
+    }))
+    stub.nonceNow = 4
+    resetMintDrainRunCountForTests()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      startMintDrainTimer()
+      await vi.advanceTimersByTimeAsync(3 * 24 * 60 * 60 * 1000)
+      expect(mintDrainRunCount()).toBeGreaterThan(100)
+      expect(stub.autoMints).toEqual([])
+      expect(stub.autoMintEntered).toBe(0)
+      expect(stub.mintEntered).toBe(0)
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(2)
+      const letters = dead.map((row) => JSON.parse(row) as { proposal?: string; oldHash?: string; reason?: string; timestamp?: string })
+      const expiredLetter = letters.find((letter) => letter.reason === 'expired')
+      const droppedLetter = letters.find((letter) => letter.reason === 'dropped')
+      expect(expiredLetter).toMatchObject({ proposal: 'expired over days', oldHash: expiredTx, reason: 'expired' })
+      expect(droppedLetter).toMatchObject({ proposal: 'dropped over days', oldHash: droppedTx, reason: 'dropped' })
+      expect(expiredLetter?.timestamp).toEqual(expect.any(String))
+      expect(droppedLetter?.timestamp).toEqual(expect.any(String))
+      const expiredRecord = JSON.parse(String(await redis.hget('vortex:mint:pending', expiredHash.toLowerCase()))) as { state?: string; txHash?: string }
+      expect(expiredRecord.state).toBe('expired')
+      expect(expiredRecord.txHash).toBe(expiredTx)
+      const droppedRecord = JSON.parse(String(await redis.hget('vortex:mint:pending', droppedHash.toLowerCase()))) as { state?: string; txHash?: string }
+      expect(droppedRecord.state).toBe('dropped')
+      expect(droppedRecord.txHash).toBe(droppedTx)
+    } finally {
+      stopMintDrainTimerForTests()
+      errorSpy.mockRestore()
+      logSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('a second instance cannot send while the first is waiting, and a crash keeps the hash', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(81)
+    const pendingHash = '0x' + '81'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = pendingHash
+    let crash: (err: Error) => void = () => {}
+    stub.mintHold = new Promise<void>((_resolve, reject) => { crash = reject })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const first = mint(signedMint(id, hash, to), authHeader())
+    try {
+      for (let i = 0; i < 40; i += 1) {
+        const raw = await redis.hget('vortex:mint:pending', hash.toLowerCase())
+        if (raw && stub.mintEntered >= 1) break
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.mintEntered).toBe(1)
+      const during = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string }
+      expect(during.txHash).toBe(pendingHash)
+
+      vi.resetModules()
+      const hooks = await import('../../mcp/redisTestHooks')
+      hooks.setRedisClientForTests(redis)
+      const chain = await import('../../mcp/lib/chainPort')
+      chain.setChainExecutorForTests(stub)
+      const second = await import('../../mcp/index')
+      const body = signedMint(id, hash, to)
+      const other = await second.app.request('/vortex/mint', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeader() },
+        body: JSON.stringify(body),
+      })
+      const otherJson = await other.json() as { txHash?: string }
+      expect(other.status).toBe(202)
+      expect(otherJson.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+
+      crash(new Error('process crash during receipt wait'))
+      const crashed = await first
+      expect(crashed.status).toBe(500)
+      const kept = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string }
+      expect(kept.txHash).toBe(pendingHash)
+      resetWriteGuardsForTests()
+      chain.setChainExecutorForTests(stub)
+      const retry = await second.app.request('/vortex/mint', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeader() },
+        body: JSON.stringify(signedMint(id, hash, to)),
+      })
+      const retryJson = await retry.json() as { txHash?: string }
+      expect(retry.status).toBe(202)
+      expect(retryJson.txHash).toBe(pendingHash)
+      expect(stub.mintEntered).toBe(1)
+    } finally {
+      errorSpy.mockRestore()
+      await first.catch(() => {})
+    }
+  })
+
+  it('keeps the address cap in Redis across a restart and a second instance', async () => {
+    vi.useFakeTimers()
+    process.env.MINT_GLOBAL_BUDGET = '40'
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const to = address(82)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      for (let n = 0; n < MINT_ADDRESS_CAP; n += 1) {
+        if (n > 0 && n % MINT_RATE_LIMIT === 0) slipMintRate()
+        const id = nextId()
+        const hash = nextId()
+        stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+        const res = await mint(signedMint(id, hash, to), authHeader())
+        expect(res.status).toBe(200)
+      }
+      resetWriteGuardsForTests()
+      const blockedId = nextId()
+      const blockedHash = nextId()
+      stub.containers.set(blockedId.toLowerCase(), registryContainer(blockedId, blockedHash))
+      const blocked = await mint(signedMint(blockedId, blockedHash, to), authHeader())
+      expect(blocked.status).toBe(429)
+      expect(String(blocked.json.error)).toBe('Per-address mint cap exceeded')
+      expect(stub.mintEntered).toBe(MINT_ADDRESS_CAP)
+
+      vi.resetModules()
+      const hooks = await import('../../mcp/redisTestHooks')
+      hooks.setRedisClientForTests(redis)
+      const chain = await import('../../mcp/lib/chainPort')
+      chain.setChainExecutorForTests(stub)
+      const second = await import('../../mcp/index')
+      const otherId = nextId()
+      const otherHash = nextId()
+      stub.containers.set(otherId.toLowerCase(), registryContainer(otherId, otherHash))
+      const other = await second.app.request('/vortex/mint', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeader() },
+        body: JSON.stringify(signedMint(otherId, otherHash, to)),
+      })
+      const otherJson = await other.json() as { error?: string }
+      expect(other.status).toBe(429)
+      expect(otherJson.error).toBe('Per-address mint cap exceeded')
+      expect(stub.mints).toHaveLength(MINT_ADDRESS_CAP)
+
+      await vi.advanceTimersByTimeAsync(MINT_ADDRESS_CAP_WINDOW_MS + 1_000)
+      slipMintRate()
+      const afterWindowId = nextId()
+      const afterWindowHash = nextId()
+      stub.containers.set(afterWindowId.toLowerCase(), registryContainer(afterWindowId, afterWindowHash))
+      const reopened = await mint(signedMint(afterWindowId, afterWindowHash, to), authHeader())
+      expect(reopened.status).toBe(200)
+    } finally {
+      errorSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('a nonce move writes one dead-letter and returns the old hash as dropped', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(83)
+    const deadHash = '0x' + '83'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = deadHash
+    stub.submitNonce = 4
+    stub.nonceNow = 4
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const first = await mint(signedMint(id, hash, to), authHeader())
+      expect(first.status).toBe(202)
+      expect(first.json.txHash).toBe(deadHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(stub.writeCalls).toBe(1)
+      await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+        containerId: id,
+        containerHash: hash,
+        skippedAt: new Date().toISOString(),
+        reason: 'mint transaction pending',
+        proposalText: 'the real proposal',
+        state: 'pending',
+        txHash: deadHash,
+        nonce: 4,
+        expiresAt: Date.now() + 60_000,
+      }))
+      stub.nonceNow = 5
+      stub.submitNonce = 5
+      stub.nextReceiptStatus = 'success'
+      stub.pendingTxHash = '0x' + '11'.repeat(32)
+      const dropped = await mint(signedMint(id, hash, to), authHeader())
+      expect(dropped.status).toBe(409)
+      expect(dropped.json.status).toBe('dropped')
+      expect(dropped.json.txHash).toBe(deadHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(stub.mints).toEqual([])
+      const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string; state?: string }
+      expect(stored.txHash).toBe(deadHash)
+      expect(stored.state).toBe('dropped')
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; containerHash?: string; oldHash?: string; reason?: string; timestamp?: string }
+      expect(letter.proposal).toBe('the real proposal')
+      expect(letter.containerHash).toBe(hash)
+      expect(letter.oldHash).toBe(deadHash)
+      expect(letter.reason).toBe('dropped')
+      expect(letter.timestamp).toEqual(expect.any(String))
+      await replayMintBacklog()
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
+      const again = await mint(signedMint(id, hash, to), authHeader())
+      expect(again.status).toBe(409)
+      expect(again.json.status).toBe('dropped')
+      expect(again.json.txHash).toBe(deadHash)
+      expect(stub.mintEntered).toBe(1)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+      const still = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string; state?: string }
+      expect(still.state).toBe('dropped')
+      expect(still.txHash).toBe(deadHash)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('a crash after writeContract and before the hash is saved does not send again', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(84)
+    const crashedHash = '0x' + '84'.repeat(32)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.nextReceiptStatus = 'pending'
+    stub.pendingTxHash = crashedHash
+    stub.submitNonce = 7
+    stub.nonceNow = 7
+    stub.crashAfterWrite = true
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const crashed = await mint(signedMint(id, hash, to), authHeader())
+      expect(crashed.status).toBe(500)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.hget('vortex:mint:pending', hash.toLowerCase())).toBeNull()
+      const presend = JSON.parse(String(await redis.hget('vortex:mint:presend', hash.toLowerCase()))) as { nonce?: number; deployer?: string }
+      expect(presend.nonce).toBe(7)
+      expect(presend.deployer).toBe(stub.deployer)
+      await redis.del('vortex:mint:send:' + hash.toLowerCase())
+      resetWriteGuardsForTests()
+      stub.pendingTxHash = '0x' + '11'.repeat(32)
+      stub.nextReceiptStatus = 'success'
+      const retry = await mint(signedMint(id, hash, to), authHeader())
+      expect(retry.status).toBe(202)
+      expect(retry.json.txHash).toBe(crashedHash)
+      expect(stub.writeCalls).toBe(1)
+      expect(stub.mintEntered).toBe(1)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('(a) a crash with the tx unconfirmed and the nonce still latest: retry after claim expiry sends 0 and letters 1', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(85)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.submitNonce = 9
+    stub.nonceNow = 9
+    stub.writeHold = new Promise<void>(() => {})
+    vi.spyOn(stub, 'findTxByNonce').mockResolvedValue(null)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    void mint(signedMint(id, hash, to), authHeader())
+    try {
+      for (let i = 0; i < 40 && stub.writeCalls < 1; i += 1) {
+        await new Promise<void>((resolve) => { realSetTimeout(resolve, 0) })
+      }
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.hget('vortex:mint:presend', hash.toLowerCase())).not.toBeNull()
+      vi.resetModules()
+      const hooks = await import('../../mcp/redisTestHooks')
+      hooks.setRedisClientForTests(redis)
+      const chain = await import('../../mcp/lib/chainPort')
+      chain.setChainExecutorForTests(stub)
+      const second = await import('../../mcp/index')
+      await redis.del('vortex:mint:send:' + hash.toLowerCase())
+      stub.writeHold = null
+      const retry = await second.app.request('/vortex/mint', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeader() },
+        body: JSON.stringify(signedMint(id, hash, to)),
+      })
+      expect(retry.status).toBe(409)
+      expect(stub.writeCalls).toBe(1)
+      await second.replayMintBacklog()
+      expect(stub.writeCalls).toBe(1)
+      const dead = await redis.lrange('vortex:mint:backlog:dead', 0, -1)
+      expect(dead).toHaveLength(1)
+      const letter = JSON.parse(dead[0]) as { proposal?: string; nonce?: number; reason?: string }
+      expect(letter.proposal).toBe(hash)
+      expect(letter.nonce).toBe(9)
+      expect(letter.reason).toBe('possibly-sent')
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('(b) a failure before broadcast deletes the pre-send row, frees both cap slots, and the retry mints once', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(86)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.failBeforeSend = true
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const failed = await mint(signedMint(id, hash, to), authHeader())
+      expect(failed.status).toBe(500)
+      expect(stub.writeCalls).toBe(0)
+      expect(await redis.hget('vortex:mint:presend', hash.toLowerCase())).toBeNull()
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBeNull()
+      expect(await redis.get('vortex:mint:send:' + hash.toLowerCase())).toBeNull()
+      const retry = await mint(signedMint(id, hash, to), authHeader())
+      expect(retry.status).toBe(200)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(0)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('(c) a send call that throws after the tx went out: the retry sends 0 and letters 1', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(87)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.submitNonce = 10
+    stub.nonceNow = 10
+    stub.crashAfterWrite = true
+    vi.spyOn(stub, 'findTxByNonce').mockResolvedValue(null)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const failed = await mint(signedMint(id, hash, to), authHeader())
+      expect(failed.status).toBe(500)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.hget('vortex:mint:presend', hash.toLowerCase())).not.toBeNull()
+      await redis.del('vortex:mint:send:' + hash.toLowerCase())
+      resetWriteGuardsForTests()
+      const retry = await mint(signedMint(id, hash, to), authHeader())
+      expect(retry.status).toBe(409)
+      expect(stub.writeCalls).toBe(1)
+      expect(await redis.lrange('vortex:mint:backlog:dead', 0, -1)).toHaveLength(1)
+      expect(await redis.get('vortex:mint:cap:' + to.toLowerCase())).toBe('1')
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('refuses a mint when Redis is down and sends nothing', async () => {
+    setRedisClientForTests(null)
+    const id = nextId()
+    const hash = nextId()
+    const to = address(84)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    const refused = await mint(signedMint(id, hash, to), authHeader())
+    expect(refused.status).toBe(503)
+    expect(refused.json.error).toBe('Mint guard store is unavailable')
+    expect(stub.mintEntered).toBe(0)
+    expect(stub.mints).toEqual([])
+    expect(stub.autoMintEntered).toBe(0)
+    const auto = await autoMintVortex(sampleVortex(nextId(), nextId()), 'redis down')
+    expect(auto).toBeNull()
+    expect(stub.autoMintEntered).toBe(0)
+    expect(stub.mintEntered).toBe(0)
+    expect(stub.mints).toEqual([])
+  })
+
+  it('a 409 without Redis still carries a known txHash', async () => {
+    setRedisClientForTests(null)
+    const id = nextId()
+    const hash = nextId()
+    const known = '0x' + '85'.repeat(32)
+    const recipient = address(85)
+    const other = address(86)
+    stub.containers.set(id.toLowerCase(), registryContainer(id, hash))
+    stub.mintedOnChain.set(id.toLowerCase(), '15')
+    markPendingMint(id, known, recipient)
+    const taken = await mint(signedMint(id, hash, other), authHeader())
+    expect(taken.status).toBe(409)
+    expect(taken.json.txHash).toBe(known)
+    expect(taken.json.tokenId).toBe('15')
+  })
+
+  it('gives a legacy in-flight auto-mint a pending record and prunes a landed row', async () => {
+    const redis = new MemoryRedis()
+    setRedisClientForTests(redis)
+    const id = nextId()
+    const hash = nextId()
+    const pendingHash = '0x' + '86'.repeat(32)
+    rememberContainerForTests(sampleVortex(id, hash))
+    const expiresAt = Date.now() + 60_000
+    await redis.rpush(MINT_BACKLOG_KEY, JSON.stringify({
+      containerId: id,
+      containerHash: hash,
+      skippedAt: new Date().toISOString(),
+      reason: 'mint transaction pending',
+      proposalText: 'legacy in flight',
+      state: 'pending',
+      txHash: pendingHash,
+      nonce: 4,
+      expiresAt,
+    }))
+    const landedHash = nextId()
+    await redis.hset('vortex:mint:pending', landedHash.toLowerCase(), JSON.stringify({
+      txHash: '0x' + '87'.repeat(32),
+      containerId: nextId(),
+      containerHash: landedHash,
+      recipient: VORTEX_TREASURY.toLowerCase(),
+      nonce: 1,
+      expiresAt: Date.now() - 1_000,
+      state: 'landed',
+    }))
+    stub.nonceNow = 4
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await replayMintBacklog()
+      const stored = JSON.parse(String(await redis.hget('vortex:mint:pending', hash.toLowerCase()))) as { txHash?: string; state?: string }
+      expect(stored.txHash).toBe(pendingHash)
+      expect(stored.state).toBe('pending')
+      expect(await redis.hget('vortex:mint:pending', landedHash.toLowerCase())).toBeNull()
+      expect(stub.autoMints).toEqual([])
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+})
+
+describe('write-route auth', () => {
+  it('fails closed on /vortex/persist, /vortex/mint, and /dev/seed-containers', async () => {
+    delete process.env.MCP_WRITE_API_KEY
+    const persist = await postJson('/vortex/persist', { containerId: nextId() })
+    expect(persist.status).toBe(503)
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+
+    process.env.MCP_WRITE_API_KEY = WRITE_KEY
+    const wrong = await postJson('/vortex/persist', { containerId: nextId() }, authHeader('nope'))
+    expect(wrong.status).toBe(401)
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+
+    const mintMissing = await mint({
+      containerId: nextId(),
+      containerHash: nextId(),
+      to: address(7),
+      expiresAt: futureExpiry(),
+      signature: 'ab'.repeat(32),
+    })
+    expect(mintMissing.status).toBe(401)
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+
+    process.env.ALLOW_SEED_ROUTE = '1'
+    delete process.env.MCP_WRITE_API_KEY
+    const seed = await postJson('/dev/seed-containers', {})
+    expect(seed.status).toBe(503)
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+
+    process.env.MCP_WRITE_API_KEY = WRITE_KEY
+    delete process.env.VORTEX_SIGNING_KEY
+    const seedNoSign = await postJson('/dev/seed-containers', {}, authHeader())
+    expect(seedNoSign.status).toBe(503)
+    expectNoChainOrKey()
+    expect(stub.persists).toBe(0)
+    expect(stub.mints).toEqual([])
+  })
+
+  it('keeps the dev seed route closed in production with 0 chain calls and 0 key reads', async () => {
+    const previous = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    process.env.ALLOW_SEED_ROUTE = '1'
+    try {
+      const seed = await postJson('/dev/seed-containers', {}, authHeader())
+      expect(seed.status).toBe(403)
+      expectNoChainOrKey()
+      expect(signingKeyReadCount()).toBe(0)
+    } finally {
+      process.env.NODE_ENV = previous
+    }
+  })
+
+  it('requires the API key only when govern_with_solar persists, and read-only stays open', async () => {
+    delete process.env.MCP_WRITE_API_KEY
+    const locked = await postJson('/govern_with_solar', { persistToChain: true, proposal: 'Deploy the array' })
+    expect(locked.status).toBe(503)
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+
+    process.env.MCP_WRITE_API_KEY = WRITE_KEY
+    const wrong = await postJson('/govern_with_solar', { persistToChain: true, proposal: 'Deploy the array' }, authHeader('nope'))
+    expect(wrong.status).toBe(401)
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+
+    delete process.env.VORTEX_SIGNING_KEY
+    const unsigned = await postJson('/govern_with_solar', {
+      persistToChain: true,
+      proposal: 'Deploy the array',
+      sunNeuralEmbedding: [0.2],
+    }, authHeader())
+    expect(unsigned.status).toBe(503)
+    expectNoChainOrKey()
+
+    const open = await postJson('/govern_with_solar', {
+      proposal: 'Read the field without writing',
+      persistToChain: false,
+      sunNeuralEmbedding: [0.2],
+    })
+    expect(open.status).toBe(200)
+    expect(open.json.success).toBe(true)
+    expectNoChainOrKey()
+    expect(stub.persists).toBe(0)
+    expect(stub.autoMints).toEqual([])
+  })
+
+  it('keeps the 10s persist cooldown and does not call the chain on the limited request', async () => {
+    expect(PERSIST_COOLDOWN_MS).toBe(10_000)
+    const original = dynamoSolarGovernance.enhanceGovernanceDecision.bind(dynamoSolarGovernance)
+    const spy = vi.spyOn(dynamoSolarGovernance, 'enhanceGovernanceDecision').mockImplementation(async (...args) => {
+      const real = await original(...args)
+      return { ...real, recommendation: 'PASS', fullBox7DVerdict: 'PASS' }
+    })
+    try {
+      const body = {
+        proposal: 'Persist one signed vortex and then wait',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }
+      const invalid = await postJson('/govern_with_solar', { persistToChain: true, proposal: '   ' }, authHeader())
+      expect(invalid.status).toBe(400)
+      expectNoChainOrKey()
+
+      const first = await postJson('/govern_with_solar', body, authHeader())
+      expect(first.status).toBe(200)
+      expect(typeof first.json.finalRecommendation).toBe('string')
+      expect(stub.persists).toBe(1)
+      await waitForAutoMint(1)
+      const chainBefore = stub.chainCalls
+      const keyBefore = stub.keyReads
+      const second = await postJson('/govern_with_solar', body, authHeader())
+      expect(second.status).toBe(200)
+      expect(typeof second.json.finalRecommendation).toBe('string')
+      expect(String((second.json.temporalContainer as { onChainError?: string })?.onChainError)).toContain('10s cooldown')
+      expectNoChainOrKey(chainBefore, keyBefore)
+      expect(counters.deployerKeyReads).toBe(0)
+      expect(counters.directChainCalls).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  }, 30_000)
+})
