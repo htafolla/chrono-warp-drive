@@ -7,7 +7,7 @@ import { solarDataFetcher, SolarData } from './solarDataFetcher';
 
 // Fusion math scales by NeuralInput.isotopeFactor, not this binding.
 // Re-exported so the module reads the shared TLM ratio.
-export { PHI } from './tlmConstants.ts';
+export { PHI } from './tlmConstants.js';
 const SEQUENCES = [
   'quantum entanglement matrix activated',
   'temporal phase coherence achieved',
@@ -194,7 +194,7 @@ export class NeuralFusion {
     try {
       await tf.ready();
       await tf.setBackend('cpu');
-      console.log(`[NeuralFusion] TF.js backend: ${tf.getBackend()}`);
+      process.stderr.write(`[NeuralFusion] TF.js backend: ${tf.getBackend()}\n`);
 
       this.spectralModel = this.createSpectralModel();
       this.decoderModel = this.createDecoderModel();
@@ -202,13 +202,13 @@ export class NeuralFusion {
 
       const testTensor = tf.tensor2d([Array(200).fill(0.5)]);
       const testResult = this.spectralModel.predict(testTensor) as tf.Tensor;
-      console.log(`[NeuralFusion] Spectral model OK, output: ${testResult.shape}`);
+      process.stderr.write(`[NeuralFusion] Spectral model OK, output: ${testResult.shape}\n`);
       testTensor.dispose();
       testResult.dispose();
 
       this.isInitialized = true;
     } catch (error) {
-      console.error('[NeuralFusion] init failed:', error);
+      process.stderr.write(`[NeuralFusion] init failed: ${error}\n`);
       this.isInitialized = false;
       throw error;
     }
@@ -328,7 +328,7 @@ export class NeuralFusion {
     }
 
     const spectra = stellarLibrary.getAllSpectra();
-    console.log(`[NeuralFusion] Adding ${spectra.length} stellar spectra for diversity`);
+    process.stderr.write(`[NeuralFusion] Adding ${spectra.length} stellar spectra for diversity\n`);
     for (const star of spectra) {
       const baseFlux = interpolateFlux(star, 200);
       const stellarTargets = computeStellarTargets(star);
@@ -343,7 +343,7 @@ export class NeuralFusion {
       }
     }
 
-    console.log(`[NeuralFusion] Spectral training samples: ${trainInputs.length} (real history: ${realHistory.length}, synthetic regimes used: ${realHistory.length < 4})`);
+    process.stderr.write(`[NeuralFusion] Spectral training samples: ${trainInputs.length} (real history: ${realHistory.length}, synthetic regimes used: ${realHistory.length < 4})\n`);
 
     const xs = tf.tensor2d(trainInputs);
     const ys = tf.tensor2d(trainTargets);
@@ -356,7 +356,7 @@ export class NeuralFusion {
       callbacks: {
         onEpochEnd: (epoch, logs) => {
           if (epoch % 10 === 0) {
-            console.log(`[NeuralFusion] Solar-trained epoch ${epoch}: loss=${logs?.loss?.toFixed(6)}, val_loss=${logs?.val_loss?.toFixed(6)}`);
+            process.stderr.write(`[NeuralFusion] Solar-trained epoch ${epoch}: loss=${logs?.loss?.toFixed(6)}, val_loss=${logs?.val_loss?.toFixed(6)}\n`);
           }
         },
       },
@@ -367,7 +367,7 @@ export class NeuralFusion {
 
     // === Train cheap decoder on reconstruction ===
     if (this.decoderModel && this.spectralModel) {
-      console.log('[NeuralFusion] Training decoder head for reconstruction quality...');
+      process.stderr.write('[NeuralFusion] Training decoder head for reconstruction quality...\n');
 
       // Create reconstruction targets = the original normalized spectra
       const reconTargets = trainInputs; // same as inputs for autoencoder-style training
@@ -388,10 +388,10 @@ export class NeuralFusion {
       decYs.dispose();
       encOut.dispose();
 
-      console.log('[NeuralFusion] Decoder training complete');
+      process.stderr.write('[NeuralFusion] Decoder training complete\n');
     }
 
-    console.log(`[NeuralFusion] Pattern training samples: ${patternInputs.length}`);
+    process.stderr.write(`[NeuralFusion] Pattern training samples: ${patternInputs.length}\n`);
 
     const pxs = tf.tensor2d(patternInputs);
     const pys = tf.tensor2d(patternTargets);
@@ -404,7 +404,7 @@ export class NeuralFusion {
       callbacks: {
         onEpochEnd: (epoch, logs) => {
           if (epoch % 10 === 0) {
-            console.log(`[NeuralFusion] Pattern epoch ${epoch}: loss=${logs?.loss?.toFixed(4)}, acc=${logs?.acc?.toFixed(4)}`);
+            process.stderr.write(`[NeuralFusion] Pattern epoch ${epoch}: loss=${logs?.loss?.toFixed(4)}, acc=${logs?.acc?.toFixed(4)}\n`);
           }
         },
       },
@@ -414,7 +414,7 @@ export class NeuralFusion {
     pys.dispose();
 
     this.isTrained = true;
-    console.log('[NeuralFusion] Training complete — reconstruction-aware solar embedding (phase stabilized)');
+    process.stderr.write('[NeuralFusion] Training complete — reconstruction-aware solar embedding (phase stabilized)\n');
   }
 
   exportWeights(): Record<string, number[][]> {
@@ -467,7 +467,7 @@ export class NeuralFusion {
         neuralEmbedding16: spectrumResult.neuralEmbedding16,
       };
     } catch (error) {
-      console.warn('[NeuralFusion] processing failed, fallback:', error);
+      process.stderr.write(`[NeuralFusion] processing failed, fallback: ${error}\n`);
       return this.getFallbackOutput(input);
     }
   }
@@ -544,7 +544,7 @@ export class NeuralFusion {
       prediction.dispose();
       return this.mapToSynapticSequence(Array.from(data));
     } catch (error) {
-      console.warn('[NeuralFusion] sequence gen failed:', error);
+      process.stderr.write(`[NeuralFusion] sequence gen failed: ${error}\n`);
       return this.getFallbackSynapticSequence();
     }
   }
@@ -673,17 +673,17 @@ export class NeuralFusion {
    */
   async retrainOnSolarData(): Promise<boolean> {
     if (this._isTraining) {
-      console.log('[NeuralFusion] Retrain skipped — already in progress');
+      process.stderr.write('[NeuralFusion] Retrain skipped — already in progress\n');
       return false;
     }
     this._isTraining = true;
     try {
-      console.log('[NeuralFusion] Starting periodic retrain on current solar conditions...');
+      process.stderr.write('[NeuralFusion] Starting periodic retrain on current solar conditions...\n');
       await this.trainOnSolarData();
-      console.log('[NeuralFusion] Periodic retrain complete — model is current');
+      process.stderr.write('[NeuralFusion] Periodic retrain complete — model is current\n');
       return true;
     } catch (error) {
-      console.error('[NeuralFusion] Periodic retrain failed:', error);
+      process.stderr.write(`[NeuralFusion] Periodic retrain failed: ${error}\n`);
       return false;
     } finally {
       this._isTraining = false;

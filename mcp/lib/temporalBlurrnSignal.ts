@@ -3,7 +3,7 @@
 // from src/lib/temporalBlurrnSignal.ts for consistency in the solar hammer.
 
 import { IsotopicSignal, CorrelationResult, TriangulationResult, FusedSignal, IsotopicFingerprint } from './isotopicSignal.js';
-import { PHI } from './tlmConstants.ts';
+import { PHI } from './tlmConstants.js';
 
 export { FusedSignal };
 const TAU = 0.865;

@@ -223,3 +223,21 @@ The worker calls `computeDualBlackHoleSync(7, 29)` on each tree, so the phi is t
 ## Triangulation history
 
 `docs/empirical/CONSTANT-TRIANGULATION.md` records the search history. `d3f69cf2` searched 20,592 formulas, including square roots, natural logs, log10, and powers `a^b` when `|b| ≤ 8`, plus sums and products. `e43877bd` removed addition, subtraction, roots, and logarithms. The words "fixed before the search" in that commit were false. The current list is an exploratory candidate list. None of the constants is shown to derive from TLM, and that includes `delta_t`.
+
+## Suite clock after the text-derived hammer
+
+The table above was measured before the text-derived hammer landed. This checkout imports `PHI` from `tlmConstants` (`5/3`) inside `mcp/lib/signalFromText.ts`, which is the hammer path the suite pins.
+
+Clock: `1746915300000` (`2025-05-10T22:15:00.000Z`). Solar data is the suite's mocked moderate sun. The 43 texts are `PROPOSALS_43` in `src/__tests__/cross-correlate-proposal-text.test.ts`.
+
+| | PASS | NEEDS_REVISION | REJECT |
+| --- | ---: | ---: | ---: |
+| Before the hammer replaces resonance | 43 | 0 | 0 |
+| After | 3 | 11 | 29 |
+
+Nine of the after rows are coherence downgrades: resonance at least `0.80` and the recommendation `NEEDS_REVISION`.
+
+| proposal | recommendation | resonance | confidence |
+| --- | --- | ---: | ---: |
+| Refactor the payment service so settlement uses the new ledger | NEEDS_REVISION | 0.9206977130240839 | 0.93 |
+| burn bridges, delete backups | REJECT | 0.22050428019368667 | 0.75 |

@@ -105,25 +105,6 @@ const NEURAL_DIMS = 16
 function neuralAmplitude(embedding: number[], dim: number, theta: number): number {
   return embedding[dim] * (0.5 + 0.5 * Math.sin(theta + dim * Math.PI / 8))
 }
-  const meanA = sumA / n
-  const meanB = sumB / n
-  let num = 0, denA = 0, denB = 0
-  for (let i = 0; i < n; i++) {
-    const da = a[i] - meanA
-    const db = b[i] - meanB
-    if (centered) {
-      num += da * db
-      denA += da * da
-      denB += db * db
-    } else {
-      num += a[i] * b[i]
-      denA += a[i] * a[i]
-      denB += b[i] * b[i]
-    }
-  }
-  if (denA === 0 || denB === 0) return 0.5
-  return Math.max(0, Math.min(1, num / Math.sqrt(denA * denB)))
-}
 
 export interface WaveResonanceResult {
   waveProximity: number

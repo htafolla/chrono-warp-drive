@@ -42,12 +42,40 @@ export class FusedSignal extends IsotopicSignal {
   }
 
   embed(): number[] { return this.compressedData; }
-  getIsotopeId(): string { return 'fused-core'; }
-  getVariantDelta(): number[] { return [0]; }
-  getIsotopicFingerprint(): IsotopicFingerprint {
-    return { coreId: 'fused-core', variantDelta: [0], isotopicRatio: 1, provenance: ['synthesis'] };
+
+  getIsotopeId(): string {
+    const lead = Math.abs(this.compressedData[0] ?? 0);
+    return `blurrn-core-${Math.floor(lead / 1e6)}`;
   }
-  crossCorrelate(): CorrelationResult { return { strength: 0.95, lag: 0, metadata: {} }; }
-  triangulate(): TriangulationResult { return { anchors: [], confidence: 0.95 }; }
+
+  getVariantDelta(): number[] {
+    const lead = Math.abs(this.compressedData[0] ?? 0);
+    return [lead % 1e6];
+  }
+
+  getIsotopicFingerprint(): IsotopicFingerprint {
+    return {
+      coreId: this.getIsotopeId(),
+      variantDelta: this.getVariantDelta(),
+      isotopicRatio: this.compressedData[2] ?? 0,
+      provenance: ['synthesis'],
+    };
+  }
+
+  crossCorrelate(other: IsotopicSignal): CorrelationResult {
+    const mine = this.embed();
+    const theirs = other.embed();
+    const lag = Math.abs((mine[1] ?? 0) - (theirs[1] ?? 0));
+    const vortexVolume = (mine[0] ?? 0) * (theirs[0] ?? 0);
+    return { strength: this.calculateIsotopicRatio(other), lag, metadata: { vortexVolume } };
+  }
+
+  triangulate(others: IsotopicSignal[]): TriangulationResult {
+    if (others.length === 0) return { anchors: [], confidence: 0 };
+    const strengths = others.map((partner) => this.crossCorrelate(partner).strength);
+    const confidence = strengths.reduce((sum, value) => sum + value, 0) / strengths.length;
+    return { anchors: others.map((partner) => partner.embed()), confidence };
+  }
+
   fuseSymbiotically(): FusedSignal { return this; }
 }

@@ -1,7 +1,7 @@
 // Deterministic Utils for BLURRN v4.6
 // Replaces Math.random() with deterministic pseudo-random functions
 
-import { PHI } from './tlmConstants.ts';
+import { PHI } from './tlmConstants.js';
 
 export { PHI };
 

@@ -10,6 +10,9 @@ import { VortexDetailModal } from '@/components/vortex/VortexDetailModal'
 import { MyVortices } from '@/components/vortex/MyVortices'
 import { ClaimModal } from '@/components/vortex/ClaimModal'
 import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
+import { asBigint, readContractView } from '../../mcp/lib/looseContract'
+
+export const CLAIMS_PAUSED_NOTICE = 'Claims are paused while we add signed vouchers.'
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const VORTEX_ABI = [
@@ -190,7 +193,6 @@ export default function VortexClaim() {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
   const publicClient = usePublicClient()
-  console.log('[vortex] render wallet:', { address: address?.slice(0, 10), isConnected, hasWriteContract: !!writeContractAsync, hasPublicClient: !!publicClient })
 
   const [containers, setContainers] = useState<ContainerItem[]>([])
   const [totalContainers, setTotalContainers] = useState(0)
@@ -253,7 +255,6 @@ export default function VortexClaim() {
         fetch(`${MCP_URL}/vortex/statuses`),
       ])
       const containerData = await containerRes.json()
-      console.log('[vortex] containers loaded:', containerData.containers?.length, 'total:', containerData.total)
       if (containerData.success) {
         setContainers(containerData.containers)
         setTotalContainers(containerData.total)
@@ -267,8 +268,7 @@ export default function VortexClaim() {
         }
         setTokenStatus(status)
       }
-    } catch (err) {
-      console.error('[vortex] Failed to load containers', err)
+    } catch {
     } finally {
       setLoading(false)
       setStatusLoading(false)
@@ -284,8 +284,7 @@ export default function VortexClaim() {
       if (data.success) {
         setContainers(prev => [...prev, ...data.containers])
       }
-    } catch (err) {
-      console.error('[vortex] Failed to load more containers', err)
+    } catch {
     } finally {
       setLoadingMore(false)
     }
@@ -295,21 +294,21 @@ export default function VortexClaim() {
     if (!publicClient || !address) return
     setMyTokensLoading(true)
     try {
-      const balance = await publicClient.readContract({
+      const balance = asBigint(await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi: VORTEX_ABI,
         functionName: 'balanceOf',
         args: [address],
-      })
+      }))
       const tokens: { tokenId: string; containerData: any }[] = []
       for (let i = 0; i < Number(balance); i++) {
-        const tid = await publicClient.readContract({
+        const tid = asBigint(await readContractView(publicClient, {
           address: VORTEX_TOKEN_ADDRESS,
           abi: VORTEX_ABI,
           functionName: 'tokenOfOwnerByIndex',
           args: [address, BigInt(i)],
-        })
-        const data = await publicClient.readContract({
+        }))
+        const data = await readContractView(publicClient, {
           address: VORTEX_TOKEN_ADDRESS,
           abi: VORTEX_ABI,
           functionName: 'getContainerData',
@@ -318,72 +317,24 @@ export default function VortexClaim() {
         tokens.push({ tokenId: tid.toString(), containerData: data })
       }
       setMyTokens(tokens)
-    } catch (err) {
-      console.warn('[vortex] failed to load my tokens', err)
+    } catch {
     } finally {
       setMyTokensLoading(false)
     }
   }
 
-  async function handleMint(containerId: string) {
-    if (!isConnected || !address) {
-      console.warn('[vortex] mint blocked: not connected')
-      return
-    }
-    setMinting(containerId)
-    console.log('[vortex] mint start:', containerId.slice(0, 18))
-
-    try {
-      const cid = containerId as `0x${string}`
-      const res = await fetch(`${MCP_URL}/vortex/mint`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ containerId: cid, to: address }),
-      })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Mint failed')
-
-      setMintResults(prev => ({ ...prev, [containerId]: data.txHash }))
-      setMintErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
-      setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: '...', inRegistry: prev[containerId]?.inRegistry ?? true } }))
-
-      console.log('[vortex] fetching on-chain data for', containerId.slice(0, 18))
-      const cres = await fetch(`${MCP_URL}/vortex/container/${cid}`)
-      const d = await cres.json()
-      if (d.success) {
-        setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: d.tokenId } }))
-        loadOnChainMetadata(d.tokenId, containerId)
-      }
-    } catch (err: any) {
-      setMintErrors(prev => ({ ...prev, [containerId]: err.message?.slice(0, 150) || 'Failed' }))
-    } finally {
-      setMinting(null)
-    }
+  async function handleMint(_containerId: string) {
+    return
   }
 
-  async function handleSaveToChain(containerId: string) {
-    setSaving(containerId)
-    setSaveErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
-    try {
-      const res = await fetch(`${MCP_URL}/vortex/persist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ containerId }),
-      })
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Save failed')
-      setTokenStatus(prev => ({ ...prev, [containerId]: { ...prev[containerId], inRegistry: true } }))
-    } catch (err: any) {
-      setSaveErrors(prev => ({ ...prev, [containerId]: err.message?.slice(0, 150) || 'Save failed' }))
-    } finally {
-      setSaving(null)
-    }
+  async function handleSaveToChain(_containerId: string) {
+    return
   }
 
   async function loadOnChainMetadata(tokenId: string, containerId: string) {
     if (!publicClient) return
     try {
-      const data = await publicClient.readContract({
+      const data = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi: VORTEX_ABI,
         functionName: 'getContainerData',
@@ -410,38 +361,12 @@ export default function VortexClaim() {
     }
   }
 
-  function handleOpenClaimModal(containerId: string) {
-    const c = containers.find(cc => cc.containerId === containerId)
-    if (c) {
-      setClaimResult(null)
-      setClaimModalContainer(c)
-    }
+  function handleOpenClaimModal(_containerId: string) {
+    return
   }
 
-  async function handleMintWithResult(containerId: string): Promise<{ txHash: string; tokenId: string }> {
-    if (!isConnected || !address) throw new Error('Wallet not connected')
-    const cid = containerId as `0x${string}`
-    const res = await fetch(`${MCP_URL}/vortex/mint`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ containerId: cid, to: address }),
-    })
-    const data = await res.json()
-    if (!data.success) throw new Error(data.error || 'Mint failed')
-
-    setMintResults(prev => ({ ...prev, [containerId]: data.txHash }))
-    setMintErrors(prev => { const n = { ...prev }; delete n[containerId]; return n })
-    setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: '...', inRegistry: prev[containerId]?.inRegistry ?? true } }))
-
-    const cres = await fetch(`${MCP_URL}/vortex/container/${cid}`)
-    const d = await cres.json()
-    let tokenId = ''
-    if (d.success) {
-      tokenId = d.tokenId
-      setTokenStatus(prev => ({ ...prev, [containerId]: { hasToken: true, tokenId: d.tokenId } }))
-      loadOnChainMetadata(d.tokenId, containerId)
-    }
-    return { txHash: data.txHash, tokenId }
+  async function handleMintWithResult(_containerId: string): Promise<{ txHash: string; tokenId: string }> {
+    throw new Error(CLAIMS_PAUSED_NOTICE)
   }
 
   return (
@@ -464,8 +389,9 @@ export default function VortexClaim() {
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-emerald-400 mb-2">Dynamo Vortex</h1>
           <p className="text-zinc-400 text-sm">
-            Temporal containers — click one to view details and claim its VortexToken
+            Temporal containers. Click one to view details.
           </p>
+          <p className="text-zinc-200 text-sm mt-4">{CLAIMS_PAUSED_NOTICE}</p>
         </div>
 
         <MyVortices
@@ -487,6 +413,7 @@ export default function VortexClaim() {
               tokenStatus={tokenStatus}
               minting={minting}
               mintErrors={mintErrors}
+              claimsPaused
               onClaim={handleOpenClaimModal}
               onViewDetails={handleViewDetails}
               filterMode={filterMode}
@@ -516,6 +443,7 @@ export default function VortexClaim() {
             tokenId={tokenStatus[detailContainer.containerId]?.hasToken ? tokenStatus[detailContainer.containerId].tokenId : null}
             onChainMetadata={onChainMetadata[detailContainer.containerId]}
             onClaim={() => handleMint(detailContainer.containerId)}
+            claimsPaused
             isMinting={minting === detailContainer.containerId}
             mintError={mintErrors[detailContainer.containerId]}
             mintResult={mintResults[detailContainer.containerId]}
