@@ -12,6 +12,7 @@ import { dynamoSolarGovernance, getPublicFeed, getHistory, getHistoryStats, REDI
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
 import { ambientField } from './lib/ambientField.js'
 import { governanceToContainer, determineSource } from './lib/temporalContainer.js'
+import { claimChainSave, finishChainSave, releaseChainSave, replayChainSave } from './lib/chainSaveLedger.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
 import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
@@ -1950,6 +1951,8 @@ app.post('/govern_with_solar', async (c: Context) => {
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
     }
+    const priorSave = await replayChainSave(proposalText)
+    if (priorSave) return c.json(priorSave)
   }
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
@@ -2001,6 +2004,16 @@ app.post('/govern_with_solar', async (c: Context) => {
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
     }
+    const claim = await claimChainSave(proposalText)
+    if (claim !== 'claimed') {
+      const waited = await replayChainSave(proposalText)
+      if (waited) return c.json(waited)
+      return c.json({
+        success: true,
+        ...result,
+        onChainError: 'Chain persist failed',
+      })
+    }
     const source = determineSource(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
     const container = governanceToContainer(result, proposalText, source, latestContainerHash)
     const signatureExpiresAt = Math.floor(Date.now() / 1000) + MINT_SIGNATURE_TTL_SECONDS
@@ -2035,7 +2048,10 @@ app.post('/govern_with_solar', async (c: Context) => {
     let onChain: { txHash: string } | null = null
     try {
       onChain = await getChainExecutor().persistGovernedContainer(container)
-    } catch (err: any) {
+      await finishChainSave(proposalText, onChain.txHash)
+    } catch {
+      await releaseChainSave(proposalText)
+      process.stderr.write('[govern] persist failed\n')
       return c.json({
         success: true,
         ...result,
@@ -2048,7 +2064,7 @@ app.post('/govern_with_solar', async (c: Context) => {
           source: container.source,
           timestamp: container.timestamp,
         },
-        onChainError: err.message,
+        onChainError: 'Chain persist failed',
       })
     }
 

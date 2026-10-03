@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "0.5.3",
+  "version": "0.5.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
+    "check:chain-save-bundle": "node bin/check-chain-save-bundle.mjs",
     "version:patch": "node bin/version-manager.mjs --patch",
     "version:minor": "node bin/version-manager.mjs --minor",
     "version:major": "node bin/version-manager.mjs --major",
