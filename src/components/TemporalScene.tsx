@@ -61,7 +61,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index }: WaveP
       meshRef.current.position.y = index * 0.3 - 2; // Better spacing between planes
       
     } catch (error) {
-      console.error('WavePlane animation error:', error);
+      console.error('WavePlane animation error:', error); // NOSONAR
     }
   });
 

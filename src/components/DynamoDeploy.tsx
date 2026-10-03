@@ -7,12 +7,61 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import { TransportPipeline } from '@/components/vortex/TransportPipeline';
 import { Textarea } from '@/components/ui/textarea';
 import { APP_TAG } from '@/lib/version';
+import {
+  CHAIN_SAVE_STILL_SAVING,
+  chainSaveButtonEnabled,
+  chainSaveRetryAllowed,
+  chainSaveTimedOut,
+  lockChainSaveProposal,
+} from '@/lib/chainSaveClient';
 
 import {
   DYNAMO_MCP_URL as MCP_URL,
   NEURAL_FUSION_URL as NEURAL_URL,
   STELLAR_MCP_URL as STELLAR_URL,
 } from '@/config/platform-env';
+
+let chainSaveTurnstileToken = ''
+
+interface TurnstileApi {
+  render: (element: HTMLElement, options: { sitekey: string; callback: (token: string) => void }) => void
+}
+
+function turnstileFromWindow(): TurnstileApi | null {
+  const host = window as Window & { turnstile?: TurnstileApi }
+  return host.turnstile ?? null
+}
+
+function ChainSaveTurnstile() {
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY
+  const holder = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!siteKey || !holder.current) return
+    let cancelled = false
+    const render = () => {
+      if (cancelled || !holder.current) return
+      const api = turnstileFromWindow()
+      if (!api) return
+      api.render(holder.current, {
+        sitekey: siteKey,
+        callback: (token: string) => { chainSaveTurnstileToken = token },
+      })
+    }
+    const existing = turnstileFromWindow()
+    if (existing) {
+      render()
+      return () => { cancelled = true }
+    }
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.onload = render
+    document.head.appendChild(script)
+    return () => { cancelled = true }
+  }, [siteKey])
+  if (!siteKey) return null
+  return <div ref={holder} className="mt-2" />
+}
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
@@ -267,6 +316,43 @@ interface GovernanceResult {
   } | null;
 }
 
+const GOVERNANCE_NULL_KEYS = [
+  'metamorphosisIndex', 'confidenceScore', 'reconstructionError', 'governanceConfidence',
+  'resonanceScore', 'structuralResonance', 'proximity', 'phaseAlignment', 'vortexAlignment',
+  'crossCorrelationLag', 'signalTiming', 'synchronization', 'waveProximity', 'waveVortexAlignment',
+  'waveSynchronization', 'hybrid4DComposite', 'hybridVerdict', 'hybridVortexAlignment',
+  'fullWave4DComposite', 'calibratedWave4DComposite', 'fullBoxProximity', 'fullBoxVortexAlignment',
+  'fullBoxSynchronization', 'fullBoxNeuralProximity', 'fullBoxNeuralVortex', 'fullBox4DComposite',
+  'fullBoxVerdict', 'fullBoxThresholds', 'fullBoxGematriaResonance', 'fullBox7DComposite',
+  'fullBox7DVerdict', 'neuralWaveProximity', 'neuralWaveVortexAlignment', 'smoothedResonance',
+  'trend', 'momentum', 'peakForecast', 'adaptiveThresholds', 'trinitariumMoralScore',
+  'trinitariumVirtueAlignment', 'trinitariumHarmPotential', 'trinitariumIntentAlignment',
+  'trinitariumSacredTextAffinity', 'trinitariumDetectedVirtues', 'trinitariumDetectedConcerns',
+  'trinitariumGematriaFusion', 'moralNumerologicalTension',
+] as const
+
+function chainSaveErrorResult(message: string): GovernanceResult {
+  const nulls: Record<string, null> = {}
+  for (const key of GOVERNANCE_NULL_KEYS) nulls[key] = null
+  return {
+    ...nulls,
+    answer: 'error',
+    detail: message,
+    phrase: message,
+    level: '',
+    signal: '',
+    weight: 1,
+    gain: 0,
+    solarApplied: false,
+    diagnostics: { isotopicRatio: null, vortexVolume: null, historicalCoherence: null },
+    signature: '',
+    alignmentRec: null,
+    alignmentReason: message,
+    source: 'human',
+    neuralContextUsed: false,
+  } as GovernanceResult
+}
+
 async function checkGovernance(proposal: string, sharePublicly: boolean, persistToChain: boolean = false): Promise<GovernanceResult | null> {
   try {
     const proposalLabel = proposal.length < 30 ? proposal + ' — via Dynamo governance' : proposal;
@@ -282,24 +368,70 @@ async function checkGovernance(proposal: string, sharePublicly: boolean, persist
     const spectralQuality = neuralRes?.neuralOutput?.spectralQuality ?? neuralRes?.spectralQuality ?? null;
     const neuralEmbedding16 = neuralRes?.neuralOutput?.neuralEmbedding16 ?? neuralRes?.neuralEmbedding16 ?? null;
 
-    // Then call governance with spectralQuality, plus alignment in parallel
-    const [solarRes, alignRes] = await Promise.allSettled([
-      fetch(`${MCP_URL}/govern_with_solar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposal, baseVoteWeight: 1, sharePublicly, persistToChain, spectralQuality, sunNeuralEmbedding: neuralEmbedding16 }),
-        signal: AbortSignal.timeout(15000),
-      }).then(async r => r.ok ? r.json() : null),
-      fetch(`${MCP_URL}/governance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposalId: `ui-${Date.now()}`, proposalText: proposalLabel, agentReviews: ['UI submission'] }),
-        signal: AbortSignal.timeout(15000),
-      }).then(async r => r.ok ? r.json() : null),
-    ]);
+    const chainPayload = {
+      proposal,
+      baseVoteWeight: 1,
+      sharePublicly,
+      persistToChain,
+      spectralQuality,
+      sunNeuralEmbedding: neuralEmbedding16,
+      turnstileToken: chainSaveTurnstileToken,
+    }
+    const alignmentPromise = fetch(`${MCP_URL}/governance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposalId: `ui-${Date.now()}`, proposalText: proposalLabel, agentReviews: ['UI submission'] }),
+      signal: AbortSignal.timeout(15000),
+    }).then(async r => r.ok ? r.json() : null).catch(() => null)
 
-    const solar = solarRes.status === 'fulfilled' ? solarRes.value : null;
-    const alignment = alignRes.status === 'fulfilled' ? alignRes.value : null;
+    let solar = null
+    let alignment = null
+    if (persistToChain) {
+      if (!chainSaveRetryAllowed(proposal)) return chainSaveErrorResult(CHAIN_SAVE_STILL_SAVING)
+      // Same-origin server route. The write key stays on the server.
+      let solarRes: Response
+      try {
+        solarRes = await fetch('/api/govern-chain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chainPayload),
+          signal: AbortSignal.timeout(60000),
+        })
+      } catch (err: unknown) {
+        const aborted = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
+        if (chainSaveTimedOut(null, aborted)) {
+          lockChainSaveProposal(proposal)
+          return chainSaveErrorResult(CHAIN_SAVE_STILL_SAVING)
+        }
+        return chainSaveErrorResult('Chain save failed')
+      }
+      const solarBody = await solarRes.json().catch(() => null)
+      const pendingBody = solarBody !== null && typeof solarBody === 'object'
+        ? solarBody as { pending?: unknown; error?: unknown }
+        : null
+      if (!solarRes.ok) {
+        if (chainSaveTimedOut(pendingBody, false)) {
+          lockChainSaveProposal(proposal)
+          return chainSaveErrorResult(CHAIN_SAVE_STILL_SAVING)
+        }
+        const message = pendingBody && typeof pendingBody.error === 'string' ? pendingBody.error : 'Chain save failed'
+        return chainSaveErrorResult(message)
+      }
+      solar = solarBody
+      alignment = await alignmentPromise
+    } else {
+      const [solarRes, alignRes] = await Promise.allSettled([
+        fetch(`${MCP_URL}/govern_with_solar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chainPayload),
+          signal: AbortSignal.timeout(15000),
+        }).then(async r => r.ok ? r.json() : null),
+        alignmentPromise,
+      ])
+      solar = solarRes.status === 'fulfilled' ? solarRes.value : null
+      alignment = alignRes.status === 'fulfilled' ? alignRes.value : null
+    }
     const neural = neuralRes;
 
     if (!solar && !alignment && !neural) return null;
@@ -479,6 +611,7 @@ export default function DynamoDeploy() {
   const [lastProposal, setLastProposal] = useState('');
   const [sharePublicly, setSharePublicly] = useState(true);
   const [persistToChain, setPersistToChain] = useState(false);
+  const chainSaveOn = chainSaveButtonEnabled(import.meta.env.VITE_CHAIN_SAVE_ENABLED);
   const [pipelineComplete, setPipelineComplete] = useState(false);
   const [feed, setFeed] = useState<Array<{
     proposal: string; resonanceScore: number; recommendation: string;
@@ -581,10 +714,12 @@ export default function DynamoDeploy() {
     setResult(null);
     setLastProposal(input);
     if (text) setProposal(text);
-    const r = await checkGovernance(input, sharePublicly, persistToChain);
+    const allowPersist = chainSaveOn && persistToChain && chainSaveRetryAllowed(input);
+    const r = await checkGovernance(input, sharePublicly, allowPersist);
+    if (!chainSaveRetryAllowed(input)) setPersistToChain(false);
     setResult(r);
     fetchFeed();
-  }, [proposal, sharePublicly, persistToChain, fetchFeed]);
+  }, [proposal, sharePublicly, persistToChain, chainSaveOn, fetchFeed]);
 
   useEffect(() => {
     if (pipelineComplete) {
@@ -691,15 +826,19 @@ export default function DynamoDeploy() {
                 />
                 <span className="text-xs text-white/50">Share publicly</span>
               </label>
-              <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={persistToChain}
-                  onChange={e => setPersistToChain(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-white/20 bg-white/[0.05] accent-amber-500 cursor-pointer"
-                />
-                <span className="text-xs text-white/50">Post to blockchain</span>
-              </label>
+              {chainSaveOn ? (
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={persistToChain && chainSaveRetryAllowed(proposal)}
+                    onChange={e => setPersistToChain(e.target.checked)}
+                    disabled={!chainSaveRetryAllowed(proposal)}
+                    className="w-3.5 h-3.5 rounded border-white/20 bg-white/[0.05] accent-amber-500 cursor-pointer disabled:opacity-40"
+                  />
+                  <span className="text-xs text-white/50">Post to blockchain</span>
+                </label>
+              ) : null}
+              {chainSaveOn && persistToChain ? <ChainSaveTurnstile /> : null}
             </div>
           </div>
           {showExamples && (
@@ -737,7 +876,11 @@ export default function DynamoDeploy() {
         </div>
 
         {/* Result — every governance result is a self-authenticating temporal document */}
-        {result && !loading && (
+        {result && !loading && result.answer === 'error' && (
+          <p className="text-sm text-red-300 text-center">{result.phrase}</p>
+        )}
+
+        {result && !loading && result.answer !== 'error' && (
           <div className={`rounded-2xl p-5 text-center space-y-3 border shadow-xl ${
             result.answer === 'yes' ? 'bg-emerald-500/[0.07] border-emerald-500/30 shadow-emerald-500/5' :
             result.answer === 'no' ? 'bg-red-500/[0.07] border-red-500/30 shadow-red-500/5' :

@@ -17,14 +17,14 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 if (process.env.REDIS_URL) {
-  console.error('REDIS_URL is set. Refusing to run so this audit cannot write Redis history.')
+  console.error('REDIS_URL is set. Refusing to run so this audit cannot write Redis history.') // NOSONAR
   process.exit(2)
 }
 
 const root = process.argv[2]
 const outPath = process.argv[3]
 if (!root || !outPath) {
-  console.error('usage: phi-governance-worker.ts <repo-root> <out.json>')
+  console.error('usage: phi-governance-worker.ts <repo-root> <out.json>') // NOSONAR
   process.exit(2)
 }
 
@@ -33,7 +33,7 @@ const sunMode = process.env.PHI_SUN === 'absent' ? 'absent' : 'present'
 const clockSource = process.env.PHI_CLOCKS ?? process.env.PHI_NOW_MS ?? String(DEFAULT_NOW_MS)
 const clocks = clockSource.split(',').map((part) => Number(part.trim())).filter((n) => Number.isFinite(n))
 if (clocks.length === 0) {
-  console.error('PHI_NOW_MS / PHI_CLOCKS did not contain a finite millisecond')
+  console.error('PHI_NOW_MS / PHI_CLOCKS did not contain a finite millisecond') // NOSONAR
   process.exit(2)
 }
 let nowMs = clocks[0]
@@ -203,7 +203,7 @@ const cross: Array<{ contentA: string; contentB: string; strength: number | null
 for (const pair of crossPairs) {
   const result = await post(app, '/cross_correlate', pair)
   if (result.status !== 200) {
-    console.error('cross_correlate failed', result.status, result.body)
+    console.error('cross_correlate failed', result.status, result.body) // NOSONAR
     process.exit(1)
   }
   cross.push({ ...pair, strength: readNumber(result.body, 'strength') })
@@ -258,7 +258,7 @@ async function measureProposals(): Promise<{ governance: GovRow[]; solar: SolarR
       source: 'human',
     })
     if (gov.status !== 200) {
-      console.error('governance failed', id, gov.status, gov.body)
+      console.error('governance failed', id, gov.status, gov.body) // NOSONAR
       process.exit(1)
     }
     governance.push({
@@ -273,7 +273,7 @@ async function measureProposals(): Promise<{ governance: GovRow[]; solar: SolarR
 
     const solarResult = await post(app, '/govern_with_solar', { proposal: text, sharePublicly: false })
     if (solarResult.status !== 200) {
-      console.error('govern_with_solar failed', id, solarResult.status, solarResult.body)
+      console.error('govern_with_solar failed', id, solarResult.status, solarResult.body) // NOSONAR
       process.exit(1)
     }
     solar.push({
@@ -300,7 +300,7 @@ if (clocks.length > 1) {
     })
   }
   writeFileSync(outPath, JSON.stringify({ sha, sun: sunMode, clocks: rows }))
-  console.error(`wrote ${outPath} sha=${sha} sun=${sunMode} clocks=${rows.length}`)
+  console.error(`wrote ${outPath} sha=${sha} sun=${sunMode} clocks=${rows.length}`) // NOSONAR
   process.exit(0)
 }
 
@@ -378,4 +378,4 @@ const report = {
 }
 
 writeFileSync(outPath, JSON.stringify(report))
-console.error(`wrote ${outPath} sha=${sha} governance=${governance.length} leaves=${leaves.length}`)
+console.error(`wrote ${outPath} sha=${sha} governance=${governance.length} leaves=${leaves.length}`) // NOSONAR

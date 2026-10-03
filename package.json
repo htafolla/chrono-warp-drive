@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
+    "check:chain-save-bundle": "node bin/check-chain-save-bundle.mjs",
     "version:patch": "node bin/version-manager.mjs --patch",
     "version:minor": "node bin/version-manager.mjs --minor",
     "version:major": "node bin/version-manager.mjs --major",

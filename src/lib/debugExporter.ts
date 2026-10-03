@@ -239,18 +239,18 @@ export class DebugExporter {
   static initialize() {
     // Capture console logs
     const originalConsole = {
-      error: console.error,
-      warn: console.warn,
+      error: console.error, // NOSONAR
+      warn: console.warn, // NOSONAR
       info: console.info,
-      log: console.log
+      log: console.log // NOSONAR
     };
 
-    console.error = (...args) => {
+    console.error = (...args) => { // NOSONAR
       this.logs.push({ level: 'error', message: args.join(' '), timestamp: Date.now() });
       originalConsole.error(...args);
     };
 
-    console.warn = (...args) => {
+    console.warn = (...args) => { // NOSONAR
       this.logs.push({ level: 'warn', message: args.join(' '), timestamp: Date.now() });
       originalConsole.warn(...args);
     };

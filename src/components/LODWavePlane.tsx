@@ -136,7 +136,7 @@ export function LODWavePlane({
       meshRef.current.position.z =
         Math.sin(state.clock.elapsedTime * 0.3 + index * 0.8) * 0.5 * rotationIntensity;
     } catch (error) {
-      console.error('LOD WavePlane animation error:', error);
+      console.error('LOD WavePlane animation error:', error); // NOSONAR
     }
   });
 

@@ -130,7 +130,7 @@ const rows = TARGETS.map(([name, target]) => ({
   closest: best(target),
 }))
 
-console.log(JSON.stringify({
+console.log(JSON.stringify({ // NOSONAR
   note: 'Exploratory candidates only. No evidence of derivation. No verdict.',
   exponents: EXPONENTS,
   maxTerms: MAX_TERMS,

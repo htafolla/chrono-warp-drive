@@ -118,7 +118,14 @@ class StubChain implements ChainExecutor {
     return { txHash: '0x' + 'ab'.repeat(32) }
   }
 
+  persistError: Error | null = null
+
   async persistGovernedContainer(): Promise<{ txHash: string }> {
+    if (this.persistError) {
+      const error = this.persistError
+      this.persistError = null
+      throw error
+    }
     this.keyReads += 1
     this.chainCalls += 1
     this.persists += 1
@@ -3149,6 +3156,7 @@ describe('write-route auth', () => {
       const real = await original(...args)
       return { ...real, recommendation: 'PASS', fullBox7DVerdict: 'PASS' }
     })
+    setRedisClientForTests(new MemoryRedis())
     try {
       const body = {
         proposal: 'Persist one signed vortex and then wait',
@@ -3164,9 +3172,18 @@ describe('write-route auth', () => {
       expect(typeof first.json.finalRecommendation).toBe('string')
       expect(stub.persists).toBe(1)
       await waitForAutoMint(1)
+      const firstTx = (first.json.temporalContainer as { onChainTx?: string } | undefined)?.onChainTx
+      const replay = await postJson('/govern_with_solar', body, authHeader())
+      expect(replay.status).toBe(200)
+      expect((replay.json.temporalContainer as { onChainTx?: string } | undefined)?.onChainTx).toBe(firstTx)
+      expect(stub.persists).toBe(1)
       const chainBefore = stub.chainCalls
       const keyBefore = stub.keyReads
-      const second = await postJson('/govern_with_solar', body, authHeader())
+      const second = await postJson('/govern_with_solar', {
+        proposal: 'A different proposal still has to wait out the cooldown',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, authHeader())
       expect(second.status).toBe(200)
       expect(typeof second.json.finalRecommendation).toBe('string')
       expect(String((second.json.temporalContainer as { onChainError?: string })?.onChainError)).toContain('10s cooldown')
@@ -3177,4 +3194,30 @@ describe('write-route auth', () => {
       spy.mockRestore()
     }
   }, 30_000)
+
+  it('does not return an upstream persist error that contains a URL', async () => {
+    const secretUrl = 'https://rpc.example/secret'
+    const original = dynamoSolarGovernance.enhanceGovernanceDecision.bind(dynamoSolarGovernance)
+    const spy = vi.spyOn(dynamoSolarGovernance, 'enhanceGovernanceDecision').mockImplementation(async (...args) => {
+      const real = await original(...args)
+      return { ...real, recommendation: 'PASS', fullBox7DVerdict: 'PASS' }
+    })
+    stub.persistError = new Error(`dial ${secretUrl} failed`)
+    setRedisClientForTests(new MemoryRedis())
+    try {
+      const result = await postJson('/govern_with_solar', {
+        proposal: 'Persist without leaking the endpoint',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, authHeader())
+      expect(result.status).toBe(200)
+      const encoded = JSON.stringify(result.json)
+      expect(encoded).not.toContain(secretUrl)
+      expect(encoded).not.toContain('rpc.example')
+      expect(result.json.onChainError).toBe('Chain persist failed')
+      expect(stub.persists).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })
