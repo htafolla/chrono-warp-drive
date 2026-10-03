@@ -27,6 +27,7 @@ export interface EnhancedGovernanceDecision {
     solarActivityModifier: number
     recommendation: string
     solarIsotopicResonance?: number
+    solarResonance?: number
     proposalTdf?: number
     solarReferenceTdf?: number
   }
@@ -61,6 +62,8 @@ export interface EnhancedGovernanceDecision {
   resonanceHistory?: Array<{ score: number; timestamp: string }>
   spectralQuality?: number
   neuralContextUsed: boolean
+  phaseType?: 'push' | 'pull'
+  isotope?: string
   waveProximity: number
   waveVortexAlignment: number
   waveSynchronization: number

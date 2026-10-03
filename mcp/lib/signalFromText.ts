@@ -265,5 +265,9 @@ export function fuseTexts(contents: string[]): { fusedEmbedding: number[]; fused
     const sum = embeds.reduce((acc, embed) => acc + embed[dimension], 0)
     return sum / embeds.length
   })
-  return { fusedEmbedding, fusedIsotopeId: 'fused-core' }
+  const lead = fusedEmbedding[0] ?? 0
+  const fusedIsotopeId = fusedEmbedding.length === 0
+    ? 'blurrn-core-0'
+    : `blurrn-core-${Math.floor(Math.abs(lead / PHI) / 1e6)}`
+  return { fusedEmbedding, fusedIsotopeId }
 }

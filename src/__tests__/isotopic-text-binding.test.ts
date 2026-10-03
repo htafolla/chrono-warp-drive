@@ -143,6 +143,24 @@ describe('isotopic tools read the text', () => {
     const byContent = signalScores(tri)
     expect(byContent[TRINITY].phaseCoherence).not.toBe(byContent[NOISE].phaseCoherence)
     expect(byContent[TRINITY].tdfValue).not.toBe(byContent[DELETE_DB].tdfValue)
+
+    const fuseTrinity = await post('/fuse_symbiotic', {
+      partners: [{ content: TRINITY }, { content: NOISE }],
+    })
+    const fuseNoise = await post('/fuse_symbiotic', {
+      partners: [{ content: DELETE_DB }, { content: 'abc' }],
+    })
+    expect(fuseTrinity.fusedIsotopeId).not.toBe(fuseNoise.fusedIsotopeId)
+    expect(fuseTrinity.fusedIsotopeId).not.toBe('fused-core')
+    expect(fuseNoise.fusedIsotopeId).not.toBe('fused-core')
+    expect(String(fuseTrinity.fusedIsotopeId)).toMatch(/^blurrn-core-/)
+
+    const stellarFuse = await postStellar('/stellar_fuse_symbiotic', {
+      partners: [{ content: TRINITY }, { content: NOISE }],
+    })
+    expect(stellarFuse.fusedIsotopeId).toBe(fuseTrinity.fusedIsotopeId)
+    expect(stellarFuse.fusedIsotopeId).not.toBe('stellar-fused-core')
+    expect(stellarFuse.resonance).not.toBe(0.97)
   })
 
   it('keeps each signal score when the list is reordered', async () => {

@@ -25,6 +25,7 @@ import {
   type ResolvedClock,
 } from './lib/signalFromText.js'
 import { crossCorrelateFromProposalText } from './lib/solarGovernanceIntegration.js'
+import { readContractView, writeContractTx, asOnChainContainer } from './lib/looseContract.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -64,18 +65,16 @@ const TOKEN_IMAGE_TTL = 86400
       ...c,
       origin: originById.get(c.containerId.toLowerCase()),
     })))
-    console.log(`[bootstrap] Manifold populated with ${temporalManifold.getPointCount()} points from ${containerStore.length} containers`)
 
     // Start ambient field AFTER restoring Manifold history
     ambientField.start()
-    console.log('[bootstrap] Ambient Resonance Field started')
     // Sync mint mappings to Redis — runs if Redis count < on-chain totalSupply
     try {
       const existing = await client.hgetall(REDIS_VORTEX_KEY_MINT)
       const redisCount = existing ? Object.keys(existing).length : 0
       const { publicClient } = getVortexTokenClient()
       const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-      const onChainSupply = await publicClient.readContract({
+      const onChainSupply = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS, abi,
         functionName: 'totalSupply',
       }).catch(() => 0n) as bigint
@@ -83,12 +82,12 @@ const TOKEN_IMAGE_TTL = 86400
         let synced = 0
         for (let i = 0n; i < onChainSupply; i++) {
           try {
-            const tokenId = await publicClient.readContract({
+            const tokenId = await readContractView(publicClient, {
               address: VORTEX_TOKEN_ADDRESS, abi,
               functionName: 'tokenByIndex',
               args: [i],
             }) as bigint
-            const data = await publicClient.readContract({
+            const data = await readContractView(publicClient, {
               address: VORTEX_TOKEN_ADDRESS, abi,
               functionName: 'getContainerData',
               args: [tokenId],
@@ -100,13 +99,12 @@ const TOKEN_IMAGE_TTL = 86400
             }
           } catch { /* skipped */ }
         }
-        console.log(`[bootstrap] Synced ${synced} missing mint entries to Redis (totalSupply=${onChainSupply})`)
       }
       // Sync registered container IDs to Redis set via paginated listContainers
       try {
         const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
         const existingReg = await client.scard(REDIS_VORTEX_KEY_REGISTERED).catch(() => 0)
-        const [firstPage, regTotal] = await publicClient.readContract({
+        const [firstPage, regTotal] = await readContractView(publicClient, {
           address: CONTRACT_ADDRESS, abi: registryAbi,
           functionName: 'listContainers',
           args: [0n, 500n],
@@ -115,7 +113,7 @@ const TOKEN_IMAGE_TTL = 86400
           const allIds = [...firstPage]
           let offset = BigInt(firstPage.length)
           while (allIds.length < Number(regTotal)) {
-            const [page] = await publicClient.readContract({
+            const [page] = await readContractView(publicClient, {
               address: CONTRACT_ADDRESS, abi: registryAbi,
               functionName: 'listContainers',
               args: [offset, 500n],
@@ -125,7 +123,6 @@ const TOKEN_IMAGE_TTL = 86400
           }
           await client.del(REDIS_VORTEX_KEY_REGISTERED)
           await client.sadd(REDIS_VORTEX_KEY_REGISTERED, ...allIds.map((id: string) => id.toLowerCase()))
-          console.log(`[bootstrap] Registered ${allIds.length} containers to Redis set`)
         }
       } catch { /* registry sync failed */ }
     } catch { /* sync failed */ }
@@ -191,13 +188,41 @@ class FusedSignal extends IsotopicSignal {
     super();
   }
   embed(): number[] { return this.compressedData; }
-  getIsotopeId(): string { return 'fused-core'; }
-  getVariantDelta(): number[] { return [0]; }
-  getIsotopicFingerprint(): IsotopicFingerprint {
-    return { coreId: 'fused-core', variantDelta: [0], isotopicRatio: 1, provenance: ['synthesis'] };
+
+  getIsotopeId(): string {
+    const lead = Math.abs(this.compressedData[0] ?? 0);
+    return `blurrn-core-${Math.floor(lead / 1e6)}`;
   }
-  crossCorrelate(): CorrelationResult { return { strength: 0.95, lag: 0, metadata: {} }; }
-  triangulate(): TriangulationResult { return { anchors: [], confidence: 0.95 }; }
+
+  getVariantDelta(): number[] {
+    const lead = Math.abs(this.compressedData[0] ?? 0);
+    return [lead % 1e6];
+  }
+
+  getIsotopicFingerprint(): IsotopicFingerprint {
+    return {
+      coreId: this.getIsotopeId(),
+      variantDelta: this.getVariantDelta(),
+      isotopicRatio: this.compressedData[2] ?? 0,
+      provenance: ['synthesis'],
+    };
+  }
+
+  crossCorrelate(other: IsotopicSignal): CorrelationResult {
+    const mine = this.embed();
+    const theirs = other.embed();
+    const lag = Math.abs((mine[1] ?? 0) - (theirs[1] ?? 0));
+    const vortexVolume = (mine[0] ?? 0) * (theirs[0] ?? 0);
+    return { strength: this.calculateIsotopicRatio(other), lag, metadata: { vortexVolume } };
+  }
+
+  triangulate(others: IsotopicSignal[]): TriangulationResult {
+    if (others.length === 0) return { anchors: [], confidence: 0 };
+    const strengths = others.map((partner) => this.crossCorrelate(partner).strength);
+    const confidence = strengths.reduce((sum, value) => sum + value, 0) / strengths.length;
+    return { anchors: others.map((partner) => partner.embed()), confidence };
+  }
+
   fuseSymbiotically(): FusedSignal { return this; }
 }
 
@@ -483,7 +508,7 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   'symbiotic fusion': {
     term: 'Symbiotic Fusion',
     short: 'Polymorphic signal fusion preserving phase relationships. See fuse_symbiotic tool.',
-    long: 'Symbiotic fusion combines multiple isotopic signals into a single FusedSignal by averaging their embeddings. Unlike simple aggregation, it preserves the phase relationships between signals — each contributes equally to the fused output. The result has isotopeId "fused-core" and perfect isotopic ratio (1.0).',
+    long: 'Symbiotic fusion combines multiple isotopic signals into a single FusedSignal by averaging their embeddings. Unlike simple aggregation, it preserves the phase relationships between signals — each contributes equally to the fused output. The fused isotope id is derived from the averaged embedding.',
   },
   'push-pull': {
     term: 'Push-Pull Dynamics',
@@ -563,7 +588,7 @@ Triangulates 2+ signals and returns isotopic fingerprints plus a full pairwise c
 - **Gotcha**: Computation is O(n²). Keep signal count reasonable (< 20) for performance.
 
 ### 6. fuse_symbiotic
-Fuses 2+ signals using **polymorphic isotopic fusion**. Unlike simple averaging, this method preserves phase relationships between signals and creates a new composite identity (\`"fused-core"\`).
+Fuses 2+ signals using **polymorphic isotopic fusion**. Unlike simple averaging, this method preserves phase relationships between signals and derives a composite isotope id from the fused embedding.
 - **Inputs**: \`partners\` array (min 2)
 - **Outputs**: \`fused\`, \`partnerCount\`, \`fusedEmbedding\`, \`fusedIsotopeId\`
 - **Use case**: Combine multiple perspectives (e.g., agent reviews) into one coherent signal before governance.
@@ -574,10 +599,10 @@ Simulates cascade iterations to find efficient \`deltaPhase\` values.
 - **Outputs**: \`iterations\`, \`finalEfficiency\`, \`peakEfficiency\`, results array
 
 ### 8. get_phase_coherence
-Returns phase coherence of a stored signal. Checks memory first, falls back to reconstruction if needed.
+Returns phase coherence of a stored signal. Checks memory first. An unknown id is reconstructed from that id text.
 - **Inputs**: \`signalId\`
 - **Outputs**: \`signalId\`, \`phaseCoherence\`, \`tdfValue\`, \`cascadeIndex\`, \`stored\` (boolean)
-- **Gotcha**: Reconstructed signals use default values and may differ from the original stored signal.
+- **Gotcha**: An unknown id is reconstructed from that id text, so two unknown ids differ.
 
 ### 9. compute_tptt
 Standalone \`tPTT\` calculation.
@@ -817,18 +842,6 @@ All govern_with_solar responses include:
 const app = new Hono()
 app.use('/*', cors())
 
-// Request logger
-app.use('*', async (c, next) => {
-  const start = Date.now()
-  try {
-    await next()
-  } finally {
-    const ms = Date.now() - start
-    if (c.res.status >= 400) {
-      console.error(`[${new Date().toISOString()}] ${c.req.method} ${c.req.path} -> ${c.res.status} (${ms}ms)`)
-    }
-  }
-})
 
 function ok(c: Context, data: Record<string, unknown>) {
   return c.json({ success: true, ...data })
@@ -852,7 +865,9 @@ app.post('/emit_isotopic_signal', async (c: Context) => {
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
   try {
-    return ok(c, emitIsotopic(parsed.data))
+    const content = parsed.data.content
+    if (!content) return fail(c, 'content is required')
+    return ok(c, emitIsotopic({ ...parsed.data, content }))
   } catch (err) {
     return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
   }
@@ -935,7 +950,11 @@ app.post('/triangulate_signals', async (c: Context) => {
 
   try {
     const clock = readClock(parsed.data.timestamp)
-    const score = triangulateTexts(parsed.data.signals)
+    const signals = parsed.data.signals.flatMap((signal) => {
+      if (!signal.content) return []
+      return [{ content: signal.content, tdf: signal.tdf }]
+    })
+    const score = triangulateTexts(signals)
     return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
   } catch (err) {
     return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
@@ -1008,9 +1027,14 @@ app.post('/get_phase_coherence', async (c: Context) => {
     })
   }
 
-  // Fallback: reconstruct from hardcoded params
-  const signal = new TemporalBlurrnSignal({ id: parsed.data.signalId }, 5.781e12, 42)
-  return ok(c, { signalId: parsed.data.signalId, phaseCoherence: signal.getPhaseCoherence(), stored: false })
+  const derived = new TextDerivedSignal(parsed.data.signalId)
+  return ok(c, {
+    signalId: parsed.data.signalId,
+    phaseCoherence: derived.phaseCoherence,
+    tdfValue: derived.tdfValue,
+    cascadeIndex: derived.cascadeIndex,
+    stored: false,
+  })
 })
 
 // ===== New Tools: v4.8 Engine Primitives =====
@@ -1307,7 +1331,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'fuse_symbiotic',
-    description: 'Fuses 2+ signals using polymorphic isotopic fusion. Unlike simple averaging, this method preserves phase relationships between signals and creates a new composite identity ("fused-core").',
+    description: 'Fuses 2+ signals using polymorphic isotopic fusion. Unlike simple averaging, this method preserves phase relationships between signals and derives a composite isotope id from the fused embedding.',
     inputSchema: { type: 'object', properties: { partners: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' } } }, minItems: 2 } }, required: ['partners'] },
   },
   {
@@ -1317,7 +1341,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_phase_coherence',
-    description: 'Returns phase coherence of a stored signal. Checks memory first, falls back to reconstruction if needed.',
+    description: 'Returns phase coherence of a stored signal. Checks memory first. An unknown id is reconstructed from that id text.',
     inputSchema: { type: 'object', properties: { signalId: { type: 'string', description: 'Signal ID from emit_isotopic_signal' } }, required: ['signalId'] },
   },
   {
@@ -1437,8 +1461,8 @@ export const TOOL_HANDLERS: Record<string, (args: any) => any> = {
       const clock = signalClock.get(args.signalId)
       return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue(), cascadeIndex: signal.getCascadeIndex(), timestamp: clock?.timestamp, timestampMs: clock?.timestampMs, stored: true }
     }
-    const signal = new TemporalBlurrnSignal({ id: args.signalId }, 5.781e12, 42)
-    return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), stored: false }
+    const derived = new TextDerivedSignal(args.signalId)
+    return { signalId: args.signalId, phaseCoherence: derived.phaseCoherence, tdfValue: derived.tdfValue, cascadeIndex: derived.cascadeIndex, stored: false }
   },
   compute_tptt: (args: any) => {
     return { tPTT: tPTT(args.T_c ?? 137, args.P_s ?? 1.0, args.E_t ?? 0.5, args.delta_t ?? 1e-6) }
@@ -1821,7 +1845,7 @@ app.post('/govern_with_solar', async (c: Context) => {
     solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
     resonance7D: result.fullBox7DComposite ?? 0.5,
     phaseAlignment: result.phaseAlignment ?? 0.5,
-    vortexAlignment: result.calibratedVortex ?? 0.5,
+    vortexAlignment: result.vortexAlignment ?? 0.5,
     synchronization: result.synchronization ?? 0.5,
     gematriaResonance: result.gematriaResonance ?? 0.5,
     tmoScore: result.trinitariumMoralScore ?? 0.5,
@@ -2235,19 +2259,14 @@ app.get('/sse', (c: Context) => {
 app.post('/messages', async (c: Context) => {
   const sessionId = c.req.query('sessionId')
   if (!sessionId) {
-    console.log('[mcp] POST /messages: missing sessionId query param')
     return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
   }
 
-  console.log(`[mcp] POST /messages: session ${sessionId.slice(0, 8)}… ${activeSessions.has(sessionId) ? '' : '(registry missing — SSE may have disconnected)'}`)
 
   const body = await c.req.json()
   const result = await handleMCPMessage(sessionId, body)
   if (result) {
-    const delivered = await publish(`session:${sessionId}`, JSON.stringify(result))
-    if (!delivered) {
-      console.log(`[mcp] POST /messages: session ${sessionId} has no SSE subscriber (response will not reach client)`)
-    }
+    await publish(`session:${sessionId}`, JSON.stringify(result))
   }
 
   return c.json({ ok: true })
@@ -2258,10 +2277,7 @@ app.post('/messages', async (c: Context) => {
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const VORTEX_TREASURY = '0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43'
 
-let cachedVortexClient: ReturnType<typeof getVortexTokenClient> | null = null
-
-function getVortexTokenClient() {
-  if (cachedVortexClient) return cachedVortexClient
+function buildVortexTokenClient() {
   const account = privateKeyToAccount(getPrivateKey())
   const walletClient = createWalletClient({
     account,
@@ -2272,7 +2288,14 @@ function getVortexTokenClient() {
     chain: baseMainnet,
     transport: buildReadTransport(),
   })
-  cachedVortexClient = { walletClient, publicClient, account }
+  return { walletClient, publicClient, account }
+}
+
+let cachedVortexClient: ReturnType<typeof buildVortexTokenClient> | null = null
+
+function getVortexTokenClient() {
+  if (cachedVortexClient) return cachedVortexClient
+  cachedVortexClient = buildVortexTokenClient()
   return cachedVortexClient
 }
 
@@ -2281,9 +2304,9 @@ app.get('/vortex/info', async (c: Context) => {
     const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
     const [totalSupply, totalDonations, treasury] = await Promise.all([
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }) as Promise<bigint>,
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalDonations' }) as Promise<bigint>,
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'treasury' }) as Promise<string>,
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }) as Promise<bigint>,
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalDonations' }) as Promise<bigint>,
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'treasury' }) as Promise<string>,
     ])
     return c.json({
       success: true,
@@ -2321,7 +2344,7 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
     } catch { /* Redis optional */ }
 
     if (!hasToken) {
-      const tid = await publicClient.readContract({
+      const tid = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS, abi,
         functionName: 'tokenByContainerId',
         args: [containerId],
@@ -2341,11 +2364,12 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
     let containerData: Record<string, any> | null = null
     try {
       const registryClient = createPublicClient({ chain: baseMainnet, transport: buildReadTransport() })
-      const container = await registryClient.readContract({
-        address: CONTRACT_ADDRESS, abi: registryAbi,
+      const container = asOnChainContainer(await readContractView(registryClient, {
+        address: CONTRACT_ADDRESS,
+        abi: registryAbi,
         functionName: 'getContainer',
         args: [containerId],
-      }) as any
+      }))
       containerData = {
         containerId,
         timestamp: Number(container.timestamp),
@@ -2417,7 +2441,7 @@ app.post('/vortex/persist', async (c: Context) => {
 
     const regNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' })
     const txHash = await withWriteLock(async () => {
-      return walletClient.writeContract({
+      return writeContractTx(walletClient, {
         address: CONTRACT_ADDRESS,
         abi: registryAbi,
         functionName: 'storeContainer',
@@ -2478,7 +2502,6 @@ app.post('/vortex/persist', async (c: Context) => {
     })
   } catch (err: any) {
     const msg = friendlyMintError(err)
-    console.error('[vortex][persist] error:', err?.message || err?.cause?.message || err)
     return c.json({ success: false, error: msg || 'Persist failed' }, 500)
   }
 })
@@ -2504,7 +2527,7 @@ app.post('/vortex/mint', async (c: Context) => {
 
     // 1) Try reading the container from the on-chain registry directly
     try {
-      container = await publicClient.readContract({
+      container = await readContractView(publicClient, {
         address: CONTRACT_ADDRESS, abi: registryAbi,
         functionName: 'getContainer',
         args: [containerId as `0x${string}`],
@@ -2518,7 +2541,7 @@ app.post('/vortex/mint', async (c: Context) => {
           const params = containerToContractParams(stored)
           const regTx = await withWriteLock(async () => {
             const regNonce = await nextNonce()
-            return walletClient.writeContract({
+            return writeContractTx(walletClient, {
               address: CONTRACT_ADDRESS,
               abi: registryAbi,
               functionName: 'storeContainer',
@@ -2565,10 +2588,8 @@ app.post('/vortex/mint', async (c: Context) => {
             })
           })
           await publicClient.waitForTransactionReceipt({ hash: regTx })
-        } catch (regErr: any) {
-          console.error('[vortex] auto-register failed:', regErr.message)
-        }
-        container = await publicClient.readContract({
+        } catch { /* measurement already returned */ }
+        container = await readContractView(publicClient, {
           address: CONTRACT_ADDRESS, abi: registryAbi,
           functionName: 'getContainer',
           args: [containerId as `0x${string}`],
@@ -2580,14 +2601,14 @@ app.post('/vortex/mint', async (c: Context) => {
     // 3) Last resort: iterate on-chain registry to find a matching ID
     if (!fromRegistry) {
       try {
-        const [ids] = await publicClient.readContract({
+        const [ids] = await readContractView(publicClient, {
           address: CONTRACT_ADDRESS, abi: registryAbi,
           functionName: 'listContainers',
           args: [0n, 100n],
         }) as [string[], bigint]
         const match = (ids as string[]).find(id => id.toLowerCase() === containerId.toLowerCase())
         if (match) {
-          container = await publicClient.readContract({
+          container = await readContractView(publicClient, {
             address: CONTRACT_ADDRESS, abi: registryAbi,
             functionName: 'getContainer',
             args: [match as `0x${string}`],
@@ -2604,7 +2625,7 @@ app.post('/vortex/mint', async (c: Context) => {
       if (fromStore) {
         containerId = fromStore.containerId
         try {
-          container = await publicClient.readContract({
+          container = await readContractView(publicClient, {
             address: CONTRACT_ADDRESS, abi: registryAbi,
             functionName: 'getContainer',
             args: [containerId as `0x${string}`],
@@ -2617,7 +2638,7 @@ app.post('/vortex/mint', async (c: Context) => {
       } else {
         // Check registry by prefix too
         try {
-          const [ids] = await publicClient.readContract({
+          const [ids] = await readContractView(publicClient, {
             address: CONTRACT_ADDRESS, abi: registryAbi,
             functionName: 'listContainers',
             args: [0n, 100n],
@@ -2625,7 +2646,7 @@ app.post('/vortex/mint', async (c: Context) => {
           const match = (ids as string[]).find(id => id.toLowerCase().startsWith(prefix))
           if (match) {
             containerId = match
-            container = await publicClient.readContract({
+            container = await readContractView(publicClient, {
               address: CONTRACT_ADDRESS, abi: registryAbi,
               functionName: 'getContainer',
               args: [match as `0x${string}`],
@@ -2673,7 +2694,7 @@ app.post('/vortex/mint', async (c: Context) => {
 
     const txHash = await withWriteLock(async () => {
       const mintNonce = await nextNonce()
-      return walletClient.writeContract({
+      return writeContractTx(walletClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'mint',
@@ -2687,12 +2708,12 @@ app.post('/vortex/mint', async (c: Context) => {
     // Cache in Redis and get tokenId from receipt
     let tokenId: string | null = null
     try {
-      const tid = await publicClient.readContract({
+      const tid = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS, abi,
         functionName: 'tokenByContainerId',
         args: [containerId as `0x${string}`],
       }).catch(() => 0n)
-      if (tid !== 0n) {
+      if (typeof tid === 'bigint' && tid !== 0n) {
         tokenId = tid.toString()
         await storeVortexStatusInRedis(containerId, tokenId)
       }
@@ -2709,7 +2730,6 @@ app.post('/vortex/mint', async (c: Context) => {
     })
   } catch (err: any) {
     const msg = friendlyMintError(err)
-    console.error(`[mint] ${err.message}`)
     return c.json({ success: false, error: msg }, 500)
   }
 })
@@ -2898,7 +2918,7 @@ app.get('/vortex/token-image/:tokenId', async (c: Context) => {
     if (!data) {
       const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
       const { publicClient } = getVortexTokenClient()
-      data = await publicClient.readContract({
+      data = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'getContainerData',
@@ -2942,7 +2962,7 @@ async function autoMintVortex(container: any, proposalText: string) {
     const SCALE_1E18 = 1e18
     const s = (v: number) => BigInt(Math.round(v * SCALE_1E18))
 
-    const txHash = await walletClient.writeContract({
+    const txHash = await writeContractTx(walletClient, {
       address: VORTEX_TOKEN_ADDRESS,
       abi,
       functionName: 'mint',
@@ -2980,19 +3000,17 @@ async function autoMintVortex(container: any, proposalText: string) {
     // Cache tokenId in Redis
     ;(async () => {
       try {
-        const tid = await publicClient.readContract({
+        const tid = await readContractView(publicClient, {
           address: VORTEX_TOKEN_ADDRESS, abi,
           functionName: 'tokenByContainerId',
           args: [container.containerHash as `0x${string}`],
         }).catch(() => 0n)
-        if (tid !== 0n) await storeVortexStatusInRedis(container.containerHash, tid.toString())
+        if (typeof tid === 'bigint' && tid !== 0n) await storeVortexStatusInRedis(container.containerHash, tid.toString())
       } catch { /* Redis optional */ }
     })()
 
-    console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${receipt.transactionHash}`)
     return receipt.transactionHash
   } catch (err: any) {
-    console.log(`[vortex] Auto-mint skipped: ${err.message}`)
     return null
   }
 }
@@ -3121,7 +3139,7 @@ mountDevSeedRoute(app, async (c: Context) => {
       try {
         const params = containerToContractParams(c)
         const currentNonce = BigInt(nonce) + BigInt(i)
-        const txHash = await walletClient.writeContract({
+        const txHash = await writeContractTx(walletClient, {
           address: CONTRACT_ADDRESS,
           abi: registryAbi,
           functionName: 'storeContainer',

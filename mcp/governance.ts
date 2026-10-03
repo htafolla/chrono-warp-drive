@@ -5,6 +5,7 @@
 import { Hono, Context } from 'hono'
 import { z } from 'zod'
 import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
+import { TextDerivedSignal } from './lib/signalFromText.js'
 
 // Blurrn Constants
 const PHI = 1.666
@@ -140,17 +141,22 @@ export async function evaluateGovernance(
     ? ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length
     : 0
 
+  const textCoherence = new TextDerivedSignal(proposalText).phaseCoherence
+
   let resonance = strengths.length > 0
     ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length
-    : 0.78
+    : textCoherence
 
-  // 4. Historical coherence
-  let historicalCoherence = 0.80
+  // 4. Historical coherence follows the proposal text unless triangulation returns a finite score.
+  let historicalCoherence = textCoherence
   if (historicalSignalIds.length > 0) {
     const historicalTri = await handlers['triangulate_signals']({
       signals: historicalSignalIds.map((id: string) => ({ content: id })),
     })
-    historicalCoherence = historicalTri.coreResonance || 0.80
+    const core = historicalTri.coreResonance
+    if (typeof core === 'number' && Number.isFinite(core)) {
+      historicalCoherence = core
+    }
   }
 
   // 5. Solar isotopic hammer (direct from sun, can override)

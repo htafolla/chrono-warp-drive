@@ -195,10 +195,15 @@ describe('cross_correlate reads proposal text through the hammer path', () => {
 
     const before: Verdict[] = []
     const after: Verdict[] = []
+    let coherenceDowngrades = 0
     for (const text of PROPOSALS_43) {
       const result = await govern(text)
       before.push(beforeDecision(result.solarHammerResonance).recommendation)
       after.push(result.recommendation)
+      if (result.resonanceScore >= 0.80 && result.recommendation === 'NEEDS_REVISION') {
+        expect(result.historicalCoherence).toBeLessThan(0.70)
+        coherenceDowngrades += 1
+      }
     }
     const report = {
       timestampMs: FIXED_MS,
@@ -206,11 +211,12 @@ describe('cross_correlate reads proposal text through the hammer path', () => {
       before: split(before),
       after: split(after),
     }
+    expect(coherenceDowngrades).toBe(8)
     expect(report).toEqual({
       timestampMs: FIXED_MS,
       timestamp: FIXED_ISO,
       before: { PASS: 43, NEEDS_REVISION: 0, REJECT: 0 },
-      after: { PASS: 15, NEEDS_REVISION: 2, REJECT: 26 },
+      after: { PASS: 7, NEEDS_REVISION: 10, REJECT: 26 },
     })
   })
 })
