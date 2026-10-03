@@ -5,6 +5,7 @@
 import { Hono, Context } from 'hono'
 import { z } from 'zod'
 import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
+import { TextDerivedSignal } from './lib/signalFromText.js'
 
 // Blurrn Constants
 const PHI = 1.666
@@ -100,10 +101,11 @@ export async function evaluateGovernance(
   params: z.infer<typeof GovernanceSchema>,
 ) {
   const { proposalId, proposalText, codeDiff, agentReviews, historicalSignalIds = [] } = params
+  // One clock for this decision. cross_correlate and the hammer both read it.
+  const evaluatedAtMs = Date.now()
 
-  // 1. Emit the proposal as an isotopic signal
-  const proposalSignal = await handlers['emit_isotopic_signal']({ content: proposalText })
-  const isotopicRatio = proposalSignal.isotopicRatio ?? 0.85
+  // 1. Emit the proposal as an isotopic signal. A single text has no Codex isotopic ratio.
+  await handlers['emit_isotopic_signal']({ content: proposalText })
 
   // 2. Use fuse_symbiotic only to get the governance isotope ID
   const fusion = await handlers['fuse_symbiotic']({
@@ -111,41 +113,59 @@ export async function evaluateGovernance(
   })
   const governanceIsotopeId = fusion.fusedIsotopeId
 
-  // 3. Derive resonance from real cross_correlate calls (proposal ↔ each agent review)
+  // 3. Pairwise isotopic ratio and vortex volume from the documented cross_correlate formulas.
   const strengths: number[] = []
-  let vortexVolume = 3.0e25
+  const ratios: number[] = []
+  let vortexVolume = 0
 
   for (const review of agentReviews) {
+    // Correlation reads the proposal through deriveProposalCodexParams.
+    // The hammer below reads that same text again. The two are not independent.
     const cross = await handlers['cross_correlate']({
       contentA: proposalText,
       contentB: review,
+      timestamp: evaluatedAtMs,
     })
     if (typeof cross.strength === 'number') {
       strengths.push(cross.strength)
     }
-    if (cross.metadata?.vortexVolume && cross.metadata.vortexVolume > 1e24) {
-      vortexVolume = cross.metadata.vortexVolume
+    if (typeof cross.isotopicRatio === 'number') {
+      ratios.push(cross.isotopicRatio)
+    }
+    if (typeof cross.vortexVolume === 'number') {
+      vortexVolume = cross.vortexVolume
     }
   }
 
+  const isotopicRatio = ratios.length > 0
+    ? ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length
+    : 0
+
+  const textCoherence = new TextDerivedSignal(proposalText).phaseCoherence
+
   let resonance = strengths.length > 0
     ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length
-    : 0.78
+    : textCoherence
 
-  // 4. Historical coherence
-  let historicalCoherence = 0.80
+  // 4. Historical coherence follows the proposal text unless triangulation returns a finite score.
+  let historicalCoherence = textCoherence
   if (historicalSignalIds.length > 0) {
     const historicalTri = await handlers['triangulate_signals']({
       signals: historicalSignalIds.map((id: string) => ({ content: id })),
     })
-    historicalCoherence = historicalTri.coreResonance || 0.80
+    const core = historicalTri.coreResonance
+    if (typeof core === 'number' && Number.isFinite(core)) {
+      historicalCoherence = core
+    }
   }
 
   // 5. Solar isotopic hammer (direct from sun, can override)
   let solarHammerRes = resonance
   let hammerNote = ''
   try {
-    const hammer = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, 1.0)
+    const hammer = await dynamoSolarGovernance.enhanceGovernanceDecision(
+      proposalText, 1.0, false, undefined, undefined, 'human', evaluatedAtMs,
+    )
     if (typeof hammer.resonanceScore === 'number') {
       solarHammerRes = hammer.resonanceScore
       hammerNote = ` | solar-hammer:${(solarHammerRes*100).toFixed(0)}%`
@@ -172,7 +192,8 @@ export async function evaluateGovernance(
     confidence: decision.confidence,
     voteWeight: decision.voteWeight,
     reasons: decision.reasons,
-    note: 'v4.8.6-solar-hammer - resonance prioritizes sun-isotopic alignment' + hammerNote,
+    evaluatedAtMs,
+    note: 'v4.8.6-solar-hammer - resonance prioritizes sun-isotopic alignment. The proposal text is counted twice: cross_correlate and the solar hammer both read it and are no longer independent.' + hammerNote,
     diagnostics: {
       isotopicRatio,
       vortexVolume,

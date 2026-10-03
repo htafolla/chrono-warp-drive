@@ -192,7 +192,6 @@ export default function VortexClaim() {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
   const publicClient = usePublicClient()
-  console.log('[vortex] render wallet:', { address: address?.slice(0, 10), isConnected, hasWriteContract: !!writeContractAsync, hasPublicClient: !!publicClient })
 
   const [containers, setContainers] = useState<ContainerItem[]>([])
   const [totalContainers, setTotalContainers] = useState(0)
@@ -255,7 +254,6 @@ export default function VortexClaim() {
         fetch(`${MCP_URL}/vortex/statuses`),
       ])
       const containerData = await containerRes.json()
-      console.log('[vortex] containers loaded:', containerData.containers?.length, 'total:', containerData.total)
       if (containerData.success) {
         setContainers(containerData.containers)
         setTotalContainers(containerData.total)
@@ -269,8 +267,7 @@ export default function VortexClaim() {
         }
         setTokenStatus(status)
       }
-    } catch (err) {
-      console.error('[vortex] Failed to load containers', err)
+    } catch {
     } finally {
       setLoading(false)
       setStatusLoading(false)
@@ -286,8 +283,7 @@ export default function VortexClaim() {
       if (data.success) {
         setContainers(prev => [...prev, ...data.containers])
       }
-    } catch (err) {
-      console.error('[vortex] Failed to load more containers', err)
+    } catch {
     } finally {
       setLoadingMore(false)
     }
@@ -320,8 +316,7 @@ export default function VortexClaim() {
         tokens.push({ tokenId: tid.toString(), containerData: data })
       }
       setMyTokens(tokens)
-    } catch (err) {
-      console.warn('[vortex] failed to load my tokens', err)
+    } catch {
     } finally {
       setMyTokensLoading(false)
     }

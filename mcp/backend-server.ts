@@ -175,7 +175,7 @@ app.post('/isotopic-embedding', async (req, res) => {
       isotopeFactor: 1.666,
       fractalToggle: false,
     })
-    res.json({ success: true, isotopicRatio: 0.85 + (result.metamorphosisIndex * 0.14), resonance: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
+    res.json({ success: true, resonance: result.metamorphosisIndex, metamorphosisIndex: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }

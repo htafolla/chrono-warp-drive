@@ -110,6 +110,9 @@ export class AmbientField {
         meanMoralScore: 0,
         momentum: 0,
         lastUpdate: new Date().toISOString(),
+        totalVortices: this.vortexCount,
+        persistentVortices: this.persistenceCount,
+        persistenceRatio: this.vortexCount > 0 ? this.persistenceCount / this.vortexCount : 0,
       }
     }
 
@@ -313,7 +316,7 @@ export class AmbientField {
         solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
         resonance7D: result.fullBox7DComposite ?? 0.5,
         phaseAlignment: result.phaseAlignment ?? 0.5,
-        vortexAlignment: result.calibratedVortex ?? 0.5,
+        vortexAlignment: result.vortexAlignment ?? 0.5,
         synchronization: result.synchronization ?? 0.5,
         gematriaResonance: result.gematriaResonance ?? 0.5,
         tmoScore: result.trinitariumMoralScore ?? 0.5,
