@@ -19,6 +19,11 @@ export const MINT_RATE_LIMIT = 5
 export const MINT_RATE_WINDOW_MS = 60_000
 /** Extra cap on the `to` address. Callers choose `to`, so this is not the wallet protection. */
 export const MINT_ADDRESS_CAP = 8
+/**
+ * Redis INCR window for that cap. A restart inside the window still sees the
+ * count. When the key expires, the window starts over.
+ */
+export const MINT_ADDRESS_CAP_WINDOW_MS = 10 * 60 * 1000
 /** How long a server-issued mint signature stays valid. */
 export const MINT_SIGNATURE_TTL_SECONDS = 600
 /** Reject expiries further ahead than this, including millisecond timestamps. */
@@ -37,6 +42,17 @@ const addressMintCounts = new Map<string, number>()
 const rateBuckets = new Map<string, number[]>()
 const globalBudgetStamps: number[] = []
 const pendingBudget = new Map<string, number>()
+/**
+ * Same-process cache of `vortex:mint:pending`. Empty after a restart. The Redis
+ * hash is the source of truth, and the address cap lives in Redis under
+ * `vortex:mint:cap:` with an INCR and a TTL window. This map is not.
+ */
+const pendingMints = new Map<string, { txHash: string; recipient: string }>()
+let writeClockOffset = 0
+/** containerId → recipient whose cap slot was reserved when the mint was submitted. */
+const capHolds = new Map<string, string>()
+/** containerIds whose cap count is still owed, including after the hold is settled. */
+const capCounted = new Set<string>()
 let nextVerifyError: Error | null = null
 
 export function signingKeyReadCount(): number {
@@ -52,7 +68,104 @@ export function resetWriteGuardsForTests(): void {
   rateBuckets.clear()
   globalBudgetStamps.length = 0
   pendingBudget.clear()
+  pendingMints.clear()
+  capHolds.clear()
+  capCounted.clear()
   nextVerifyError = null
+  writeClockOffset = 0
+}
+
+/** Moves the mint rate and budget clock without changing Date.now(). */
+export function advanceWriteClockForTests(ms: number): void {
+  writeClockOffset += ms
+}
+
+function writeNow(explicit?: number): number {
+  return explicit ?? Date.now() + writeClockOffset
+}
+
+export interface PendingMint {
+  txHash: string
+  recipient: string
+}
+
+/** The first timed-out hash for this container. A later mark does not replace it. */
+export function markPendingMint(containerId: string, txHash: string, recipient: string): void {
+  const id = containerId.toLowerCase()
+  inFlightContainers.delete(id)
+  pendingBudget.delete(id)
+  if (pendingMints.has(id)) return
+  pendingMints.set(id, { txHash, recipient: recipient.toLowerCase() })
+}
+
+/** Drop a hash that reverted before it was durable, so the retry is not stuck on it. */
+export function forgetPendingMint(containerId: string): void {
+  pendingMints.delete(containerId.toLowerCase())
+}
+
+/** A proven-dead resubmit replaces the hash the next retry will return. The budget stamp stays until the route settles it. */
+export function replacePendingMint(containerId: string, txHash: string, recipient: string): void {
+  pendingMints.set(containerId.toLowerCase(), { txHash, recipient: recipient.toLowerCase() })
+}
+
+export function readPendingMint(containerId: string): PendingMint | null {
+  return pendingMints.get(containerId.toLowerCase()) ?? null
+}
+
+/**
+ * The cap slot was reserved at submit. Confirming keeps that count and forgets
+ * the hold so a later release cannot drop it.
+ */
+export function confirmPendingMint(containerId: string): PendingMint | null {
+  const id = containerId.toLowerCase()
+  const row = pendingMints.get(id) ?? null
+  pendingMints.delete(id)
+  inFlightContainers.delete(id)
+  pendingBudget.delete(id)
+  mintedContainers.add(id)
+  if (row) ensureLandedCap(id, row.recipient)
+  else settleAddressCap(id)
+  return row
+}
+
+/** Count one cap slot for a mint that has been submitted and is not yet settled. */
+export function reserveAddressCap(containerId: string, recipient: string): void {
+  const id = containerId.toLowerCase()
+  if (capCounted.has(id)) return
+  const addr = recipient.toLowerCase()
+  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  capHolds.set(id, addr)
+  capCounted.add(id)
+}
+
+/**
+ * The slot stays counted. Call this when a receipt or nonce check shows the
+ * mint landed, including when an earlier pass had already given the slot back.
+ */
+export function ensureLandedCap(containerId: string, recipient: string): void {
+  const id = containerId.toLowerCase()
+  capHolds.delete(id)
+  if (capCounted.has(id)) return
+  const addr = recipient.toLowerCase()
+  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  capCounted.add(id)
+}
+
+/** Give the slot back only after a receipt revert or a nonce that moved past the submit. */
+export function releaseAddressCap(containerId: string): void {
+  const id = containerId.toLowerCase()
+  const addr = capHolds.get(id)
+  if (!addr) return
+  capHolds.delete(id)
+  capCounted.delete(id)
+  const next = (addressMintCounts.get(addr) ?? 1) - 1
+  if (next <= 0) addressMintCounts.delete(addr)
+  else addressMintCounts.set(addr, next)
+}
+
+/** Keep the reserved count. The hold is finished. */
+export function settleAddressCap(containerId: string): void {
+  capHolds.delete(containerId.toLowerCase())
 }
 
 /** Test seam. The next verifyVortexSignature call throws instead of returning. */
@@ -218,17 +331,25 @@ export function isVortexSignature(value: unknown): value is string {
   return typeof value === 'string' && /^(?:0x)?[0-9a-fA-F]{64}$/.test(value.trim())
 }
 
-export function clientRateKey(forwardedFor: string | undefined): string {
-  const first = forwardedFor?.split(',')[0]?.trim()
-  return first ? first : 'local'
+/**
+ * One bucket for every caller. Railway staff say the public docs do not give a
+ * formal anti-spoofing guarantee for X-Real-IP or X-Forwarded-For, and the
+ * forum replies disagree about which hop is the client. Vercel's
+ * x-vercel-forwarded-for is not set on this Railway service. Client headers
+ * are not a rate-lane input.
+ */
+export const MINT_RATE_KEY = 'global'
+
+export function clientRateKey(): string {
+  return MINT_RATE_KEY
 }
 
 export type MintClaim =
   | { ok: true }
-  | { ok: false; status: 409 | 429; error: string }
+  | { ok: false; status: 409 | 429 | 503; error: string }
 
 /** Failure fields. `in` checks so this narrows without strictNullChecks. */
-export function rejectedMint(claim: MintClaim): { status: 409 | 429; error: string } | null {
+export function rejectedMint(claim: MintClaim): { status: 409 | 429 | 503; error: string } | null {
   if (claim.ok) return null
   if ('status' in claim && 'error' in claim) return { status: claim.status, error: claim.error }
   return { status: 409, error: 'Container already has a vortex token' }
@@ -252,19 +373,24 @@ export function claimMintSlot(input: {
   recipient: string
   rateKey: string
   now?: number
+  /** Redis INCR value. Missing means the guard store is down; memory must not authorize the mint. */
+  addressCount?: number
 }): MintClaim {
   const id = input.containerId.toLowerCase()
   if (mintedContainers.has(id) || inFlightContainers.has(id)) {
     return { ok: false, status: 409, error: 'Container already has a vortex token' }
   }
-  const now = input.now ?? Date.now()
+  const now = writeNow(input.now)
   const bucket = (rateBuckets.get(input.rateKey) ?? []).filter((stamp) => now - stamp < MINT_RATE_WINDOW_MS)
   if (bucket.length >= MINT_RATE_LIMIT) {
     rateBuckets.set(input.rateKey, bucket)
     return { ok: false, status: 429, error: 'Mint rate limit exceeded' }
   }
-  const recipient = input.recipient.toLowerCase()
-  if ((addressMintCounts.get(recipient) ?? 0) >= MINT_ADDRESS_CAP) {
+  if (input.addressCount === undefined) {
+    return { ok: false, status: 503, error: 'Mint guard store is unavailable' }
+  }
+  const counted = input.addressCount
+  if (counted >= MINT_ADDRESS_CAP) {
     return { ok: false, status: 429, error: 'Per-address mint cap exceeded' }
   }
   const windowMs = mintGlobalWindowMs()
@@ -285,8 +411,7 @@ export function commitMintSlot(containerId: string, recipient: string): void {
   inFlightContainers.delete(id)
   pendingBudget.delete(id)
   mintedContainers.add(id)
-  const addr = recipient.toLowerCase()
-  addressMintCounts.set(addr, (addressMintCounts.get(addr) ?? 0) + 1)
+  ensureLandedCap(id, recipient)
 }
 
 export function releaseMintSlot(containerId: string): void {
@@ -307,6 +432,7 @@ export function abortMintWrite(containerId: string): void {
   const id = containerId.toLowerCase()
   inFlightContainers.delete(id)
   pendingBudget.delete(id)
+  releaseAddressCap(id)
 }
 
 export function rememberMintedContainers(containerIds: string[]): void {

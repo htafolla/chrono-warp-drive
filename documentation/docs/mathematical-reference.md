@@ -6,11 +6,13 @@ sidebar_position: 6
 
 Complete specification of every formula in the Dynamo engine, organized by subsystem. All formulas are implemented in `mcp/lib/` and mirrored in `src/lib/`.
 
+The temple ratio is written `5/3` here. This markdown file cannot import the TypeScript constants module.
+
 ## Core Constants
 
 | Symbol | Value | Name | Source |
 |--------|-------|------|--------|
-| φ | 1.666 | Temple measure | Codex |
+| φ | 5/3 | Temple measure | Codex |
 | τ | 0.865 | Time displacement factor | Codex |
 | c | 3×10⁸ m/s | Speed of light | Physics |
 | L | 3 | Trinity constant (wave + particle + field) | Codex |
@@ -508,7 +510,7 @@ cs_new = clamp(cs × (1 + confShift), 0.5, 0.98)
 ## 13. Deterministic Utilities
 
 ```
-seed(cycle, index, φ=1.666)    = |sin(cycle × index × φ) × 1000| mod 999
+seed(cycle, index, φ=5/3)    = |sin(cycle × index × φ) × 1000| mod 999
 random(cycle, index)            = seed(cycle, index) / 999
 range(cycle, index, min, max)  = min + random(cycle, index) × (max − min)
 
@@ -526,7 +528,7 @@ spherical(cycle, index, radius, depth):
 ### Temporal Blurrn Signal
 
 ```
-reducedTdf = TDF mod √φ         [φ = 1.666]
+reducedTdf = TDF mod √φ         [φ = 5/3]
 phaseCoherence = sin²(2π × τ × reducedTdf)  [τ = 0.865]
 
 embed = [TDF × φ,  cascadeIndex,  phaseCoherence]

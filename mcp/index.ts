@@ -17,9 +17,21 @@ import type { ContainerVortex } from './lib/temporalContainer.js'
 import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
 import { baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
+import { asAddress, asBigint, asContainerPage, asOnChainContainer, containerIdOf, readContractView, writeContractTx } from './lib/looseContract.js'
 import { temporalManifold } from './lib/temporalManifold.js'
+import { L, PHI } from './lib/tlmConstants.js'
+import {
+  TextDerivedSignal,
+  triangulateTexts,
+  fuseTexts,
+  resolveTimestampMs,
+  type ResolvedClock,
+} from './lib/signalFromText.js'
+import { crossCorrelateFromProposalText } from './lib/solarGovernanceIntegration.js'
 import {
   PERSIST_COOLDOWN_MS,
+  MINT_ADDRESS_CAP,
+  MINT_ADDRESS_CAP_WINDOW_MS,
   MINT_SIGNATURE_MAX_AHEAD_SECONDS,
   MINT_SIGNATURE_TTL_SECONDS,
   abortMintWrite,
@@ -28,22 +40,30 @@ import {
   claimMintSlot,
   clientRateKey,
   commitMintSlot,
+  confirmPendingMint,
+  ensureLandedCap,
   cooldownDenial,
   isAddress,
   isBytes32,
   isUnixSeconds,
   isVortexSignature,
+  forgetPendingMint,
+  markPendingMint,
   persistCooldownRemaining,
+  readPendingMint,
   readVortexSigningKey,
+  replacePendingMint,
   rejectedMint,
   rejectedSignature,
   rejectedWrite,
+  releaseAddressCap,
   releaseMintSlot,
   rememberMintedContainers,
+  reserveAddressCap,
   signVortex,
   verifyVortexSignature,
 } from './lib/writeGate.js'
-import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
+import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, isMintNotSent, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -72,9 +92,21 @@ const TOKEN_IMAGE_TTL = 86400
 const MINT_BACKLOG_KEY = 'vortex:mint:backlog'
 const MINT_BACKLOG_DEAD_KEY = 'vortex:mint:backlog:dead'
 const MINT_BACKLOG_LOCK_KEY = 'vortex:mint:backlog:lock'
+/** Same Redis the drain uses. Field is the containerHash. */
+const MINT_PENDING_KEY = 'vortex:mint:pending'
+/** SET NX claim taken before a send. Held through the receipt wait. Expiry of this key is not permission to send again. */
+const MINT_SEND_PREFIX = 'vortex:mint:send:'
+/** Nonce reserved before writeContract. No TTL. A crash after broadcast leaves this row. */
+const MINT_PRESEND_KEY = 'vortex:mint:presend'
+/** Atomic INCR cap. The key expires with MINT_ADDRESS_CAP_WINDOW_MS. */
+const MINT_CAP_PREFIX = 'vortex:mint:cap:'
+const MINT_CAP_HOLD_PREFIX = 'vortex:mint:cap-hold:'
+/** Longer than the 120s receipt wait, so a live transaction is not failed while still inside that wait. */
+const PENDING_MINT_TTL_MS = 10 * 60 * 1000
+/** Backlog replay cadence for the long-running MCP process. */
+export const MINT_DRAIN_INTERVAL_MS = 60_000
 /** Longer than viem's 180s receipt default and longer than MINT_RECEIPT_TIMEOUT_MS (120s). */
 const MINT_BACKLOG_LOCK_PX = 240_000
-const MINT_BACKLOG_MAX_ATTEMPTS = 3
 const MINT_BACKLOG_DEAD_CAP = 1000
 const AUTO_MINT_RATE_KEY = 'auto-mint'
 const REPLAY_RATE_KEY = 'mint-replay'
@@ -113,7 +145,77 @@ redis.call('LPUSH', KEYS[1], ARGV[2])
 return 1
 `
 
+const DURABLE_WRITE_LUA = `
+-- durable-mint-write
+local cur = redis.call('HGET', KEYS[1], ARGV[1])
+local mode = ARGV[2]
+local payload = ARGV[3]
+local match = ARGV[4]
+if (not cur) or cur == false then
+  redis.call('HSET', KEYS[1], ARGV[1], payload)
+  return 1
+end
+if mode == 'insert' then
+  return 0
+end
+if mode == 'same' and string.find(cur, '"txHash":"' .. match .. '"', 1, true) then
+  redis.call('HSET', KEYS[1], ARGV[1], payload)
+  return 1
+end
+if mode == 'replace-failed' and string.find(cur, '"state":"failed"', 1, true) then
+  redis.call('HSET', KEYS[1], ARGV[1], payload)
+  return 1
+end
+return 0
+`
+
+const CAP_RESERVE_LUA = `
+-- mint-cap-reserve
+local hold = redis.call('GET', KEYS[2])
+if hold then
+  local current = redis.call('GET', KEYS[1])
+  if not current then return 0 end
+  return tonumber(current)
+end
+local n = redis.call('INCR', KEYS[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[1])
+if n > tonumber(ARGV[2]) then
+  local left = redis.call('DECR', KEYS[1])
+  if left <= 0 then redis.call('DEL', KEYS[1]) end
+  return -1
+end
+redis.call('SET', KEYS[2], ARGV[3], 'PX', ARGV[1])
+return n
+`
+
+const CAP_ENSURE_LUA = `
+-- mint-cap-ensure
+local hold = redis.call('GET', KEYS[2])
+if hold then
+  local current = redis.call('GET', KEYS[1])
+  if not current then return 0 end
+  return tonumber(current)
+end
+local n = redis.call('INCR', KEYS[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[1])
+redis.call('SET', KEYS[2], ARGV[2], 'PX', ARGV[1])
+return n
+`
+
+const CAP_RELEASE_LUA = `
+-- mint-cap-release
+local addr = redis.call('GET', KEYS[1])
+if not addr then return 0 end
+redis.call('DEL', KEYS[1])
+local capKey = ARGV[1] .. addr
+local n = redis.call('DECR', capKey)
+if n <= 0 then redis.call('DEL', capKey) end
+return n
+`
+
 let drainInFlight: Promise<void> | null = null
+let drainTimer: ReturnType<typeof setInterval> | null = null
+let mintDrainRuns = 0
 
 interface MintBacklogEntry {
   containerId: string
@@ -122,6 +224,10 @@ interface MintBacklogEntry {
   reason: string
   proposalText?: string
   attempts?: number
+  state?: 'pending'
+  txHash?: string
+  nonce?: number
+  expiresAt?: number
 }
 
 async function restoreBootState(): Promise<void> {
@@ -149,68 +255,65 @@ async function restoreBootState(): Promise<void> {
       ...c,
       origin: originById.get(c.containerId.toLowerCase()),
     })))
-    console.log(`[bootstrap] Manifold populated with ${temporalManifold.getPointCount()} points from ${containerStore.length} containers`)
 
     // Start ambient field AFTER restoring Manifold history
     ambientField.start()
-    console.log('[bootstrap] Ambient Resonance Field started')
     // Sync mint mappings to Redis — runs if Redis count < on-chain totalSupply
     try {
       const existing = await client.hgetall(REDIS_VORTEX_KEY_MINT)
       const redisCount = existing ? Object.keys(existing).length : 0
       const { publicClient } = getVortexTokenClient()
       const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
-      const onChainSupply = await publicClient.readContract({
+      const supplyRaw = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS, abi,
         functionName: 'totalSupply',
-      }).catch(() => 0n) as bigint
+      }).catch(() => 0n)
+      const onChainSupply = typeof supplyRaw === 'bigint' ? supplyRaw : 0n
       if (redisCount < Number(onChainSupply)) {
         let synced = 0
         for (let i = 0n; i < onChainSupply; i++) {
           try {
-            const tokenId = await publicClient.readContract({
+            const tokenId = asBigint(await readContractView(publicClient, {
               address: VORTEX_TOKEN_ADDRESS, abi,
               functionName: 'tokenByIndex',
               args: [i],
-            }) as bigint
-            const data = await publicClient.readContract({
+            }))
+            const data = await readContractView(publicClient, {
               address: VORTEX_TOKEN_ADDRESS, abi,
               functionName: 'getContainerData',
               args: [tokenId],
-            }) as any
-            const containerId = (data.containerId ?? data[0]) as string
+            })
+            const containerId = containerIdOf(data)
             if (!existing?.[containerId.toLowerCase()]) {
               await client.hset(REDIS_VORTEX_KEY_MINT, containerId.toLowerCase(), tokenId.toString())
               synced++
             }
           } catch { /* skipped */ }
         }
-        console.log(`[bootstrap] Synced ${synced} missing mint entries to Redis (totalSupply=${onChainSupply})`)
       }
       // Sync registered container IDs to Redis set via paginated listContainers
       try {
         const registryAbi = (await import('./lib/abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
         const existingReg = await client.scard(REDIS_VORTEX_KEY_REGISTERED).catch(() => 0)
-        const [firstPage, regTotal] = await publicClient.readContract({
+        const [firstPage, regTotal] = asContainerPage(await readContractView(publicClient, {
           address: CONTRACT_ADDRESS, abi: registryAbi,
           functionName: 'listContainers',
           args: [0n, 500n],
-        }) as [string[], bigint]
+        }))
         if (firstPage.length > 0 && Number(regTotal) !== existingReg) {
           const allIds = [...firstPage]
           let offset = BigInt(firstPage.length)
           while (allIds.length < Number(regTotal)) {
-            const [page] = await publicClient.readContract({
+            const [page] = asContainerPage(await readContractView(publicClient, {
               address: CONTRACT_ADDRESS, abi: registryAbi,
               functionName: 'listContainers',
               args: [offset, 500n],
-            }) as [string[], bigint]
+            }))
             allIds.push(...page)
             offset += BigInt(page.length)
           }
           await client.del(REDIS_VORTEX_KEY_REGISTERED)
           await client.sadd(REDIS_VORTEX_KEY_REGISTERED, ...allIds.map((id: string) => id.toLowerCase()))
-          console.log(`[bootstrap] Registered ${allIds.length} containers to Redis set`)
         }
       } catch { /* registry sync failed */ }
     } catch { /* sync failed */ }
@@ -226,8 +329,9 @@ async function restoreBootState(): Promise<void> {
   if (process.env.VITEST) return
   void drainMintBacklog().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err)
-    console.error(`[mint] backlog drain failed: ${message}`)
+    process.stderr.write(String(`[mint] backlog drain failed: ${message}`) + '\n')
   })
+  startMintDrainTimer()
 })()
 
 function temporalManifoldProposalHash(text: string): string {
@@ -285,18 +389,46 @@ class FusedSignal extends IsotopicSignal {
     super();
   }
   embed(): number[] { return this.compressedData; }
-  getIsotopeId(): string { return 'fused-core'; }
-  getVariantDelta(): number[] { return [0]; }
-  getIsotopicFingerprint(): IsotopicFingerprint {
-    return { coreId: 'fused-core', variantDelta: [0], isotopicRatio: 1, provenance: ['synthesis'] };
+
+  getIsotopeId(): string {
+    const lead = Math.abs(this.compressedData[0] ?? 0);
+    return `blurrn-core-${Math.floor(lead / 1e6)}`;
   }
-  crossCorrelate(): CorrelationResult { return { strength: 0.95, lag: 0, metadata: {} }; }
-  triangulate(): TriangulationResult { return { anchors: [], confidence: 0.95 }; }
+
+  getVariantDelta(): number[] {
+    const lead = Math.abs(this.compressedData[0] ?? 0);
+    return [lead % 1e6];
+  }
+
+  getIsotopicFingerprint(): IsotopicFingerprint {
+    return {
+      coreId: this.getIsotopeId(),
+      variantDelta: this.getVariantDelta(),
+      isotopicRatio: this.compressedData[2] ?? 0,
+      provenance: ['synthesis'],
+    };
+  }
+
+  crossCorrelate(other: IsotopicSignal): CorrelationResult {
+    const mine = this.embed();
+    const theirs = other.embed();
+    const lag = Math.abs((mine[1] ?? 0) - (theirs[1] ?? 0));
+    const vortexVolume = (mine[0] ?? 0) * (theirs[0] ?? 0);
+    return { strength: this.calculateIsotopicRatio(other), lag, metadata: { vortexVolume } };
+  }
+
+  triangulate(others: IsotopicSignal[]): TriangulationResult {
+    if (others.length === 0) return { anchors: [], confidence: 0 };
+    const strengths = others.map((partner) => this.crossCorrelate(partner).strength);
+    const confidence = strengths.reduce((sum, value) => sum + value, 0) / strengths.length;
+    return { anchors: others.map((partner) => partner.embed()), confidence };
+  }
+
   fuseSymbiotically(): FusedSignal { return this; }
 }
 
 // ===== Inlined: temporalBlurrnSignal.ts =====
-const PHI = 1.666;
+// PHI and L come from ./lib/tlmConstants.ts (exact 5/3 and Trinity 3).
 const TAU = 0.865;
 
 class TemporalBlurrnSignal extends IsotopicSignal {
@@ -371,7 +503,6 @@ class TemporalBlurrnSignal extends IsotopicSignal {
 const FREQ = 528;
 const C = 3e8;
 const DELTA_T = 1e-6;
-const L = 3;
 const K = 0.5;
 const N = 3;
 const G = 1.0;
@@ -390,7 +521,7 @@ const ISOTOPES: Isotope[] = [
 
 // Blurrn-themed isotopes
 const BLURRN_ISOTOPES: Isotope[] = [
-  { type: "Trinitarium-166", factor: 1.666 },
+  { type: "Trinitarium-166", factor: PHI },
   { type: "Chronovium-865", factor: 0.865 },
   { type: "Vortexite-528", factor: 0.528 },
 ];
@@ -454,7 +585,7 @@ function blackHoleSequence(voids: number, n: number): number {
 }
 
 function validateTLM(phi: number): boolean {
-  return phi >= 1.566 && phi <= 1.766;
+  return Math.abs(phi - PHI) <= 1e-9;
 }
 
 // Full TDF chain: TDF = tPTT(T_c, P_s, E_t, delta_t) * TAU * (1 / blackHoleSequence(voids, n))
@@ -470,7 +601,35 @@ function computeFullTDF(
 }
 
 // ===== Signal Store (in-memory, persists within a warm invocation) =====
-const signalStore = new Map<string, TemporalBlurrnSignal>();
+const signalStore = new Map<string, TextDerivedSignal>();
+const signalClock = new Map<string, ResolvedClock>();
+
+function readClock(input: unknown): ResolvedClock {
+  if (input === undefined || input === null) return resolveTimestampMs(undefined)
+  if (typeof input === 'number' || typeof input === 'string') return resolveTimestampMs(input)
+  throw new Error('timestamp must be a finite number of milliseconds or an ISO-8601 string')
+}
+
+function emitIsotopic(args: { content: string; tdf?: number; cascadeIndex?: number; referenceId?: string; timestamp?: number | string }) {
+  const clock = readClock(args.timestamp)
+  const signal = new TextDerivedSignal(args.content, { tdf: args.tdf, cascadeIndex: args.cascadeIndex })
+  const id = signal.getIsotopeId()
+  signalStore.set(id, signal)
+  signalClock.set(id, clock)
+  const body: Record<string, unknown> = {
+    signalId: id,
+    phaseCoherence: signal.getPhaseCoherence(),
+    tdfValue: signal.getTdfValue(),
+    cascadeIndex: signal.getCascadeIndex(),
+    timestamp: clock.timestamp,
+    timestampMs: clock.timestampMs,
+  }
+  if (args.referenceId && signalStore.has(args.referenceId)) {
+    const reference = signalStore.get(args.referenceId)
+    if (reference) body.isotopicRatio = signal.isotopicRatioWith(reference)
+  }
+  return body
+}
 
 // ===== Comprehensive Glossary for explain_term =====
 const GLOSSARY: Record<string, { term: string; short: string; long: string; formula?: string; example?: string }> = {
@@ -482,9 +641,9 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   },
   'PHI': {
     term: 'PHI (φ) — Trinitarium Ratio',
-    short: 'Fundamental Blurrn constant, valid range [1.566, 1.766]',
-    long: 'PHI is the Trinitarium ratio constant set at 1.666 (from Trinitarium-166 isotope). It appears throughout the v4.8 engine: as the exponent base in BlackHole_Seq, as a multiplier in tPTT, as a phase offset in harmonic oscillator (π/PHI), and as a signal embed component. Validated by validate_tlm to be within [1.566, 1.766].',
-    formula: 'validate_tlm: 1.566 ≤ PHI ≤ 1.766',
+    short: 'Fundamental Blurrn constant, the exact fraction 5/3',
+    long: 'PHI is the Trinitarium ratio, the exact fraction 5/3 (Trinitarium-166 isotope). It appears throughout the v4.8 engine: as the exponent base in BlackHole_Seq, as a multiplier in tPTT, as a phase offset in harmonic oscillator (π/PHI), and as a signal embed component. Validated by validate_tlm to be the exact fraction 5/3.',
+    formula: 'validate_tlm: phi = 5/3',
   },
   'TDF': {
     term: 'Temporal Displacement Factor (TDF)',
@@ -497,14 +656,14 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
     short: 'Energy-time product with isotopic modulation. See compute_tptt tool.',
     long: 'tPTT measures the energy-time product of a signal modulated by PHI and the speed of light constant C. Higher T_c (temporal constant) increases tPTT; higher E_t (entropy) decreases it. The formula encodes how much "photonic work" is transported across a time step.',
     formula: 'tPTT = T_c × (P_s / E_t) × PHI × (C / delta_t)',
-    example: 'Default: T_c=137, P_s=1.0, E_t=0.5, delta_t=1e-6 → tPTT ≈ 137 × 2.0 × 1.666 × 3e14 ≈ 1.37e17',
+    example: `Default: T_c=137, P_s=1.0, E_t=0.5, delta_t=1e-6, PHI=5/3, C=3e8 → tPTT = 137 × (1.0/0.5) × (5/3) × (3e8/1e-6) = ${tPTT(137, 1, 0.5, 1e-6)}`,
   },
   'BlackHole_Seq': {
     term: 'Black Hole Sequence',
     short: 'Void resonance function using PHI exponentiation. See black_hole_sequence tool.',
     long: 'BlackHole_Seq computes a resonance value from void count and PHI exponentiation, modulo π. It represents the "gravitational" component of the TDF chain — more voids or higher n produce larger resonance. The modulo operation wraps it into [0, π) range.',
     formula: 'BlackHole_Seq(L, voids, n) = (L × voids × PHI^n) % π',
-    example: 'Default: L=3, voids=7, n=3, PHI=1.666 → (3 × 7 × 1.666^3) % π ≈ 97.22 % 3.1416 ≈ 2.08',
+    example: `Default: L=${L}, voids=7, n=3, PHI=5/3 → (3 × 7 × (5/3)^3) = 21 × 125/27 = 2625/27. Code product ${((L * 7) * Math.pow(PHI, 3))}; 2625/27 mod π = ${blackHoleSequence(7, 3)}`,
   },
   'vortexVolume': {
     term: 'Vortex Volume',
@@ -532,7 +691,7 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   'blurrn-native matrix': {
     term: 'Blurrn-native Matrix',
     short: 'The mathematical framework built on PHI and TAU constants',
-    long: 'The Blurrn-native matrix refers to the entire v4.8 computational framework centered on the Trinitarium ratio (PHI=1.666) and Chronovium damping (TAU=0.865). It encompasses TDF computation, isotopic fingerprinting, cross-correlation, symbiotic fusion, and phase coherence — all built on these two fundamental constants.',
+    long: 'The Blurrn-native matrix refers to the entire v4.8 computational framework centered on the Trinitarium ratio (PHI=5/3) and Chronovium damping (TAU=0.865). It encompasses TDF computation, isotopic fingerprinting, cross-correlation, symbiotic fusion, and phase coherence — all built on these two fundamental constants.',
   },
   'FREQ': {
     term: 'Base Frequency (528 Hz)',
@@ -549,7 +708,7 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   'symbiotic fusion': {
     term: 'Symbiotic Fusion',
     short: 'Polymorphic signal fusion preserving phase relationships. See fuse_symbiotic tool.',
-    long: 'Symbiotic fusion combines multiple isotopic signals into a single FusedSignal by averaging their embeddings. Unlike simple aggregation, it preserves the phase relationships between signals — each contributes equally to the fused output. The result has isotopeId "fused-core" and perfect isotopic ratio (1.0).',
+    long: 'Symbiotic fusion combines multiple isotopic signals into a single FusedSignal by averaging their embeddings. Unlike simple aggregation, it preserves the phase relationships between signals — each contributes equally to the fused output. The fused isotope id is derived from the averaged embedding.',
   },
   'push-pull': {
     term: 'Push-Pull Dynamics',
@@ -564,7 +723,7 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   'isotope': {
     term: 'Isotopes (Standard & Blurrn)',
     short: 'Configurable factors that modulate computations across v4.8 engine',
-    long: 'Isotopes provide configurable modulation factors across the v4.8 engine. Standard isotopes: C-12 (1.0), C-14 (0.8). Blurrn isotopes: Trinitarium-166 (1.666 = PHI), Chronovium-865 (0.865 = TAU), Vortexite-528 (0.528). Isotope selection affects wave amplitude, Kuramoto sync (fractal toggle), and isotopic fingerprinting.',
+    long: 'Isotopes provide configurable modulation factors across the v4.8 engine. Standard isotopes: C-12 (1.0), C-14 (0.8). Blurrn isotopes: Trinitarium-166 (5/3 = PHI), Chronovium-865 (0.865 = TAU), Vortexite-528 (0.528). Isotope selection affects wave amplitude, Kuramoto sync (fractal toggle), and isotopic fingerprinting.',
   },
   'S_L': {
     term: 'Spectral Luminance (S_L)',
@@ -589,7 +748,7 @@ Dynamo MCP (Blurrn) is a Temporal Displacement Engine providing tools for isotop
 ## Core Constants
 | Constant | Value     | Description |
 |----------|-----------|-------------|
-| PHI      | 1.666     | Trinitarium ratio (valid range: 1.566–1.766) |
+| PHI      | 5/3       | Trinitarium ratio (exact 5/3) |
 | TAU      | 0.865     | Temporal Attenuation Unit (Chronovium-865) |
 | FREQ     | 528 Hz    | Base oscillation frequency |
 | C        | 3e8 m/s   | Speed of light |
@@ -629,7 +788,7 @@ Triangulates 2+ signals and returns isotopic fingerprints plus a full pairwise c
 - **Gotcha**: Computation is O(n²). Keep signal count reasonable (< 20) for performance.
 
 ### 6. fuse_symbiotic
-Fuses 2+ signals using **polymorphic isotopic fusion**. Unlike simple averaging, this method preserves phase relationships between signals and creates a new composite identity (\`"fused-core"\`).
+Fuses 2+ signals using **polymorphic isotopic fusion**. Unlike simple averaging, this method preserves phase relationships between signals and derives a composite isotope id from the fused embedding.
 - **Inputs**: \`partners\` array (min 2)
 - **Outputs**: \`fused\`, \`partnerCount\`, \`fusedEmbedding\`, \`fusedIsotopeId\`
 - **Use case**: Combine multiple perspectives (e.g., agent reviews) into one coherent signal before governance.
@@ -640,10 +799,10 @@ Simulates cascade iterations to find efficient \`deltaPhase\` values.
 - **Outputs**: \`iterations\`, \`finalEfficiency\`, \`peakEfficiency\`, results array
 
 ### 8. get_phase_coherence
-Returns phase coherence of a stored signal. Checks memory first, falls back to reconstruction if needed.
+Returns phase coherence of a stored signal. Checks memory first. An unknown id is reconstructed from that id text.
 - **Inputs**: \`signalId\`
 - **Outputs**: \`signalId\`, \`phaseCoherence\`, \`tdfValue\`, \`cascadeIndex\`, \`stored\` (boolean)
-- **Gotcha**: Reconstructed signals use default values and may differ from the original stored signal.
+- **Gotcha**: An unknown id is reconstructed from that id text, so two unknown ids differ.
 
 ### 9. compute_tptt
 Standalone \`tPTT\` calculation.
@@ -672,8 +831,8 @@ Computes wave amplitude with isotope modulation.
 - **Outputs**: \`P_o\`, \`FREQ\`, \`PHI\`
 
 ### 14. validate_tlm
-Validates that the Trinitarium ratio (\`phi\`) is within the valid range [1.566, 1.766].
-- **Inputs**: \`phi\` (default 1.666)
+Validates that the Trinitarium ratio (\`phi\`) is the exact fraction 5/3.
+- **Inputs**: \`phi\` (default 5/3)
 - **Outputs**: \`valid\` (boolean), \`range\`
 
 ## Governance System Overview (v4.8)
@@ -883,18 +1042,6 @@ All govern_with_solar responses include:
 const app = new Hono()
 app.use('/*', cors())
 
-// Request logger
-app.use('*', async (c, next) => {
-  const start = Date.now()
-  try {
-    await next()
-  } finally {
-    const ms = Date.now() - start
-    if (c.res.status >= 400) {
-      console.error(`[${new Date().toISOString()}] ${c.req.method} ${c.req.path} -> ${c.res.status} (${ms}ms)`)
-    }
-  }
-})
 
 function ok(c: Context, data: Record<string, unknown>) {
   return c.json({ success: true, ...data })
@@ -910,54 +1057,44 @@ const EmitSchema = z.object({
   tdf: z.number().positive().optional(),
   cascadeIndex: z.number().int().min(0).optional(),
   referenceId: z.string().optional(),
+  timestamp: z.union([z.number(), z.string()]).optional(),
 })
 
 app.post('/emit_isotopic_signal', async (c: Context) => {
   const parsed = EmitSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const { content, tdf, cascadeIndex, referenceId } = parsed.data
-  const signal = new TemporalBlurrnSignal(
-    { id: `sig-${Date.now()}`, content },
-    tdf ?? 5.781e12 + content.length * 137,
-    cascadeIndex ?? 42,
-  )
-  const id = signal.getIsotopeId()
-  signalStore.set(id, signal)
-
-  let ratio = 0.85
-  if (referenceId && signalStore.has(referenceId)) {
-    ratio = signal.calculateIsotopicRatio(signalStore.get(referenceId)!)
+  try {
+    const content = parsed.data.content
+    if (!content) return fail(c, 'content is required')
+    return ok(c, emitIsotopic({ ...parsed.data, content }))
+  } catch (err) {
+    return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
   }
-
-  return ok(c, {
-    signalId: id,
-    isotopicRatio: ratio,
-    phaseCoherence: signal.getPhaseCoherence(),
-    tdfValue: signal.getTdfValue(),
-  })
 })
 
 // Tool 2: cross_correlate
 const CrossSchema = z.object({
   contentA: z.string().min(1),
   contentB: z.string().optional(),
+  timestamp: z.union([z.number(), z.string()]).optional(),
 })
 
 app.post('/cross_correlate', async (c: Context) => {
   const parsed = CrossSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const { contentA, contentB } = parsed.data
-  const sigA = new TemporalBlurrnSignal({ content: contentA }, 5.781e12, 42)
-  const sigB = new TemporalBlurrnSignal({ content: contentB ?? 'reference-signal' }, 5.782e12, 43)
-  const result = sigA.crossCorrelate(sigB)
-  return ok(c, {
-    strength: result.strength,
-    lag: result.lag,
-    vortexVolume: result.metadata.vortexVolume,
-    isotopicRatio: sigA.calculateIsotopicRatio(sigB),
-  })
+  try {
+    const clock = readClock(parsed.data.timestamp)
+    const score = await crossCorrelateFromProposalText(
+      parsed.data.contentA,
+      parsed.data.contentB ?? 'reference-signal',
+      clock.timestampMs,
+    )
+    return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
+  } catch (err) {
+    return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
+  }
 })
 
 // Tool 3: compute_tdf — full formula chain: TDF = tPTT * TAU * (1 / BlackHole_Seq)
@@ -1004,47 +1141,24 @@ const TriangulateSchema = z.object({
     content: z.string(),
     tdf: z.number().positive().optional(),
   })).min(2, 'Need at least 2 signals'),
+  timestamp: z.union([z.number(), z.string()]).optional(),
 })
 
 app.post('/triangulate_signals', async (c: Context) => {
   const parsed = TriangulateSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const sigs: TemporalBlurrnSignal[] = parsed.data.signals.map((s, i) =>
-    new TemporalBlurrnSignal({ content: s.content }, s.tdf ?? 5.781e12 + i * 137, i)
-  )
-
-  const results = sigs.map((s, i) => ({
-    index: i,
-    fingerprint: s.getIsotopicFingerprint(),
-    correlations: sigs.filter((_, j) => j !== i).map(o => s.crossCorrelate(o)),
-  }))
-
-  const strengths = sigs.flatMap((s, i) =>
-    sigs.filter((_, j) => j !== i).map(o => s.crossCorrelate(o).strength)
-  )
-
-  const coreResonance = strengths.length > 0
-    ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length
-    : 0.78
-
-  const volumes = sigs.flatMap((s, i) =>
-    sigs.filter((_, j) => j !== i).map(o => {
-      const meta = s.crossCorrelate(o).metadata
-      return meta?.vortexVolume ?? 1.0e24
+  try {
+    const clock = readClock(parsed.data.timestamp)
+    const signals = parsed.data.signals.flatMap((signal) => {
+      if (!signal.content) return []
+      return [{ content: signal.content, tdf: signal.tdf }]
     })
-  )
-
-  const vortexVolume = volumes.length > 0
-    ? volumes.reduce((sum, v) => sum + v, 0) / volumes.length
-    : 3.0e25
-
-  return ok(c, {
-    signalCount: sigs.length,
-    results,
-    coreResonance: Math.min(0.99, Math.max(0.5, coreResonance)),
-    vortexVolume,
-  })
+    const score = triangulateTexts(signals)
+    return ok(c, { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs })
+  } catch (err) {
+    return fail(c, err instanceof Error ? err.message : 'invalid timestamp')
+  }
 })
 
 // Tool 6: fuse_symbiotic
@@ -1056,16 +1170,13 @@ app.post('/fuse_symbiotic', async (c: Context) => {
   const parsed = FuseSchema.safeParse(await c.req.json())
   if (!parsed.success) return fail(c, parsed.error.issues.map(i => i.message).join('; '))
 
-  const sigs: TemporalBlurrnSignal[] = parsed.data.partners.map((p, i) =>
-    new TemporalBlurrnSignal(p, 5.781e12 + i * 100, i)
-  )
-  const fused = sigs[0].fuseSymbiotically(sigs.slice(1))
+  const fused = fuseTexts(parsed.data.partners.map((partner) => partner.content))
 
   return ok(c, {
     fused: true,
     partnerCount: parsed.data.partners.length,
-    fusedEmbedding: fused.embed(),
-    fusedIsotopeId: fused.getIsotopeId(),
+    fusedEmbedding: fused.fusedEmbedding,
+    fusedIsotopeId: fused.fusedIsotopeId,
   })
 })
 
@@ -1104,18 +1215,26 @@ app.post('/get_phase_coherence', async (c: Context) => {
 
   if (signalStore.has(parsed.data.signalId)) {
     const signal = signalStore.get(parsed.data.signalId)!
+    const clock = signalClock.get(parsed.data.signalId)
     return ok(c, {
       signalId: parsed.data.signalId,
       phaseCoherence: signal.getPhaseCoherence(),
       tdfValue: signal.getTdfValue(),
       cascadeIndex: signal.getCascadeIndex(),
+      timestamp: clock?.timestamp,
+      timestampMs: clock?.timestampMs,
       stored: true,
     })
   }
 
-  // Fallback: reconstruct from hardcoded params
-  const signal = new TemporalBlurrnSignal({ id: parsed.data.signalId }, 5.781e12, 42)
-  return ok(c, { signalId: parsed.data.signalId, phaseCoherence: signal.getPhaseCoherence(), stored: false })
+  const derived = new TextDerivedSignal(parsed.data.signalId)
+  return ok(c, {
+    signalId: parsed.data.signalId,
+    phaseCoherence: derived.phaseCoherence,
+    tdfValue: derived.tdfValue,
+    cascadeIndex: derived.cascadeIndex,
+    stored: false,
+  })
 })
 
 // ===== New Tools: v4.8 Engine Primitives =====
@@ -1154,7 +1273,7 @@ app.post('/black_hole_sequence', async (c: Context) => {
   const result = blackHoleSequence(voids, n)
   return ok(c, {
     BlackHole_Seq: result,
-    parameters: { voids, n, L: 3, PHI },
+    parameters: { voids, n, L, PHI },
   })
 })
 
@@ -1223,7 +1342,7 @@ app.post('/harmonic_oscillator', async (c: Context) => {
 
 // Tool 14: validate_tlm — TLM validation
 const TlmSchema = z.object({
-  phi: z.number().default(1.666),
+  phi: z.number().default(PHI),
 })
 
 app.post('/validate_tlm', async (c: Context) => {
@@ -1233,7 +1352,7 @@ app.post('/validate_tlm', async (c: Context) => {
   return ok(c, {
     valid: validateTLM(parsed.data.phi),
     phi: parsed.data.phi,
-    range: { min: 1.566, max: 1.766 },
+    range: { min: PHI, max: PHI },
   })
 })
 
@@ -1372,8 +1491,8 @@ app.get('/black_hole_sequence', (c: Context) => {
 
 app.get('/validate_tlm', (c: Context) => {
   const p = getQueryParams(c)
-  const phi = p.phi ?? 1.666
-  return c.json({ success: true, valid: validateTLM(phi), phi, range: { min: 1.566, max: 1.766 } })
+  const phi = p.phi ?? PHI
+  return c.json({ success: true, valid: validateTLM(phi), phi, range: { min: PHI, max: PHI } })
 })
 
 app.get('/harmonic_oscillator', (c: Context) => {
@@ -1393,12 +1512,12 @@ const TOOL_DEFINITIONS = [
   {
     name: 'emit_isotopic_signal',
     description: 'Emits a new isotopic signal, stores it in memory, and returns its fingerprint. Create traceable signals for later cross-correlation, triangulation, or fusion.',
-    inputSchema: { type: 'object', properties: { content: { type: 'string', description: 'Signal content' }, tdf: { type: 'number', default: 5.781e12, description: 'TDF value' }, cascadeIndex: { type: 'number', default: 42, description: 'Cascade index' }, referenceId: { type: 'string', description: 'Reference signal ID for pairwise isotopic ratio' } }, required: ['content'] },
+    inputSchema: { type: 'object', properties: { content: { type: 'string', description: 'Signal content' }, tdf: { type: 'number', description: 'Optional TDF override' }, cascadeIndex: { type: 'number', description: 'Optional cascade override' }, referenceId: { type: 'string', description: 'Reference signal ID for pairwise isotopic ratio' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now. Stored and returned with the result.' } }, required: ['content'] },
   },
   {
     name: 'cross_correlate',
     description: 'Cross-correlates two isotopic signals. Returns strength (0–1), lag, vortexVolume (W × M = V), and isotopicRatio. Measures similarity and temporal entanglement between two signals.',
-    inputSchema: { type: 'object', properties: { contentA: { type: 'string', description: 'First signal content' }, contentB: { type: 'string', description: 'Second signal content (optional)' } }, required: ['contentA'] },
+    inputSchema: { type: 'object', properties: { contentA: { type: 'string', description: 'First signal content' }, contentB: { type: 'string', description: 'Second signal content (optional)' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now. Stored and returned with the result.' } }, required: ['contentA'] },
   },
   {
     name: 'list_isotopes',
@@ -1408,11 +1527,11 @@ const TOOL_DEFINITIONS = [
   {
     name: 'triangulate_signals',
     description: 'Triangulates 2+ signals and returns isotopic fingerprints plus a full pairwise correlation matrix. Multi-signal analysis to identify the strongest relationships.',
-    inputSchema: { type: 'object', properties: { signals: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' }, tdf: { type: 'number' } } }, minItems: 2 } }, required: ['signals'] },
+    inputSchema: { type: 'object', properties: { signals: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' }, tdf: { type: 'number' } } }, minItems: 2 }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now. Stored and returned with the result.' } }, required: ['signals'] },
   },
   {
     name: 'fuse_symbiotic',
-    description: 'Fuses 2+ signals using polymorphic isotopic fusion. Unlike simple averaging, this method preserves phase relationships between signals and creates a new composite identity ("fused-core").',
+    description: 'Fuses 2+ signals using polymorphic isotopic fusion. Unlike simple averaging, this method preserves phase relationships between signals and derives a composite isotope id from the fused embedding.',
     inputSchema: { type: 'object', properties: { partners: { type: 'array', items: { type: 'object', properties: { content: { type: 'string' } } }, minItems: 2 } }, required: ['partners'] },
   },
   {
@@ -1422,7 +1541,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_phase_coherence',
-    description: 'Returns phase coherence of a stored signal. Checks memory first, falls back to reconstruction if needed.',
+    description: 'Returns phase coherence of a stored signal. Checks memory first. An unknown id is reconstructed from that id text.',
     inputSchema: { type: 'object', properties: { signalId: { type: 'string', description: 'Signal ID from emit_isotopic_signal' } }, required: ['signalId'] },
   },
   {
@@ -1452,8 +1571,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'validate_tlm',
-    description: 'Validates that the Trinitarium ratio (phi) is within the valid range [1.566, 1.766].',
-    inputSchema: { type: 'object', properties: { phi: { type: 'number', default: 1.666, description: 'PHI to validate' } } },
+    description: 'Validates that the Trinitarium ratio (phi) is the exact fraction 5/3.',
+    inputSchema: { type: 'object', properties: { phi: { type: 'number', default: PHI, description: 'PHI to validate' } } },
   },
   {
     name: 'evaluate_governance',
@@ -1463,7 +1582,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'govern_with_solar',
     description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Accepts a raw proposal string OR a structuredDerivativeProposal object (with summary field).',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' } }, required: [] },
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now, is returned as evaluatedAt, and is the clock mixed into the 7D TDF nonce. The same timestamp reproduces the verdict.' } }, required: [] },
   },
   {
     name: 'call_connected_tool',
@@ -1497,7 +1616,7 @@ function mcpError(id: any, code: number, message: string, data?: any) {
 }
 
 // Map tool calls to actual handlers
-const TOOL_HANDLERS: Record<string, (args: any) => any> = {
+export const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   compute_tdf: (args: any) => {
     const { tptt, bhs, tdf, s_l } = computeFullTDF(
       args.T_c ?? 137, args.P_s ?? 1.0, args.E_t ?? 0.5, args.delta_t ?? 1e-6,
@@ -1505,25 +1624,15 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     )
     return { tdfValue: tdf, S_L: s_l, tau: TAU, tPTT: tptt, BlackHole_Seq: bhs }
   },
-  emit_isotopic_signal: (args: any) => {
-    const signal = new TemporalBlurrnSignal(
-      { id: `sig-${Date.now()}`, content: args.content },
-      args.tdf ?? 5.781e12 + args.content.length * 137,
-      args.cascadeIndex ?? 42,
+  emit_isotopic_signal: (args: any) => emitIsotopic(args),
+  cross_correlate: async (args: any) => {
+    const clock = readClock(args.timestamp)
+    const score = await crossCorrelateFromProposalText(
+      args.contentA,
+      args.contentB ?? 'reference-signal',
+      clock.timestampMs,
     )
-    const id = signal.getIsotopeId()
-    signalStore.set(id, signal)
-    let ratio = 0.85
-    if (args.referenceId && signalStore.has(args.referenceId)) {
-      ratio = signal.calculateIsotopicRatio(signalStore.get(args.referenceId)!)
-    }
-    return { signalId: id, isotopicRatio: ratio, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue() }
-  },
-  cross_correlate: (args: any) => {
-    const sigA = new TemporalBlurrnSignal({ content: args.contentA }, 5.781e12, 42)
-    const sigB = new TemporalBlurrnSignal({ content: args.contentB ?? 'reference-signal' }, 5.782e12, 43)
-    const result = sigA.crossCorrelate(sigB)
-    return { strength: result.strength, lag: result.lag, vortexVolume: result.metadata.vortexVolume, isotopicRatio: sigA.calculateIsotopicRatio(sigB) }
+    return { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs }
   },
   list_isotopes: () => {
     const std = ISOTOPES.map((iso, i) => ({ id: `isotope-${i}`, name: iso.type, factor: iso.factor, type: 'standard' }))
@@ -1531,20 +1640,13 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return { isotopes: [...std, ...blurrn] }
   },
   triangulate_signals: (args: any) => {
-    const sigs: TemporalBlurrnSignal[] = args.signals.map((s: any, i: number) =>
-      new TemporalBlurrnSignal({ content: s.content }, s.tdf ?? 5.781e12 + i * 137, i)
-    )
-    const results = sigs.map((s: any, i: number) => ({
-      index: i,
-      fingerprint: s.getIsotopicFingerprint(),
-      correlations: sigs.filter((_: any, j: number) => j !== i).map((o: any) => s.crossCorrelate(o)),
-    }))
-    return { signalCount: args.signals.length, results }
+    const clock = readClock(args.timestamp)
+    const score = triangulateTexts(args.signals)
+    return { ...score, timestamp: clock.timestamp, timestampMs: clock.timestampMs }
   },
   fuse_symbiotic: (args: any) => {
-    const sigs: TemporalBlurrnSignal[] = args.partners.map((p: any, i: number) => new TemporalBlurrnSignal(p, 5.781e12 + i * 100, i))
-    const fused = sigs[0].fuseSymbiotically(sigs.slice(1))
-    return { fused: true, partnerCount: args.partners.length, fusedEmbedding: fused.embed(), fusedIsotopeId: fused.getIsotopeId() }
+    const fused = fuseTexts(args.partners.map((partner: { content: string }) => partner.content))
+    return { fused: true, partnerCount: args.partners.length, fusedEmbedding: fused.fusedEmbedding, fusedIsotopeId: fused.fusedIsotopeId }
   },
   optimize_cascade: (args: any) => {
     const { n, deltaPhase } = args
@@ -1556,10 +1658,11 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
   get_phase_coherence: (args: any) => {
     if (signalStore.has(args.signalId)) {
       const signal = signalStore.get(args.signalId)!
-      return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue(), cascadeIndex: signal.getCascadeIndex(), stored: true }
+      const clock = signalClock.get(args.signalId)
+      return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), tdfValue: signal.getTdfValue(), cascadeIndex: signal.getCascadeIndex(), timestamp: clock?.timestamp, timestampMs: clock?.timestampMs, stored: true }
     }
-    const signal = new TemporalBlurrnSignal({ id: args.signalId }, 5.781e12, 42)
-    return { signalId: args.signalId, phaseCoherence: signal.getPhaseCoherence(), stored: false }
+    const derived = new TextDerivedSignal(args.signalId)
+    return { signalId: args.signalId, phaseCoherence: derived.phaseCoherence, tdfValue: derived.tdfValue, cascadeIndex: derived.cascadeIndex, stored: false }
   },
   compute_tptt: (args: any) => {
     return { tPTT: tPTT(args.T_c ?? 137, args.P_s ?? 1.0, args.E_t ?? 0.5, args.delta_t ?? 1e-6) }
@@ -1583,7 +1686,7 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return { P_o: harmonicOscillator(args.t ?? 0) }
   },
   validate_tlm: (args: any) => {
-    return { valid: validateTLM(args.phi ?? 1.666), phi: args.phi ?? 1.666, range: { min: 1.566, max: 1.766 } }
+    return { valid: validateTLM(args.phi ?? PHI), phi: args.phi ?? PHI, range: { min: PHI, max: PHI } }
   },
   evaluate_governance: async (args: any) => {
     return evaluateGovernance(TOOL_HANDLERS, args)
@@ -1606,7 +1709,8 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     const spectralQuality = args?.spectralQuality !== undefined ? Number(args.spectralQuality) : undefined
     const sunNeuralEmbedding = args?.sunNeuralEmbedding !== undefined ? args.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
 
-    return dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding, proposalSource)
+    const clock = readClock(args?.timestamp)
+    return dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, baseVoteWeight, sharePublicly, spectralQuality, sunNeuralEmbedding, proposalSource, clock.timestampMs)
   },
   call_connected_tool: async (args: any) => {
     const toolName = args?.tool_name
@@ -1852,7 +1956,13 @@ app.post('/govern_with_solar', async (c: Context) => {
   }
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
-  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding, proposalSource)
+  let clock
+  try {
+    clock = readClock(body.timestamp)
+  } catch (err) {
+    return c.json({ success: false, error: err instanceof Error ? err.message : 'invalid timestamp' }, 400)
+  }
+  const result = await dynamoSolarGovernance.enhanceGovernanceDecision(proposalText, body.baseVoteWeight ?? 1.0, body.sharePublicly === true, spectralQuality, sunNeuralEmbedding, proposalSource, clock.timestampMs)
 
   if (persistToChain) {
     // Cooldown is checked after governance so the response still includes the result.
@@ -1941,7 +2051,7 @@ app.post('/govern_with_solar', async (c: Context) => {
       await finishChainSave(proposalText, onChain.txHash)
     } catch {
       await releaseChainSave(proposalText)
-      console.error('[govern] persist failed')
+      process.stderr.write('[govern] persist failed\n')
       return c.json({
         success: true,
         ...result,
@@ -1987,7 +2097,7 @@ app.post('/govern_with_solar', async (c: Context) => {
     solarActivity: result.solarContext?.solarActivityLevel ?? 'quiet',
     resonance7D: result.fullBox7DComposite ?? 0.5,
     phaseAlignment: result.phaseAlignment ?? 0.5,
-    vortexAlignment: result.calibratedVortex ?? 0.5,
+    vortexAlignment: result.vortexAlignment ?? 0.5,
     synchronization: result.synchronization ?? 0.5,
     gematriaResonance: result.gematriaResonance ?? 0.5,
     tmoScore: result.trinitariumMoralScore ?? 0.5,
@@ -2401,19 +2511,14 @@ app.get('/sse', (c: Context) => {
 app.post('/messages', async (c: Context) => {
   const sessionId = c.req.query('sessionId')
   if (!sessionId) {
-    console.log('[mcp] POST /messages: missing sessionId query param')
     return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
   }
 
-  console.log(`[mcp] POST /messages: session ${sessionId.slice(0, 8)}… ${activeSessions.has(sessionId) ? '' : '(registry missing — SSE may have disconnected)'}`)
 
   const body = await c.req.json()
   const result = await handleMCPMessage(sessionId, body)
   if (result) {
-    const delivered = await publish(`session:${sessionId}`, JSON.stringify(result))
-    if (!delivered) {
-      console.log(`[mcp] POST /messages: session ${sessionId} has no SSE subscriber (response will not reach client)`)
-    }
+    await publish(`session:${sessionId}`, JSON.stringify(result))
   }
 
   return c.json({ ok: true })
@@ -2421,10 +2526,7 @@ app.post('/messages', async (c: Context) => {
 
 // ---------- Vortex Token endpoints ----------
 
-let cachedVortexClient: ReturnType<typeof getVortexTokenClient> | null = null
-
-function getVortexTokenClient() {
-  if (cachedVortexClient) return cachedVortexClient
+function buildVortexTokenClient() {
   const account = privateKeyToAccount(getPrivateKey())
   const walletClient = createWalletClient({
     account,
@@ -2435,7 +2537,14 @@ function getVortexTokenClient() {
     chain: baseMainnet,
     transport: buildReadTransport(),
   })
-  cachedVortexClient = { walletClient, publicClient, account }
+  return { walletClient, publicClient, account }
+}
+
+let cachedVortexClient: ReturnType<typeof buildVortexTokenClient> | null = null
+
+function getVortexTokenClient() {
+  if (cachedVortexClient) return cachedVortexClient
+  cachedVortexClient = buildVortexTokenClient()
   return cachedVortexClient
 }
 
@@ -2444,9 +2553,9 @@ app.get('/vortex/info', async (c: Context) => {
     const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
     const { publicClient } = getVortexTokenClient()
     const [totalSupply, totalDonations, treasury] = await Promise.all([
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }) as Promise<bigint>,
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalDonations' }) as Promise<bigint>,
-      publicClient.readContract({ address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'treasury' }) as Promise<string>,
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalSupply' }).then(asBigint),
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'totalDonations' }).then(asBigint),
+      readContractView(publicClient, { address: VORTEX_TOKEN_ADDRESS, abi, functionName: 'treasury' }).then(asAddress),
     ])
     return c.json({
       success: true,
@@ -2484,11 +2593,11 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
     } catch { /* Redis optional */ }
 
     if (!hasToken) {
-      const tid = await publicClient.readContract({
+      const tid = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS, abi,
         functionName: 'tokenByContainerId',
         args: [containerId],
-      }).catch(() => 0n) as bigint
+      }).then(asBigint).catch(() => 0n)
       hasToken = tid !== 0n
       tokenId = hasToken ? tid : null
       // Write back to Redis so /vortex/statuses stays in sync
@@ -2504,11 +2613,12 @@ app.get('/vortex/container/:containerId', async (c: Context) => {
     let containerData: Record<string, any> | null = null
     try {
       const registryClient = createPublicClient({ chain: baseMainnet, transport: buildReadTransport() })
-      const container = await registryClient.readContract({
-        address: CONTRACT_ADDRESS, abi: registryAbi,
+      const container = asOnChainContainer(await readContractView(registryClient, {
+        address: CONTRACT_ADDRESS,
+        abi: registryAbi,
         functionName: 'getContainer',
         args: [containerId],
-      }) as any
+      }))
       containerData = {
         containerId,
         timestamp: Number(container.timestamp),
@@ -2575,10 +2685,617 @@ app.post('/vortex/persist', async (c: Context) => {
     })
   } catch (err: any) {
     const msg = friendlyMintError(err)
-    console.error('[vortex][persist] error:', err?.message || err?.cause?.message || err)
     return c.json({ success: false, error: msg || 'Persist failed' }, 500)
   }
 })
+
+type DurableMintState = 'pending' | 'expired' | 'failed' | 'landed' | 'dropped'
+
+interface DurableMint {
+  txHash: string
+  containerId: string
+  containerHash: string
+  recipient: string
+  nonce: number
+  expiresAt: number
+  state: DurableMintState
+}
+
+type PendingJudgment = 'pending' | 'expired' | 'landed' | 'failed' | 'dropped'
+
+const MINT_GUARD_UNAVAILABLE = 'Mint guard store is unavailable'
+
+function durableField(containerHash: string): string {
+  return containerHash.toLowerCase()
+}
+
+function parseDurableMint(raw: string): DurableMint | null {
+  try {
+    const parsed = JSON.parse(raw) as Partial<DurableMint>
+    if (!parsed || typeof parsed.txHash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(parsed.txHash)) return null
+    if (typeof parsed.containerId !== 'string' || typeof parsed.containerHash !== 'string') return null
+    if (typeof parsed.recipient !== 'string') return null
+    if (typeof parsed.nonce !== 'number' || !Number.isFinite(parsed.nonce)) return null
+    if (typeof parsed.expiresAt !== 'number' || !Number.isFinite(parsed.expiresAt)) return null
+    const state: DurableMintState = parsed.state === 'failed' || parsed.state === 'landed' || parsed.state === 'expired' || parsed.state === 'dropped' ? parsed.state : 'pending'
+    return {
+      txHash: parsed.txHash,
+      containerId: parsed.containerId,
+      containerHash: parsed.containerHash,
+      recipient: parsed.recipient,
+      nonce: parsed.nonce,
+      expiresAt: parsed.expiresAt,
+      state,
+    }
+  } catch {
+    return null
+  }
+}
+
+type DurableWrite = 'insert' | 'same' | 'replace-failed'
+
+async function saveDurableMint(record: DurableMint, mode: DurableWrite = 'same'): Promise<boolean> {
+  const client = await getRedisClient()
+  if (!client) return false
+  const wrote = await client.eval(
+    DURABLE_WRITE_LUA,
+    1,
+    MINT_PENDING_KEY,
+    durableField(record.containerHash),
+    mode,
+    JSON.stringify(record),
+    record.txHash,
+  )
+  return Number(wrote) === 1
+}
+
+async function loadDurableMint(containerHash: string): Promise<DurableMint | null> {
+  const client = await getRedisClient()
+  if (!client) return null
+  const raw = await client.hget(MINT_PENDING_KEY, durableField(containerHash))
+  if (typeof raw !== 'string' || raw.length === 0) return null
+  return parseDurableMint(raw)
+}
+
+async function redisAddressCount(recipient: string): Promise<number | null> {
+  const client = await getRedisClient()
+  if (!client) return null
+  const raw = await client.get(MINT_CAP_PREFIX + recipient.toLowerCase())
+  if (typeof raw !== 'string' || raw.length === 0) return 0
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+async function reserveDurableCap(containerId: string, recipient: string): Promise<'reserved' | 'capped' | 'unavailable'> {
+  const client = await getRedisClient()
+  if (!client) return 'unavailable'
+  const counted = await client.eval(
+    CAP_RESERVE_LUA,
+    2,
+    MINT_CAP_PREFIX + recipient.toLowerCase(),
+    MINT_CAP_HOLD_PREFIX + containerId.toLowerCase(),
+    String(MINT_ADDRESS_CAP_WINDOW_MS),
+    String(MINT_ADDRESS_CAP),
+    recipient.toLowerCase(),
+  )
+  if (Number(counted) < 0) return 'capped'
+  reserveAddressCap(containerId, recipient)
+  return 'reserved'
+}
+
+async function ensureDurableCap(containerId: string, recipient: string): Promise<void> {
+  ensureLandedCap(containerId, recipient)
+  const client = await getRedisClient()
+  if (!client) return
+  await client.eval(
+    CAP_ENSURE_LUA,
+    2,
+    MINT_CAP_PREFIX + recipient.toLowerCase(),
+    MINT_CAP_HOLD_PREFIX + containerId.toLowerCase(),
+    String(MINT_ADDRESS_CAP_WINDOW_MS),
+    recipient.toLowerCase(),
+  )
+}
+
+async function releaseDurableCap(containerId: string): Promise<void> {
+  releaseAddressCap(containerId)
+  const client = await getRedisClient()
+  if (!client) return
+  await client.eval(
+    CAP_RELEASE_LUA,
+    1,
+    MINT_CAP_HOLD_PREFIX + containerId.toLowerCase(),
+    MINT_CAP_PREFIX,
+  )
+}
+
+async function claimMintSend(containerHash: string): Promise<string | null> {
+  const client = await getRedisClient()
+  if (!client) return null
+  const token = drainLockToken()
+  const claimed = await client.set(
+    MINT_SEND_PREFIX + durableField(containerHash),
+    token,
+    'PX',
+    PENDING_MINT_TTL_MS,
+    'NX',
+  )
+  return claimed === 'OK' ? token : null
+}
+
+async function releaseMintSend(containerHash: string, token: string): Promise<void> {
+  if (token === 'local') return
+  const client = await getRedisClient()
+  if (!client) return
+  await client.eval(RELEASE_LOCK_LUA, 1, MINT_SEND_PREFIX + durableField(containerHash), token)
+}
+
+async function clearMintSend(containerHash: string): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  await client.del(MINT_SEND_PREFIX + durableField(containerHash))
+}
+
+type MintTokenRead = { tokenId: string | null } | { error: string }
+
+async function readMintToken(containerId: string, containerHash: string): Promise<MintTokenRead> {
+  try {
+    const tokenId = await getChainExecutor().existingMint(containerId, containerHash)
+    return { tokenId }
+  } catch (err: unknown) {
+    return { error: friendlyMintError(err) }
+  }
+}
+
+async function landSavedMint(record: DurableMint, containerId: string, containerHash: string): Promise<void> {
+  record.state = 'landed'
+  await saveDurableMint(record, 'same')
+  await ensureDurableCap(containerId, record.recipient)
+  confirmPendingMint(containerId)
+  rememberMintedContainers([containerId, containerHash])
+}
+
+async function rememberSubmittedMint(
+  record: DurableMint,
+  mode: DurableWrite,
+): Promise<void> {
+  await saveDurableMint(record, mode)
+  replacePendingMint(record.containerId, record.txHash, record.recipient)
+}
+
+function pendingMintRecord(input: {
+  txHash: string
+  containerId: string
+  containerHash: string
+  recipient: string
+  nonce: number
+  expiresAt?: number
+  state?: DurableMintState
+}): DurableMint {
+  return {
+    txHash: input.txHash,
+    containerId: input.containerId,
+    containerHash: input.containerHash,
+    recipient: input.recipient.toLowerCase(),
+    nonce: input.nonce,
+    expiresAt: input.expiresAt ?? Date.now() + PENDING_MINT_TTL_MS,
+    state: input.state ?? 'pending',
+  }
+}
+
+async function pruneDurableMints(now = Date.now()): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  const all = await client.hgetall(MINT_PENDING_KEY) as Record<string, string>
+  for (const [field, raw] of Object.entries(all ?? {})) {
+    const record = typeof raw === 'string' ? parseDurableMint(raw) : null
+    if (!record) {
+      await client.hdel(MINT_PENDING_KEY, field)
+      continue
+    }
+    if ((record.state === 'landed' || record.state === 'failed') && record.expiresAt <= now) {
+      await client.hdel(MINT_PENDING_KEY, field)
+    }
+  }
+}
+
+/**
+ * Receipt first, then the sender's confirmed nonce. Expiry alone is not a drop:
+ * the transaction can still land, so the caller must not release the cap or
+ * submit another mint until a revert or a nonce move proves this hash is dead.
+ */
+async function judgeDurableMint(record: DurableMint, now = Date.now()): Promise<PendingJudgment> {
+  if (record.state === 'landed') return 'landed'
+  const receipt = await getChainExecutor().mintReceipt(record.txHash)
+  if (receipt === 'success') return 'landed'
+  if (receipt === 'reverted') return 'failed'
+  if (record.state === 'dropped') return 'dropped'
+  const nonce = await getChainExecutor().senderNonce()
+  if (nonce > record.nonce) return 'dropped'
+  if (record.state === 'failed') return 'failed'
+  if (now >= record.expiresAt) return 'expired'
+  return 'pending'
+}
+
+/** Receipt, then nonce. A nonce move with no receipt is dropped and keeps the cap slot. */
+async function releaseIfProvenDead(record: DurableMint): Promise<'landed' | 'expired' | 'failed' | 'dropped'> {
+  const receipt = await getChainExecutor().mintReceipt(record.txHash)
+  if (receipt === 'success') {
+    await landSavedMint(record, record.containerId, record.containerHash)
+    await clearMintSend(record.containerHash)
+    return 'landed'
+  }
+  if (record.state === 'failed' || receipt === 'reverted') {
+    record.state = 'failed'
+    await saveDurableMint(record, 'same')
+    await releaseDurableCap(record.containerId)
+    await clearMintSend(record.containerHash)
+    return 'failed'
+  }
+  const nonce = await getChainExecutor().senderNonce()
+  if (nonce <= record.nonce) {
+    record.state = 'expired'
+    await saveDurableMint(record, 'same')
+    return 'expired'
+  }
+  return 'dropped'
+}
+
+function jsonMintWaiting(c: Context, txHash: string): Response {
+  return c.json({
+    success: false,
+    pending: true,
+    error: 'Mint transaction is pending',
+    txHash,
+    explorerUrl: `https://basescan.org/tx/${txHash}`,
+  }, 202)
+}
+
+function jsonMintTaken(c: Context, tokenId: string | null, txHash: string): Response {
+  return c.json({ success: false, error: 'Container already has a vortex token', tokenId, txHash }, 409)
+}
+
+function jsonMintDropped(c: Context, txHash: string): Response {
+  return c.json({
+    success: false,
+    status: 'dropped',
+    error: 'Mint transaction dropped',
+    txHash,
+    explorerUrl: `https://basescan.org/tx/${txHash}`,
+  }, 409)
+}
+
+function jsonMintGuardDown(c: Context): Response {
+  return c.json({ success: false, error: MINT_GUARD_UNAVAILABLE }, 503)
+}
+
+function vortexSignatureRejection(
+  c: Context,
+  containerHash: string,
+  containerId: string,
+  to: string,
+  expiresAt: number,
+  signature: string,
+): Response | null {
+  const signingKey = readVortexSigningKey()
+  if (!signingKey) return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+  try {
+    const verdict = verifyVortexSignature(containerHash, containerId, to, expiresAt, signature, signingKey)
+    const signatureFailure = rejectedSignature(verdict)
+    if (!signatureFailure) return null
+    const error = signatureFailure === 'expired' ? 'Vortex signature expired' : 'Invalid vortex signature'
+    return c.json({ success: false, error }, 401)
+  } catch {
+    return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
+  }
+}
+
+interface MintDeadLetterInput {
+  proposal: string
+  containerHash: string
+  oldHash: string
+  reason: string
+  nonce?: number
+}
+
+function deadLetterIdentity(row: { containerHash?: string; oldHash?: string; nonce?: number }): string {
+  const hash = typeof row.containerHash === 'string' ? row.containerHash.toLowerCase() : ''
+  const old = typeof row.oldHash === 'string' ? row.oldHash.toLowerCase() : ''
+  if (/^0x[0-9a-f]{64}$/.test(old)) return `${hash}|${old}`
+  return `${hash}|nonce:${row.nonce ?? ''}`
+}
+
+/** One letter per containerHash and old hash. A second writer, including the drain, does not append again. */
+async function recordMintDeadLetter(input: MintDeadLetterInput): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  const identity = deadLetterIdentity(input)
+  const existing = await client.lrange(MINT_BACKLOG_DEAD_KEY, 0, -1) as string[]
+  for (const row of existing ?? []) {
+    try {
+      const parsed = JSON.parse(row) as { containerHash?: string; oldHash?: string; nonce?: number }
+      if (deadLetterIdentity(parsed) === identity) return
+    } catch { /* skip a malformed letter */ }
+  }
+  const record = JSON.stringify({
+    proposal: input.proposal,
+    containerHash: input.containerHash,
+    oldHash: input.oldHash,
+    reason: input.reason,
+    timestamp: new Date().toISOString(),
+    ...(input.nonce !== undefined ? { nonce: input.nonce } : {}),
+  })
+  await client.rpush(MINT_BACKLOG_DEAD_KEY, record)
+  await client.ltrim(MINT_BACKLOG_DEAD_KEY, -MINT_BACKLOG_DEAD_CAP, -1)
+}
+
+async function proposalTextForHash(containerHash: string): Promise<string> {
+  const client = await getRedisClient()
+  if (!client) return ''
+  const rows = await client.lrange(MINT_BACKLOG_KEY, 0, -1) as string[]
+  const want = containerHash.toLowerCase()
+  for (const row of rows ?? []) {
+    try {
+      const parsed = JSON.parse(row) as { containerHash?: string; proposalText?: string }
+      if (parsed.containerHash?.toLowerCase() === want && typeof parsed.proposalText === 'string' && parsed.proposalText.trim()) {
+        return parsed.proposalText
+      }
+    } catch { /* skip */ }
+  }
+  return ''
+}
+
+async function realProposal(containerHash: string, proposal: string): Promise<string> {
+  if (proposal.trim() && !isBytes32(proposal)) return proposal
+  const found = await proposalTextForHash(containerHash)
+  return found || proposal
+}
+
+/** One letter on the transition into dropped. A later read of the same hash does not write again. */
+async function noteDroppedMint(record: DurableMint, proposal: string): Promise<void> {
+  if (record.state !== 'dropped') {
+    record.state = 'dropped'
+    await saveDurableMint(record, 'same')
+  }
+  await recordMintDeadLetter({
+    proposal: await realProposal(record.containerHash, proposal),
+    containerHash: record.containerHash,
+    oldHash: record.txHash,
+    reason: 'dropped',
+  })
+}
+
+interface PreSendMint {
+  containerId: string
+  containerHash: string
+  recipient: string
+  deployer: string
+  nonce: number
+  proposal: string
+}
+
+function parsePreSend(raw: string): PreSendMint | null {
+  try {
+    const parsed = JSON.parse(raw) as Partial<PreSendMint>
+    if (!parsed || typeof parsed.containerId !== 'string' || typeof parsed.containerHash !== 'string') return null
+    if (typeof parsed.recipient !== 'string' || typeof parsed.deployer !== 'string') return null
+    if (typeof parsed.nonce !== 'number' || !Number.isFinite(parsed.nonce)) return null
+    return {
+      containerId: parsed.containerId,
+      containerHash: parsed.containerHash,
+      recipient: parsed.recipient,
+      deployer: parsed.deployer,
+      nonce: parsed.nonce,
+      proposal: typeof parsed.proposal === 'string' ? parsed.proposal : '',
+    }
+  } catch {
+    return null
+  }
+}
+
+async function savePreSend(record: PreSendMint): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  await client.hset(MINT_PRESEND_KEY, durableField(record.containerHash), JSON.stringify(record))
+}
+
+async function loadPreSend(containerHash: string): Promise<PreSendMint | null> {
+  const client = await getRedisClient()
+  if (!client) return null
+  const raw = await client.hget(MINT_PRESEND_KEY, durableField(containerHash))
+  if (typeof raw !== 'string' || raw.length === 0) return null
+  return parsePreSend(raw)
+}
+
+async function clearPreSend(containerHash: string): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  await client.hdel(MINT_PRESEND_KEY, durableField(containerHash))
+}
+
+type PreSendRecovery = 'absent' | 'adopted' | 'unresolved'
+
+/**
+ * A leftover pre-send row may have been broadcast. It is dead-lettered once and never sent again, whatever the nonce says.
+ * The row and the cap slot stay. findTxByNonce adoption works only with the test stub; a live node returns null.
+ */
+async function recoverPreSend(containerHash: string): Promise<PreSendRecovery> {
+  const pre = await loadPreSend(containerHash)
+  if (!pre) return 'absent'
+  const hash = await getChainExecutor().findTxByNonce(pre.nonce)
+  if (hash && /^0x[0-9a-fA-F]{64}$/.test(hash)) {
+    await saveDurableMint(pendingMintRecord({
+      txHash: hash,
+      containerId: pre.containerId,
+      containerHash: pre.containerHash,
+      recipient: pre.recipient,
+      nonce: pre.nonce,
+    }), 'insert')
+    await clearPreSend(containerHash)
+    return 'adopted'
+  }
+  await letterPreSend(pre)
+  return 'unresolved'
+}
+
+async function letterPreSend(pre: PreSendMint): Promise<void> {
+  await recordMintDeadLetter({
+    proposal: await realProposal(pre.containerHash, pre.proposal || pre.containerHash),
+    containerHash: pre.containerHash,
+    oldHash: '',
+    reason: 'possibly-sent',
+    nonce: pre.nonce,
+  })
+}
+
+function jsonMintAccepted(c: Context, containerId: string, to: string, tokenId: string, txHash: string): Response {
+  return c.json({
+    success: true,
+    tokenAddress: VORTEX_TOKEN_ADDRESS,
+    containerId,
+    to,
+    tokenId,
+    txHash,
+    explorerUrl: `https://basescan.org/tx/${txHash}`,
+  })
+}
+
+/** The original hash is already on chain. Do not mint again. A missing receipt does not mark this hash landed. */
+async function durableMintConflict(
+  c: Context,
+  record: DurableMint,
+  containerId: string,
+  containerHash: string,
+): Promise<Response | null> {
+  const found = await readMintToken(containerId, containerHash)
+  if ('error' in found) {
+    process.stderr.write(String(`[mint] ${found.error}`) + '\n')
+    return c.json({ success: false, error: found.error, txHash: record.txHash }, 500)
+  }
+  let receipt: 'success' | 'reverted' | 'missing' = 'missing'
+  try {
+    receipt = await getChainExecutor().mintReceipt(record.txHash)
+  } catch (err: unknown) {
+    const msg = friendlyMintError(err)
+    process.stderr.write(String(`[mint] ${msg}`) + '\n')
+    return c.json({ success: false, error: msg, txHash: record.txHash }, 500)
+  }
+  if (!found.tokenId && receipt !== 'success') return null
+  if (receipt !== 'success') return jsonMintTaken(c, found.tokenId, record.txHash)
+  await landSavedMint(record, containerId, containerHash)
+  if (found.tokenId) await storeVortexStatusInRedis(containerId, found.tokenId)
+  return jsonMintTaken(c, found.tokenId, record.txHash)
+}
+
+/**
+ * Shared pending observation for the first submit and every later retry.
+ * A visible token confirms the original hash. No token keeps the 202.
+ */
+async function resolvePendingObservation(
+  c: Context,
+  containerId: string,
+  containerHash: string,
+  to: string,
+  txHash: string,
+  recipient: string,
+): Promise<Response> {
+  const found = await readMintToken(containerId, containerHash)
+  if ('error' in found) {
+    process.stderr.write(String(`[mint] ${found.error}`) + '\n')
+    return c.json({ success: false, pending: true, error: found.error, txHash }, 500)
+  }
+  const tokenId = found.tokenId
+  if (!tokenId) return jsonMintWaiting(c, txHash)
+  const durable = await loadDurableMint(containerHash)
+  if (durable) await landSavedMint(durable, containerId, containerHash)
+  else {
+    confirmPendingMint(containerId)
+    rememberMintedContainers([containerId, containerHash])
+  }
+  await storeVortexStatusInRedis(containerId, tokenId)
+  if (recipient !== to.toLowerCase()) return jsonMintTaken(c, tokenId, txHash)
+  return jsonMintAccepted(c, containerId, to, tokenId, txHash)
+}
+
+// A timed-out mint stays pending in Redis, keyed by containerHash. The retry returns the original txHash.
+async function jsonMintPending(
+  c: Context,
+  containerId: string,
+  containerHash: string,
+  to: string,
+  expiresAt: number,
+  signature: string,
+): Promise<Response | null> {
+  const record = await loadDurableMint(containerHash)
+  if (record?.state === 'landed') return jsonMintTaken(c, null, record.txHash)
+  const memory = readPendingMint(containerId)
+  if (!record && !memory) return null
+  const signingKey = readVortexSigningKey()
+  if (!signingKey) return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+  let verdict: { ok: true } | { ok: false; reason: 'invalid' | 'expired' }
+  try {
+    verdict = verifyVortexSignature(containerHash, containerId, to, expiresAt, signature, signingKey)
+  } catch {
+    return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
+  }
+  const signatureFailure = rejectedSignature(verdict)
+  if (signatureFailure) {
+    const error = signatureFailure === 'expired' ? 'Vortex signature expired' : 'Invalid vortex signature'
+    return c.json({ success: false, error }, 401)
+  }
+  if (record) {
+    let judgment: PendingJudgment
+    try {
+      judgment = await judgeDurableMint(record)
+    } catch (err: unknown) {
+      const msg = friendlyMintError(err)
+      process.stderr.write(String(`[mint] ${msg}`) + '\n')
+      return c.json({ success: false, pending: true, error: msg, txHash: record.txHash }, 500)
+    }
+    if (judgment === 'landed') {
+      await landSavedMint(record, containerId, containerHash)
+      const found = await readMintToken(containerId, containerHash)
+      if ('error' in found) {
+        process.stderr.write(String(`[mint] ${found.error}`) + '\n')
+        return c.json({ success: false, error: found.error, txHash: record.txHash }, 500)
+      }
+      if (found.tokenId) await storeVortexStatusInRedis(containerId, found.tokenId)
+      return jsonMintTaken(c, found.tokenId, record.txHash)
+    }
+    if (judgment === 'expired' || judgment === 'pending') {
+      if (judgment === 'expired') {
+        record.state = 'expired'
+        await saveDurableMint(record, 'same')
+      }
+      return resolvePendingObservation(c, containerId, containerHash, to, record.txHash, record.recipient)
+    }
+    if (judgment === 'dropped') {
+      await noteDroppedMint(record, containerHash)
+      return jsonMintDropped(c, record.txHash)
+    }
+    const proven = await releaseIfProvenDead(record)
+    if (proven === 'landed') {
+      const found = await readMintToken(containerId, containerHash)
+      if ('error' in found) {
+        process.stderr.write(String(`[mint] ${found.error}`) + '\n')
+        return c.json({ success: false, error: found.error, txHash: record.txHash }, 500)
+      }
+      if (found.tokenId) await storeVortexStatusInRedis(containerId, found.tokenId)
+      return jsonMintTaken(c, found.tokenId, record.txHash)
+    }
+    if (proven === 'expired') {
+      return resolvePendingObservation(c, containerId, containerHash, to, record.txHash, record.recipient)
+    }
+    if (proven === 'dropped') {
+      await noteDroppedMint(record, containerHash)
+      return jsonMintDropped(c, record.txHash)
+    }
+    const taken = await durableMintConflict(c, record, containerId, containerHash)
+    if (taken) return taken
+    return null
+  }
+  return resolvePendingObservation(c, containerId, containerHash, to, memory!.txHash, memory!.recipient)
+}
 
 // Exact containerId match only. No store fallback, no listContainers scan, no prefix match.
 app.post('/vortex/mint', async (c: Context) => {
@@ -2587,6 +3304,10 @@ app.post('/vortex/mint', async (c: Context) => {
   if (denied) return c.json({ success: false, error: denied.error }, denied.status)
   let reservedId: string | null = null
   let writeStarted = false
+  let submittedHash: string | null = null
+  let sendClaim: string | null = null
+  let activeHash: string | null = null
+  let activeRecipient = ''
   try {
     const body = await c.req.json() as {
       containerId?: unknown
@@ -2612,35 +3333,44 @@ app.post('/vortex/mint', async (c: Context) => {
       return c.json({ success: false, error: 'expiresAt must be a unix second at most 1 hour ahead' }, 400)
     }
 
+    const pendingRetry = await jsonMintPending(c, containerId, containerHash, to, expiresAt, signature)
+    if (pendingRetry) return pendingRetry
+
+    if (await loadPreSend(containerHash)) {
+      const deniedPre = vortexSignatureRejection(c, containerHash, containerId, to, expiresAt, signature)
+      if (deniedPre) return deniedPre
+      const recovered = await recoverPreSend(containerHash)
+      if (recovered === 'adopted') {
+        const adopted = await loadDurableMint(containerHash)
+        if (adopted) return jsonMintWaiting(c, adopted.txHash)
+      }
+      if (recovered === 'unresolved') {
+        return c.json({ success: false, status: 'dropped', error: 'Mint nonce is unresolved' }, 409)
+      }
+    }
+
+    if (!await getRedisClient()) {
+      const deniedSig = vortexSignatureRejection(c, containerHash, containerId, to, expiresAt, signature)
+      if (deniedSig) return deniedSig
+      return jsonMintGuardDown(c)
+    }
+    const redisCount = await redisAddressCount(to)
+    if (redisCount === null) return jsonMintGuardDown(c)
     const claim = claimMintSlot({
       containerId,
       recipient: to,
-      rateKey: clientRateKey(c.req.header('x-forwarded-for')),
+      rateKey: clientRateKey(),
+      addressCount: redisCount,
     })
     const claimDenied = rejectedMint(claim)
     if (claimDenied) return c.json({ success: false, error: claimDenied.error }, claimDenied.status)
     reservedId = containerId
 
-    const signingKey = readVortexSigningKey()
-    if (!signingKey) {
+    const deniedSig = vortexSignatureRejection(c, containerHash, containerId, to, expiresAt, signature)
+    if (deniedSig) {
       releaseMintSlot(containerId)
       reservedId = null
-      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
-    }
-    let verdict: { ok: true } | { ok: false; reason: 'invalid' | 'expired' }
-    try {
-      verdict = verifyVortexSignature(containerHash, containerId, to, expiresAt, signature, signingKey)
-    } catch {
-      releaseMintSlot(containerId)
-      reservedId = null
-      return c.json({ success: false, error: 'Invalid vortex signature' }, 401)
-    }
-    const signatureFailure = rejectedSignature(verdict)
-    if (signatureFailure) {
-      releaseMintSlot(containerId)
-      reservedId = null
-      const error = signatureFailure === 'expired' ? 'Vortex signature expired' : 'Invalid vortex signature'
-      return c.json({ success: false, error }, 401)
+      return deniedSig
     }
 
     const container: RegistryContainer | null = await getChainExecutor().readContainerExact(containerId)
@@ -2658,54 +3388,138 @@ app.post('/vortex/mint', async (c: Context) => {
       return c.json({ success: false, error: 'Signed containerHash does not match the registry' }, 401)
     }
 
-    const existing = await getChainExecutor().existingMint(containerId, registryHash)
-    if (existing) {
+    const already = await readMintToken(containerId, registryHash)
+    if ('error' in already) {
+      releaseMintSlot(containerId)
+      reservedId = null
+      process.stderr.write(String(`[mint] ${already.error}`) + '\n')
+      return c.json({ success: false, error: already.error }, 500)
+    }
+    if (already.tokenId) {
       rememberMintedContainers([containerId, containerHash])
       releaseMintSlot(containerId)
       reservedId = null
-      return c.json({ success: false, error: 'Container already has a vortex token' }, 409)
+      const prior = await loadDurableMint(containerHash)
+      const knownHash = prior?.txHash ?? readPendingMint(containerId)?.txHash
+      if (knownHash) return jsonMintTaken(c, already.tokenId, knownHash)
+      return c.json({ success: false, error: 'Container already has a vortex token', tokenId: already.tokenId }, 409)
     }
 
+    activeHash = containerHash
+    activeRecipient = to
+    sendClaim = await claimMintSend(containerHash)
+    if (!sendClaim) {
+      releaseMintSlot(containerId)
+      reservedId = null
+      if (!await getRedisClient()) return jsonMintGuardDown(c)
+      const held = await loadDurableMint(containerHash)
+      if (held) return jsonMintWaiting(c, held.txHash)
+      return c.json({ success: false, pending: true, error: 'Mint transaction is pending' }, 202)
+    }
+    const cap = await reserveDurableCap(containerId, to)
+    if (cap !== 'reserved') {
+      await releaseMintSend(containerHash, sendClaim)
+      sendClaim = null
+      releaseMintSlot(containerId)
+      reservedId = null
+      if (cap === 'unavailable') return jsonMintGuardDown(c)
+      return c.json({ success: false, error: 'Per-address mint cap exceeded' }, 429)
+    }
     writeStarted = true
-    const minted = await getChainExecutor().mintRegistered({ to, containerId, container })
+    const priorFailed = await loadDurableMint(containerHash)
+    const writeMode: DurableWrite = priorFailed?.state === 'failed' ? 'replace-failed' : 'insert'
+    let mintedRecord: DurableMint | null = null
+    const minted = await getChainExecutor().mintRegistered({
+      to,
+      containerId,
+      container,
+      onPrepared: async (prepared) => {
+        await savePreSend({
+          containerId,
+          containerHash,
+          recipient: to,
+          deployer: prepared.deployer,
+          nonce: prepared.nonce,
+          proposal: await proposalTextForHash(containerHash),
+        })
+      },
+      onSubmitted: async (submitted) => {
+        submittedHash = submitted.txHash
+        mintedRecord = pendingMintRecord({
+          txHash: submitted.txHash,
+          containerId,
+          containerHash,
+          recipient: to,
+          nonce: submitted.nonce,
+        })
+        await rememberSubmittedMint(mintedRecord, writeMode)
+        await clearPreSend(containerHash)
+      },
+    })
+    if (minted.receiptStatus === 'pending') {
+      markPendingMint(containerId, minted.txHash, to)
+      reservedId = null
+      writeStarted = false
+      sendClaim = null
+      return resolvePendingObservation(c, containerId, registryHash, to, minted.txHash, to.toLowerCase())
+    }
     let tokenId = minted.tokenId
     if (minted.receiptStatus !== 'success') {
-      let landed: string | null = null
-      try {
-        landed = await getChainExecutor().existingMint(containerId, registryHash)
-      } catch (err: unknown) {
-        abortMintWrite(containerId)
+      const found = await readMintToken(containerId, registryHash)
+      if ('error' in found) {
+        releaseMintSlot(containerId)
         reservedId = null
         writeStarted = false
-        const msg = friendlyMintError(err)
-        console.error(`[mint] ${msg}`)
-        return c.json({ success: false, error: msg }, 500)
+        process.stderr.write(String(`[mint] ${found.error}`) + '\n')
+        return c.json({ success: false, error: found.error, txHash: minted.txHash }, 500)
       }
-      if (!landed) {
+      if (!found.tokenId) {
+        const failedMint = mintedRecord ?? pendingMintRecord({
+          txHash: minted.txHash,
+          containerId,
+          containerHash,
+          recipient: to,
+          nonce: minted.nonce,
+        })
+        failedMint.state = 'failed'
+        await saveDurableMint(failedMint, 'same')
+        forgetPendingMint(containerId)
         abortMintWrite(containerId)
+        await releaseDurableCap(containerId)
+        await clearMintSend(containerHash)
+        sendClaim = null
         reservedId = null
         writeStarted = false
-        return c.json({ success: false, error: 'Mint transaction reverted' }, 500)
+        return c.json({ success: false, error: 'Mint transaction reverted', txHash: minted.txHash }, 500)
       }
-      tokenId = landed
+      tokenId = found.tokenId
     } else if (!tokenId) {
-      try {
-        tokenId = await getChainExecutor().existingMint(containerId, registryHash)
-      } catch (err: unknown) {
-        abortMintWrite(containerId)
+      const found = await readMintToken(containerId, registryHash)
+      if ('error' in found) {
+        releaseMintSlot(containerId)
         reservedId = null
         writeStarted = false
-        const msg = friendlyMintError(err)
-        console.error(`[mint] ${msg}`)
-        return c.json({ success: false, error: msg }, 500)
+        process.stderr.write(String(`[mint] ${found.error}`) + '\n')
+        return c.json({ success: false, error: found.error, txHash: minted.txHash }, 500)
       }
-      if (!tokenId) {
-        abortMintWrite(containerId)
+      if (!found.tokenId) {
+        releaseMintSlot(containerId)
         reservedId = null
         writeStarted = false
-        return c.json({ success: false, error: 'Mint transaction did not produce a token' }, 500)
+        return c.json({ success: false, error: 'Mint transaction did not produce a token', txHash: minted.txHash }, 500)
       }
+      tokenId = found.tokenId
     }
+    const landedMint = mintedRecord ?? pendingMintRecord({
+      txHash: minted.txHash,
+      containerId,
+      containerHash,
+      recipient: to,
+      nonce: minted.nonce,
+    })
+    await landSavedMint(landedMint, containerId, containerHash)
+    await clearMintSend(containerHash)
+    sendClaim = null
     commitMintSlot(containerId, to)
     reservedId = null
     writeStarted = false
@@ -2721,12 +3535,28 @@ app.post('/vortex/mint', async (c: Context) => {
       explorerUrl: `https://basescan.org/tx/${minted.txHash}`,
     })
   } catch (err: any) {
+    const pre = activeHash ? await loadPreSend(activeHash) : null
+    if (pre) {
+      if (!isMintNotSent(err)) {
+        await letterPreSend(pre)
+        process.stderr.write(String(`[mint] ${err.message}`) + '\n')
+        return c.json({ success: false, error: friendlyMintError(err) }, 500)
+      }
+      await clearPreSend(activeHash)
+    }
     if (reservedId) {
-      if (writeStarted) abortMintWrite(reservedId)
-      else releaseMintSlot(reservedId)
+    if (submittedHash) {
+      markPendingMint(reservedId, submittedHash, activeRecipient)
+    } else if (writeStarted) {
+        abortMintWrite(reservedId)
+        await releaseDurableCap(reservedId)
+        if (sendClaim && activeHash) await releaseMintSend(activeHash, sendClaim)
+      } else {
+        releaseMintSlot(reservedId)
+        if (sendClaim && activeHash) await releaseMintSend(activeHash, sendClaim)
+      }
     }
     const msg = friendlyMintError(err)
-    console.error(`[mint] ${err.message}`)
     return c.json({ success: false, error: msg }, 500)
   }
 })
@@ -2915,7 +3745,7 @@ app.get('/vortex/token-image/:tokenId', async (c: Context) => {
     if (!data) {
       const abi = (await import('./lib/abi/VortexTokenV41.json', { with: { type: 'json' } })).default as any[]
       const { publicClient } = getVortexTokenClient()
-      data = await publicClient.readContract({
+      data = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi,
         functionName: 'getContainerData',
@@ -2954,6 +3784,7 @@ type AutoMintOutcome =
   | { kind: 'on-chain' }
   | { kind: 'skipped'; reason: string }
   | { kind: 'reverted' }
+  | { kind: 'pending'; txHash: string; nonce: number; expiresAt: number; submitted: boolean }
   | { kind: 'error'; error: unknown }
 
 type BacklogRedis = {
@@ -2967,7 +3798,24 @@ function truncateProposal(proposalText: string): string {
   return proposalText.slice(0, PROPOSAL_TEXT_LIMIT)
 }
 
-function settleFailedWrite(containerId: string, writeFailureBudget: 'keep' | 'release'): void {
+async function holdRecordedMint(
+  record: DurableMint,
+  proposal: string,
+  reason: 'dropped' | 'expired' | 'pending',
+): Promise<AutoMintOutcome> {
+  if (reason === 'dropped') {
+    await noteDroppedMint(record, proposal)
+    return { kind: 'skipped', reason: 'Mint transaction dropped' }
+  }
+  if (reason === 'expired' && record.state !== 'expired') {
+    record.state = 'expired'
+    await saveDurableMint(record, 'same')
+  }
+  return { kind: 'pending', txHash: record.txHash, nonce: record.nonce, expiresAt: record.expiresAt, submitted: false }
+}
+
+async function settleFailedWrite(containerId: string, writeFailureBudget: 'keep' | 'release'): Promise<void> {
+  await releaseDurableCap(containerId)
   if (writeFailureBudget === 'release') releaseMintSlot(containerId)
   else abortMintWrite(containerId)
 }
@@ -2983,14 +3831,47 @@ async function runAutoMint(
   writeFailureBudget: 'keep' | 'release' = 'keep',
   rateKey: string = AUTO_MINT_RATE_KEY,
 ): Promise<AutoMintOutcome> {
+  const alreadyPending = await loadDurableMint(container.containerHash)
+  if (alreadyPending) {
+    try {
+      const judgment = await judgeDurableMint(alreadyPending)
+      if (judgment === 'landed' || alreadyPending.state === 'landed') {
+        await landSavedMint(alreadyPending, container.containerId, container.containerHash)
+        return { kind: 'on-chain' }
+      }
+      if (judgment === 'dropped' || judgment === 'expired' || judgment === 'pending') {
+        return holdRecordedMint(alreadyPending, proposalText, judgment)
+      }
+      const found = await readMintToken(container.containerId, container.containerHash)
+      if ('error' in found) return { kind: 'error', error: new Error(found.error) }
+      if (found.tokenId) {
+        await landSavedMint(alreadyPending, container.containerId, container.containerHash)
+        return { kind: 'on-chain' }
+      }
+      return { kind: 'reverted' }
+    } catch (err: unknown) {
+      return { kind: 'error', error: err }
+    }
+  }
+  const recovered = await recoverPreSend(container.containerHash)
+  if (recovered === 'adopted') {
+    const adopted = await loadDurableMint(container.containerHash)
+    if (adopted) return { kind: 'pending', txHash: adopted.txHash, nonce: adopted.nonce, expiresAt: adopted.expiresAt, submitted: false }
+  }
+  if (recovered === 'unresolved') return { kind: 'skipped', reason: 'Mint nonce is unresolved' }
+  const redisCount = await redisAddressCount(VORTEX_TREASURY)
+  if (redisCount === null) return { kind: 'skipped', reason: MINT_GUARD_UNAVAILABLE }
   const claim = claimMintSlot({
     containerId: container.containerId,
     recipient: VORTEX_TREASURY,
     rateKey,
+    addressCount: redisCount,
   })
   const denied = rejectedMint(claim)
   if (denied) return { kind: 'skipped', reason: denied.error }
   let writeStarted = false
+  let submittedHash: string | null = null
+  let sendClaim: string | null = null
   try {
     const existing = await getChainExecutor().existingMint(container.containerId, container.containerHash)
     if (existing) {
@@ -3002,53 +3883,135 @@ async function runAutoMint(
       releaseMintSlot(container.containerId)
       return { kind: 'error', error: new Error('empty proposal text') }
     }
+    sendClaim = await claimMintSend(container.containerHash)
+    if (!sendClaim) {
+      releaseMintSlot(container.containerId)
+      if (!await getRedisClient()) return { kind: 'skipped', reason: MINT_GUARD_UNAVAILABLE }
+      const held = await loadDurableMint(container.containerHash)
+      if (held) return { kind: 'pending', txHash: held.txHash, nonce: held.nonce, expiresAt: held.expiresAt, submitted: false }
+      return { kind: 'skipped', reason: 'Mint already in progress' }
+    }
+    const cap = await reserveDurableCap(container.containerId, VORTEX_TREASURY)
+    if (cap !== 'reserved') {
+      await releaseMintSend(container.containerHash, sendClaim)
+      releaseMintSlot(container.containerId)
+      return { kind: 'skipped', reason: cap === 'unavailable' ? MINT_GUARD_UNAVAILABLE : 'Per-address mint cap exceeded' }
+    }
     writeStarted = true
-    const result = await getChainExecutor().autoMint(onChainMintId(container.containerId), container, proposalText)
+    const priorFailed = await loadDurableMint(container.containerHash)
+    const writeMode: DurableWrite = priorFailed?.state === 'failed' ? 'replace-failed' : 'insert'
+    let pendingExpiresAt = Date.now() + PENDING_MINT_TTL_MS
+    let mintedRecord: DurableMint | null = null
+    const result = await getChainExecutor().autoMint(onChainMintId(container.containerId), container, proposalText, {
+      onPrepared: async (prepared) => {
+        await savePreSend({
+          containerId: container.containerId,
+          containerHash: container.containerHash,
+          recipient: VORTEX_TREASURY,
+          deployer: prepared.deployer,
+          nonce: prepared.nonce,
+          proposal: proposalText,
+        })
+      },
+      onSubmitted: async (submitted) => {
+        submittedHash = submitted.txHash
+        pendingExpiresAt = Date.now() + PENDING_MINT_TTL_MS
+        mintedRecord = pendingMintRecord({
+          txHash: submitted.txHash,
+          containerId: container.containerId,
+          containerHash: container.containerHash,
+          recipient: VORTEX_TREASURY,
+          nonce: submitted.nonce,
+          expiresAt: pendingExpiresAt,
+        })
+        await rememberSubmittedMint(mintedRecord, writeMode)
+        await clearPreSend(container.containerHash)
+      },
+    })
+    if (!mintedRecord) {
+      mintedRecord = pendingMintRecord({
+        txHash: result.txHash,
+        containerId: container.containerId,
+        containerHash: container.containerHash,
+        recipient: VORTEX_TREASURY,
+        nonce: result.nonce,
+        expiresAt: pendingExpiresAt,
+      })
+    }
+    if (result.receiptStatus === 'pending') {
+      markPendingMint(container.containerId, result.txHash, VORTEX_TREASURY)
+      return { kind: 'pending', txHash: result.txHash, nonce: result.nonce, expiresAt: pendingExpiresAt, submitted: true }
+    }
     if (result.receiptStatus !== 'success') {
-      let landed: string | null
-      try {
-        landed = await getChainExecutor().existingMint(container.containerId, container.containerHash)
-      } catch (err: unknown) {
-        settleFailedWrite(container.containerId, writeFailureBudget)
-        return { kind: 'error', error: err }
-      }
-      if (landed) {
-        rememberMintedContainers([container.containerId, container.containerHash])
+      const found = await readMintToken(container.containerId, container.containerHash)
+      if ('error' in found) return { kind: 'error', error: new Error(found.error) }
+      if (found.tokenId) {
+        mintedRecord.state = 'landed'
+        await landSavedMint(mintedRecord, container.containerId, container.containerHash)
         releaseMintSlot(container.containerId)
+        await clearMintSend(container.containerHash)
         return { kind: 'on-chain' }
       }
-      settleFailedWrite(container.containerId, writeFailureBudget)
+      mintedRecord.state = 'failed'
+      await saveDurableMint(mintedRecord, 'same')
+      forgetPendingMint(container.containerId)
+      await clearMintSend(container.containerHash)
+      await settleFailedWrite(container.containerId, writeFailureBudget)
       return { kind: 'reverted' }
     }
+    mintedRecord.state = 'landed'
+    await landSavedMint(mintedRecord, container.containerId, container.containerHash)
+    await clearMintSend(container.containerHash)
     commitMintSlot(container.containerId, VORTEX_TREASURY)
-    console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`)
+    process.stderr.write(String(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${result.txHash}`) + '\n')
     return { kind: 'minted', txHash: result.txHash }
   } catch (err: unknown) {
-    if (writeStarted) settleFailedWrite(container.containerId, writeFailureBudget)
-    else releaseMintSlot(container.containerId)
+    const pre = await loadPreSend(container.containerHash)
+    if (pre) {
+      if (!isMintNotSent(err)) {
+        await letterPreSend(pre)
+        return { kind: 'error', error: err }
+      }
+      await clearPreSend(container.containerHash)
+    }
+    if (submittedHash) {
+      markPendingMint(container.containerId, submittedHash, VORTEX_TREASURY)
+    } else if (writeStarted) {
+      await settleFailedWrite(container.containerId, writeFailureBudget)
+      if (sendClaim) await releaseMintSend(container.containerHash, sendClaim)
+    } else {
+      releaseMintSlot(container.containerId)
+      if (sendClaim) await releaseMintSend(container.containerHash, sendClaim)
+    }
     return { kind: 'error', error: err }
   }
 }
 
-async function pushMintBacklog(container: ContainerVortex, reason: string, proposalText: string): Promise<void> {
+async function pushMintBacklog(
+  container: ContainerVortex,
+  reason: string,
+  proposalText: string,
+  pending?: { txHash: string; nonce: number; expiresAt: number },
+): Promise<void> {
   const entry: MintBacklogEntry = {
     containerId: container.containerId,
     containerHash: container.containerHash,
     skippedAt: new Date().toISOString(),
     reason,
     proposalText: truncateProposal(proposalText),
+    ...(pending ? { state: 'pending' as const, txHash: pending.txHash, nonce: pending.nonce, expiresAt: pending.expiresAt } : {}),
   }
-  console.log(`[vortex] Auto-mint skipped: ${reason} containerId=${container.containerId}`)
+  process.stderr.write(String(`[vortex] Auto-mint skipped: ${reason} containerId=${container.containerId}`) + '\n')
   try {
     const client = await getRedisClient()
     if (!client) {
-      console.error(`[mint] backlog not stored; redis unavailable containerId=${container.containerId}`)
+      process.stderr.write(String(`[mint] backlog not stored; redis unavailable containerId=${container.containerId}`) + '\n')
       return
     }
     await client.rpush(MINT_BACKLOG_KEY, JSON.stringify(entry))
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error(`[mint] backlog not stored containerId=${container.containerId}: ${message}`)
+    process.stderr.write(String(`[mint] backlog not stored containerId=${container.containerId}: ${message}`) + '\n')
   }
 }
 
@@ -3072,12 +4035,33 @@ async function confirmedBacklogSkip(entry: MintBacklogEntry): Promise<boolean> {
   const existing = await getChainExecutor().existingMint(entry.containerId, entry.containerHash)
   if (!existing) return false
   rememberMintedContainers([entry.containerId, entry.containerHash])
-  console.log(`[mint] backlog skip; token already on chain containerId=${entry.containerId}`)
+  process.stderr.write(String(`[mint] backlog skip; token already on chain containerId=${entry.containerId}`) + '\n')
   return true
 }
 
 async function removeExactBacklogEntry(client: { lrem: (key: string, count: number, element: string) => Promise<unknown> }, raw: string): Promise<void> {
   await client.lrem(MINT_BACKLOG_KEY, 1, raw)
+}
+
+async function settleObservedMint(
+  client: BacklogRedis,
+  raw: string,
+  judged: DurableMint,
+  proposal: string,
+  reason: 'expired' | 'dropped',
+): Promise<void> {
+  if (judged.state !== reason) {
+    judged.state = reason
+    await saveDurableMint(judged, 'same')
+  }
+  process.stderr.write(String(`[mint] backlog pending ${reason}; cap held containerId=${judged.containerId} txHash=${judged.txHash}`) + '\n')
+  await recordMintDeadLetter({
+    proposal: await realProposal(judged.containerHash, proposal),
+    containerHash: judged.containerHash,
+    oldHash: judged.txHash,
+    reason,
+  })
+  await removeExactBacklogEntry(client, raw)
 }
 
 async function deadLetterBacklogEntry(client: BacklogRedis, raw: string, reason: string): Promise<void> {
@@ -3096,7 +4080,7 @@ async function deadLetterBacklogEntry(client: BacklogRedis, raw: string, reason:
     String(-MINT_BACKLOG_DEAD_CAP),
     '-1',
   )
-  console.error(`[mint] backlog dead-lettered reason=${reason}`)
+  process.stderr.write(String(`[mint] backlog dead-lettered reason=${reason}`) + '\n')
 }
 
 function drainLockToken(): string {
@@ -3122,22 +4106,53 @@ async function removeIfChainConfirms(client: BacklogRedis, raw: string, entry: M
     already = await confirmedBacklogSkip(entry)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+    process.stderr.write(String(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`) + '\n')
     return false
   }
   if (!already) {
-    console.error(`[mint] backlog left in place; chain has no token containerId=${entry.containerId}`)
+    process.stderr.write(String(`[mint] backlog left in place; chain has no token containerId=${entry.containerId}`) + '\n')
     return false
   }
   await removeExactBacklogEntry(client, raw)
   return true
 }
 
+function backlogPendingTx(record: Record<string, unknown>): string | null {
+  if (record.state !== 'pending') return null
+  if (typeof record.txHash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(record.txHash)) return record.txHash
+  return ''
+}
+
+async function pendingRecordForBacklog(
+  entry: MintBacklogEntry,
+  record: Record<string, unknown>,
+  txHash: string,
+): Promise<DurableMint> {
+  const stored = await loadDurableMint(entry.containerHash)
+  if (stored) return stored
+  const nonce = typeof record.nonce === 'number' && Number.isFinite(record.nonce) ? record.nonce : 0
+  const expiresAt = typeof record.expiresAt === 'number' && Number.isFinite(record.expiresAt) ? record.expiresAt : 0
+  const recipient = typeof record.recipient === 'string' ? record.recipient : VORTEX_TREASURY
+  return {
+    txHash,
+    containerId: entry.containerId,
+    containerHash: entry.containerHash,
+    recipient,
+    nonce,
+    expiresAt,
+    state: 'pending',
+  }
+}
+
+async function renewDrainLock(client: BacklogRedis, token: string): Promise<boolean> {
+  const refreshed = await client.eval(REFRESH_LOCK_LUA, 1, MINT_BACKLOG_LOCK_KEY, token, String(MINT_BACKLOG_LOCK_PX))
+  return refreshed === 'OK'
+}
+
 /** One pass. Removal happens only after existingMint finds a token for the raw string that was checked. */
 async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promise<void> {
   for (;;) {
-    const refreshed = await client.eval(REFRESH_LOCK_LUA, 1, MINT_BACKLOG_LOCK_KEY, token, String(MINT_BACKLOG_LOCK_PX))
-    if (refreshed !== 'OK') return
+    if (!await renewDrainLock(client, token)) return
     const raw = await client.lindex(MINT_BACKLOG_KEY, 0) as string | null
     if (!raw) return
     let record: Record<string, unknown> | null
@@ -3145,17 +4160,17 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
       record = backlogRecord(JSON.parse(raw) as unknown)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      console.error(`[mint] backlog dead-letter; head entry is not JSON: ${message}`)
+      process.stderr.write(String(`[mint] backlog dead-letter; head entry is not JSON: ${message}`) + '\n')
       await deadLetterBacklogEntry(client, raw, 'invalid json')
       continue
     }
     if (!record || !validBacklogId(record.containerId) || !validBacklogId(record.containerHash)) {
-      console.error('[mint] backlog dead-letter; head entry has a bad id')
+      process.stderr.write(String('[mint] backlog dead-letter; head entry has a bad id') + '\n')
       await deadLetterBacklogEntry(client, raw, 'missing ids')
       continue
     }
     if (!validProposalText(record.proposalText)) {
-      console.error(`[mint] backlog dead-letter; proposal text missing containerId=${record.containerId}`)
+      process.stderr.write(String(`[mint] backlog dead-letter; proposal text missing containerId=${record.containerId}`) + '\n')
       await deadLetterBacklogEntry(client, raw, 'missing proposal text')
       continue
     }
@@ -3166,10 +4181,75 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
       reason: typeof record.reason === 'string' ? record.reason : '',
       proposalText: record.proposalText,
       attempts: typeof record.attempts === 'number' ? record.attempts : 0,
+      state: record.state === 'pending' ? 'pending' : undefined,
+      txHash: typeof record.txHash === 'string' ? record.txHash : undefined,
+    }
+    const pendingTx = backlogPendingTx(record)
+    if (pendingTx !== null) {
+      if (pendingTx === '') {
+        process.stderr.write(String(`[mint] backlog dead-letter; pending tx missing containerId=${entry.containerId}`) + '\n')
+        await deadLetterBacklogEntry(client, raw, 'bad pending tx')
+        continue
+      }
+      // Renew inside this entry before the chain read. A pending hash is not resubmitted.
+      if (!await renewDrainLock(client, token)) return
+      let landed = false
+      try {
+        landed = await confirmedBacklogSkip(entry)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        process.stderr.write(String(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`) + '\n')
+        return
+      }
+      if (landed) {
+        const stored = await loadDurableMint(entry.containerHash)
+        if (stored) {
+          stored.state = 'landed'
+          await saveDurableMint(stored)
+        }
+        confirmPendingMint(entry.containerId)
+        await removeExactBacklogEntry(client, raw)
+        continue
+      }
+      const judged = await pendingRecordForBacklog(entry, record, pendingTx)
+      await saveDurableMint(judged, 'insert')
+      let judgment: PendingJudgment
+      try {
+        judgment = await judgeDurableMint(judged)
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        process.stderr.write(String(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`) + '\n')
+        return
+      }
+      if (judgment === 'pending') {
+        process.stderr.write(String(`[mint] backlog pending left in place containerId=${entry.containerId} txHash=${pendingTx}`) + '\n')
+        return
+      }
+      if (judgment === 'landed') {
+        await landSavedMint(judged, entry.containerId, entry.containerHash)
+        await removeExactBacklogEntry(client, raw)
+        continue
+      }
+      if (judgment === 'expired' || judgment === 'dropped') {
+        await settleObservedMint(client, raw, judged, String(record.proposalText), judgment)
+        return
+      }
+      const proven = await releaseIfProvenDead(judged)
+      if (proven === 'landed') {
+        await removeExactBacklogEntry(client, raw)
+        continue
+      }
+      if (proven === 'expired' || proven === 'dropped') {
+        await settleObservedMint(client, raw, judged, String(record.proposalText), proven)
+        return
+      }
+      process.stderr.write(String(`[mint] backlog pending reverted; no resend containerId=${entry.containerId} txHash=${pendingTx}`) + '\n')
+      await deadLetterBacklogEntry(client, raw, 'reverted')
+      continue
     }
     const stored = await containerForBacklog(entry)
     if (!stored) {
-      console.error(`[mint] backlog dead-letter; container missing containerId=${entry.containerId}`)
+      process.stderr.write(String(`[mint] backlog dead-letter; container missing containerId=${entry.containerId}`) + '\n')
       await deadLetterBacklogEntry(client, raw, 'missing container')
       continue
     }
@@ -3184,38 +4264,51 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
       already = await confirmedBacklogSkip(entry)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+      process.stderr.write(String(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`) + '\n')
       return
     }
     if (already) {
       await removeExactBacklogEntry(client, raw)
       continue
     }
+    // Renew inside this entry, immediately before the mint, so the receipt wait
+    // starts under a fresh lock TTL instead of the TTL left from the loop gate.
+    if (!await renewDrainLock(client, token)) return
     // Saved on the entry when the mint was skipped. dynamo:containers is not a source for this text.
     const proposalText = record.proposalText
     const outcome = await runAutoMint(container, proposalText, 'release', REPLAY_RATE_KEY)
+    if (outcome.kind === 'pending') {
+      if (!outcome.submitted) {
+        process.stderr.write(String(`[mint] backlog left in place containerId=${entry.containerId} reason=mint already pending`) + '\n')
+        return
+      }
+      const updated = JSON.stringify({
+        ...record,
+        state: 'pending',
+        txHash: outcome.txHash,
+        nonce: outcome.nonce,
+        expiresAt: outcome.expiresAt,
+      })
+      await client.eval(REPLACE_HEAD_LUA, 1, MINT_BACKLOG_KEY, raw, updated)
+      process.stderr.write(String(`[mint] backlog pending containerId=${entry.containerId} txHash=${outcome.txHash}`) + '\n')
+      return
+    }
     if (outcome.kind === 'error') {
       const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error)
-      console.error(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`)
+      process.stderr.write(String(`[mint] backlog drain stopped on RPC error containerId=${entry.containerId}: ${message}`) + '\n')
       return
     }
     if (outcome.kind === 'reverted') {
-      const attempts = (entry.attempts ?? 0) + 1
-      if (attempts >= MINT_BACKLOG_MAX_ATTEMPTS) {
-        await deadLetterBacklogEntry(client, raw, 'reverted')
-        continue
-      }
-      const updated = JSON.stringify({ ...record, attempts })
-      await client.eval(REPLACE_HEAD_LUA, 1, MINT_BACKLOG_KEY, raw, updated)
-      console.error(`[mint] backlog revert kept containerId=${entry.containerId} attempts=${attempts}`)
-      return
+      process.stderr.write(String(`[mint] backlog revert dead-lettered containerId=${entry.containerId}`) + '\n')
+      await deadLetterBacklogEntry(client, raw, 'reverted')
+      continue
     }
     if (outcome.kind === 'minted' || outcome.kind === 'on-chain') {
       const removed = await removeIfChainConfirms(client, raw, entry)
       if (!removed) return
       continue
     }
-    console.error(`[mint] backlog left in place containerId=${entry.containerId} reason=${outcome.reason}`)
+    process.stderr.write(String(`[mint] backlog left in place containerId=${entry.containerId} reason=${outcome.reason}`) + '\n')
     return
   }
 }
@@ -3227,6 +4320,7 @@ async function drainMintBacklogOnce(client: BacklogRedis, token: string): Promis
 export async function replayMintBacklog(): Promise<void> {
   const client = await getRedisClient()
   if (!client) return
+  await pruneDurableMints()
   const token = drainLockToken()
   const acquired = await client.set(MINT_BACKLOG_LOCK_KEY, token, 'PX', MINT_BACKLOG_LOCK_PX, 'NX')
   if (acquired !== 'OK') return
@@ -3239,6 +4333,7 @@ export async function replayMintBacklog(): Promise<void> {
 
 /** In-process coalesce. A second caller in this process waits on the same pass. */
 async function drainMintBacklog(): Promise<void> {
+  mintDrainRuns += 1
   if (drainInFlight) return drainInFlight
   const run = replayMintBacklog()
   drainInFlight = run
@@ -3247,6 +4342,32 @@ async function drainMintBacklog(): Promise<void> {
   } finally {
     if (drainInFlight === run) drainInFlight = null
   }
+}
+
+export function mintDrainRunCount(): number {
+  return mintDrainRuns
+}
+
+export function resetMintDrainRunCountForTests(): void {
+  mintDrainRuns = 0
+}
+
+/** Railway keeps this process up. The timer records a dropped or expired mint and does not submit a replacement. */
+export function startMintDrainTimer(): void {
+  if (drainTimer) return
+  const timer = setInterval(() => {
+    void drainMintBacklog().catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err)
+      process.stderr.write(String(`[mint] backlog drain failed: ${message}`) + '\n')
+    })
+  }, MINT_DRAIN_INTERVAL_MS)
+  if (typeof timer.unref === 'function') timer.unref()
+  drainTimer = timer
+}
+
+export function stopMintDrainTimerForTests(): void {
+  if (drainTimer) clearInterval(drainTimer)
+  drainTimer = null
 }
 
 export async function autoMintVortex(container: ContainerVortex, proposalText: string): Promise<string | null> {
@@ -3260,16 +4381,24 @@ export async function autoMintVortex(container: ContainerVortex, proposalText: s
     await pushMintBacklog(container, 'mint transaction reverted', proposalText)
     return null
   }
+  if (outcome.kind === 'pending') {
+    await pushMintBacklog(container, 'mint transaction pending', proposalText, {
+      txHash: outcome.txHash,
+      nonce: outcome.nonce,
+      expiresAt: outcome.expiresAt,
+    })
+    return null
+  }
   if (outcome.kind === 'skipped' || outcome.kind === 'on-chain') {
     const reason = outcome.kind === 'skipped' ? outcome.reason : 'Container already has a vortex token'
-    console.log(`[vortex] Auto-mint skipped: ${reason}`)
+    process.stderr.write(String(`[vortex] Auto-mint skipped: ${reason}`) + '\n')
     return null
   }
   try {
     await drainMintBacklog()
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error(`[mint] backlog drain failed: ${message}`)
+    process.stderr.write(String(`[mint] backlog drain failed: ${message}`) + '\n')
   }
   return outcome.txHash
 }
@@ -3419,7 +4548,7 @@ mountDevSeedRoute(app, async (c: Context) => {
       try {
         const params = containerToContractParams(c)
         const currentNonce = BigInt(nonce) + BigInt(i)
-        const txHash = await walletClient.writeContract({
+        const txHash = await writeContractTx(walletClient, {
           address: CONTRACT_ADDRESS,
           abi: registryAbi,
           functionName: 'storeContainer',

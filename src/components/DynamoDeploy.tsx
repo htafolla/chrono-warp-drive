@@ -293,6 +293,8 @@ interface GovernanceResult {
   alignmentReason: string | null;
   source: string;
   neuralContextUsed: boolean;
+  phaseType: string | null;
+  isotope: string | null;
   trinitariumMoralScore: number | null;
   trinitariumVirtueAlignment: number | null;
   trinitariumHarmPotential: number | null;

@@ -355,8 +355,12 @@ class BlurrnMCP(MCPClient):
         """List all available isotopes (standard + Blurrn)."""
         return self.call_tool("list_isotopes", {}, force_get=force_get)
 
-    def validate_tlm(self, phi: float = 1.666, force_get: bool = True) -> Dict[str, Any]:
-        """Validate Trinitarium ratio is in [1.566, 1.766]."""
+    def validate_tlm(self, phi: float = 5 / 3, force_get: bool = True) -> Dict[str, Any]:
+        """Validate the Trinitarium ratio is the exact fraction 5/3.
+
+        Default is the fraction 5/3. This client cannot import the TypeScript
+        constants module, so the fraction is written here.
+        """
         return self.call_tool("validate_tlm", {"phi": phi}, force_get=force_get)
 
     def triangulate_signals(self, signals: List[Dict[str, Any]]) -> Dict[str, Any]:

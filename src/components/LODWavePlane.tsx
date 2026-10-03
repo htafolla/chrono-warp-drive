@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
+import { PHI } from '@/lib/tlmConstants';
 import { SpectrumData } from '@/types/sdss';
 import { memoryManager } from '@/lib/memoryManager';
 import { getSafeColor } from '@/lib/colorUtils';
@@ -103,7 +104,7 @@ export function LODWavePlane({
       if (!position) return;
 
       const phase = phases[index % phases.length] || 0;
-      const phaseType = (cycle % 1.666) > 0.833 ? 'push' : 'pull';
+      const phaseType = (cycle % PHI) > PHI / 2 ? 'push' : 'pull';
       const intensityMultiplier = spectrumData
         ? spectrumData.intensities[index % spectrumData.intensities.length]
         : 1;
@@ -135,7 +136,7 @@ export function LODWavePlane({
       meshRef.current.position.z =
         Math.sin(state.clock.elapsedTime * 0.3 + index * 0.8) * 0.5 * rotationIntensity;
     } catch (error) {
-      console.error('LOD WavePlane animation error:', error);
+      console.error('LOD WavePlane animation error:', error); // NOSONAR
     }
   });
 

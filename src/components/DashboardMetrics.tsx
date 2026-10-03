@@ -61,7 +61,7 @@ export function DashboardMetrics({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Phi (φ)</span>
-              <span className="font-mono">{phi.toFixed(3)}</span>
+              <span className="font-mono">{(Math.floor(phi * 1000) / 1000).toFixed(3)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Entropy (E_t)</span>

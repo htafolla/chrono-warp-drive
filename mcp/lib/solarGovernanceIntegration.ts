@@ -4,13 +4,14 @@
 // The mapping layer derives Codex parameters (T_c, P_s, E_t, delta_t, voids, bhs_n)
 // from proposal text and NOAA solar data.
 
-import { solarDataFetcher, fetchCurrentSolarData, SolarData } from './solarDataFetcher.js'
+import { solarDataFetcher, SolarData } from './solarDataFetcher.js'
 import { TemporalBlurrnSignal } from './temporalBlurrnSignal.js'
 import { computeFullTDF, VortexTdfParams } from './vortexMath.js'
 import { runKuramotoCoupling } from './kuramotoOscillators.js'
 import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16, sentenceToEmbedding16 } from './wavePropagation.js'
 import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine.js'
 import { computeTrinitariumOverlay, computeTrinitariumGematriaFusion } from './trinitariumMoralOverlay.js'
+import { TextDerivedSignal, crossTexts, resolveTimestampMs } from './signalFromText.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -39,7 +40,7 @@ function fnvHash(text: string): number {
 const MIN_FINGERPRINT_WORDS = 3;
 const ANCHOR_WORDS = ['general', 'proposal', 'matter'];
 
-function deriveProposalCodexParams(words: string[], solarData: SolarData): VortexTdfParams {
+function deriveProposalCodexParams(words: string[], solarData: SolarData, timestampMs: number): VortexTdfParams {
   const effective = words.length >= MIN_FINGERPRINT_WORDS
     ? words
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
@@ -47,10 +48,11 @@ function deriveProposalCodexParams(words: string[], solarData: SolarData): Vorte
   const combined = effective.join(' ')
   const totalChars = combined.length
   const uniqueChars = new Set(combined).size
-  // Temporal nonce: current second XORed with solar micro-variation.
-  // Ensures a different TDF fingerprint for the same text at different moments,
-  // making each vortex a unique record of "this exact instant."
-  const temporalNonce = Math.floor(Date.now() / 1000) ^ Math.floor((solarData.xray?.long ?? 0) * 1e6)
+  // Temporal nonce: the stored evaluation second XORed with solar micro-variation.
+  // The second is an explicit input (defaults to now at the call site). Passing the
+  // same timestampMs reproduces this nonce. This binding is not a Codex text→isotope
+  // formula; it is the existing clock term, now caller-supplied instead of Date.now().
+  const temporalNonce = Math.floor(timestampMs / 1000) ^ Math.floor((solarData.xray?.long ?? 0) * 1e6)
   const hashVal = fnvHash(combined + String(temporalNonce))
 
   // T_c: Word count + character diversity. Dense text = larger time constant.
@@ -99,8 +101,8 @@ function deriveSolarCodexParams(solarData: SolarData): VortexTdfParams {
   return { T_c, P_s, E_t, delta_t, voids, bhs_n }
 }
 
-function computeProposalTdf(words: string[], solarData: SolarData): number {
-  const params = deriveProposalCodexParams(words, solarData)
+function computeProposalTdf(words: string[], solarData: SolarData, timestampMs: number): number {
+  const params = deriveProposalCodexParams(words, solarData, timestampMs)
   return computeFullTDF(params).tdf
 }
 
@@ -115,12 +117,50 @@ function tdfCascade(tdf: number): number {
   return Math.floor((tdf % 1e6) / 10000) % 100;
 }
 
+function planetaryKp(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0
+  return Math.min(value, 9)
+}
+
+/**
+ * Text → TDF for cross_correlate.
+ * hashProposalToTdf (commit 164e6cf3) was the first hammer fingerprint.
+ * deriveProposalCodexParams (commit 588cb2de) replaced it. computeProposalTdf
+ * calls that function and computeFullTDF. No new hash is added here.
+ */
+function tdfForProposalText(text: string, solarData: SolarData, timestampMs: number): { tdf: number; cascadeIndex: number } {
+  const normalized = normalizeProposalText(text || 'empty-proposal')
+  const words = normalized ? normalized.split(/\s+/).filter((word) => word.length > 0) : []
+  const tdf = computeProposalTdf(words, solarData, timestampMs)
+  return { tdf, cascadeIndex: tdfCascade(tdf) }
+}
+
+/** Both sides of one correlation share one solar snapshot and one timestamp. */
+export async function crossCorrelateFromProposalText(
+  contentA: string,
+  contentB: string,
+  timestampMs: number,
+): Promise<ReturnType<typeof crossTexts>> {
+  const solarData = await solarDataFetcher.fetchCurrentSolarData()
+  const left = tdfForProposalText(contentA, solarData, timestampMs)
+  const right = tdfForProposalText(contentB, solarData, timestampMs)
+  return crossTexts(contentA, contentB, {
+    tdfA: left.tdf,
+    tdfB: right.tdf,
+    cascadeA: left.cascadeIndex,
+    cascadeB: right.cascadeIndex,
+  })
+
+}
 export interface SolarGovernanceContext {
   solarActivityLevel: string
   solarActivityModifier: number // -0.15 to +0.05
   currentSunMetamorphosisIndex: number
   timestamp: string
   recommendation: string
+  // Planetary Kp from the NOAA reading, 0..9. Not the signed activity modifier.
+  // Absent (stored as 0) when that channel did not return a reading.
+  kpIndex?: number
   // New: per-proposal isotopic resonance from the sun (the hammer)
   solarIsotopicResonance?: number
   proposalTdf?: number
@@ -197,13 +237,16 @@ export interface StructuralResonanceResult {
   trinitariumDetectedConcerns?: string[]
   trinitariumGematriaFusion?: number
   moralNumerologicalTension?: string
+  measurementFailed?: boolean
+  evaluatedAt: string
+  evaluatedAtMs: number
 }
 
 export class SolarGovernanceIntegration {
 
   async getSolarContextForGovernance(): Promise<SolarGovernanceContext> {
     try {
-      const solarData = await fetchCurrentSolarData()
+      const solarData = await solarDataFetcher.fetchCurrentSolarData()
 
       // Generic solar context (activity level + modifier only).
       // The real per-proposal resonance is the calculated solar isotopic hammer
@@ -233,18 +276,19 @@ export class SolarGovernanceIntegration {
       return {
         solarActivityLevel: solarData.activityLevel,
         solarActivityModifier: activityModifier,
+        kpIndex: planetaryKp(solarData.kpIndex),
         currentSunMetamorphosisIndex: 0.5, // legacy neutral placeholder (real resonance is the hammer)
         timestamp: solarData.timestamp,
         recommendation,
       }
-    } catch (error) {
-      console.error('Error getting solar governance context:', error)
+    } catch {
       return {
-        solarActivityLevel: 'moderate',
-        solarActivityModifier: 0,
+        solarActivityLevel: 'storm',
+        solarActivityModifier: -0.15,
+        kpIndex: 0,
         currentSunMetamorphosisIndex: 0.5,
         timestamp: new Date().toISOString(),
-        recommendation: 'Unable to fetch solar data - using neutral context',
+        recommendation: 'Solar data unavailable — fail closed',
       }
     }
   }
@@ -259,13 +303,14 @@ export class SolarGovernanceIntegration {
    * When provided, the 4D weights rebalance to 0.18/0.18/0.27/0.27 to make room.
    * When absent, the original 4D formula (0.20/0.20/0.30/0.30) is used.
    */
-  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[]): Promise<StructuralResonanceResult> {
+  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[], evaluatedAtMs?: number): Promise<StructuralResonanceResult> {
+    const clock = resolveTimestampMs(evaluatedAtMs)
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
 
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
-      const proposalTdf = computeProposalTdf(words, solarData)
+      const proposalTdf = computeProposalTdf(words, solarData, clock.timestampMs)
 
       const propCascade = tdfCascade(proposalTdf)
 
@@ -447,72 +492,75 @@ export class SolarGovernanceIntegration {
         trinitariumDetectedConcerns: trinitarium.details.detectedConcerns,
         trinitariumGematriaFusion,
         moralNumerologicalTension,
+        evaluatedAt: clock.timestamp,
+        evaluatedAtMs: clock.timestampMs,
       }
-    } catch (error) {
-      console.error('[SolarHammer] resonance computation failed, neutral fallback:', error)
-      const fallbackTdf = 5.781e12 + 424242
-
+    } catch {
+      const derived = new TextDerivedSignal(proposal)
       return {
-        structuralResonance: 0.80,
-        proximity: 0.80,
-        phaseAlignment: 0.80,
-        vortexAlignment: 0.80,
-        synchronization: 0.80,
-        crossCorrelationStrength: 0.80,
-        crossCorrelationLag: 1,
-        signalTiming: 'synced' as const,
-        solarIsotopicResonance: 0.80,
-        solarActivityLevel: 'moderate',
-        solarReferenceTdf: fallbackTdf,
-        proposalTdf: fallbackTdf,
-        phaseCoherenceProposal: 0.75,
-        phaseCoherenceSun: 0.75,
-        vortexVolume: fallbackTdf * (fallbackTdf + 1000),
+        measurementFailed: true,
+        structuralResonance: 0,
+        proximity: 0,
+        phaseAlignment: 0,
+        vortexAlignment: 0,
+        synchronization: 0,
+        crossCorrelationStrength: 0,
+        crossCorrelationLag: 0,
+        signalTiming: 'trailing' as const,
+        solarIsotopicResonance: 0,
+        solarActivityLevel: 'storm',
+        solarReferenceTdf: 0,
+        proposalTdf: derived.tdfValue,
+        phaseCoherenceProposal: derived.phaseCoherence,
+        phaseCoherenceSun: 0,
+        vortexVolume: 0,
         activityModifier: 0,
         spectralQuality: undefined,
         neuralContextUsed: false,
-        phaseType: 'pull',
-        isotope: 'C-12',
-        waveProximity: 0.80,
-        waveVortexAlignment: 0.80,
-        waveSynchronization: 0.80,
-        hybridVortexAlignment: 0.80,
-        hybrid4DComposite: 0.80,
-        hybridVerdict: 'PASS' as const,
-        fullWave4DComposite: 0.80,
-        calibratedWave4DComposite: 0.80,
-        fullBoxProximity: 0.80,
-        fullBoxVortexAlignment: 0.80,
-        fullBoxSynchronization: 0.80,
-        fullBoxNeuralProximity: 0.80,
-        fullBoxNeuralVortex: 0.80,
-        fullBox4DComposite: 0.80,
-        fullBoxVerdict: 'PASS' as const,
-        fullBoxThresholds: { strong: 0.85, good: 0.75, weak: 0.52 },
-        fullBoxGematriaResonance: 0.80,
-        fullBox7DComposite: 0.80,
-        fullBox7DVerdict: 'PASS' as const,
-        signalPurity: 0.85,
+        phaseType: 'pull' as const,
+        isotope: derived.getIsotopeId(),
+        waveProximity: 0,
+        waveVortexAlignment: 0,
+        waveSynchronization: 0,
+        hybridVortexAlignment: 0,
+        hybrid4DComposite: 0,
+        hybridVerdict: 'REJECT' as const,
+        fullWave4DComposite: 0,
+        calibratedWave4DComposite: 0,
+        fullBoxProximity: 0,
+        fullBoxVortexAlignment: 0,
+        fullBoxSynchronization: 0,
+        fullBoxNeuralProximity: 0,
+        fullBoxNeuralVortex: 0,
+        fullBox4DComposite: 0,
+        fullBoxVerdict: 'REJECT' as const,
+        fullBoxThresholds: { strong: 0.88, good: 0.80, weak: 0.58 },
+        fullBoxGematriaResonance: 0,
+        fullBox7DComposite: 0,
+        fullBox7DVerdict: 'REJECT' as const,
+        signalPurity: 0,
         neuralSunEmbedding: undefined,
         neuralProposalEmbedding: undefined,
-        neuralWaveProximity: 0.80,
-        neuralWaveVortexAlignment: 0.80,
+        neuralWaveProximity: 0,
+        neuralWaveVortexAlignment: 0,
         gematriaEnglishOrdinal: 0,
         gematriaFullReduction: 0,
         gematriaReverseOrdinal: 0,
         gematriaDigitalRootEO: 0,
         gematriaDigitalRootFR: 0,
-        gematriaResonance: 0.80,
+        gematriaResonance: 0,
         gematriaTDF: 0,
-        trinitariumMoralScore: 0.70,
-        trinitariumVirtueAlignment: 0.70,
-        trinitariumHarmPotential: 0.80,
-        trinitariumIntentAlignment: 0.70,
-        trinitariumSacredTextAffinity: 0.50,
+        trinitariumMoralScore: 0,
+        trinitariumVirtueAlignment: 0,
+        trinitariumHarmPotential: 0,
+        trinitariumIntentAlignment: 0,
+        trinitariumSacredTextAffinity: 0,
         trinitariumDetectedVirtues: [],
         trinitariumDetectedConcerns: [],
-        trinitariumGematriaFusion: 0.56,
-        moralNumerologicalTension: 'Mild',
+        trinitariumGematriaFusion: 0,
+        moralNumerologicalTension: 'measurement-failed',
+        evaluatedAt: clock.timestamp,
+        evaluatedAtMs: clock.timestampMs,
       }
     }
   }

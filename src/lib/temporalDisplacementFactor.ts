@@ -37,7 +37,7 @@ export const computeBlackHoleSequence = (voids: number, n: number, phi: number =
 export const computeDualBlackHoleSync = (
   voids: number, 
   n: number, 
-  phi: number = 1.666
+  phi: number = PHI
 ): { seq1: number; seq2: number; total: number; syncEfficiency: number } => {
   // First black hole sequence
   const seq1 = (3 * voids * Math.pow(phi, n)) % (Math.PI * phi);

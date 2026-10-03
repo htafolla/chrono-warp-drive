@@ -134,16 +134,15 @@ export class SolarGovernanceIntegration {
         recommendation
       };
 
-    } catch (error) {
-      console.error('Error getting solar governance context:', error);
+    } catch {
       
-      // Fallback to neutral context
+      // Missing feed: closed, not a moderate pass.
       return {
-        solarActivityLevel: 'moderate',
-        solarActivityModifier: 0,
+        solarActivityLevel: 'storm',
+        solarActivityModifier: -0.15,
         currentSunMetamorphosisIndex: 0.5,
         timestamp: new Date().toISOString(),
-        recommendation: "Unable to fetch solar data - using neutral context"
+        recommendation: "Solar data unavailable — fail closed"
       };
     }
   }
@@ -154,6 +153,7 @@ export class SolarGovernanceIntegration {
    */
   async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[]): Promise<{
     structuralResonance: number
+    measurementFailed?: boolean
     proximity: number
     phaseAlignment: number
     vortexAlignment: number
@@ -371,21 +371,21 @@ export class SolarGovernanceIntegration {
         trinitariumGematriaFusion,
         moralNumerologicalTension,
       }
-    } catch (error) {
-      console.error('[SolarHammer] src/lib resonance failed, neutral:', error)
+    } catch {
       const fallbackTdf = 5.781e12 + 424242
 
       return {
-        structuralResonance: 0.80,
-        proximity: 0.80,
-        phaseAlignment: 0.80,
-        vortexAlignment: 0.80,
-        synchronization: 0.80,
-        crossCorrelationStrength: 0.80,
+        structuralResonance: 0.10,
+        measurementFailed: true,
+        proximity: 0.10,
+        phaseAlignment: 0.10,
+        vortexAlignment: 0.10,
+        synchronization: 0.10,
+        crossCorrelationStrength: 0.10,
         crossCorrelationLag: 1,
         signalTiming: 'synced' as const,
-        solarIsotopicResonance: 0.80,
-        solarActivityLevel: 'moderate',
+        solarIsotopicResonance: 0.10,
+        solarActivityLevel: 'storm',
         solarReferenceTdf: fallbackTdf,
         proposalTdf: fallbackTdf,
         phaseCoherenceProposal: 0.75,
@@ -396,40 +396,40 @@ export class SolarGovernanceIntegration {
         neuralContextUsed: false,
         phaseType: 'pull',
         isotope: 'C-12',
-        waveProximity: 0.80,
-        waveVortexAlignment: 0.80,
-        waveSynchronization: 0.80,
-        hybridVortexAlignment: 0.80,
-        hybrid4DComposite: 0.80,
-        hybridVerdict: 'PASS' as const,
-        fullWave4DComposite: 0.80,
-        calibratedWave4DComposite: 0.80,
-        fullBoxProximity: 0.80,
-        fullBoxVortexAlignment: 0.80,
-        fullBoxSynchronization: 0.80,
-        fullBoxNeuralProximity: 0.80,
-        fullBoxNeuralVortex: 0.80,
-        fullBox4DComposite: 0.80,
-        fullBoxVerdict: 'PASS' as const,
+        waveProximity: 0.10,
+        waveVortexAlignment: 0.10,
+        waveSynchronization: 0.10,
+        hybridVortexAlignment: 0.10,
+        hybrid4DComposite: 0.10,
+        hybridVerdict: 'REJECT' as const,
+        fullWave4DComposite: 0.10,
+        calibratedWave4DComposite: 0.10,
+        fullBoxProximity: 0.10,
+        fullBoxVortexAlignment: 0.10,
+        fullBoxSynchronization: 0.10,
+        fullBoxNeuralProximity: 0.10,
+        fullBoxNeuralVortex: 0.10,
+        fullBox4DComposite: 0.10,
+        fullBoxVerdict: 'REJECT' as const,
         fullBoxThresholds: { strong: 0.85, good: 0.75, weak: 0.52 },
-        fullBoxGematriaResonance: 0.80,
-        fullBox7DComposite: 0.80,
-        fullBox7DVerdict: 'PASS' as const,
+        fullBoxGematriaResonance: 0.10,
+        fullBox7DComposite: 0.10,
+        fullBox7DVerdict: 'REJECT' as const,
         signalPurity: 0.85,
         neuralSunEmbedding: undefined,
         neuralProposalEmbedding: undefined,
-        neuralWaveProximity: 0.80,
-        neuralWaveVortexAlignment: 0.80,
+        neuralWaveProximity: 0.10,
+        neuralWaveVortexAlignment: 0.10,
         gematriaEnglishOrdinal: 0,
         gematriaFullReduction: 0,
         gematriaReverseOrdinal: 0,
         gematriaDigitalRootEO: 0,
         gematriaDigitalRootFR: 0,
-        gematriaResonance: 0.80,
+        gematriaResonance: 0.10,
         gematriaTDF: 0,
         trinitariumMoralScore: 0.70,
         trinitariumVirtueAlignment: 0.70,
-        trinitariumHarmPotential: 0.80,
+        trinitariumHarmPotential: 0.10,
         trinitariumIntentAlignment: 0.70,
         trinitariumSacredTextAffinity: 0.50,
         trinitariumDetectedVirtues: [],
@@ -440,7 +440,5 @@ export class SolarGovernanceIntegration {
     }
   }
 }
-    }
-  }
 
-}
+export const solarGovernance = new SolarGovernanceIntegration()

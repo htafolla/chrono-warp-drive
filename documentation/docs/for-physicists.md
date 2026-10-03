@@ -6,6 +6,8 @@ sidebar_position: 5
 
 This section explains the mathematical foundations and design rationale for the solar-resonance governance model.
 
+The temple ratio is written `5/3` here. This markdown file cannot import the TypeScript constants module.
+
 ## The Circularity Problem
 
 Any governance system that references only itself will eventually optimize for its own reflection. This is well understood in control theory (feedback loop stability), game theory (self-referential equilibria), and computer science (Gödelian incompleteness).
@@ -246,7 +248,7 @@ wave(x, t, n, isotope, lambda, phaseType) = amplitude × sin(2πx/λ − 2π·FR
 | `lambda` | SpectrumBand.lambda | Wavelength in μm from the band definition |
 | `phaseType` | push (+π/4) or pull (−π/4) | Dynamic offset from solar activity |
 
-Constants: `PHI = 1.666`, `FREQ = 528`, `G = 1.0`. The spatial position `x` is the oscillator phase θ (radians), mapping the Kuramoto angular state directly into wave interference.
+Constants: `PHI = 5/3`, `FREQ = 528`, `G = 1.0`. The spatial position `x` is the oscillator phase θ (radians), mapping the Kuramoto angular state directly into wave interference.
 
 ### 12 Spectrum Bands
 

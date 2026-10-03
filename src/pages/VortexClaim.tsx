@@ -10,6 +10,7 @@ import { VortexDetailModal } from '@/components/vortex/VortexDetailModal'
 import { MyVortices } from '@/components/vortex/MyVortices'
 import { ClaimModal } from '@/components/vortex/ClaimModal'
 import { DYNAMO_MCP_URL as MCP_URL } from '@/config/platform-env'
+import { asBigint, readContractView } from '../../mcp/lib/looseContract'
 
 export const CLAIMS_PAUSED_NOTICE = 'Claims are paused while we add signed vouchers.'
 
@@ -192,7 +193,6 @@ export default function VortexClaim() {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
   const publicClient = usePublicClient()
-  console.log('[vortex] render wallet:', { address: address?.slice(0, 10), isConnected, hasWriteContract: !!writeContractAsync, hasPublicClient: !!publicClient })
 
   const [containers, setContainers] = useState<ContainerItem[]>([])
   const [totalContainers, setTotalContainers] = useState(0)
@@ -255,7 +255,6 @@ export default function VortexClaim() {
         fetch(`${MCP_URL}/vortex/statuses`),
       ])
       const containerData = await containerRes.json()
-      console.log('[vortex] containers loaded:', containerData.containers?.length, 'total:', containerData.total)
       if (containerData.success) {
         setContainers(containerData.containers)
         setTotalContainers(containerData.total)
@@ -269,8 +268,7 @@ export default function VortexClaim() {
         }
         setTokenStatus(status)
       }
-    } catch (err) {
-      console.error('[vortex] Failed to load containers', err)
+    } catch {
     } finally {
       setLoading(false)
       setStatusLoading(false)
@@ -286,8 +284,7 @@ export default function VortexClaim() {
       if (data.success) {
         setContainers(prev => [...prev, ...data.containers])
       }
-    } catch (err) {
-      console.error('[vortex] Failed to load more containers', err)
+    } catch {
     } finally {
       setLoadingMore(false)
     }
@@ -297,21 +294,21 @@ export default function VortexClaim() {
     if (!publicClient || !address) return
     setMyTokensLoading(true)
     try {
-      const balance = await publicClient.readContract({
+      const balance = asBigint(await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi: VORTEX_ABI,
         functionName: 'balanceOf',
         args: [address],
-      })
+      }))
       const tokens: { tokenId: string; containerData: any }[] = []
       for (let i = 0; i < Number(balance); i++) {
-        const tid = await publicClient.readContract({
+        const tid = asBigint(await readContractView(publicClient, {
           address: VORTEX_TOKEN_ADDRESS,
           abi: VORTEX_ABI,
           functionName: 'tokenOfOwnerByIndex',
           args: [address, BigInt(i)],
-        })
-        const data = await publicClient.readContract({
+        }))
+        const data = await readContractView(publicClient, {
           address: VORTEX_TOKEN_ADDRESS,
           abi: VORTEX_ABI,
           functionName: 'getContainerData',
@@ -320,8 +317,7 @@ export default function VortexClaim() {
         tokens.push({ tokenId: tid.toString(), containerData: data })
       }
       setMyTokens(tokens)
-    } catch (err) {
-      console.warn('[vortex] failed to load my tokens', err)
+    } catch {
     } finally {
       setMyTokensLoading(false)
     }
@@ -338,7 +334,7 @@ export default function VortexClaim() {
   async function loadOnChainMetadata(tokenId: string, containerId: string) {
     if (!publicClient) return
     try {
-      const data = await publicClient.readContract({
+      const data = await readContractView(publicClient, {
         address: VORTEX_TOKEN_ADDRESS,
         abi: VORTEX_ABI,
         functionName: 'getContainerData',

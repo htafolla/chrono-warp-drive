@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { SpectrumData } from '@/types/sdss';
 import { TPTTv4_6Result } from '@/types/blurrn-v4-6';
 import { TPTTv4_7Result } from '@/types/blurrn-v4-7';
+import { PHI } from '@/lib/tlmConstants';
 
 interface ArchitectImplementationExportProps {
   currentState: any;
@@ -195,8 +196,7 @@ export function ArchitectImplementationExport({
           exported_at: new Date().toISOString()
         }
       };
-    } catch (error) {
-      console.warn('Backend data export failed, using fallback:', error);
+    } catch {
       
       // Try localStorage fallback
       const fallbackExperiments = localStorage.getItem('tdf_experiments_fallback');
@@ -231,7 +231,7 @@ export function ArchitectImplementationExport({
           phases: currentState.phases || [0, 0, 0],
           isotope: currentState.isotope || { type: 'C-12', factor: 1.0 },
           tPTT_value: currentState.tPTT_value || 0,
-          phi: currentState.phi || 1.618,
+          phi: PHI,
           lightWave: currentState.lightWave || 0
         },
         
@@ -342,7 +342,6 @@ export function ArchitectImplementationExport({
       return finalPackage;
       
     } catch (error) {
-      console.error('Comprehensive export failed:', error);
       throw error;
     }
   }, [currentState, tpttV46Result, spectrumData, performanceSettings, sessionId, generateSystemArchitectureSnapshot, exportBackendData]);
@@ -370,8 +369,7 @@ export function ArchitectImplementationExport({
       
       toast.success(`Comprehensive implementation export generated: ${filename}`);
       
-    } catch (error) {
-      console.error('Export failed:', error);
+    } catch {
       toast.error('Export generation failed. Please try again.');
     } finally {
       setExportProgress({ stage: 'Complete', progress: 0, isActive: false });
@@ -385,7 +383,7 @@ export function ArchitectImplementationExport({
         phases: currentState.phases || [0, 0, 0],
         isotope: currentState.isotope || { type: 'C-12', factor: 1.0 },
         tPTT_value: currentState.tPTT_value || 0,
-        phi: currentState.phi || 1.618,
+        phi: PHI,
         lightWave: currentState.lightWave || 0
       },
       tdfV46: tpttV46Result,

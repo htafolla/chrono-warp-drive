@@ -2,6 +2,7 @@
 // Automated compliance checking and performance benchmarking
 
 import { TPTTv4_7Result } from '@/types/blurrn-v4-7';
+import { PHI } from './tlmConstants';
 
 export interface CodexValidationResult {
   isCompliant: boolean;
@@ -22,7 +23,7 @@ export interface CodexIssue {
 export interface CodexMetrics {
   // Core Parameters (Codex Section: TLM Basics)
   l_value: number; // Should be 3
-  phi_value: number; // Should be 1.666
+  phi_value: number; // Should be 5/3
   tau_value: number; // Should be 0.865
   
   // v4.7 Cascade Parameters
@@ -72,7 +73,7 @@ export function validateCodexCompliance(
   // Extract metrics
   const metrics: CodexMetrics = {
     l_value: 3, // Fixed by design
-    phi_value: 1.666, // Fixed by design
+    phi_value: PHI, // Fixed by design
     tau_value: result.v46_components.tau,
     delta_phase: result.v47_components.delta_phase,
     n_value: result.v47_components.n,
@@ -101,14 +102,14 @@ export function validateCodexCompliance(
     score -= 20;
   }
 
-  // Rule 2: φ = 1.666 (Golden Ratio Variant)
-  if (Math.abs(metrics.phi_value - 1.666) > 0.001) {
+  // Rule 2: φ = 5/3
+  if (Math.abs(metrics.phi_value - PHI) > 1e-9) {
     issues.push({
       severity: 'critical',
       rule: 'TLM-φ',
-      message: 'Phi value must be 1.666',
+      message: 'Phi value must be 5/3',
       value: metrics.phi_value,
-      expected: 1.666
+      expected: PHI
     });
     score -= 20;
   }
@@ -232,7 +233,7 @@ export function validateCodexCompliance(
 function getDefaultMetrics(): CodexMetrics {
   return {
     l_value: 3,
-    phi_value: 1.666,
+    phi_value: PHI,
     tau_value: 0.865,
     delta_phase: 0.275,
     n_value: 29,

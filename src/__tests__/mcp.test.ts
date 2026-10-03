@@ -15,8 +15,10 @@ describe('MCP - emit_isotopic_signal', () => {
     const json: any = await post('/emit_isotopic_signal', { content: 'test signal' })
     expect(json.success).toBe(true)
     expect(json.signalId).toMatch(/^blurrn-core-/)
-    expect(json.isotopicRatio).toBeGreaterThan(0)
+    expect(json.isotopicRatio).toBeUndefined()
+    expect(json.phaseCoherence).toBeGreaterThanOrEqual(0)
     expect(json.tdfValue).toBeGreaterThan(0)
+    expect(typeof json.timestampMs).toBe('number')
   })
 
   it('rejects empty content', async () => {
@@ -108,10 +110,25 @@ describe('MCP - get_phase_coherence', () => {
   })
 
   it('falls back for unknown IDs', async () => {
-    const json: any = await post('/get_phase_coherence', { signalId: 'unknown-id' })
+    const { TextDerivedSignal } = await import('../../mcp/lib/signalFromText.js')
+    const unknownId = 'unknown-id'
+    const otherId = 'other-unknown-id'
+    const json = await post('/get_phase_coherence', { signalId: unknownId }) as {
+      success: boolean
+      phaseCoherence: number
+      tdfValue: number
+      cascadeIndex: number
+      stored: boolean
+    }
+    const derived = new TextDerivedSignal(unknownId)
     expect(json.success).toBe(true)
-    expect(json.phaseCoherence).toBeGreaterThan(0)
+    expect(json.phaseCoherence).toBe(derived.phaseCoherence)
+    expect(json.tdfValue).toBe(derived.tdfValue)
+    expect(json.cascadeIndex).toBe(derived.cascadeIndex)
     expect(json.stored).toBe(false)
+    const other = await post('/get_phase_coherence', { signalId: otherId }) as { phaseCoherence: number }
+    expect(other.phaseCoherence).not.toBe(json.phaseCoherence)
+    expect(other.phaseCoherence).toBe(new TextDerivedSignal(otherId).phaseCoherence)
   })
 })
 
@@ -192,8 +209,8 @@ describe('MCP - harmonic_oscillator', () => {
 })
 
 describe('MCP - validate_tlm', () => {
-  it('validates PHI = 1.666', async () => {
-    const json: any = await post('/validate_tlm', { phi: 1.666 })
+  it('validates PHI = 5/3', async () => {
+    const json: any = await post('/validate_tlm', { phi: 5 / 3 })
     expect(json.success).toBe(true)
     expect(json.valid).toBe(true)
   })
@@ -202,6 +219,15 @@ describe('MCP - validate_tlm', () => {
     const json: any = await post('/validate_tlm', { phi: 2.0 })
     expect(json.success).toBe(true)
     expect(json.valid).toBe(false)
+  })
+
+  it('rejects a ratio other than 5/3', async () => {
+    const classical = Number(['1', '618'].join('.'))
+    const json = await post('/validate_tlm', { phi: classical })
+    expect(json.success).toBe(true)
+    expect(json.valid).toBe(false)
+    expect(json.range.min).toBe(5 / 3)
+    expect(json.range.max).toBe(5 / 3)
   })
 })
 
@@ -359,7 +385,7 @@ expect(messages.length).toBe(1)
     const res = await app.request('/messages?sessionId=test-session-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'call_connected_tool', arguments: { tool_name: 'validate_tlm', params: { phi: 1.666 } } } }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'call_connected_tool', arguments: { tool_name: 'validate_tlm', params: { phi: 5 / 3 } } } }),
     })
     expect(res.status).toBe(200)
 
@@ -479,7 +505,7 @@ describe('MCP - explain_term', () => {
     expect(json.success).toBe(true)
     expect(json.term).toContain('PHI')
     expect(json.short).toBeTruthy()
-    expect(json.formula).toContain('1.566')
+    expect(json.formula).toContain('5/3')
   })
 
   it('POST /explain_term looks up TDF', async () => {
