@@ -1222,10 +1222,10 @@ describe('mint abuse limits', () => {
     stub.existingMintErrorIds.add(signedId.toLowerCase())
     stub.existingMintErrorIds.add(autoId.toLowerCase())
     const logs: string[] = []
-    const logSpy = vi.spyOn(console, 'log').mockImplementation((message?: unknown) => {
-      logs.push(String(message))
+    const logSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      logs.push(String(chunk))
+      return true
     })
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const refused = await mint(signedMint(signedId, signedHash, address(81)), {
         ...authHeader(),
@@ -1261,7 +1261,6 @@ describe('mint abuse limits', () => {
       expect(stub.mints).toEqual([onChainMintId(signedId)])
     } finally {
       logSpy.mockRestore()
-      errorSpy.mockRestore()
     }
   })
 
@@ -1304,8 +1303,9 @@ describe('mint abuse limits', () => {
       proposalText: 'hash keyed',
     }))
     const logs: string[] = []
-    const spy = vi.spyOn(console, 'log').mockImplementation((message?: unknown) => {
-      logs.push(String(message))
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      logs.push(String(chunk))
+      return true
     })
     try {
       await replayMintBacklog()

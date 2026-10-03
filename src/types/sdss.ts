@@ -24,7 +24,7 @@ export interface SpectrumData {
   wavelengths: number[]; // Å units, 3800-9200 Å range
   intensities: number[]; // Normalized flux values
   granularity: number; // Å per pixel, target ~1 Å
-  source: 'SDSS' | 'SYNTHETIC' | 'STELLAR_LIBRARY';
+  source: 'SDSS' | 'SYNTHETIC' | 'STELLAR_LIBRARY' | 'user-upload';
   metadata?: {
     objid?: string;
     class?: string;

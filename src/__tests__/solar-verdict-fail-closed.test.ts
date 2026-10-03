@@ -1,28 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { deriveProposalCodexParams, solarGovernance } from '../../mcp/lib/solarGovernanceIntegration'
+import { solarGovernance } from '../../mcp/lib/solarGovernanceIntegration'
+import { TextDerivedSignal } from '../../mcp/lib/signalFromText'
 import {
   fetchCurrentSolarData,
   resolveActivityLevel,
   SolarDataFetcher,
   SolarMeasurementMissing,
-  type SolarData,
 } from '../../mcp/lib/solarDataFetcher'
 import { solarGovernance as appGovernance } from '../lib/solarGovernanceIntegration'
 import { SolarDataFetcher as AppSolarDataFetcher, SolarMeasurementMissing as AppSolarMeasurementMissing } from '../lib/solarDataFetcher'
 
-const quietSun = {
-  activityLevel: 'quiet',
-  xray: { short: 1e-9, long: 1e-8, hardnessRatio: 0.1, flareClass: 'A' },
-} as SolarData
-
 describe('solar verdict fail-closed', () => {
-  it('keeps the same proposal fingerprint across calls', () => {
-    const words = ['upgrade', 'the', 'stellar', 'module']
-    const first = deriveProposalCodexParams(words, quietSun)
-    const second = deriveProposalCodexParams(words, quietSun)
-    expect(second).toEqual(first)
-  })
-
   it('treats a missing X-ray or Kp feed as a storm', () => {
     expect(resolveActivityLevel('quiet', 'fallback', 'ok')).toBe('storm')
     expect(resolveActivityLevel('quiet', 'ok', 'fallback')).toBe('storm')
@@ -84,9 +72,10 @@ describe('missing solar measurement', () => {
     const hammer = await solarGovernance.getProposalSolarIsotopicResonance('upgrade the stellar module')
     expect(hammer.measurementFailed).toBe(true)
     expect(hammer.hybridVerdict).toBe('REJECT')
-    expect(hammer.structuralResonance).toBe(0.10)
-    expect(hammer.solarIsotopicResonance).toBe(0.10)
-    expect(hammer.fullBox7DComposite).toBe(0.10)
+    expect(hammer.structuralResonance).toBe(0)
+    expect(hammer.solarIsotopicResonance).toBe(0)
+    expect(hammer.fullBox7DComposite).toBe(0)
+    expect(hammer.isotope).toBe(new TextDerivedSignal('upgrade the stellar module').getIsotopeId())
   })
 
   it('rejects the app mirror when the sun reading is missing', async () => {

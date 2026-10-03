@@ -11,6 +11,7 @@ import { runKuramotoCoupling } from './kuramotoOscillators.js'
 import { computeWaveResonance, computeHybridResonance, computeFullBoxResonance, computeCalibratedWaveVortex, tdfToEmbedding16, textToEmbedding16, sentenceToEmbedding16 } from './wavePropagation.js'
 import { computeGematriaVortex, DEFAULT_SOLAR_GEMATRIA_TEXT } from './gematriaEngine.js'
 import { computeTrinitariumOverlay, computeTrinitariumGematriaFusion } from './trinitariumMoralOverlay.js'
+import { TextDerivedSignal, crossTexts, resolveTimestampMs } from './signalFromText.js'
 
 // Solar-Isotopic Hammer — Option 1 + Option 2 (complete stabilized implementation)
 // Normalize first (Option 2), then seed real vortex parameters from normalized text (Option 1),
@@ -39,7 +40,7 @@ function fnvHash(text: string): number {
 const MIN_FINGERPRINT_WORDS = 3;
 const ANCHOR_WORDS = ['general', 'proposal', 'matter'];
 
-export function deriveProposalCodexParams(words: string[], solarData: SolarData): VortexTdfParams {
+function deriveProposalCodexParams(words: string[], solarData: SolarData, timestampMs: number): VortexTdfParams {
   const effective = words.length >= MIN_FINGERPRINT_WORDS
     ? words
     : [...words, ...ANCHOR_WORDS.slice(0, MIN_FINGERPRINT_WORDS - words.length)];
@@ -47,9 +48,12 @@ export function deriveProposalCodexParams(words: string[], solarData: SolarData)
   const combined = effective.join(' ')
   const totalChars = combined.length
   const uniqueChars = new Set(combined).size
-  // The proposal fingerprint is the text. Solar flux still changes the sun TDF.
-  // A clock nonce made the same proposal a different proposal one second later.
-  const hashVal = fnvHash(combined)
+  // Temporal nonce: the stored evaluation second XORed with solar micro-variation.
+  // The second is an explicit input (defaults to now at the call site). Passing the
+  // same timestampMs reproduces this nonce. This binding is not a Codex text→isotope
+  // formula; it is the existing clock term, now caller-supplied instead of Date.now().
+  const temporalNonce = Math.floor(timestampMs / 1000) ^ Math.floor((solarData.xray?.long ?? 0) * 1e6)
+  const hashVal = fnvHash(combined + String(temporalNonce))
 
   // T_c: Word count + character diversity. Dense text = larger time constant.
   const T_c = 0.5 + (wordCount / 50) + (uniqueChars / Math.max(totalChars, 1)) * 0.5
@@ -97,8 +101,8 @@ function deriveSolarCodexParams(solarData: SolarData): VortexTdfParams {
   return { T_c, P_s, E_t, delta_t, voids, bhs_n }
 }
 
-function computeProposalTdf(words: string[], solarData: SolarData): number {
-  const params = deriveProposalCodexParams(words, solarData)
+function computeProposalTdf(words: string[], solarData: SolarData, timestampMs: number): number {
+  const params = deriveProposalCodexParams(words, solarData, timestampMs)
   return computeFullTDF(params).tdf
 }
 
@@ -118,6 +122,36 @@ function planetaryKp(value: number | undefined): number {
   return Math.min(value, 9)
 }
 
+/**
+ * Text → TDF for cross_correlate.
+ * hashProposalToTdf (commit 164e6cf3) was the first hammer fingerprint.
+ * deriveProposalCodexParams (commit 588cb2de) replaced it. computeProposalTdf
+ * calls that function and computeFullTDF. No new hash is added here.
+ */
+function tdfForProposalText(text: string, solarData: SolarData, timestampMs: number): { tdf: number; cascadeIndex: number } {
+  const normalized = normalizeProposalText(text || 'empty-proposal')
+  const words = normalized ? normalized.split(/\s+/).filter((word) => word.length > 0) : []
+  const tdf = computeProposalTdf(words, solarData, timestampMs)
+  return { tdf, cascadeIndex: tdfCascade(tdf) }
+}
+
+/** Both sides of one correlation share one solar snapshot and one timestamp. */
+export async function crossCorrelateFromProposalText(
+  contentA: string,
+  contentB: string,
+  timestampMs: number,
+): Promise<ReturnType<typeof crossTexts>> {
+  const solarData = await solarDataFetcher.fetchCurrentSolarData()
+  const left = tdfForProposalText(contentA, solarData, timestampMs)
+  const right = tdfForProposalText(contentB, solarData, timestampMs)
+  return crossTexts(contentA, contentB, {
+    tdfA: left.tdf,
+    tdfB: right.tdf,
+    cascadeA: left.cascadeIndex,
+    cascadeB: right.cascadeIndex,
+  })
+
+}
 export interface SolarGovernanceContext {
   solarActivityLevel: string
   solarActivityModifier: number // -0.15 to +0.05
@@ -204,6 +238,8 @@ export interface StructuralResonanceResult {
   trinitariumGematriaFusion?: number
   moralNumerologicalTension?: string
   measurementFailed?: boolean
+  evaluatedAt: string
+  evaluatedAtMs: number
 }
 
 export class SolarGovernanceIntegration {
@@ -267,13 +303,14 @@ export class SolarGovernanceIntegration {
    * When provided, the 4D weights rebalance to 0.18/0.18/0.27/0.27 to make room.
    * When absent, the original 4D formula (0.20/0.20/0.30/0.30) is used.
    */
-  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[]): Promise<StructuralResonanceResult> {
+  async getProposalSolarIsotopicResonance(proposal: string, spectralQuality?: number, sunNeuralEmbedding?: number[], evaluatedAtMs?: number): Promise<StructuralResonanceResult> {
+    const clock = resolveTimestampMs(evaluatedAtMs)
     try {
       const solarData = await solarDataFetcher.fetchCurrentSolarData()
 
       const normalized = normalizeProposalText(proposal || 'empty-proposal')
       const words = normalized ? normalized.split(/\s+/).filter(w => w.length > 0) : []
-      const proposalTdf = computeProposalTdf(words, solarData)
+      const proposalTdf = computeProposalTdf(words, solarData, clock.timestampMs)
 
       const propCascade = tdfCascade(proposalTdf)
 
@@ -455,72 +492,75 @@ export class SolarGovernanceIntegration {
         trinitariumDetectedConcerns: trinitarium.details.detectedConcerns,
         trinitariumGematriaFusion,
         moralNumerologicalTension,
+        evaluatedAt: clock.timestamp,
+        evaluatedAtMs: clock.timestampMs,
       }
     } catch {
-      const fallbackTdf = 5.781e12 + 424242
-
+      const derived = new TextDerivedSignal(proposal)
       return {
-        structuralResonance: 0.10,
         measurementFailed: true,
-        proximity: 0.10,
-        phaseAlignment: 0.10,
-        vortexAlignment: 0.10,
-        synchronization: 0.10,
-        crossCorrelationStrength: 0.10,
-        crossCorrelationLag: 1,
-        signalTiming: 'synced' as const,
-        solarIsotopicResonance: 0.10,
+        structuralResonance: 0,
+        proximity: 0,
+        phaseAlignment: 0,
+        vortexAlignment: 0,
+        synchronization: 0,
+        crossCorrelationStrength: 0,
+        crossCorrelationLag: 0,
+        signalTiming: 'trailing' as const,
+        solarIsotopicResonance: 0,
         solarActivityLevel: 'storm',
-        solarReferenceTdf: fallbackTdf,
-        proposalTdf: fallbackTdf,
-        phaseCoherenceProposal: 0.75,
-        phaseCoherenceSun: 0.75,
-        vortexVolume: fallbackTdf * (fallbackTdf + 1000),
+        solarReferenceTdf: 0,
+        proposalTdf: derived.tdfValue,
+        phaseCoherenceProposal: derived.phaseCoherence,
+        phaseCoherenceSun: 0,
+        vortexVolume: 0,
         activityModifier: 0,
         spectralQuality: undefined,
         neuralContextUsed: false,
-        phaseType: 'pull',
-        isotope: 'C-12',
-        waveProximity: 0.10,
-        waveVortexAlignment: 0.10,
-        waveSynchronization: 0.10,
-        hybridVortexAlignment: 0.10,
-        hybrid4DComposite: 0.10,
+        phaseType: 'pull' as const,
+        isotope: derived.getIsotopeId(),
+        waveProximity: 0,
+        waveVortexAlignment: 0,
+        waveSynchronization: 0,
+        hybridVortexAlignment: 0,
+        hybrid4DComposite: 0,
         hybridVerdict: 'REJECT' as const,
-        fullWave4DComposite: 0.10,
-        calibratedWave4DComposite: 0.10,
-        fullBoxProximity: 0.10,
-        fullBoxVortexAlignment: 0.10,
-        fullBoxSynchronization: 0.10,
-        fullBoxNeuralProximity: 0.10,
-        fullBoxNeuralVortex: 0.10,
-        fullBox4DComposite: 0.10,
+        fullWave4DComposite: 0,
+        calibratedWave4DComposite: 0,
+        fullBoxProximity: 0,
+        fullBoxVortexAlignment: 0,
+        fullBoxSynchronization: 0,
+        fullBoxNeuralProximity: 0,
+        fullBoxNeuralVortex: 0,
+        fullBox4DComposite: 0,
         fullBoxVerdict: 'REJECT' as const,
-        fullBoxThresholds: { strong: 0.85, good: 0.75, weak: 0.52 },
-        fullBoxGematriaResonance: 0.10,
-        fullBox7DComposite: 0.10,
+        fullBoxThresholds: { strong: 0.88, good: 0.80, weak: 0.58 },
+        fullBoxGematriaResonance: 0,
+        fullBox7DComposite: 0,
         fullBox7DVerdict: 'REJECT' as const,
-        signalPurity: 0.85,
+        signalPurity: 0,
         neuralSunEmbedding: undefined,
         neuralProposalEmbedding: undefined,
-        neuralWaveProximity: 0.10,
-        neuralWaveVortexAlignment: 0.10,
+        neuralWaveProximity: 0,
+        neuralWaveVortexAlignment: 0,
         gematriaEnglishOrdinal: 0,
         gematriaFullReduction: 0,
         gematriaReverseOrdinal: 0,
         gematriaDigitalRootEO: 0,
         gematriaDigitalRootFR: 0,
-        gematriaResonance: 0.10,
+        gematriaResonance: 0,
         gematriaTDF: 0,
-        trinitariumMoralScore: 0.70,
-        trinitariumVirtueAlignment: 0.70,
-        trinitariumHarmPotential: 0.10,
-        trinitariumIntentAlignment: 0.70,
-        trinitariumSacredTextAffinity: 0.50,
+        trinitariumMoralScore: 0,
+        trinitariumVirtueAlignment: 0,
+        trinitariumHarmPotential: 0,
+        trinitariumIntentAlignment: 0,
+        trinitariumSacredTextAffinity: 0,
         trinitariumDetectedVirtues: [],
         trinitariumDetectedConcerns: [],
-        trinitariumGematriaFusion: 0.56,
-        moralNumerologicalTension: 'Mild',
+        trinitariumGematriaFusion: 0,
+        moralNumerologicalTension: 'measurement-failed',
+        evaluatedAt: clock.timestamp,
+        evaluatedAtMs: clock.timestampMs,
       }
     }
   }

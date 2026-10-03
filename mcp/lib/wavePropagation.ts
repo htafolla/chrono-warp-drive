@@ -179,7 +179,7 @@ async function initTransformer(): Promise<any> {
       })
       return transformerPipe
     } catch (e) {
-      console.warn('[sentenceToEmbedding16] Transformer init failed, using FNV fallback:', e)
+      process.stderr.write(`[sentenceToEmbedding16] Transformer init failed, using FNV fallback: ${e}\n`)
       transformerPipe = null
       return null
     } finally {
