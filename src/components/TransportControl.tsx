@@ -38,6 +38,8 @@ interface TemporalRecord {
   hybrid4DComposite: number;
   fullBoxVerdict: string;
   fullBox4DComposite: number;
+  fullBox7DVerdict?: string;
+  fullBox7DComposite?: number;
   fullBoxProximity: number;
   fullBoxVortexAlignment: number;
   fullBoxSynchronization: number;

@@ -22,12 +22,22 @@ let isInitialized = false
 let isTrained = false
 let trainingSnapshot: SolarSnapshot | null = null
 
+interface ClassicWorkerScope {
+  importScripts(...urls: string[]): void
+  tf?: unknown
+}
+
+function classicWorkerScope(): ClassicWorkerScope {
+  return self as unknown as ClassicWorkerScope
+}
+
 async function loadTensorFlow(): Promise<boolean> {
   while (loadAttempts < maxAttempts && !tf) {
     try {
       loadAttempts++
-      self.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js')
-      tf = (self as any).tf
+      const scope = classicWorkerScope()
+      scope.importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js')
+      tf = scope.tf
       return true
     } catch {
       if (loadAttempts >= maxAttempts) return false
@@ -73,9 +83,8 @@ async function initializeWorker(): Promise<void> {
       validationSplit: 0.15,
       callbacks: {
         onEpochEnd: (epoch: number, logs: any) => {
-          if (epoch % 10 === 0) {
-            // eslint-disable-next-line no-console
-            console.log(`[Worker] epoch ${epoch} loss=${logs.loss.toFixed(6)}`)
+          if (epoch % 10 === 0 && typeof process !== "undefined" && process.stderr) {
+            process.stderr.write(`[Worker] epoch ${epoch} loss=${logs.loss.toFixed(6)}\n`)
           }
         },
       },
