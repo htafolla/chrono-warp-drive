@@ -356,7 +356,7 @@ class BlurrnMCP(MCPClient):
         return self.call_tool("list_isotopes", {}, force_get=force_get)
 
     def validate_tlm(self, phi: float = 5 / 3, force_get: bool = True) -> Dict[str, Any]:
-        """Validate Trinitarium ratio is in [1.566, 1.766].
+        """Validate the Trinitarium ratio is the exact fraction 5/3.
 
         Default is the fraction 5/3. This client cannot import the TypeScript
         constants module, so the fraction is written here.

@@ -203,6 +203,15 @@ describe('MCP - validate_tlm', () => {
     expect(json.success).toBe(true)
     expect(json.valid).toBe(false)
   })
+
+  it('rejects a ratio other than 5/3', async () => {
+    const classical = Number(['1', '618'].join('.'))
+    const json = await post('/validate_tlm', { phi: classical })
+    expect(json.success).toBe(true)
+    expect(json.valid).toBe(false)
+    expect(json.range.min).toBe(5 / 3)
+    expect(json.range.max).toBe(5 / 3)
+  })
 })
 
 // ===== GET Endpoint Tests (sandbox-compatible) =====
@@ -479,7 +488,7 @@ describe('MCP - explain_term', () => {
     expect(json.success).toBe(true)
     expect(json.term).toContain('PHI')
     expect(json.short).toBeTruthy()
-    expect(json.formula).toContain('1.566')
+    expect(json.formula).toContain('5/3')
   })
 
   it('POST /explain_term looks up TDF', async () => {

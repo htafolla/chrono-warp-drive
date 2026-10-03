@@ -229,7 +229,7 @@ P_o = sin(2πct + π/φ), c=3e8 m/s. Echo_verify = |P_o| * phase_coherence > 0.7
 
 **Key Constants:**
 - τ = 0.865 (dilation)
-- φ = 1.666 (golden ratio)
+- φ = 1.666 (5/3)
 - c = 3e8 (oscillator)
 - TDF_clamp = 1e15
 

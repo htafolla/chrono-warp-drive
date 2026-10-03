@@ -631,7 +631,7 @@ The critical property is whether BHS values are distinguishable for different (v
 
 The value φ = 5/3 is distinguished from 2.0 and 1.5 by:
 1. φ = 5/3 is the simplest rational in (1.5, 2.0) that is not an integer or half-integer
-2. φ = 5/3 connects to the golden ratio (φ_golden ≈ 1.618) while remaining distinctly larger
+2. φ = 5/3 is the temple measure. It replaced the classical golden ratio and remains distinctly larger.
 3. φ = 2.0 produces integer powers (doubling), reducing fine structure; φ = 1.5 (3/2) produces slower growth
 
 **Conclusion:** φ = 5/3 is not mathematically unique in the sense that other values could satisfy the BHS > 0 constraint. However, among rationals in (1.5, 2.0) with denominator ≤ 3, 5/3 is the unique non-integer, non-half-integer value — the Codex's "temple measure" that balances growth rate (faster than 3/2) with fine structure (non-integer powers). ∎

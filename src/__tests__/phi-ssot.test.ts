@@ -5,6 +5,7 @@ import { PHI as srcPhi } from '../../src/lib/tlmConstants.ts'
 import { PHI as seededPhi } from '../../mcp/lib/deterministicUtils.ts'
 import { L, PHI } from '../../mcp/lib/tlmConstants.ts'
 import { blackHoleSequence, tPTT } from '../../mcp/lib/vortexMath.ts'
+import { validateTLM } from '../../src/lib/temporalCalculator.ts'
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next'])
 const TEXT = /\.(ts|tsx|js|jsx|mjs|cjs|md|py|json|yml|yaml|txt)$/
@@ -17,6 +18,7 @@ const FORBIDDEN = new RegExp(
     '|' + '1666' + '/' + '1000' +
     '|' + '0\\.' + '8333' +
     '|' + '2\\.' + '7778' +
+    '|' + '1\\.' + '618' +
   ')(?![0-9])',
 )
 // Only the versioned Codex files that still quote the old decimal as historical text.
@@ -50,6 +52,14 @@ describe('PHI source', () => {
     expect(seededPhi).toBe(PHI)
   })
 
+  it('accepts only the exact fraction', () => {
+    expect(validateTLM(5 / 3)).toBe(true)
+    const classical = Number(['1', '618'].join('.'))
+    const threePlace = Number(['1', '666'].join('.'))
+    expect(validateTLM(classical)).toBe(false)
+    expect(validateTLM(threePlace)).toBe(false)
+  })
+
   it('default tPTT and BlackHole_Seq use that PHI', () => {
     const bhs = ((L * 7) * Math.pow(PHI, 3)) % Math.PI
     expect(blackHoleSequence(7, 3)).toBe(bhs)
@@ -66,6 +76,7 @@ describe('PHI source', () => {
       spell('1666', '/', '1000'),
       spell('0.', '8333'),
       spell('2.', '7778'),
+      spell('1.', '618'),
     ]
     for (const sample of hits) expect(FORBIDDEN.test(sample)).toBe(true)
     expect(FORBIDDEN.test(spell('0.', '8333', '204450439127'))).toBe(false)

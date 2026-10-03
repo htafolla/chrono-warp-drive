@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ISOTOPES, validateTLM, type Isotope } from '@/lib/temporalCalculator';
+import { ISOTOPES, PHI, validateTLM, type Isotope } from '@/lib/temporalCalculator';
 
 interface ControlPanelProps {
   phi: number;
@@ -56,18 +56,19 @@ export function ControlPanel({
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <label className="text-sm font-medium">Phi (φ) Ratio</label>
-              <span className="text-sm text-muted-foreground font-mono">{phi.toFixed(3)}</span>
+              <span className="text-sm text-muted-foreground font-mono">{(Math.floor(PHI * 1000) / 1000).toFixed(3)}</span>
             </div>
             <Slider
-              value={[phi]}
-              onValueChange={(values) => setPhi(values[0])}
-              min={1.566}
-              max={1.766}
-              step={0.001}
+              value={[PHI]}
+              onValueChange={() => setPhi(PHI)}
+              min={PHI}
+              max={PHI}
+              step={1}
+              disabled
               className="w-full"
             />
             <div className="text-xs text-muted-foreground">
-              Valid TLM range: 1.566 - 1.766
+              Temple measure 5/3
             </div>
           </div>
 

@@ -57,11 +57,9 @@ const TOKEN_IMAGE_TTL = 86400
       ...c,
       origin: originById.get(c.containerId.toLowerCase()),
     })))
-    console.log(`[bootstrap] Manifold populated with ${temporalManifold.getPointCount()} points from ${containerStore.length} containers`)
 
     // Start ambient field AFTER restoring Manifold history
     ambientField.start()
-    console.log('[bootstrap] Ambient Resonance Field started')
     // Sync mint mappings to Redis — runs if Redis count < on-chain totalSupply
     try {
       const existing = await client.hgetall(REDIS_VORTEX_KEY_MINT)
@@ -93,7 +91,6 @@ const TOKEN_IMAGE_TTL = 86400
             }
           } catch { /* skipped */ }
         }
-        console.log(`[bootstrap] Synced ${synced} missing mint entries to Redis (totalSupply=${onChainSupply})`)
       }
       // Sync registered container IDs to Redis set via paginated listContainers
       try {
@@ -118,7 +115,6 @@ const TOKEN_IMAGE_TTL = 86400
           }
           await client.del(REDIS_VORTEX_KEY_REGISTERED)
           await client.sadd(REDIS_VORTEX_KEY_REGISTERED, ...allIds.map((id: string) => id.toLowerCase()))
-          console.log(`[bootstrap] Registered ${allIds.length} containers to Redis set`)
         }
       } catch { /* registry sync failed */ }
     } catch { /* sync failed */ }
@@ -352,7 +348,7 @@ function blackHoleSequence(voids: number, n: number): number {
 }
 
 function validateTLM(phi: number): boolean {
-  return phi >= 1.566 && phi <= 1.766;
+  return Math.abs(phi - PHI) <= 1e-9;
 }
 
 // Full TDF chain: TDF = tPTT(T_c, P_s, E_t, delta_t) * TAU * (1 / blackHoleSequence(voids, n))
@@ -380,9 +376,9 @@ const GLOSSARY: Record<string, { term: string; short: string; long: string; form
   },
   'PHI': {
     term: 'PHI (φ) — Trinitarium Ratio',
-    short: 'Fundamental Blurrn constant, valid range [1.566, 1.766]',
-    long: 'PHI is the Trinitarium ratio, the exact fraction 5/3 (Trinitarium-166 isotope). It appears throughout the v4.8 engine: as the exponent base in BlackHole_Seq, as a multiplier in tPTT, as a phase offset in harmonic oscillator (π/PHI), and as a signal embed component. Validated by validate_tlm to be within [1.566, 1.766].',
-    formula: 'validate_tlm: 1.566 ≤ PHI ≤ 1.766',
+    short: 'Fundamental Blurrn constant, the exact fraction 5/3',
+    long: 'PHI is the Trinitarium ratio, the exact fraction 5/3 (Trinitarium-166 isotope). It appears throughout the v4.8 engine: as the exponent base in BlackHole_Seq, as a multiplier in tPTT, as a phase offset in harmonic oscillator (π/PHI), and as a signal embed component. Validated by validate_tlm to be the exact fraction 5/3.',
+    formula: 'validate_tlm: phi = 5/3',
   },
   'TDF': {
     term: 'Temporal Displacement Factor (TDF)',
@@ -487,7 +483,7 @@ Dynamo MCP (Blurrn) is a Temporal Displacement Engine providing tools for isotop
 ## Core Constants
 | Constant | Value     | Description |
 |----------|-----------|-------------|
-| PHI      | 5/3       | Trinitarium ratio (valid range: 1.566–1.766) |
+| PHI      | 5/3       | Trinitarium ratio (exact 5/3) |
 | TAU      | 0.865     | Temporal Attenuation Unit (Chronovium-865) |
 | FREQ     | 528 Hz    | Base oscillation frequency |
 | C        | 3e8 m/s   | Speed of light |
@@ -570,7 +566,7 @@ Computes wave amplitude with isotope modulation.
 - **Outputs**: \`P_o\`, \`FREQ\`, \`PHI\`
 
 ### 14. validate_tlm
-Validates that the Trinitarium ratio (\`phi\`) is within the valid range [1.566, 1.766].
+Validates that the Trinitarium ratio (\`phi\`) is the exact fraction 5/3.
 - **Inputs**: \`phi\` (default 5/3)
 - **Outputs**: \`valid\` (boolean), \`range\`
 
@@ -789,7 +785,6 @@ app.use('*', async (c, next) => {
   } finally {
     const ms = Date.now() - start
     if (c.res.status >= 400) {
-      console.error(`[${new Date().toISOString()}] ${c.req.method} ${c.req.path} -> ${c.res.status} (${ms}ms)`)
     }
   }
 })
@@ -1131,7 +1126,7 @@ app.post('/validate_tlm', async (c: Context) => {
   return ok(c, {
     valid: validateTLM(parsed.data.phi),
     phi: parsed.data.phi,
-    range: { min: 1.566, max: 1.766 },
+    range: { min: PHI, max: PHI },
   })
 })
 
@@ -1271,7 +1266,7 @@ app.get('/black_hole_sequence', (c: Context) => {
 app.get('/validate_tlm', (c: Context) => {
   const p = getQueryParams(c)
   const phi = p.phi ?? PHI
-  return c.json({ success: true, valid: validateTLM(phi), phi, range: { min: 1.566, max: 1.766 } })
+  return c.json({ success: true, valid: validateTLM(phi), phi, range: { min: PHI, max: PHI } })
 })
 
 app.get('/harmonic_oscillator', (c: Context) => {
@@ -1350,7 +1345,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'validate_tlm',
-    description: 'Validates that the Trinitarium ratio (phi) is within the valid range [1.566, 1.766].',
+    description: 'Validates that the Trinitarium ratio (phi) is the exact fraction 5/3.',
     inputSchema: { type: 'object', properties: { phi: { type: 'number', default: PHI, description: 'PHI to validate' } } },
   },
   {
@@ -1481,7 +1476,7 @@ const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return { P_o: harmonicOscillator(args.t ?? 0) }
   },
   validate_tlm: (args: any) => {
-    return { valid: validateTLM(args.phi ?? PHI), phi: args.phi ?? PHI, range: { min: 1.566, max: 1.766 } }
+    return { valid: validateTLM(args.phi ?? PHI), phi: args.phi ?? PHI, range: { min: PHI, max: PHI } }
   },
   evaluate_governance: async (args: any) => {
     return evaluateGovernance(TOOL_HANDLERS, args)
@@ -2247,18 +2242,15 @@ app.get('/sse', (c: Context) => {
 app.post('/messages', async (c: Context) => {
   const sessionId = c.req.query('sessionId')
   if (!sessionId) {
-    console.log('[mcp] POST /messages: missing sessionId query param')
     return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
   }
 
-  console.log(`[mcp] POST /messages: session ${sessionId.slice(0, 8)}… ${activeSessions.has(sessionId) ? '' : '(registry missing — SSE may have disconnected)'}`)
 
   const body = await c.req.json()
   const result = await handleMCPMessage(sessionId, body)
   if (result) {
     const delivered = await publish(`session:${sessionId}`, JSON.stringify(result))
     if (!delivered) {
-      console.log(`[mcp] POST /messages: session ${sessionId} has no SSE subscriber (response will not reach client)`)
     }
   }
 
@@ -2490,7 +2482,6 @@ app.post('/vortex/persist', async (c: Context) => {
     })
   } catch (err: any) {
     const msg = friendlyMintError(err)
-    console.error('[vortex][persist] error:', err?.message || err?.cause?.message || err)
     return c.json({ success: false, error: msg || 'Persist failed' }, 500)
   }
 })
@@ -2578,7 +2569,6 @@ app.post('/vortex/mint', async (c: Context) => {
           })
           await publicClient.waitForTransactionReceipt({ hash: regTx })
         } catch (regErr: any) {
-          console.error('[vortex] auto-register failed:', regErr.message)
         }
         container = await publicClient.readContract({
           address: CONTRACT_ADDRESS, abi: registryAbi,
@@ -2721,7 +2711,6 @@ app.post('/vortex/mint', async (c: Context) => {
     })
   } catch (err: any) {
     const msg = friendlyMintError(err)
-    console.error(`[mint] ${err.message}`)
     return c.json({ success: false, error: msg }, 500)
   }
 })
@@ -3001,10 +2990,8 @@ async function autoMintVortex(container: any, proposalText: string) {
       } catch { /* Redis optional */ }
     })()
 
-    console.log(`[vortex] Auto-minted v4 token for container ${container.containerHash.slice(0, 18)}… tx: ${receipt.transactionHash}`)
     return receipt.transactionHash
   } catch (err: any) {
-    console.log(`[vortex] Auto-mint skipped: ${err.message}`)
     return null
   }
 }

@@ -2,6 +2,7 @@
 // Based on Codex v3.6 by @blaze0x1
 
 // Core Constants from TLM (L, PHI sourced from tlmConstants → trinitarium SSOT)
+import { PHI } from './tlmConstants';
 export { L, PHI } from './tlmConstants';
 export const FREQ = 528; // Hz harmonic frequency  
 export const C = 3e8; // Speed of light (m/s)
@@ -139,5 +140,5 @@ export function generateRippel(time: number, tPTT_value: number, E_t: number): s
 
 // TLM Validation
 export function validateTLM(phi: number): boolean {
-  return phi >= 1.566 && phi <= 1.766;
+  return Math.abs(phi - PHI) <= 1e-9;
 }

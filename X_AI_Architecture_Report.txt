@@ -28,7 +28,7 @@ TDF = tPTT × τ × (1 / BlackHole_Seq)
 
 **BlackHole Sequence Calculation:**
 BlackHole_Seq = (3 × voids × φ^n) % π
-Where φ (PHI) = Golden Ratio, n = 2 for breakthrough range
+Where φ (PHI) = 5/3, n = 2 for breakthrough range
 
 **E_t_growth Formula:**
 E_t_growth = exp(cycle/50) × growth_rate_multiplier
@@ -356,7 +356,7 @@ S_L = φ × TDF × E_t_growth (uncapped when TDF > 1e6)
 
 **Key Constants:**
 τ = 0.865 (time dilation)
-φ = 1.618... (golden ratio)
+φ = 5/3 (temple measure)
 c = 3e8 (light speed oscillator)
 TDF_clamp = 1e15
 

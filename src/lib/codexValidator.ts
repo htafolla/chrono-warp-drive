@@ -103,7 +103,7 @@ export function validateCodexCompliance(
   }
 
   // Rule 2: φ = 5/3
-  if (Math.abs(metrics.phi_value - PHI) > 0.001) {
+  if (Math.abs(metrics.phi_value - PHI) > 1e-9) {
     issues.push({
       severity: 'critical',
       rule: 'TLM-φ',
