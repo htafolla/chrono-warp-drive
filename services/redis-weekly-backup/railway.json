@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "services/redis-weekly-backup/Dockerfile"
+  },
+  "deploy": {
+    "cronSchedule": "0 9 * * 3",
+    "startCommand": "node bin/redis-weekly-backup.mjs",
+    "restartPolicyType": "NEVER",
+    "restartPolicyMaxRetries": 0
+  }
+}
