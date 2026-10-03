@@ -13,7 +13,15 @@
 import { http, createPublicClient, defineChain, createWalletClient, fallback } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { getRedisClient } from '../pubsub.js'
-import { asBigint, asContainerPage, readContractView } from '../lib/looseContract.js'
+import { readContractView, asBigint, asContainerPage } from '../lib/looseContract.js'
+
+function note(message: string): void {
+  process.stdout.write(`${message}\n`)
+}
+
+function failNote(message: unknown): void {
+  process.stderr.write(`${String(message)}\n`)
+}
 
 const VORTEX_TOKEN_ADDRESS = '0x7E410f102Cc7320fd8B9601637f5A67AfDF40cF9'
 const REGISTRY_ADDRESS = '0xCB418F081D4fDAD6B2b17027294865B26cb26855'
@@ -52,9 +60,10 @@ async function getTokenId(containerId: string): Promise<bigint | null> {
   try {
     const abi = await loadVortexAbi()
     const tid = asBigint(await readContractView(publicClient, {
-      address: VORTEX_TOKEN_ADDRESS, abi,
+      address: VORTEX_TOKEN_ADDRESS,
+      abi,
       functionName: 'tokenByContainerId',
-      args: [containerId as `0x${string}`],
+      args: [containerId],
     }))
     return tid
   } catch {
@@ -63,7 +72,7 @@ async function getTokenId(containerId: string): Promise<bigint | null> {
 }
 
 async function main() {
-  console.log('=== Vortex Redis Sync ===\n')
+  note('=== Vortex Redis Sync ===\n')
 
   const vortexAbi = await loadVortexAbi()
   const registryAbi = await loadRegistryAbi()
@@ -81,25 +90,27 @@ async function main() {
         if (c.containerId) containerIds.add(c.containerId)
       } catch { /* skip */ }
     }
-    console.log(`  From Redis store: ${raw.length} entries, ${containerIds.size} unique IDs`)
+    note(`  From Redis store: ${raw.length} entries, ${containerIds.size} unique IDs`)
   } else {
-    console.log('  ⚠️  Redis not available — skipping store containers')
+    note('  ⚠️  Redis not available — skipping store containers')
   }
 
   // 2) From on-chain registry
   try {
-    const [ids] = asContainerPage(await readContractView(publicClient, {
-      address: REGISTRY_ADDRESS, abi: registryAbi,
+    const page = asContainerPage(await readContractView(publicClient, {
+      address: REGISTRY_ADDRESS,
+      abi: registryAbi,
       functionName: 'listContainers',
       args: [0n, 100n],
     }))
-    for (const id of ids as string[]) containerIds.add(id)
-    console.log(`  From on-chain registry: ${(ids as string[]).length} containers`)
-  } catch (err: any) {
-    console.log(`  ⚠️  Could not read on-chain registry: ${err.message}`)
+    const ids = page[0]
+    for (const id of ids) containerIds.add(id)
+    note(`  From on-chain registry: ${ids.length} containers`)
+  } catch (err) {
+    note(`  ⚠️  Could not read on-chain registry: ${err.message}`)
   }
 
-  console.log(`\n  Total unique container IDs: ${containerIds.size}`)
+  note(`\n  Total unique container IDs: ${containerIds.size}`)
 
   // Check each container for a token
   const ids = [...containerIds]
@@ -116,21 +127,21 @@ async function main() {
         synced++
       }
       const prefix = id.slice(0, 22)
-      console.log(`  [${i + 1}/${ids.length}] ✅ token #${tid}  ${prefix}...`)
+      note(`  [${i + 1}/${ids.length}] ✅ token #${tid}  ${prefix}...`)
     } else {
       if (i < 5 || i % 10 === 0 || i === ids.length - 1) {
-        console.log(`  [${i + 1}/${ids.length}] ⬜ no token  ${id.slice(0, 22)}...`)
+        note(`  [${i + 1}/${ids.length}] ⬜ no token  ${id.slice(0, 22)}...`)
       }
     }
   }
 
-  console.log(`\n  Found ${found}/${ids.length} minted tokens`)
+  note(`\n  Found ${found}/${ids.length} minted tokens`)
   if (client) {
-    console.log(`  Synced ${synced} mappings to Redis`)
+    note(`  Synced ${synced} mappings to Redis`)
     const stored = await client.hgetall(REDIS_VORTEX_KEY_MINT).catch(() => null)
     const count = stored ? Object.keys(stored).length : 0
-    console.log(`  Redis hash now has ${count} entries`)
+    note(`  Redis hash now has ${count} entries`)
   }
 }
 
-main().catch(err => { console.error(err); process.exit(1) })
+main().catch(err => { failNote(err); process.exit(1) })

@@ -11,6 +11,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // ioredis is an optional MCP runtime dependency. Vite still resolves the
+      // dynamic import in mcp/pubsub.ts, and it is not installed at the repo root.
+      ioredis: path.resolve(__dirname, './src/test-stubs/ioredis.ts'),
     },
   },
 })

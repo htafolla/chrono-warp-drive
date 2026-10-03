@@ -1,8 +1,8 @@
 /**
- * The registry and token ABIs are JSON imports. viem only infers a call when
- * the ABI is a const generic, and `any[]` collapses the overload into a
- * parameter that demands `authorizationList` and `chain`. These wrappers keep
- * the runtime call and return `unknown` so the caller checks the shape.
+ * The registry and token ABIs are JSON imports. viem infers a call only when
+ * the ABI is a const generic. A wide array type collapses that overload into
+ * a parameter list the JSON import cannot satisfy. These wrappers keep the
+ * runtime call and return unknown so the caller checks the shape.
  */
 
 export interface ContractCall {
@@ -10,7 +10,7 @@ export interface ContractCall {
   abi: readonly unknown[];
   functionName: string;
   args?: readonly unknown[];
-  nonce?: bigint;
+  nonce?: bigint | number;
 }
 
 type LooseRead = (args: never) => Promise<unknown>;

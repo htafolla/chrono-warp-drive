@@ -188,7 +188,7 @@ export function determineSource(
 ): 'human' | 'agent' | 'ambient' {
   if (typeof input === 'string') return 'human'
   if (!input.source) {
-    console.warn('[determineSource] Proposal missing source field — treating as human')
+    process.stderr.write('[determineSource] Proposal missing source field — treating as human\n')
     return 'human'
   }
   return input.source as 'human' | 'agent' | 'ambient'
