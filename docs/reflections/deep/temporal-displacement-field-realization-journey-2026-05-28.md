@@ -91,7 +91,7 @@ wave(θ, t, n, isotope, λ, phaseType) = A × sin(2πθ/λ − 2π·FREQ·t·PHI
 Where:
 - θ is the phase angle from the Kuramoto trajectory
 - λ is the wavelength of the band (0.250µm to 2.500µm)
-- PHI = 1.666 (the golden ratio base)
+- PHI = 5/3 (temple ratio; this note cannot import the TypeScript constants module)
 - FREQ = 528 Hz (the frequency)
 - isotope.factor = 1.0 for C-12, 0.8 for C-14
 

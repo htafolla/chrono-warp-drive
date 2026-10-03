@@ -4,6 +4,8 @@
 // parse helpers (kept separate because the worker needs an importScripts-
 // compatible module that doesn't depend on the full fetcher class).
 
+import { PHI } from './tlmConstants'
+
 export interface SolarSnapshot {
   xrayUVLift: number
   magPerturbation: number
@@ -121,13 +123,12 @@ export function generateTrainingData(solar: {
 
   const deltaValues = [0.1, 0.25, 0.5, 0.75, 0.9]
   const nValues = [5, 15, 25, 34, 40]
-  const phiValues = [1.5, 1.618, 1.666, 1.8, 2.0]
+  const pv = PHI
 
   for (let d = 0; d < deltaValues.length; d++) {
     for (let n = 0; n < nValues.length; n++) {
       const dp = deltaValues[d]
       const nv = nValues[n]
-      const pv = phiValues[n % phiValues.length]
 
       const uvJitter = clamp(baseInputs[0] + normalRandom(0, 0.05), -0.3, 1.0)
       const magJitter = clamp(baseInputs[1] + normalRandom(0, 0.04), 0, 1)
@@ -151,7 +152,7 @@ export function generateTrainingData(solar: {
       const nv = 10 + Math.random() * 30
       const baseTarget = actMult[activityLevels[a]]
       data.push({
-        inputs: [dp, nv / 34, (1.5 + Math.random() * 0.5) / 2, baseTarget * 0.3, baseTarget * 0.2, baseTarget * 0.4],
+        inputs: [dp, nv / 34, PHI / 2, baseTarget * 0.3, baseTarget * 0.2, baseTarget * 0.4],
         target: clamp(baseTarget + normalRandom(0, 0.03), 0.25, 0.85),
       })
     }

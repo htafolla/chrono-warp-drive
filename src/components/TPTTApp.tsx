@@ -216,7 +216,6 @@ export function TPTTApp() {
         
         toast.success("BLURRN v4.5 systems initialized with Pickles Atlas!");
       } catch (error) {
-        console.error("v4.5 initialization failed:", error);
         setSystemStatus(`v4.5 initialization failed: ${error}`);
         toast.error("Failed to initialize v4.5 systems, using fallback mode");
       }
@@ -256,7 +255,6 @@ export function TPTTApp() {
         setSystemStatus("BLURRN v4.6 Time Machine - TDF breakthrough ready!");
         toast.success(`Time Machine v4.6 activated - Distance: ${spectrumData?.metadata?.distance || 'unknown'}ly, Voids: ${distanceAdjustedVoids}`);
       } catch (error) {
-        console.error("v4.6 initialization failed:", error);
         setSystemStatus(`v4.6 initialization failed: ${error}`);
       }
     };
@@ -280,7 +278,6 @@ export function TPTTApp() {
         setSystemStatus(APP_FEATURE.initMsg);
         toast.success(`v${APP_VERSION} Cascade initialized - n=${cascadeParams.n}, Efficiency: ${initialResult.efficiency.toFixed(2)}%`);
       } catch (error) {
-        console.error("v4.7 initialization failed:", error);
         setSystemStatus(`v${APP_VERSION} initialization failed: ${error}`);
       }
     };
@@ -360,7 +357,6 @@ export function TPTTApp() {
             const newPhase = kuramoto(prevPhases, omega, time, fractalToggle, isotope, phaseType, i);
             return (phase + newPhase * PHASE_UPDATE_FACTOR) % (2 * Math.PI);
           } catch (error) {
-            console.error(`Phase update error for phase ${i}:`, error);
             return phase;
           }
         })
@@ -412,7 +408,6 @@ export function TPTTApp() {
           // If solar_applied=false, useSolarFeatures has not delivered a vector
           // (offline / first poll pending). If true but Δφ/τ unchanged, the Sun
           // is quiet (uv≈0, mag≈0) and the modulation factor collapses to 1.
-          console.log('[Neural Fusion] Modulated inputs:', fusionResult.modulated, 'solarFeatures:', solarFeatures);
 
           const neuralOutput: NeuralOutput = {
             metamorphosisIndex: Math.max(0, Math.min(1, fusionResult.q_ent)),
@@ -426,7 +421,6 @@ export function TPTTApp() {
 
           setTpttV4Result({ ...v4Result, neuralOutput });
         } catch (error) {
-          console.warn("v4.5 calculation failed:", error);
         }
       }
 
@@ -441,23 +435,12 @@ export function TPTTApp() {
           const v46Result = await temporalCalcV46.computeTPTTv4_6();
           setTpttV46Result(v46Result);
           
-          // Log TDF calculation for debugging
-          console.log('🔬 TDF v4.6 Calculation:', {
-            TDF: v46Result.v46_components.TDF_value.toExponential(2),
-            tau: v46Result.v46_components.tau,
-            BlackHole_Seq: v46Result.v46_components.BlackHole_Seq,
-            breakthrough: v46Result.timeShiftMetrics.breakthrough_validated,
-            voids: v46Config.voids,
-            cycle
-          });
-          
           // Update system status with breakthrough info
           if (v46Result.timeShiftMetrics.breakthrough_validated) {
             setSystemStatus(`TDF Breakthrough: ${v46Result.v46_components.TDF_value.toExponential(2)} - Time shift validated!`);
             toast.success(`🎉 TDF Breakthrough Achieved: ${v46Result.v46_components.TDF_value.toExponential(2)}`);
           }
         } catch (error) {
-          console.warn("v4.6 TDF calculation failed:", error);
         }
       }
 
@@ -526,7 +509,7 @@ export function TPTTApp() {
     if (importedState.isotope !== undefined) setIsotope(importedState.isotope);
     if (importedState.cycle !== undefined) setCycle(importedState.cycle);
     if (importedState.e_t !== undefined) setE_t(importedState.e_t);
-    if (importedState.phi !== undefined) setPhi(importedState.phi);
+    if (importedState.phi !== undefined) setPhi(PHI);
     if (importedState.delta_t !== undefined) setDelta_t(importedState.delta_t);
     
     // v4.5 specific imports
@@ -545,7 +528,6 @@ export function TPTTApp() {
       temporalCalcV4.setInputData(selectedSpectrum);
       toast.success(`Selected ${selectedSpectrum.source} spectrum loaded successfully`);
     } catch (error) {
-      console.error("Failed to select spectrum:", error);
       toast.error("Failed to load selected spectrum");
     }
   };
@@ -728,7 +710,6 @@ export function TPTTApp() {
       setV46Experiments(prev => [...prev, ...temporalCalcV46.getExperimentLogs()]);
       toast.success("v4.6 TDF calculation complete!");
     } catch (error) {
-      console.error("v4.6 calculation failed:", error);
       toast.error("TDF calculation failed");
     } finally {
       setIsExperimentRunning(false);
@@ -1311,7 +1292,7 @@ export function TPTTApp() {
                   <div><strong>Q_ent:</strong> abs(CTI × cos(φ*n/2)/π × sin(φ*n/4) × exp(-n/20)) × (1 + δφ) × log(n+1)</div>
                   <div><strong>cascade_index:</strong> floor(π / voids) + n</div>
                   <div className="pt-2 text-xs text-muted-foreground">
-                    φ = 1.666, τ = 0.865, tPTT = 5.3e12, n = {cascadeParams.n}
+                    φ = 5/3, τ = 0.865, tPTT = 5.3e12, n = {cascadeParams.n}
                   </div>
                 </div>
               </CardContent>
@@ -1324,7 +1305,6 @@ export function TPTTApp() {
               deltaPhase={cascadeParams.delta_phase}
               sessionId={sessionId}
               onOptimizationUpdate={(recommendations) => {
-                console.log('[Cascade Optimization] Recommendations:', recommendations);
               }}
             />
 
@@ -1363,7 +1343,6 @@ export function TPTTApp() {
             <CollaborationDashboard
               currentSessionId={sessionId}
               onParameterSync={(params) => {
-                console.log('[Collaboration] Syncing parameters from peer:', params);
                 setCascadeParams(prev => ({
                   ...prev,
                   n: params.n,

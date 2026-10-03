@@ -66,6 +66,11 @@ function scaleKp(value: number): bigint {
   return BigInt(Math.round(value * KP_SCALE))
 }
 
+function planetaryKp(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0
+  return Math.min(value, 9)
+}
+
 export function governanceToContainer(
   decision: EnhancedGovernanceDecision,
   proposalText: string,
@@ -79,7 +84,7 @@ export function governanceToContainer(
     timestamp,
     activityLevel: decision.solarContext?.solarActivityLevel ?? 'quiet',
     xrayFlux: decision.solarContext?.solarIsotopicResonance ?? 0,
-    kpIndex: decision.solarContext?.solarActivityModifier ?? 0,
+    kpIndex: planetaryKp(decision.solarContext?.kpIndex),
     protonFlux: 0,
     magnetometer: 0,
     solarTdf: decision.solarContext?.proposalTdf ?? 0,
@@ -89,7 +94,7 @@ export function governanceToContainer(
     fullBox7DComposite: decision.fullBox7DComposite ?? 0,
     fullBox7DVerdict: decision.fullBox7DVerdict ?? 'NEEDS_REVISION',
     waveProximity: decision.waveProximity ?? 0,
-    phaseAlignment: decision.solarContext?.phaseAlignment as number ?? 0,
+    phaseAlignment: decision.phaseAlignment ?? 0,
     calibratedVortex: decision.resonanceScore ?? decision.fullBoxVortexAlignment ?? 0,
     calibratedSync: decision.synchronization ?? 0,
     neuralProximity: decision.fullBoxNeuralProximity ?? 0,
@@ -188,7 +193,7 @@ export function determineSource(
 ): 'human' | 'agent' | 'ambient' {
   if (typeof input === 'string') return 'human'
   if (!input.source) {
-    console.warn('[determineSource] Proposal missing source field — treating as human')
+    process.stderr.write('[determineSource] Proposal missing source field — treating as human\n')
     return 'human'
   }
   return input.source as 'human' | 'agent' | 'ambient'

@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SPECTRUM_BANDS, wave, type Isotope } from '@/lib/temporalCalculator';
+import { PHI } from '@/lib/tlmConstants';
 import { SpectrumData } from '@/types/sdss';
 import { useMemoryManager, memoryManager } from '@/lib/memoryManager';
 import { CustomStars } from './CustomStars';
@@ -153,7 +154,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
   
   // Phase 1: Diagnostic logging for wave plane rendering
   React.useEffect(() => {
-    console.log(`[PHASE 1 DIAGNOSTIC] WavePlane ${index} (${band.band}) initialized:`, {
+    console.log(`[PHASE 1 DIAGNOSTIC] WavePlane ${index} (${band.band}) initialized:`, { // NOSONAR
       color: band.color,
       lambda: band.lambda,
       position: `y=${index * 0.6 - 3}`,
@@ -180,7 +181,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       const geometry = geometryRef.current;
       const position = geometry.attributes.position;
       const phase = phases[index % phases.length] || 0;
-      const phaseType = (cycle % 1.666) > 0.833 ? "push" : "pull";
+      const phaseType = (cycle % PHI) > PHI / 2 ? "push" : "pull";
       
       // Use spectrum data if available for enhanced wave calculations
       const intensityMultiplier = spectrumData ? 
@@ -209,7 +210,7 @@ function WavePlane({ band, phases, isotope, cycle, fractalToggle, index, spectru
       meshRef.current.position.z = Math.sin(state.clock.elapsedTime * 0.2 + index * 0.5) * 0.3;
       
     } catch (error) {
-      console.error('Enhanced WavePlane animation error:', error);
+      console.error('Enhanced WavePlane animation error:', error); // NOSONAR
     }
   });
 
@@ -247,7 +248,7 @@ function PostProcessing({ children }: PostProcessingProps) {
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
     
     // Debug stars issue
-    console.log('[STARS DEBUG] PostProcessing initialized with LinearToneMapping');
+    console.log('[STARS DEBUG] PostProcessing initialized with LinearToneMapping'); // NOSONAR
   }, [gl]);
   
   return <>{children}</>;
@@ -295,9 +296,9 @@ export function EnhancedTemporalScene({
 
   // Debug stars lifecycle
   useEffect(() => {
-    console.log('[STARS DEBUG] EnhancedTemporalScene mounted');
+    console.log('[STARS DEBUG] EnhancedTemporalScene mounted'); // NOSONAR
     return () => {
-      console.log('[STARS DEBUG] EnhancedTemporalScene unmounting');
+      console.log('[STARS DEBUG] EnhancedTemporalScene unmounting'); // NOSONAR
     };
   }, []);
   
@@ -308,7 +309,7 @@ export function EnhancedTemporalScene({
         camera={{ position: [5, 3, 10], fov: 60 }}  // Phase 10D: Better camera position for wave plane viewing
         gl={{ antialias: true, alpha: true }}
         onCreated={({ gl }) => {
-          console.log('[Phase 10F] Canvas created, initializing renderer for spectrum wave debugging');
+          console.log('[Phase 10F] Canvas created, initializing renderer for spectrum wave debugging'); // NOSONAR
           gl.toneMapping = THREE.LinearToneMapping;
           gl.toneMappingExposure = 1.0;
         }}

@@ -23,6 +23,7 @@ import { solarDataFetcher } from './lib/solarDataFetcher.js'
 import { dynamoSolarGovernance } from './lib/dynamoSolarGovernance.js'
 import { ambientField } from './lib/ambientField.js'
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
+import { PHI } from './lib/tlmConstants.js'
 
 const app = express()
 app.use(cors())
@@ -34,29 +35,29 @@ async function initializeEngine() {
   try {
     neuralFusion = new NeuralFusion()
     await neuralFusion.initialize()
-    console.log('[Backend] Neural Fusion engine initialized')
+    process.stderr.write(String('[Backend] Neural Fusion engine initialized') + "\n")
 
     await stellarLibrary.loadLibrary('STELLAR_LIBRARY')
     const starCount = stellarLibrary.getAllSpectra().length
-    console.log(`[Backend] Stellar library loaded: ${starCount} stars`)
+    process.stderr.write(String(`[Backend] Stellar library loaded: ${starCount} stars`) + "\n")
 
     // Train models on live NOAA SWPC solar data — the Sun creates 99% of life on Earth
-    console.log('[Backend] Starting solar-data training...')
+    process.stderr.write(String('[Backend] Starting solar-data training...') + "\n")
     await neuralFusion.trainOnSolarData()
-    console.log('[Backend] Solar-data training complete — models are Sun-grounded')
+    process.stderr.write(String('[Backend] Solar-data training complete — models are Sun-grounded') + "\n")
 
     // Schedule periodic retraining so the neural model stays current with evolving solar
     // conditions. The rolling buffer accumulates real NOAA observations (up to 32 unique
     // regimes) which enriches each retrain with more diverse historical context.
     const retrainMs = parseInt(process.env.NEURAL_RETRAIN_INTERVAL_MS || '', 10) || 6 * 60 * 60 * 1000
-    console.log(`[Backend] Scheduling neural retrain every ${retrainMs / 3_600_000}h`)
+    process.stderr.write(String(`[Backend] Scheduling neural retrain every ${retrainMs / 3_600_000}h`) + "\n")
     setInterval(() => {
       neuralFusion?.retrainOnSolarData().then(didRetrain => {
-        if (didRetrain) console.log('[Backend] Periodic neural retrain completed')
+        if (didRetrain) process.stderr.write(String('[Backend] Periodic neural retrain completed') + "\n")
       })
     }, retrainMs)
   } catch (error) {
-    console.error('[Backend] Failed to initialize engines:', error)
+    process.stderr.write(String('[Backend] Failed to initialize engines:') + " " + String(error) + "\n")
     process.exit(1)
   }
 }
@@ -101,7 +102,7 @@ app.post('/govern-with-solar', async (req, res) => {
       engine: 'dynamo + real-time-solar-context',
     })
   } catch (error: any) {
-    console.error('Error in govern-with-solar:', error)
+    process.stderr.write(String('Error in govern-with-solar:') + " " + String(error) + "\n")
     res.status(500).json({ error: error.message })
   }
 })
@@ -116,7 +117,7 @@ app.post('/process-spectrum', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths, intensities: fluxes, granularity: wavelengths.length, source: 'user-upload' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
     res.json({ success: true, metamorphosisIndex: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
@@ -140,7 +141,7 @@ app.post('/process-stellar-spectrum', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths: spectrum.wavelengths, intensities: spectrum.flux, granularity: 100, source: 'STELLAR_LIBRARY' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
     res.json({ success: true, star: spectrum, metamorphosisIndex: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow + real-stellar-library' })
@@ -156,7 +157,7 @@ app.post('/calculate-metamorphosis-index', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths, intensities: fluxes, granularity: wavelengths.length, source: 'user-upload' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
     res.json({ success: true, value: result.metamorphosisIndex, resonance: result.metamorphosisIndex, isotopicRatio: 0.85 + (result.metamorphosisIndex * 0.14), confidence: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
@@ -172,10 +173,10 @@ app.post('/isotopic-embedding', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: { wavelengths, intensities: fluxes, granularity: wavelengths.length, source: 'user-upload' },
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
     })
-    res.json({ success: true, isotopicRatio: 0.85 + (result.metamorphosisIndex * 0.14), resonance: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
+    res.json({ success: true, resonance: result.metamorphosisIndex, metamorphosisIndex: result.metamorphosisIndex, confidenceScore: result.confidenceScore, synapticSequence: result.synapticSequence, engine: 'real-tensorflow' })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -194,7 +195,7 @@ app.post('/process-current-sun', async (req, res) => {
     const result = await neuralFusion.processNeuralInput({
       spectrumData: spectrum,
       temporalPhases: [0.1, 0.5, 0.9],
-      isotopeFactor: 1.666,
+      isotopeFactor: PHI,
       fractalToggle: false,
       solarFeatures,
     })
@@ -236,10 +237,10 @@ app.post('/process-current-sun', async (req, res) => {
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, async () => {
-  console.log(`Real Neural Fusion Backend running on port ${PORT}`)
+  process.stderr.write(String(`Real Neural Fusion Backend running on port ${PORT}`) + "\n")
   await initializeEngine()
   ambientField.start()
-  console.log('[ambient] Ambient Resonance Field started')
+  process.stderr.write(String('[ambient] Ambient Resonance Field started') + "\n")
 })
 
 export default app

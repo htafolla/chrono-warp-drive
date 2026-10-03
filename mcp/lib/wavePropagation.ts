@@ -7,8 +7,7 @@
 // A/B testable: runs in parallel, doesn't touch current formulas.
 
 import { KuramotoResult, KuramotoTrajectoryPoint, PhaseType, Isotope, ISOTOPES } from './kuramotoOscillators.js'
-
-const PHI = 1.666
+import { PHI } from './tlmConstants.js'
 const FREQ = 528
 const G = 1.0
 
@@ -179,7 +178,7 @@ async function initTransformer(): Promise<any> {
       })
       return transformerPipe
     } catch (e) {
-      console.warn('[sentenceToEmbedding16] Transformer init failed, using FNV fallback:', e)
+      process.stderr.write(`[sentenceToEmbedding16] Transformer init failed, using FNV fallback: ${e}\n`)
       transformerPipe = null
       return null
     } finally {
@@ -244,6 +243,7 @@ export interface FullBoxResonanceResult {
   fullBoxGematriaResonance: number
   fullBox7DComposite: number
   fullBox7DVerdict: 'PASS' | 'NEEDS_REVISION' | 'REJECT'
+  signalPurity: number
 }
 
 export function computeCalibratedWaveSync(rawSync: number): number {

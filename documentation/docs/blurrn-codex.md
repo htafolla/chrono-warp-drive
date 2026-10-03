@@ -6,6 +6,8 @@ sidebar_position: 10
 
 > The theoretical temporal physics framework that defines the TLM, TDF, isotopic vortex mechanics, Kuramoto phase coupling, and Neural Quantum Realms. Dynamo is the production implementation of these principles.
 
+The temple ratio is written `5/3` here. This markdown file cannot import the TypeScript constants module.
+
 The Blurrn Quantum Codex is the active framework that defines Dynamo's mathematical and cosmological foundations. Every formula running in production — from the TDF (`tPTT × TAU × 1/BHS`) to the 6D resonance composite to the Kuramoto oscillator coupling — originates here. Dynamo is not a separate system; it is the Codex rendered in TypeScript, grounded in live NOAA solar data, and deployed as a production oracle.
 
 ## Version History
@@ -23,7 +25,7 @@ The Blurrn Quantum Codex is the active framework that defines Dynamo's mathemati
 
 ## Core Concepts
 
-**Time, Light, and Harmony (TLM):** The Codex uses a trinitarian model of light (Wave + Particle + Field) with TLM parameters L=3, φ=1.666.
+**Time, Light, and Harmony (TLM):** The Codex uses a trinitarian model of light (Wave + Particle + Field) with TLM parameters L=3, φ=5/3.
 
 **Temporal Displacement Factor (TDF):** The core formula — `tPTT × TAU × 1/BHS` — that measures temporal alignment between any two signals. Dynamo implements this exact formula with a mapping layer that derives the 6 inputs (`T_c`, `P_s`, `E_t`, `delta_t`, `voids`, `bhs_n`) from proposal text and live NOAA solar data.
 
