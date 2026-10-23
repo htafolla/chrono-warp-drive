@@ -1,5 +1,5 @@
 # Weekly Redis backup only. This image does not include or start the MCP app.
-FROM node:22-bookworm-slim
+FROM node:24.22.1-bookworm-slim
 
 # redis-tools provides the redis-cli binary. The script logs `redis-cli --version` at start.
 RUN apt-get update \
