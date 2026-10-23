@@ -3,6 +3,6 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npx tsx ${ENTRY_POINT:-server.ts}"
+startCommand = "npm start"
 # No healthcheck: tfjs/transformers boot exceeds Railway windows and rolls back
 # listings (well-known JSON). Process bind on PORT is the ready signal.
