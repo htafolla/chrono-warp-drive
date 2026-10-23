@@ -21,5 +21,13 @@
     "tsx": "^4.19.0",
     "viem": "^2.52.2",
     "zod": "^3.23.0"
+  },
+  "allowScripts": {
+    "sharp@0.32.6": true,
+    "sharp@0.34.5": true,
+    "core-js@3.29.1": true,
+    "esbuild@0.27.7": true,
+    "fsevents@2.3.3": true,
+    "protobufjs@6.11.6": true
   }
 }
