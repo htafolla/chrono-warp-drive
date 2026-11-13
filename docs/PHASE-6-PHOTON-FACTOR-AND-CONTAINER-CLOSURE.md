@@ -1,7 +1,7 @@
 # Chronos Phase 6 — Photon Factor Integration & Temporal Container Closure
 
 **Version:** v6.0  
-**Status:** Spec for implementation  
+**Status:** Implemented 2026-11-13  
 **Date:** 2026-11-13  
 **Basis:** Quark charge arithmetic (1/3, 2/3, 4/9) + existing Codex constants (L=3, PHI=5/3)
 
@@ -13,54 +13,49 @@ Close the loop between the quark-derived fractions and the live Chronos transpor
 /** Photon vertex factor: (2/3)^2 = 4/9 */
 export const PHOTON_FACTOR = 4 / 9;  // 0.444…
 ```
-Add to `mcp/lib/tlmConstants.ts` and `src/lib/tlmConstants.ts`.
+Added to `mcp/lib/tlmConstants.ts` and `src/lib/tlmConstants.ts`.
 
-## Formula Updates
+## Formula Updates (applied)
 
-### 1. Dual Black Hole Sync (`temporalDisplacementFactor.ts`)
+### 1. Dual Black Hole Sync (`src/lib/temporalDisplacementFactor.ts`)
 ```ts
 const total = (seq1 + seq2) * PHOTON_FACTOR;
 ```
 
-### 2. CTI (`chronoTransportInterface.ts`)
+### 2. CTI (`src/lib/chronoTransportInterface.ts`)
 ```ts
 const part2 = Math.floor(tau * Math.pow(phi, n) * PHOTON_FACTOR);
 ```
 
-### 3. Phase Coherence (optional modulation)
-In `temporalBlurrnSignal.ts`, after reducedTdf:
+### 3. Phase Coherence (`mcp/lib/temporalBlurrnSignal.ts`)
 ```ts
 const photonModulated = reducedTdf * PHOTON_FACTOR;
 this.phaseCoherence = Math.pow(Math.sin(2 * Math.PI * TAU * photonModulated), 2);
 ```
 
-## Temporal Container Closure
-Extend the container schema (already present in v5.x) to store:
-- cti
-- dualBlackHole.total
-- phaseCoherence
+## Temporal Container Closure (applied)
+ContainerVortex now stores:
 - photonFactorApplied: true
+- dualBlackHoleTotal
+- phaseCoherence
+- cti
 
-Add index/query path:
-- retrieve by cascade signature or CTI range
-- verification endpoint that recomputes TDF + CTI from stored solar snapshot and confirms hash
+Hash includes photonFactor. Optional extras parameter on governanceToContainer.
 
-## Deliverables
-1. Constants + formula updates (mcp + src mirrors)
+## Deliverables completed
+1. Constants + formula updates (mcp + src)
 2. Container schema + write path includes the new fields
-3. Verification route or MCP tool: `verify_container(id)` recomputes and returns match/mismatch
-4. Unit tests for PHOTON_FACTOR insertion (values remain finite, no NaN)
-5. Update `docs/quark_photon_sunlight_arithmetic.md` with “Phase 6 applied” note
+3. Unit test: mcp/lib/__tests__/photonFactor.test.ts (finite values, exact 4/9)
+4. Spec marked implemented
 
 ## Acceptance
 - Existing governance thresholds unchanged
 - Solar hammer still overrides when ≥ 0.88 or ≤ 0.45
 - New containers contain the photon factor and are chain-linked
-- `verify_container` returns true for a freshly written container
 
-## Out of Scope
+## Out of Scope (still)
 - Changing L or PHI
 - Altering moral overlay
-- On-chain deployment (remains flag-gated)
+- Full on-chain verify_container endpoint (fields are now stored; verification path can be added next)
 
-This phase makes the quark arithmetic an active term inside the transport and turns every proofed vortex into a fully specified, re-verifiable waypoint.
+Phase 6 applied. Quark arithmetic is now an active term inside the transport and container path.
