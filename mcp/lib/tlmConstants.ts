@@ -14,6 +14,8 @@
 export const L = 3;
 /** Temple ratio, exact fraction 5/3. */
 export const PHI = 5 / 3;
+/** Photon vertex factor: (2/3)^2 = 4/9. Phase 6. */
+export const PHOTON_FACTOR = 4 / 9;
 export const F_h = [5, 3] as const;
 export const C_TLM = Number.POSITIVE_INFINITY;
 export const C_h = 3e12;
