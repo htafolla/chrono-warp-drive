@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import type { EnhancedGovernanceDecision } from './dynamoSolarGovernance.js'
 import type { StructuredDerivativeProposal } from './structuredProposal.js'
+import { PHOTON_FACTOR } from './tlmConstants.js'
 
 export interface ContainerSolarSnapshot {
   timestamp: number
@@ -48,6 +49,11 @@ export interface ContainerVortex {
   previousContainerHash: string
   containerHash: string
   source: 'human' | 'agent' | 'ambient'
+  // Phase 6 photon factor fields
+  photonFactorApplied?: boolean
+  dualBlackHoleTotal?: number
+  phaseCoherence?: number
+  cti?: number
 }
 
 const SCALE_1E18 = 1e18
@@ -81,6 +87,7 @@ export function governanceToContainer(
   proposalText: string,
   source: 'human' | 'agent' | 'ambient' = 'human',
   previousHash?: string,
+  extras?: { dualBlackHoleTotal?: number; phaseCoherence?: number; cti?: number },
 ): ContainerVortex {
   const timestamp = Math.floor(Date.now() / 1000)
   const proposalHash = hashProposalText(proposalText)
@@ -133,6 +140,7 @@ export function governanceToContainer(
       gematria: resonanceProfile.gematriaResonance,
       moral: moralOverlay.trinitariumMoralScore,
       fusion: moralOverlay.trinitariumGematriaFusion,
+      photonFactor: PHOTON_FACTOR,
     }))
     .digest('hex')
 
@@ -148,6 +156,10 @@ export function governanceToContainer(
     previousContainerHash: previousHash ?? '0x' + '0'.repeat(64),
     containerHash,
     source,
+    photonFactorApplied: true,
+    dualBlackHoleTotal: extras?.dualBlackHoleTotal,
+    phaseCoherence: extras?.phaseCoherence,
+    cti: extras?.cti,
   }
 }
 
