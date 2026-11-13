@@ -3,7 +3,7 @@
 // from src/lib/temporalBlurrnSignal.ts for consistency in the solar hammer.
 
 import { IsotopicSignal, CorrelationResult, TriangulationResult, FusedSignal, IsotopicFingerprint } from './isotopicSignal.js';
-import { PHI } from './tlmConstants.js';
+import { PHI, PHOTON_FACTOR } from './tlmConstants.js';
 
 export { FusedSignal };
 const TAU = 0.865;
@@ -20,7 +20,9 @@ export class TemporalBlurrnSignal extends IsotopicSignal {
     this.tdfValue = tdfValue;
     this.cascadeIndex = cascadeIndex;
     const reducedTdf = tdfValue % Math.sqrt(PHI);
-    this.phaseCoherence = Math.pow(Math.sin(2 * Math.PI * TAU * reducedTdf), 2);
+    // Phase 6: modulate by photon vertex factor before phase calculation
+    const photonModulated = reducedTdf * PHOTON_FACTOR;
+    this.phaseCoherence = Math.pow(Math.sin(2 * Math.PI * TAU * photonModulated), 2);
   }
 
   getTdfValue(): number { return this.tdfValue }
