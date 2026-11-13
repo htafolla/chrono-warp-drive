@@ -2,6 +2,7 @@
 // BLURRN v4.7 Dual Black Hole Time Transport
 
 import { PHI } from './temporalCalculator';
+import { PHOTON_FACTOR } from './tlmConstants';
 import { 
   computeDualBlackHoleSync, 
   computeTDF, 
@@ -40,6 +41,7 @@ export const computeCascadeIndex = (voids: number, n: number): number => {
 /**
  * Compute CTI using XOR operation
  * Formula: CTI = (TDF × cascade_index) ⊕ (τ × φ^n)
+ * Phase 6: part2 multiplied by PHOTON_FACTOR (4/9)
  */
 export const computeCTI = (
   tdf: number,
@@ -50,7 +52,7 @@ export const computeCTI = (
 ): number => {
   // Convert to integers for XOR operation
   const part1 = Math.floor(tdf * cascadeIndex);
-  const part2 = Math.floor(tau * Math.pow(phi, n));
+  const part2 = Math.floor(tau * Math.pow(phi, n) * PHOTON_FACTOR);
   
   // XOR operation
   const cti = part1 ^ part2;
