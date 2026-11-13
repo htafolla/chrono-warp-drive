@@ -3,6 +3,7 @@
 
 import { TDFComponents, TimeShiftMetrics, BlurrnV46Config } from '@/types/blurrn-v4-6';
 import { PHI } from '@/lib/temporalCalculator';
+import { PHOTON_FACTOR } from './tlmConstants';
 
 /**
  * Default v4.6 configuration aligned with breakthrough specifications
@@ -33,6 +34,7 @@ export const computeBlackHoleSequence = (voids: number, n: number, phi: number =
 /**
  * Calculate Dual Black Hole Synchronization for v4.7
  * Formula: Two sequences with slight void offset for inter-hole coherence
+ * Phase 6: total multiplied by PHOTON_FACTOR (4/9)
  */
 export const computeDualBlackHoleSync = (
   voids: number, 
@@ -45,8 +47,8 @@ export const computeDualBlackHoleSync = (
   // Second black hole sequence with slight void offset
   const seq2 = (3 * (voids + 0.01) * Math.pow(phi, n)) % (Math.PI * phi);
   
-  // Total sequence for TDF calculation
-  const total = seq1 + seq2;
+  // Total sequence for TDF calculation — Phase 6 photon factor
+  const total = (seq1 + seq2) * PHOTON_FACTOR;
   
   // Calculate synchronization efficiency (0-1)
   const syncEfficiency = Math.min(
