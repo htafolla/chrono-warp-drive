@@ -22,6 +22,9 @@ export const L = 3;
 /** Temple measure, exact fraction 5/3. */
 export const PHI = 5 / 3;
 
+/** Photon vertex factor: (2/3)^2 = 4/9. Phase 6. */
+export const PHOTON_FACTOR = 4 / 9;
+
 /** Finite Frequency, the TLM pair 5 and 3 (codexData lines 1226–1231). */
 export const F_h = [5, 3] as const;
 
