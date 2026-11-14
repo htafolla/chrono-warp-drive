@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
 /// @notice On-chain registry for Dynamo temporal resonance containers on Base
 /// @dev Each container captures a complete temporal resonance event: proposal,
 ///      solar snapshot, 7D resonance profile (physical + temporal + neural + numerological),
-///      Trinitarium Moral Overlay, and cryptographic proof of integrity.
+///      Trinitarium Moral Overlay, Phase 6 photon factor fields, and cryptographic proof of integrity.
 ///      Chain-linked via previousContainerHash for temporal manifold navigation.
 ///      Deployed on Base for low-cost, fast-finality iteration.
 contract TemporalContainerRegistry {
@@ -13,6 +13,7 @@ contract TemporalContainerRegistry {
     uint256 public constant SCALE_1E18 = 1e18;
     uint256 public constant XRAY_SCALE = 1e9;
     uint256 public constant KP_SCALE = 1e2;
+    uint256 public constant PHOTON_SCALE = 1e9; // for 4/9 and phase coherence
 
     // ---------- structs ----------
 
@@ -55,6 +56,14 @@ contract TemporalContainerRegistry {
         string  moralNumerologicalTension;   // "Aligned" | "Mild" | "Significant" | "Critical"
     }
 
+    /// @notice Phase 6 photon factor fields
+    struct PhotonOverlay {
+        bool    photonFactorApplied;
+        uint256 dualBlackHoleTotal;   // scaled by PHOTON_SCALE
+        uint256 phaseCoherence;       // scaled by SCALE_1E18
+        int256  cti;                  // signed, clamped ±1e6 in off-chain calc
+    }
+
     struct TemporalContainer {
         bytes32          containerId;
         uint256          timestamp;
@@ -62,6 +71,7 @@ contract TemporalContainerRegistry {
         SolarSnapshot    solarSnapshot;
         ResonanceProfile resonanceProfile;
         MoralOverlay     moralOverlay;
+        PhotonOverlay    photonOverlay;          // Phase 6
         string           hammerReason;
         bytes32          previousContainerHash;  // chain link to previous vortex
         bytes32          containerHash;           // integrity hash
@@ -88,7 +98,8 @@ contract TemporalContainerRegistry {
         uint256   timestamp,
         string    verdict,
         string    moralTension,
-        string    source
+        string    source,
+        bool      photonFactorApplied
     );
 
     event ContainerVerified(
@@ -112,6 +123,7 @@ contract TemporalContainerRegistry {
         SolarSnapshot calldata  _solarSnapshot,
         ResonanceProfile calldata _resonanceProfile,
         MoralOverlay calldata    _moralOverlay,
+        PhotonOverlay calldata   _photonOverlay,
         string calldata           _hammerReason,
         bytes32                   _containerHash,
         string calldata           _source
@@ -126,6 +138,7 @@ contract TemporalContainerRegistry {
             solarSnapshot:         _solarSnapshot,
             resonanceProfile:      _resonanceProfile,
             moralOverlay:          _moralOverlay,
+            photonOverlay:         _photonOverlay,
             hammerReason:          _hammerReason,
             previousContainerHash: latestContainerHash,
             containerHash:         _containerHash,
@@ -144,7 +157,8 @@ contract TemporalContainerRegistry {
             _timestamp,
             _resonanceProfile.verdict,
             _moralOverlay.moralNumerologicalTension,
-            _source
+            _source,
+            _photonOverlay.photonFactorApplied
         );
     }
 
@@ -221,11 +235,7 @@ contract TemporalContainerRegistry {
         bytes32 current = _containers[_containerId].previousContainerHash;
 
         for (uint256 i = 0; i < _count; i++) {
-            // previousContainerHash stores the containerHash of the previous container,
-            // not its containerId. To traverse, we'd need a hash → id mapping.
-            // For now, store the chain of hashes.
             ancestors[i] = current;
-            // Note: full traversal requires hashToId mapping (future enhancement)
             if (current == bytes32(0)) break;
         }
     }
