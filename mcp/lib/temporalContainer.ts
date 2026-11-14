@@ -59,6 +59,7 @@ export interface ContainerVortex {
 const SCALE_1E18 = 1e18
 const XRAY_SCALE = 1e9
 const KP_SCALE = 1e2
+const PHOTON_SCALE = 1e9
 
 function scaleToUint256(value: number): bigint {
   return BigInt(Math.round(value * SCALE_1E18))
@@ -70,6 +71,11 @@ function scaleXray(value: number): bigint {
 
 function scaleKp(value: number): bigint {
   return BigInt(Math.round(value * KP_SCALE))
+}
+
+function scalePhoton(value: number | undefined): bigint {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0n
+  return BigInt(Math.round(value * PHOTON_SCALE))
 }
 
 /** Same bytes32 the chain container uses: sha256 of the proposal text. */
@@ -198,6 +204,12 @@ export function containerToContractParams(container: ContainerVortex) {
       intentAlignment: scaleToUint256(container.moralOverlay.intentAlignment),
       trinitariumGematriaFusion: scaleToUint256(container.moralOverlay.trinitariumGematriaFusion),
       moralNumerologicalTension: container.moralOverlay.moralNumerologicalTension,
+    },
+    photonOverlay: {
+      photonFactorApplied: container.photonFactorApplied ?? true,
+      dualBlackHoleTotal: scalePhoton(container.dualBlackHoleTotal),
+      phaseCoherence: scaleToUint256(container.phaseCoherence ?? 0),
+      cti: BigInt(Math.round(container.cti ?? 0)),
     },
     hammerReason: container.hammerReason,
     containerHash: container.containerHash,
