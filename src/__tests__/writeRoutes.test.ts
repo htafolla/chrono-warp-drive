@@ -718,6 +718,7 @@ beforeEach(() => {
   resetWriteGuardsForTests()
   resetX402ForTests()
   delete process.env.X402_FACILITATOR_URL
+  delete process.env.X402_FACILITATOR_TOKEN
   process.env.MCP_WRITE_API_KEY = WRITE_KEY
   process.env.VORTEX_SIGNING_KEY = SIGN_KEY
   delete process.env.MINT_GLOBAL_BUDGET
@@ -3235,6 +3236,7 @@ describe('write-route auth', () => {
 })
 
 const PAYER_KEY = `0x${'11'.repeat(32)}` as `0x${string}`
+const FACILITATOR_TX = `0x${'cd'.repeat(32)}` as `0x${string}`
 let paymentNonce = 0
 
 async function exactPaymentHeader(value = PERSIST_USDC_ATOMIC.toString()): Promise<string> {
@@ -3342,7 +3344,7 @@ describe('govern_with_solar agent persist', () => {
     let settlements = 0
     setX402SettlerForTests(async () => {
       settlements += 1
-      return { ok: true }
+      return { ok: true, transaction: FACILITATOR_TX }
     })
     setRedisClientForTests(new MemoryRedis())
     const header = await exactPaymentHeader()
@@ -3370,7 +3372,7 @@ describe('govern_with_solar agent persist', () => {
     let settlements = 0
     setX402SettlerForTests(async () => {
       settlements += 1
-      return { ok: true }
+      return { ok: true, transaction: FACILITATOR_TX }
     })
     const header = await exactPaymentHeader()
     try {
@@ -3394,7 +3396,7 @@ describe('govern_with_solar agent persist', () => {
     let settlements = 0
     setX402SettlerForTests(async () => {
       settlements += 1
-      return { ok: true }
+      return { ok: true, transaction: FACILITATOR_TX }
     })
     setRedisClientForTests(new MemoryRedis())
     try {
@@ -3415,7 +3417,7 @@ describe('govern_with_solar agent persist', () => {
 
   it('returns containerId from the govern_with_solar MCP tool for a paid PASS', async () => {
     const spy = pinVerdict('PASS')
-    setX402SettlerForTests(async () => ({ ok: true }))
+    setX402SettlerForTests(async () => ({ ok: true, transaction: FACILITATOR_TX }))
     setRedisClientForTests(new MemoryRedis())
     const header = await exactPaymentHeader()
     try {
@@ -3476,7 +3478,7 @@ describe('govern_with_solar agent persist', () => {
     let settlements = 0
     setX402SettlerForTests(async () => {
       settlements += 1
-      return { ok: true }
+      return { ok: true, transaction: FACILITATOR_TX }
     })
     const header = await exactPaymentHeader()
     const missing = await postJson('/govern_with_solar', {
@@ -3497,7 +3499,7 @@ describe('govern_with_solar agent persist', () => {
     let settlements = 0
     setX402SettlerForTests(async () => {
       settlements += 1
-      return { ok: true }
+      return { ok: true, transaction: FACILITATOR_TX }
     })
     setRedisClientForTests(new MemoryRedis())
     stub.persistError = new Error('chain down')
@@ -3534,6 +3536,48 @@ describe('govern_with_solar agent persist', () => {
       expect(stub.persists).toBe(1)
     } finally {
       spy.mockRestore()
+    }
+  })
+
+  it('rejects a settle success that has no tx hash, releases the cooldown, and returns no containerId', async () => {
+    const spy = pinVerdict('PASS')
+    process.env.X402_FACILITATOR_URL = 'https://clearing.example'
+    process.env.X402_FACILITATOR_TOKEN = 'test-facilitator-token'
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const target = String(url)
+      if (target.endsWith('/verify')) {
+        return new Response(JSON.stringify({ isValid: true }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      if (target.endsWith('/settle')) {
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(JSON.stringify([]), { status: 200, headers: { 'content-type': 'application/json' } })
+    }))
+    const header = await exactPaymentHeader()
+    try {
+      const failed = await postJson('/govern_with_solar', {
+        proposal: 'Paid persist whose settle receipt has no hash',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, { 'payment-signature': header })
+      expect(failed.status).toBe(401)
+      expect(failed.json.success).toBe(false)
+      expect(failed.json.temporalContainer).toBeUndefined()
+      expect(JSON.stringify(failed.json)).not.toMatch(/0x[0-9a-f]{64}/)
+      expect(stub.persists).toBe(0)
+
+      const next = await postJson('/govern_with_solar', {
+        proposal: 'Operator persist is not held by the failed settle cooldown',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, authHeader())
+      expect(next.status).toBe(200)
+      expect((next.json.temporalContainer as { onChainError?: string } | undefined)?.onChainError).toBeUndefined()
+      expect((next.json.temporalContainer as { containerId?: string } | undefined)?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(stub.persists).toBe(1)
+    } finally {
+      spy.mockRestore()
+      vi.unstubAllGlobals()
     }
   })
 })

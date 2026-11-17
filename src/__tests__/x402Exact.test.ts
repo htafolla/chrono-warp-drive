@@ -155,4 +155,24 @@ describe('x402 exact USDC on Base', () => {
       vi.unstubAllGlobals()
     }
   })
+
+  it('does not call Clearing when the facilitator URL is set and the token is not', async () => {
+    process.env.X402_FACILITATOR_URL = 'https://clearing.example'
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const verified = await verifyExactPayment(await signedPayment())
+      expect(verified.ok).toBe(true)
+      if (!verified.ok) return
+      const settled = await settleExactPayment(verified.payment)
+      expect(settled.ok).toBe(false)
+      if (!settled.ok) {
+        expect(settled.status).toBe(503)
+        expect(settled.error).toBe('x402 facilitator token not configured')
+      }
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })
