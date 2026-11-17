@@ -73,7 +73,7 @@ import {
   notePaymentFulfilled,
   paymentRequiredChallenge,
   settleExactPayment,
-  x402SettlementReady,
+  facilitatorConfigError,
   type ExactPayment,
 } from './lib/x402Exact.js'
 import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, isMintNotSent, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
@@ -2078,8 +2078,9 @@ app.post('/govern_with_solar', async (c: Context) => {
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
     }
-    if (x402Payment && !x402SettlementReady()) {
-      return c.json({ success: false, error: 'x402 facilitator is not configured' }, 503)
+    if (x402Payment) {
+      const configError = facilitatorConfigError()
+      if (configError) return c.json({ success: false, error: configError }, 503)
     }
     const acquired = acquirePersistCooldown()
     const retryAfterSecondsHeld = cooldownDenial(acquired)

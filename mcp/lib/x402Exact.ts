@@ -18,6 +18,7 @@ export const PERSIST_USDC_ATOMIC = 10_000n
 export const PERSIST_USDC_CAP_ATOMIC = 10_000n
 export const PERSIST_PAYMENT_TIMEOUT_SECONDS = 60
 export const X402_FACILITATOR_URL_ENV = 'X402_FACILITATOR_URL'
+export const X402_FACILITATOR_TOKEN_ENV = 'X402_FACILITATOR_TOKEN'
 
 const TRANSFER_AUTHORIZATION = [
   { name: 'from', type: 'address' },
@@ -123,7 +124,15 @@ export function encodePaymentRequiredHeader(challenge: PaymentRequiredChallenge)
   return Buffer.from(JSON.stringify(challenge), 'utf8').toString('base64')
 }
 
-type SettleResult = { ok: true } | { ok: false; status: 401 | 503; error: string }
+export type SettleResult =
+  | { ok: true; transaction: `0x${string}` }
+  | { ok: false; status: 401 | 503; error: string }
+
+const SETTLE_TX = /^0x[0-9a-fA-F]{64}$/
+
+function isSettleTx(value: unknown): value is `0x${string}` {
+  return typeof value === 'string' && SETTLE_TX.test(value)
+}
 
 /**
  * Process memory only. A restart forgets every set.
@@ -135,18 +144,38 @@ type SettleResult = { ok: true } | { ok: false; status: 401 | 503; error: string
 const usedNonces = new Set<string>()
 const inflightNonces = new Set<string>()
 const paidUnfulfilled = new Set<string>()
+/** Nonce → settle tx. Kept so a paid-unfulfilled retry can return the same receipt. */
+const settleReceipts = new Map<string, `0x${string}`>()
 let testSettler: ((payment: ExactPayment) => Promise<SettleResult>) | null = null
 
 export function resetX402ForTests(): void {
   usedNonces.clear()
   inflightNonces.clear()
   paidUnfulfilled.clear()
+  settleReceipts.clear()
   testSettler = null
 }
 
-/** True when a test settler or an https facilitator can settle. */
+function facilitatorToken(): string | null {
+  const token = process.env[X402_FACILITATOR_TOKEN_ENV]
+  if (typeof token !== 'string' || token.trim() === '') return null
+  return token.trim()
+}
+
+/**
+ * null when a settler or a URL plus token can settle.
+ * A URL without a token fails before any Clearing call.
+ */
+export function facilitatorConfigError(): string | null {
+  if (testSettler) return null
+  if (!facilitatorBase()) return 'x402 facilitator is not configured'
+  if (!facilitatorToken()) return 'x402 facilitator token not configured'
+  return null
+}
+
+/** True when a test settler or an https facilitator with a token can settle. */
 export function x402SettlementReady(): boolean {
-  return testSettler !== null || facilitatorBase() !== null
+  return facilitatorConfigError() === null
 }
 
 export function setX402SettlerForTests(settler: ((payment: ExactPayment) => Promise<SettleResult>) | null): void {
@@ -293,27 +322,48 @@ function facilitatorBase(): string | null {
   }
 }
 
-async function postFacilitator(path: '/verify' | '/settle', body: unknown): Promise<Record<string, unknown> | null> {
+type FacilitatorPost =
+  | { ok: true; body: Record<string, unknown> }
+  | { ok: false; status: 401 | 503 }
+
+function facilitatorHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  const token = facilitatorToken()
+  if (token) headers.authorization = `Bearer ${token}`
+  return headers
+}
+
+/** Clearing 401/503 and any other non-2xx are not a settlement. */
+async function postFacilitator(path: '/verify' | '/settle', body: unknown): Promise<FacilitatorPost> {
   const base = facilitatorBase()
-  if (!base) return null
+  if (!base) return { ok: false, status: 503 }
   try {
     const response = await fetch(`${base}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: facilitatorHeaders(),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     })
-    if (!response.ok) return null
+    if (!response.ok) return { ok: false, status: response.status === 503 ? 503 : 401 }
     const parsed: unknown = await response.json()
-    return isRecord(parsed) ? parsed : null
+    if (!isRecord(parsed)) return { ok: false, status: 401 }
+    return { ok: true, body: parsed }
   } catch {
-    return null
+    return { ok: false, status: 503 }
   }
+}
+
+function facilitatorDenied(status: 401 | 503): SettleResult {
+  if (status === 503) return { ok: false, status: 503, error: 'x402 facilitator is not configured' }
+  return unauthorized()
 }
 
 async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
   if (!facilitatorBase()) {
     return { ok: false, status: 503, error: 'x402 facilitator is not configured' }
+  }
+  if (!facilitatorToken()) {
+    return { ok: false, status: 503, error: 'x402 facilitator token not configured' }
   }
   const body = {
     x402Version: X402_VERSION,
@@ -321,10 +371,13 @@ async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
     paymentRequirements: exactUsdcRequirements(),
   }
   const verified = await postFacilitator('/verify', body)
-  if (!verified || verified.isValid !== true) return unauthorized()
+  if (!verified.ok) return facilitatorDenied('status' in verified ? verified.status : 503)
+  if (verified.body.isValid !== true) return unauthorized()
   const settled = await postFacilitator('/settle', body)
-  if (!settled || settled.success !== true) return unauthorized()
-  return { ok: true }
+  if (!settled.ok) return facilitatorDenied('status' in settled ? settled.status : 503)
+  const transaction = settled.body.transaction
+  if (settled.body.success !== true || !isSettleTx(transaction)) return unauthorized()
+  return { ok: true, transaction }
 }
 
 /**
@@ -334,13 +387,18 @@ async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
  */
 export async function settleExactPayment(payment: ExactPayment): Promise<SettleResult> {
   const key = nonceKey(payment.authorization.nonce)
-  if (paidUnfulfilled.has(key)) return { ok: true }
+  const prior = settleReceipts.get(key)
+  if (paidUnfulfilled.has(key) && prior) return { ok: true, transaction: prior }
   if (usedNonces.has(key) || inflightNonces.has(key)) return unauthorized()
   inflightNonces.add(key)
   try {
     const result = testSettler ? await testSettler(payment) : await facilitatorSettle(payment)
-    if (!result.ok) inflightNonces.delete(key)
-    return result
+    if (!result.ok || !isSettleTx(result.transaction)) {
+      inflightNonces.delete(key)
+      return result.ok ? unauthorized() : result
+    }
+    settleReceipts.set(key, result.transaction)
+    return { ok: true, transaction: result.transaction }
   } catch {
     inflightNonces.delete(key)
     return unauthorized()
@@ -359,6 +417,7 @@ export function notePaymentFulfilled(payment: ExactPayment): void {
   const key = nonceKey(payment.authorization.nonce)
   inflightNonces.delete(key)
   paidUnfulfilled.delete(key)
+  settleReceipts.delete(key)
   usedNonces.add(key)
 }
 

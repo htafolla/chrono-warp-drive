@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
 import {
@@ -18,6 +18,7 @@ const PAYER = privateKeyToAccount(`0x${'11'.repeat(32)}`)
 beforeEach(() => {
   resetX402ForTests()
   delete process.env.X402_FACILITATOR_URL
+  delete process.env.X402_FACILITATOR_TOKEN
 })
 
 async function signedPayment(value = PERSIST_USDC_ATOMIC.toString()): Promise<string> {
@@ -95,5 +96,83 @@ describe('x402 exact USDC on Base', () => {
     if (!unsettled.ok) expect(unsettled.status).toBe(503)
     const again = await verifyExactPayment(Buffer.from(JSON.stringify(verified.payment.raw), 'utf8').toString('base64'))
     expect(again.ok).toBe(true)
+  })
+
+  it('sends the Clearing bearer on verify then settle, and a non-2xx settle is not success', async () => {
+    const token = 'test-facilitator-token'
+    process.env.X402_FACILITATOR_URL = 'https://clearing.example'
+    process.env.X402_FACILITATOR_TOKEN = token
+    const calls: Array<{ url: string; authorization: string | null }> = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers)
+      calls.push({ url: String(url), authorization: headers.get('authorization') })
+      if (String(url).endsWith('/verify')) {
+        return new Response(JSON.stringify({ isValid: true }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ error: 'unavailable' }), { status: 503, headers: { 'content-type': 'application/json' } })
+    }))
+    try {
+      const verified = await verifyExactPayment(await signedPayment())
+      expect(verified.ok).toBe(true)
+      if (!verified.ok) return
+      const settled = await settleExactPayment(verified.payment)
+      expect(settled.ok).toBe(false)
+      if (!settled.ok) expect(settled.status).toBe(503)
+      expect(calls.map((call) => call.url)).toEqual([
+        'https://clearing.example/verify',
+        'https://clearing.example/settle',
+      ])
+      expect(calls.every((call) => call.authorization === `Bearer ${token}`)).toBe(true)
+      expect(JSON.stringify(settled)).not.toContain(token)
+      const retry = await verifyExactPayment(Buffer.from(JSON.stringify(verified.payment.raw), 'utf8').toString('base64'))
+      expect(retry.ok).toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+
+    calls.length = 0
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers)
+      calls.push({ url: String(url), authorization: headers.get('authorization') })
+      if (String(url).endsWith('/verify')) {
+        return new Response(JSON.stringify({ isValid: true }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(JSON.stringify({ error: 'denied' }), { status: 401, headers: { 'content-type': 'application/json' } })
+    }))
+    try {
+      const verified = await verifyExactPayment(await signedPayment())
+      expect(verified.ok).toBe(true)
+      if (!verified.ok) return
+      const settled = await settleExactPayment(verified.payment)
+      expect(settled.ok).toBe(false)
+      if (!settled.ok) expect(settled.status).toBe(401)
+      expect(calls.map((call) => call.url)).toEqual([
+        'https://clearing.example/verify',
+        'https://clearing.example/settle',
+      ])
+      expect(JSON.stringify(settled)).not.toContain(token)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('does not call Clearing when the facilitator URL is set and the token is not', async () => {
+    process.env.X402_FACILITATOR_URL = 'https://clearing.example'
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const verified = await verifyExactPayment(await signedPayment())
+      expect(verified.ok).toBe(true)
+      if (!verified.ok) return
+      const settled = await settleExactPayment(verified.payment)
+      expect(settled.ok).toBe(false)
+      if (!settled.ok) {
+        expect(settled.status).toBe(503)
+        expect(settled.error).toBe('x402 facilitator token not configured')
+      }
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
