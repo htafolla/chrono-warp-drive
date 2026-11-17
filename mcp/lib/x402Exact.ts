@@ -18,6 +18,7 @@ export const PERSIST_USDC_ATOMIC = 10_000n
 export const PERSIST_USDC_CAP_ATOMIC = 10_000n
 export const PERSIST_PAYMENT_TIMEOUT_SECONDS = 60
 export const X402_FACILITATOR_URL_ENV = 'X402_FACILITATOR_URL'
+export const X402_FACILITATOR_TOKEN_ENV = 'X402_FACILITATOR_TOKEN'
 
 const TRANSFER_AUTHORIZATION = [
   { name: 'from', type: 'address' },
@@ -293,22 +294,42 @@ function facilitatorBase(): string | null {
   }
 }
 
-async function postFacilitator(path: '/verify' | '/settle', body: unknown): Promise<Record<string, unknown> | null> {
+type FacilitatorPost =
+  | { ok: true; body: Record<string, unknown> }
+  | { ok: false; status: 401 | 503 }
+
+function facilitatorHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  const token = process.env[X402_FACILITATOR_TOKEN_ENV]
+  if (typeof token === 'string' && token.trim() !== '') {
+    headers.authorization = `Bearer ${token.trim()}`
+  }
+  return headers
+}
+
+/** Clearing 401/503 and any other non-2xx are not a settlement. */
+async function postFacilitator(path: '/verify' | '/settle', body: unknown): Promise<FacilitatorPost> {
   const base = facilitatorBase()
-  if (!base) return null
+  if (!base) return { ok: false, status: 503 }
   try {
     const response = await fetch(`${base}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: facilitatorHeaders(),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     })
-    if (!response.ok) return null
+    if (!response.ok) return { ok: false, status: response.status === 503 ? 503 : 401 }
     const parsed: unknown = await response.json()
-    return isRecord(parsed) ? parsed : null
+    if (!isRecord(parsed)) return { ok: false, status: 401 }
+    return { ok: true, body: parsed }
   } catch {
-    return null
+    return { ok: false, status: 503 }
   }
+}
+
+function facilitatorDenied(status: 401 | 503): SettleResult {
+  if (status === 503) return { ok: false, status: 503, error: 'x402 facilitator is not configured' }
+  return unauthorized()
 }
 
 async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
@@ -321,9 +342,11 @@ async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
     paymentRequirements: exactUsdcRequirements(),
   }
   const verified = await postFacilitator('/verify', body)
-  if (!verified || verified.isValid !== true) return unauthorized()
+  if (!verified.ok) return facilitatorDenied('status' in verified ? verified.status : 503)
+  if (verified.body.isValid !== true) return unauthorized()
   const settled = await postFacilitator('/settle', body)
-  if (!settled || settled.success !== true) return unauthorized()
+  if (!settled.ok) return facilitatorDenied('status' in settled ? settled.status : 503)
+  if (settled.body.success !== true) return unauthorized()
   return { ok: true }
 }
 
