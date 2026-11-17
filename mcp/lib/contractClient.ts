@@ -66,51 +66,59 @@ function getContractClient() {
 export async function persistContainerToChain(container: ContainerVortex): Promise<{ txHash: string }> {
   const abi = (await import('./abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
   const params = containerToContractParams(container)
-  const { walletClient, publicClient } = getContractClient()
+  const { walletClient, publicClient, account } = getContractClient()
+  const args = [
+    params.containerId as `0x${string}`,
+    params.timestamp,
+    params.proposalHash as `0x${string}`,
+    {
+      timestamp: params.solarSnapshot.timestamp,
+      activityLevel: params.solarSnapshot.activityLevel,
+      xrayFlux: params.solarSnapshot.xrayFlux,
+      kpIndex: params.solarSnapshot.kpIndex,
+      protonFlux: params.solarSnapshot.protonFlux,
+      magnetometer: params.solarSnapshot.magnetometer,
+      solarTdf: params.solarSnapshot.solarTdf,
+    },
+    {
+      fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
+      fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
+      waveProximity: params.resonanceProfile.waveProximity,
+      phaseAlignment: params.resonanceProfile.phaseAlignment,
+      calibratedVortex: params.resonanceProfile.calibratedVortex,
+      calibratedSync: params.resonanceProfile.calibratedSync,
+      neuralProximity: params.resonanceProfile.neuralProximity,
+      neuralVortex: params.resonanceProfile.neuralVortex,
+      gematriaResonance: params.resonanceProfile.gematriaResonance,
+      structuralResonance: params.resonanceProfile.structuralResonance,
+      verdict: params.resonanceProfile.verdict,
+      confidence: params.resonanceProfile.confidence,
+    },
+    {
+      trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
+      virtueAlignment: params.moralOverlay.virtueAlignment,
+      moralSafety: params.moralOverlay.moralSafety,
+      intentAlignment: params.moralOverlay.intentAlignment,
+      trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
+      moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
+    },
+    params.hammerReason,
+    params.containerHash as `0x${string}`,
+    params.source,
+  ]
+  // Live storeContainer on Base is about 823k gas. The public writer cannot pay that on dust.
+  const storeGas = 900_000n
+  const gasPrice = await publicClient.getGasPrice()
+  const balance = await publicClient.getBalance({ address: account.address })
+  if (balance < storeGas * gasPrice) {
+    throw new Error('deployer gas balance too low')
+  }
 
   const txHash = await writeContractTx(walletClient, {
     address: CONTRACT_ADDRESS,
     abi,
     functionName: 'storeContainer',
-    args: [
-      params.containerId as `0x${string}`,
-      params.timestamp,
-      params.proposalHash as `0x${string}`,
-      {
-        timestamp: params.solarSnapshot.timestamp,
-        activityLevel: params.solarSnapshot.activityLevel,
-        xrayFlux: params.solarSnapshot.xrayFlux,
-        kpIndex: params.solarSnapshot.kpIndex,
-        protonFlux: params.solarSnapshot.protonFlux,
-        magnetometer: params.solarSnapshot.magnetometer,
-        solarTdf: params.solarSnapshot.solarTdf,
-      },
-      {
-        fullBox7DComposite: params.resonanceProfile.fullBox7DComposite,
-        fullBox7DVerdict: params.resonanceProfile.fullBox7DVerdict,
-        waveProximity: params.resonanceProfile.waveProximity,
-        phaseAlignment: params.resonanceProfile.phaseAlignment,
-        calibratedVortex: params.resonanceProfile.calibratedVortex,
-        calibratedSync: params.resonanceProfile.calibratedSync,
-        neuralProximity: params.resonanceProfile.neuralProximity,
-        neuralVortex: params.resonanceProfile.neuralVortex,
-        gematriaResonance: params.resonanceProfile.gematriaResonance,
-        structuralResonance: params.resonanceProfile.structuralResonance,
-        verdict: params.resonanceProfile.verdict,
-        confidence: params.resonanceProfile.confidence,
-      },
-      {
-        trinitariumMoralScore: params.moralOverlay.trinitariumMoralScore,
-        virtueAlignment: params.moralOverlay.virtueAlignment,
-        moralSafety: params.moralOverlay.moralSafety,
-        intentAlignment: params.moralOverlay.intentAlignment,
-        trinitariumGematriaFusion: params.moralOverlay.trinitariumGematriaFusion,
-        moralNumerologicalTension: params.moralOverlay.moralNumerologicalTension,
-      },
-      params.hammerReason,
-      params.containerHash as `0x${string}`,
-      params.source,
-    ],
+    args,
   })
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })

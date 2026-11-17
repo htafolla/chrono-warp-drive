@@ -73,7 +73,10 @@ import {
   notePaymentFulfilled,
   paymentRequiredChallenge,
   settleExactPayment,
+  confirmSettledUsdc,
   facilitatorConfigError,
+  persistFailureCause,
+  settleTxForPaymentId,
   type ExactPayment,
 } from './lib/x402Exact.js'
 import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, isMintNotSent, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
@@ -2009,7 +2012,16 @@ app.post('/govern_with_solar', async (c: Context) => {
   // The registry has no public apiKey/DID verify, so agents pay x402 exact USDC on Base.
   let persistSigningKey: string | null = null
   let x402Payment: ExactPayment | null = null
+  let resumedSettle: `0x${string}` | null = null
   if (persistToChain) {
+    const settleClaim = typeof body.settleTransaction === 'string' ? body.settleTransaction : settleTxForPaymentId(typeof body.paymentId === 'string' ? body.paymentId : '')
+    if (typeof body.settleTransaction === 'string' || typeof body.paymentId === 'string') {
+      if (!settleClaim || !(await confirmSettledUsdc(settleClaim))) {
+        return c.json({ success: false, error: 'Unauthorized' }, 401)
+      }
+      resumedSettle = settleClaim
+    }
+    if (!resumedSettle) {
     const headerPayment = c.req.header('payment-signature') ?? c.req.header('x-payment')
     const bodyPayment = typeof body.x402Payment === 'string' ? body.x402Payment : undefined
     const payment = headerPayment && headerPayment.trim() !== '' ? headerPayment.trim() : bodyPayment
@@ -2031,6 +2043,7 @@ app.post('/govern_with_solar', async (c: Context) => {
       return c.json({ success: false, error }, status as ContentfulStatusCode)
     }
     if (grant.via === 'x402') x402Payment = grant.payment
+    }
     persistSigningKey = readVortexSigningKey()
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
@@ -2094,7 +2107,8 @@ app.post('/govern_with_solar', async (c: Context) => {
       })
     }
     const acquiredAt = 'acquiredAt' in acquired ? acquired.acquiredAt : Date.now()
-    if (x402Payment) {
+    let settleTransaction: `0x${string}` | undefined = resumedSettle ?? undefined
+    if (x402Payment && !resumedSettle) {
       const settled = await settleExactPayment(x402Payment)
       if (!settled.ok) {
         releasePersistCooldown(acquiredAt)
@@ -2102,6 +2116,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         const error = 'error' in settled ? settled.error : 'Unauthorized'
         return c.json({ success: false, error }, status)
       }
+      settleTransaction = 'transaction' in settled && typeof settled.transaction === 'string' ? settled.transaction : undefined
     }
     const claim = await claimChainSave(proposalText)
     if (claim !== 'claimed') {
@@ -2110,10 +2125,10 @@ app.post('/govern_with_solar', async (c: Context) => {
         if (x402Payment) notePaymentFulfilled(x402Payment)
         return c.json(waited)
       }
-      if (x402Payment) {
-        notePaidUnfulfilled(x402Payment)
+      if (x402Payment || resumedSettle) {
+        if (x402Payment) notePaidUnfulfilled(x402Payment)
         releasePersistCooldown(acquiredAt)
-        return c.json({ success: false, error: 'Chain persist failed' }, 502)
+        return c.json({ success: false, error: 'Chain persist failed', settleTransaction }, 502)
       }
       return c.json({
         success: true,
@@ -2156,13 +2171,14 @@ app.post('/govern_with_solar', async (c: Context) => {
     try {
       onChain = await getChainExecutor().persistGovernedContainer(container)
       await finishChainSave(proposalText, onChain.txHash)
-    } catch {
+    } catch (err) {
       await releaseChainSave(proposalText)
-      process.stderr.write('[govern] persist failed\n')
-      if (x402Payment) {
-        notePaidUnfulfilled(x402Payment)
+      const cause = persistFailureCause(err)
+      process.stderr.write(`[govern] persist failed: ${cause}\n`)
+      if (x402Payment || resumedSettle) {
+        if (x402Payment) notePaidUnfulfilled(x402Payment)
         releasePersistCooldown(acquiredAt)
-        return c.json({ success: false, error: 'Chain persist failed' }, 502)
+        return c.json({ success: false, error: 'Chain persist failed', cause, settleTransaction }, 502)
       }
       return c.json({
         success: true,

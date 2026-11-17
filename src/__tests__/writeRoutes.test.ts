@@ -3514,8 +3514,9 @@ describe('govern_with_solar agent persist', () => {
       expect(failed.status).toBe(502)
       expect(failed.json.success).toBe(false)
       expect(failed.json.error).toBe('Chain persist failed')
+      expect(failed.json.settleTransaction).toBe(FACILITATOR_TX)
       expect(failed.json.temporalContainer).toBeUndefined()
-      expect(JSON.stringify(failed.json)).not.toMatch(/0x[0-9a-f]{64}/)
+      expect(JSON.stringify(failed.json)).not.toMatch(/0x(?!cd)[0-9a-f]{64}/i)
       expect(settlements).toBe(1)
       expect(stub.persists).toBe(0)
 
@@ -3577,7 +3578,69 @@ describe('govern_with_solar agent persist', () => {
       expect(stub.persists).toBe(1)
     } finally {
       spy.mockRestore()
-      vi.unstubAllGlobals()
+    }
+  })
+
+  it('finishes a paid-unfulfilled persist from the settle receipt or payment id without settling again', async () => {
+    const spy = pinVerdict('PASS')
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true, transaction: FACILITATOR_TX }
+    })
+    setRedisClientForTests(new MemoryRedis())
+    stub.persistError = new Error('insufficient funds for gas * price + value')
+    const stderr: string[] = []
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      stderr.push(String(chunk))
+      return true
+    })
+    const header = await exactPaymentHeader()
+    const payload = JSON.parse(Buffer.from(header, 'base64').toString('utf8')) as { payload: { authorization: { nonce: string } } }
+    const paymentId = payload.payload.authorization.nonce
+    const body = {
+      proposal: 'Paid persist that runs out of deployer gas',
+      persistToChain: true,
+      sunNeuralEmbedding: [0.2],
+    }
+    try {
+      const failed = await postJson('/govern_with_solar', body, { 'payment-signature': header })
+      expect(failed.status).toBe(502)
+      expect(failed.json.success).toBe(false)
+      expect(failed.json.settleTransaction).toBe(FACILITATOR_TX)
+      expect(failed.json.cause).toBe('deployer gas balance too low')
+      expect(failed.json.temporalContainer).toBeUndefined()
+      expect(stderr.join('')).toContain('deployer gas balance too low')
+      expect(stderr.join('')).not.toContain('insufficient funds')
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(0)
+
+      stub.persistError = new Error('insufficient funds for gas * price + value')
+      const byPaymentId = await postJson('/govern_with_solar', {
+        proposal: 'Finish later with the payment id',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+        paymentId,
+      })
+      expect(byPaymentId.status).toBe(502)
+      expect(byPaymentId.json.settleTransaction).toBe(FACILITATOR_TX)
+      expect(byPaymentId.json.temporalContainer).toBeUndefined()
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(0)
+
+      const byReceipt = await postJson('/govern_with_solar', {
+        proposal: 'Finish the paid persist with the settle receipt',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+        settleTransaction: FACILITATOR_TX,
+      })
+      expect(byReceipt.status).toBe(200)
+      expect((byReceipt.json.temporalContainer as { containerId?: string } | undefined)?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(1)
+    } finally {
+      write.mockRestore()
+      spy.mockRestore()
     }
   })
 })
