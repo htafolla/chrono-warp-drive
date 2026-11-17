@@ -61,6 +61,16 @@ import {
   throwOnNextVerifyForTests,
   verifyVortexSignature,
 } from '../../mcp/lib/writeGate'
+import {
+  BASE_USDC,
+  PERSIST_USDC_ATOMIC,
+  exactUsdcRequirements,
+  resetX402ForTests,
+  setX402SettlerForTests,
+  transferAuthorizationTypes,
+  usdcDomain,
+} from '../../mcp/lib/x402Exact'
+import { privateKeyToAccount } from 'viem/accounts'
 
 const WRITE_KEY = 'write-test-key'
 const SIGN_KEY = 'sign-test-key'
@@ -706,6 +716,8 @@ beforeEach(() => {
   counters.deployerKeyReads = 0
   counters.directChainCalls = 0
   resetWriteGuardsForTests()
+  resetX402ForTests()
+  delete process.env.X402_FACILITATOR_URL
   process.env.MCP_WRITE_API_KEY = WRITE_KEY
   process.env.VORTEX_SIGNING_KEY = SIGN_KEY
   delete process.env.MINT_GLOBAL_BUDGET
@@ -3216,6 +3228,202 @@ describe('write-route auth', () => {
       expect(encoded).not.toContain('rpc.example')
       expect(result.json.onChainError).toBe('Chain persist failed')
       expect(stub.persists).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
+
+const PAYER_KEY = `0x${'11'.repeat(32)}` as `0x${string}`
+let paymentNonce = 0
+
+async function exactPaymentHeader(value = PERSIST_USDC_ATOMIC.toString()): Promise<string> {
+  paymentNonce += 1
+  const account = privateKeyToAccount(PAYER_KEY)
+  const now = Math.floor(Date.now() / 1000)
+  const nonce = `0x${paymentNonce.toString(16).padStart(64, '0')}` as `0x${string}`
+  const authorization = {
+    from: account.address,
+    to: exactUsdcRequirements().payTo,
+    value,
+    validAfter: '0',
+    validBefore: String(now + 30),
+    nonce,
+  }
+  const signature = await account.signTypedData({
+    domain: usdcDomain(),
+    types: transferAuthorizationTypes,
+    primaryType: 'TransferWithAuthorization',
+    message: {
+      from: authorization.from,
+      to: authorization.to,
+      value: BigInt(value),
+      validAfter: 0n,
+      validBefore: BigInt(authorization.validBefore),
+      nonce,
+    },
+  })
+  return Buffer.from(JSON.stringify({
+    x402Version: 2,
+    accepted: { ...exactUsdcRequirements(), amount: value },
+    payload: { signature, authorization },
+  }), 'utf8').toString('base64')
+}
+
+function pinVerdict(verdict: 'PASS' | 'REJECT') {
+  const original = dynamoSolarGovernance.enhanceGovernanceDecision.bind(dynamoSolarGovernance)
+  return vi.spyOn(dynamoSolarGovernance, 'enhanceGovernanceDecision').mockImplementation(async (...args) => {
+    const real = await original(...args)
+    return { ...real, recommendation: verdict, fullBox7DVerdict: verdict }
+  })
+}
+
+describe('govern_with_solar agent persist', () => {
+  it('returns 401 when persistToChain has no operator key and no x402 payment', async () => {
+    const denied = await postJson('/govern_with_solar', {
+      persistToChain: true,
+      proposal: 'Persist without a credential',
+      sunNeuralEmbedding: [0.2],
+    }, authHeader('nope'))
+    expect(denied.status).toBe(401)
+    expect(denied.json.error).toBe('Unauthorized')
+    const accepts = denied.json.accepts as Array<{ amount?: string; scheme?: string }> | undefined
+    expect(accepts?.[0]?.scheme).toBe('exact')
+    expect(accepts?.[0]?.amount).toBe('10000')
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+    expect(JSON.stringify(denied.json)).not.toContain('nope')
+  })
+
+  it('persists a paid PASS and returns containerId', async () => {
+    const spy = pinVerdict('PASS')
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true }
+    })
+    setRedisClientForTests(new MemoryRedis())
+    const header = await exactPaymentHeader()
+    try {
+      const paid = await postJson('/govern_with_solar', {
+        proposal: 'Paid agent PASS citation for mint_suit',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, { 'payment-signature': header })
+      expect(paid.status).toBe(200)
+      const container = paid.json.temporalContainer as { containerId?: string } | undefined
+      expect(container?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(stub.persists).toBe(1)
+      expect(settlements).toBe(1)
+      const encoded = JSON.stringify(paid.json)
+      expect(encoded).not.toContain(header)
+      expect(encoded).not.toContain(PAYER_KEY)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('does not persist or settle a REJECT', async () => {
+    const spy = pinVerdict('REJECT')
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true }
+    })
+    const header = await exactPaymentHeader()
+    try {
+      const rejected = await postJson('/govern_with_solar', {
+        proposal: 'Paid agent proposal that governance rejects',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, { 'payment-signature': header })
+      expect(rejected.status).toBe(200)
+      expect(String((rejected.json.temporalContainer as { onChainError?: string } | undefined)?.onChainError)).toContain('rejected')
+      expect(stub.persists).toBe(0)
+      expect(settlements).toBe(0)
+      expectNoChainOrKey()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('still persists with the operator key and returns containerId', async () => {
+    const spy = pinVerdict('PASS')
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true }
+    })
+    setRedisClientForTests(new MemoryRedis())
+    try {
+      const operator = await postJson('/govern_with_solar', {
+        proposal: 'Operator key still writes the citation',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, authHeader())
+      expect(operator.status).toBe(200)
+      const container = operator.json.temporalContainer as { containerId?: string } | undefined
+      expect(container?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(stub.persists).toBe(1)
+      expect(settlements).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('returns containerId from the govern_with_solar MCP tool for a paid PASS', async () => {
+    const spy = pinVerdict('PASS')
+    setX402SettlerForTests(async () => ({ ok: true }))
+    setRedisClientForTests(new MemoryRedis())
+    const header = await exactPaymentHeader()
+    try {
+      const missing = await app.request('/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: {
+            name: 'govern_with_solar',
+            arguments: {
+              proposal: 'MCP persist without a credential',
+              persistToChain: true,
+              sunNeuralEmbedding: [0.2],
+            },
+          },
+        }),
+      })
+      expect(missing.status).toBe(200)
+      const missingBody = await missing.json() as { result: { content: Array<{ text: string }> } }
+      const missingText = JSON.parse(missingBody.result.content[0].text) as { status?: number; temporalContainer?: { containerId?: string } }
+      expect(missingText.status).toBe(401)
+      expect(missingText.temporalContainer).toBeUndefined()
+      expect(stub.persists).toBe(0)
+
+      const paid = await app.request('/', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'payment-signature': header },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: {
+            name: 'govern_with_solar',
+            arguments: {
+              proposal: 'MCP paid PASS citation',
+              persistToChain: true,
+              sunNeuralEmbedding: [0.2],
+            },
+          },
+        }),
+      })
+      expect(paid.status).toBe(200)
+      const paidBody = await paid.json() as { result: { content: Array<{ text: string }> } }
+      const paidText = JSON.parse(paidBody.result.content[0].text) as { temporalContainer?: { containerId?: string } }
+      expect(paidText.temporalContainer?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(stub.persists).toBe(1)
+      expect(JSON.stringify(paidText)).not.toContain(header)
     } finally {
       spy.mockRestore()
     }

@@ -8,7 +8,7 @@ sidebar_position: 4
 
 **Version:** v5.2 (Trinitarium Moral Overlay + 7D model)
 
-No authentication required. All requests and responses are JSON.
+Evaluation is open. `persistToChain` requires the operator key or an x402 exact USDC payment on Base. All requests and responses are JSON.
 
 ## POST /govern_with_solar
 
@@ -33,6 +33,30 @@ Submit a proposal for solar-resonance evaluation.
 | `sharePublicly` | boolean | no | Add to public feed (default false) |
 | `spectralQuality` | number | no | NeuralFusion quality 0–1. Activates 5D mode |
 | `sunNeuralEmbedding` | number[] | no | 16-dim sun embedding from `/process-current-sun`. Auto-fetched if not provided |
+| `persistToChain` | boolean | no | Persist a non-REJECT verdict and return `temporalContainer.containerId` |
+| `x402Payment` | string | no | Base64 x402 v2 `PAYMENT-SIGNATURE` body. Alternative to the header |
+
+### Agent path: persist a PASS citation
+
+Groover `mint_suit` (factory-parity step 4) needs this `temporalContainer.containerId` as `dynamoCitation`. The Groover registry does not expose a public verify route for an apiKey or a DID-signed request — those checks run only inside `mint_suit` and `issue_sui_binding` — so Dynamo accepts an **x402 exact** USDC payment on Base instead of the shared operator key.
+
+Either credential works:
+
+1. Operator: `Authorization: Bearer <MCP_WRITE_API_KEY>`
+2. Agent: header `PAYMENT-SIGNATURE` (or `X-PAYMENT`, or JSON `x402Payment`) carrying an x402 v2 exact payload
+
+Payment requirements (the price is the cap):
+
+| Field | Value |
+|-------|--------|
+| scheme | `exact` |
+| network | `eip155:8453` (Base) |
+| asset | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (USDC, EIP-712 name `USD Coin`, version `2`) |
+| amount | `10000` (0.01 USDC, 6 decimals) |
+| payTo | vortex treasury `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43` |
+| method | EIP-3009 `transferWithAuthorization` |
+
+`X402_FACILITATOR_URL` (https) is where Dynamo `POST`s `/verify` and `/settle`. Settlement runs only after a non-REJECT verdict, and only once per nonce. REJECT does not persist and is not charged. The 10s cooldown, proposal replay, and `VORTEX_SIGNING_KEY` rules are unchanged. A missing or invalid credential is **401**. The same `persistToChain` field and credentials work on the `govern_with_solar` MCP tool (`x402Payment` argument or the MCP HTTP `PAYMENT-SIGNATURE` header). The tool result includes `temporalContainer.containerId`.
 
 ### Full Response
 
