@@ -2012,10 +2012,12 @@ app.post('/govern_with_solar', async (c: Context) => {
       payment,
     })
     if (!grant.ok) {
-      if (grant.status === 401) {
-        return c.json({ success: false, error: grant.error, accepts: [exactUsdcRequirements()] }, grant.status)
+      const status = 'status' in grant ? grant.status : 401
+      const error = 'error' in grant ? grant.error : 'Unauthorized'
+      if (status === 401) {
+        return c.json({ success: false, error, accepts: [exactUsdcRequirements()] }, status)
       }
-      return c.json({ success: false, error: grant.error }, grant.status)
+      return c.json({ success: false, error }, status)
     }
     if (grant.via === 'x402') x402Payment = grant.payment
     persistSigningKey = readVortexSigningKey()
@@ -2073,7 +2075,11 @@ app.post('/govern_with_solar', async (c: Context) => {
     }
     if (x402Payment) {
       const settled = await settleExactPayment(x402Payment)
-      if (!settled.ok) return c.json({ success: false, error: settled.error }, settled.status)
+      if (!settled.ok) {
+        const status = 'status' in settled ? settled.status : 401
+        const error = 'error' in settled ? settled.error : 'Unauthorized'
+        return c.json({ success: false, error }, status)
+      }
     }
 
     if (!persistSigningKey) {

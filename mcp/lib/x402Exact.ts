@@ -322,5 +322,8 @@ export async function authorizePersist(input: {
     if (!verified.ok) return unauthorized()
     return { ok: true, via: 'x402', payment: verified.payment }
   }
-  return { ok: false, status: operator.status, error: operator.error }
+  if ('status' in operator && 'error' in operator) {
+    return { ok: false, status: operator.status, error: operator.error }
+  }
+  return { ok: false, status: 401, error: 'Unauthorized' }
 }
