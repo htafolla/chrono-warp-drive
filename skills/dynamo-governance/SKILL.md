@@ -55,7 +55,7 @@ Same as `governance`, but includes solar activity modulation (TDF, Kp index, x-r
 - `Authorization: Bearer <MCP_WRITE_API_KEY>` (operator), or
 - an x402 v2 **exact** payment on Base: `PAYMENT-SIGNATURE` header, or `x402Payment` on the MCP tool. Network `eip155:8453`, asset Base USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, amount `10000` (0.01 USDC, the cap), payTo `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43`, EIP-3009 `transferWithAuthorization` (domain name `USD Coin`, version `2`). Settlement uses `X402_FACILITATOR_URL`.
 
-REJECT does not persist and is not charged. Cooldown, replay, and the vortex signing key stay as they are. A request with neither credential is **401**.
+REJECT does not persist and is not charged. Cooldown, replay, and the vortex signing key stay as they are. No bearer and no payment, or a payment that fails verification, is **402 Payment Required** (`PAYMENT-REQUIRED` header, x402 v2 `accepts`). An invalid operator bearer is **401**.
 
 **Structured (must include `source`):**
 ```json

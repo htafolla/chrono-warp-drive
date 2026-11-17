@@ -1,6 +1,6 @@
 import { isAddress, verifyTypedData, type Address, type Hex } from 'viem'
 import { VORTEX_TREASURY } from './chainPort.js'
-import { authorizeWrite, type WriteAuth } from './writeGate.js'
+import { authorizeWrite, bearerToken, type WriteAuth } from './writeGate.js'
 
 /**
  * Groover's registry checks an apiKey only inside mint_suit and issue_sui_binding.
@@ -94,7 +94,34 @@ export interface ExactPayment {
 export type PersistGrant =
   | { ok: true; via: 'operator' }
   | { ok: true; via: 'x402'; payment: ExactPayment }
-  | { ok: false; status: 401 | 503; error: string }
+  | { ok: false; status: 401 | 402 | 503; error: string }
+
+export interface PaymentRequiredChallenge {
+  x402Version: typeof X402_VERSION
+  error: string
+  resource: { url: string; description: string; mimeType: 'application/json' }
+  accepts: [ExactUsdcRequirements]
+  extensions: Record<string, never>
+}
+
+/** x402 v2 PaymentRequired object. The HTTP form is also the PAYMENT-REQUIRED header, base64-encoded. */
+export function paymentRequiredChallenge(resourceUrl: string, error: string): PaymentRequiredChallenge {
+  return {
+    x402Version: X402_VERSION,
+    error,
+    resource: {
+      url: resourceUrl,
+      description: 'Persist a non-REJECT govern_with_solar verdict',
+      mimeType: 'application/json',
+    },
+    accepts: [exactUsdcRequirements()],
+    extensions: {},
+  }
+}
+
+export function encodePaymentRequiredHeader(challenge: PaymentRequiredChallenge): string {
+  return Buffer.from(JSON.stringify(challenge), 'utf8').toString('base64')
+}
 
 type SettleResult = { ok: true } | { ok: false; status: 401 | 503; error: string }
 
@@ -336,8 +363,9 @@ export function notePaymentFulfilled(payment: ExactPayment): void {
 }
 
 /**
- * Operator bearer wins when it matches. Otherwise a verified x402 exact payment
- * is enough. A missing payment keeps the existing 401/503 write-key behavior.
+ * Operator bearer wins when it matches. A presented bearer that does not match
+ * stays 401 (or 503 when the operator key is unset). No bearer and no payment,
+ * and a payment that fails verification, are 402 so an x402 client will pay.
  */
 export async function authorizePersist(input: {
   authorizationHeader?: string
@@ -348,11 +376,14 @@ export async function authorizePersist(input: {
   const payment = input.payment?.trim()
   if (payment) {
     const verified = await verifyExactPayment(payment)
-    if (!verified.ok) return unauthorized()
+    if (!verified.ok) return { ok: false, status: 402, error: 'Payment verification failed' }
     return { ok: true, via: 'x402', payment: verified.payment }
   }
-  if ('status' in operator && 'error' in operator) {
-    return { ok: false, status: operator.status, error: operator.error }
+  if (bearerToken(input.authorizationHeader)) {
+    if ('status' in operator && 'error' in operator) {
+      return { ok: false, status: operator.status, error: operator.error }
+    }
+    return { ok: false, status: 401, error: 'Unauthorized' }
   }
-  return { ok: false, status: 401, error: 'Unauthorized' }
+  return { ok: false, status: 402, error: 'PAYMENT-SIGNATURE header is required' }
 }

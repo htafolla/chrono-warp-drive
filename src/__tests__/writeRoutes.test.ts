@@ -697,7 +697,7 @@ async function postJson(path: string, body: unknown, headers: Record<string, str
     body: JSON.stringify(body),
   })
   const json = await res.json() as Record<string, unknown>
-  return { status: res.status, json }
+  return { status: res.status, json, headers: res.headers }
 }
 
 async function mint(body: Record<string, unknown>, headers: Record<string, string> = {}) {
@@ -3130,7 +3130,7 @@ describe('write-route auth', () => {
   it('requires the API key only when govern_with_solar persists, and read-only stays open', async () => {
     delete process.env.MCP_WRITE_API_KEY
     const locked = await postJson('/govern_with_solar', { persistToChain: true, proposal: 'Deploy the array' })
-    expect(locked.status).toBe(503)
+    expect(locked.status).toBe(402)
     expectNoChainOrKey()
     expect(signingKeyReadCount()).toBe(0)
 
@@ -3293,6 +3293,48 @@ describe('govern_with_solar agent persist', () => {
     expectNoChainOrKey()
     expect(signingKeyReadCount()).toBe(0)
     expect(JSON.stringify(denied.json)).not.toContain('nope')
+    expect(denied.headers.get('payment-required')).toBeNull()
+  })
+
+  it('returns 402 with a PAYMENT-REQUIRED header when persist has no bearer and no payment', async () => {
+    const denied = await postJson('/govern_with_solar', {
+      persistToChain: true,
+      proposal: 'Persist with no credential so an x402 client can pay',
+      sunNeuralEmbedding: [0.2],
+    })
+    expect(denied.status).toBe(402)
+    expect(denied.json.success).toBe(false)
+    expect(denied.json.x402Version).toBe(2)
+    const accepts = denied.json.accepts as Array<{ scheme?: string; amount?: string; payTo?: string; network?: string }>
+    expect(accepts[0]?.scheme).toBe('exact')
+    expect(accepts[0]?.network).toBe('eip155:8453')
+    expect(accepts[0]?.amount).toBe('10000')
+    expect(accepts[0]?.payTo).toBe(VORTEX_TREASURY)
+    const encoded = denied.headers.get('payment-required')
+    expect(encoded).toBeTruthy()
+    const challenge = JSON.parse(Buffer.from(String(encoded), 'base64').toString('utf8')) as {
+      x402Version?: number
+      accepts?: Array<{ amount?: string; payTo?: string }>
+    }
+    expect(challenge.x402Version).toBe(2)
+    expect(challenge.accepts?.[0]?.amount).toBe('10000')
+    expect(challenge.accepts?.[0]?.payTo).toBe(VORTEX_TREASURY)
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
+  })
+
+  it('returns 402 when the x402 payment fails verification', async () => {
+    const denied = await postJson('/govern_with_solar', {
+      persistToChain: true,
+      proposal: 'Persist with a payment that does not verify',
+      sunNeuralEmbedding: [0.2],
+    }, { 'payment-signature': 'not-a-payment' })
+    expect(denied.status).toBe(402)
+    expect(denied.json.success).toBe(false)
+    expect(denied.json.x402Version).toBe(2)
+    expect(denied.headers.get('payment-required')).toBeTruthy()
+    expectNoChainOrKey()
+    expect(signingKeyReadCount()).toBe(0)
   })
 
   it('persists a paid PASS and returns containerId', async () => {
@@ -3397,7 +3439,7 @@ describe('govern_with_solar agent persist', () => {
       expect(missing.status).toBe(200)
       const missingBody = await missing.json() as { result: { content: Array<{ text: string }> } }
       const missingText = JSON.parse(missingBody.result.content[0].text) as { status?: number; temporalContainer?: { containerId?: string } }
-      expect(missingText.status).toBe(401)
+      expect(missingText.status).toBe(402)
       expect(missingText.temporalContainer).toBeUndefined()
       expect(stub.persists).toBe(0)
 
@@ -3487,7 +3529,7 @@ describe('govern_with_solar agent persist', () => {
         persistToChain: true,
         sunNeuralEmbedding: [0.2],
       }, { 'payment-signature': header })
-      expect(reused.status).toBe(401)
+      expect(reused.status).toBe(402)
       expect(settlements).toBe(1)
       expect(stub.persists).toBe(1)
     } finally {
