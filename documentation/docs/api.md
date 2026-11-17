@@ -56,7 +56,7 @@ Payment requirements (the price is the cap):
 | payTo | vortex treasury `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43` |
 | method | EIP-3009 `transferWithAuthorization` |
 
-`X402_FACILITATOR_URL` (https) is where Dynamo `POST`s `/verify` and `/settle`. Settlement runs only after a non-REJECT verdict, and only once per nonce. REJECT does not persist and is not charged. The 10s cooldown, proposal replay, and `VORTEX_SIGNING_KEY` rules are unchanged. A missing or invalid credential is **401**. The same `persistToChain` field and credentials work on the `govern_with_solar` MCP tool (`x402Payment` argument or the MCP HTTP `PAYMENT-SIGNATURE` header). The tool result includes `temporalContainer.containerId`.
+`X402_FACILITATOR_URL` (https) is where Dynamo `POST`s `/verify` and `/settle`. Settlement runs only after a non-REJECT verdict, and only once per nonce. REJECT does not persist and is not charged. The 10s cooldown, proposal replay, and `VORTEX_SIGNING_KEY` rules are unchanged. No bearer and no payment, or a payment that fails verification, is **402** with an x402 v2 `PAYMENT-REQUIRED` header. An invalid operator bearer is **401**. The same `persistToChain` field and credentials work on the `govern_with_solar` MCP tool (`x402Payment` argument or the MCP HTTP `PAYMENT-SIGNATURE` header). The tool result includes `temporalContainer.containerId`.
 
 ### Full Response
 

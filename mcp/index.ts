@@ -67,9 +67,11 @@ import {
 } from './lib/writeGate.js'
 import {
   authorizePersist,
+  encodePaymentRequiredHeader,
   exactUsdcRequirements,
   notePaidUnfulfilled,
   notePaymentFulfilled,
+  paymentRequiredChallenge,
   settleExactPayment,
   x402SettlementReady,
   type ExactPayment,
@@ -2018,10 +2020,15 @@ app.post('/govern_with_solar', async (c: Context) => {
     if (!grant.ok) {
       const status = 'status' in grant ? grant.status : 401
       const error = 'error' in grant ? grant.error : 'Unauthorized'
-      if (status === 401) {
-        return c.json({ success: false, error, accepts: [exactUsdcRequirements()] }, status)
+      if (status === 402) {
+        const challenge = paymentRequiredChallenge(`${HAMMER}/govern_with_solar`, error)
+        c.header('PAYMENT-REQUIRED', encodePaymentRequiredHeader(challenge))
+        return c.json({ success: false, ...challenge }, 402)
       }
-      return c.json({ success: false, error }, status)
+      if (status === 401) {
+        return c.json({ success: false, error, accepts: [exactUsdcRequirements()] }, 401)
+      }
+      return c.json({ success: false, error }, status as ContentfulStatusCode)
     }
     if (grant.via === 'x402') x402Payment = grant.payment
     persistSigningKey = readVortexSigningKey()
