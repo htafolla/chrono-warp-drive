@@ -12,12 +12,12 @@ import { createGovernanceRouter, evaluateGovernance } from './governance'
 import { dynamoSolarGovernance, getPublicFeed, getHistory, getHistoryStats, REDIS_HISTORY_PERMANENT_KEY } from './lib/dynamoSolarGovernance.js'
 import { isStructuredProposal, extractProposalText } from './lib/structuredProposal.js'
 import { ambientField } from './lib/ambientField.js'
-import { governanceToContainer, determineSource } from './lib/temporalContainer.js'
+import { governanceToContainer, determineSource, hashProposalText } from './lib/temporalContainer.js'
 import { claimChainSave, finishChainSave, releaseChainSave, replayChainSave } from './lib/chainSaveLedger.js'
 import type { ContainerVortex } from './lib/temporalContainer.js'
 import { containerOriginHashField, originFromRedisHash, SEED_ROUTE_SOURCE, REDIS_CONTAINER_ORIGIN_KEY } from './lib/containerOrigin.js'
 import { mountDevSeedRoute } from './lib/devSeedRoute.js'
-import { baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport } from './lib/contractClient.js'
+import { baseMainnet, getPrivateKey, CONTRACT_ADDRESS, buildFallbackTransport, buildReadTransport, deployerCanPayStoreGas } from './lib/contractClient.js'
 import { asAddress, asBigint, asContainerPage, asOnChainContainer, containerIdOf, readContractView, writeContractTx } from './lib/looseContract.js'
 import { temporalManifold } from './lib/temporalManifold.js'
 import { L, PHI } from './lib/tlmConstants.js'
@@ -74,8 +74,10 @@ import {
   paymentRequiredChallenge,
   settleExactPayment,
   facilitatorConfigError,
+  persistFailureCause,
   type ExactPayment,
 } from './lib/x402Exact.js'
+import { claimPaidUnfulfilled, readPaidUnfulfilled, reopenPaidUnfulfilled, seedPaidUnfulfilled } from './lib/paidUnfulfilled.js'
 import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, isMintNotSent, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
 
 interface PersistHttpAuth {
@@ -1617,7 +1619,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'govern_with_solar',
     description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Accepts a raw proposal string OR a structuredDerivativeProposal object (with summary field). persistToChain writes a non-REJECT verdict and returns temporalContainer.containerId. That requires the operator Bearer key or an x402 exact 0.01 USDC payment on Base (PAYMENT-SIGNATURE header or x402Payment).',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' }, persistToChain: { type: 'boolean', default: false, description: 'When true, persist a non-REJECT verdict and return temporalContainer.containerId. Requires the operator Bearer key or an x402 exact USDC payment on Base (0.01 USDC).' }, x402Payment: { type: 'string', description: 'Base64 x402 v2 PAYMENT-SIGNATURE payload for persistToChain. Exact scheme, eip155:8453, Base USDC, 10000 atomic units (0.01 USDC) to the vortex treasury. Same credential as the PAYMENT-SIGNATURE header.' }, spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now, is returned as evaluatedAt, and is the clock mixed into the 7D TDF nonce. The same timestamp reproduces the verdict.' } }, required: [] },
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' }, persistToChain: { type: 'boolean', default: false, description: 'When true, persist a non-REJECT verdict and return temporalContainer.containerId. Requires the operator Bearer key or an x402 exact USDC payment on Base (0.01 USDC).' }, x402Payment: { type: 'string', description: 'Base64 x402 v2 PAYMENT-SIGNATURE payload for persistToChain. Exact scheme, eip155:8453, Base USDC, 10000 atomic units (0.01 USDC) to the vortex treasury. Same credential as the PAYMENT-SIGNATURE header.' }, paymentId: { type: 'string', description: 'EIP-3009 nonce of a server-side paid-unfulfilled record. Resume requires this, payer, and the same proposal. A settle tx hash is not a credential.' }, payer: { type: 'string', description: 'Payer (from) bound to that paid-unfulfilled record.' }, spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now, is returned as evaluatedAt, and is the clock mixed into the 7D TDF nonce. The same timestamp reproduces the verdict.' } }, required: [] },
   },
   {
     name: 'call_connected_tool',
@@ -1750,7 +1752,10 @@ export const TOOL_HANDLERS: Record<string, (args: any) => any> = {
         const error = payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
           ? payload.error
           : 'Unauthorized'
-        return { success: false, error, status: res.status }
+        const settleTransaction = payload && typeof payload === 'object' && 'settleTransaction' in payload && typeof payload.settleTransaction === 'string'
+          ? payload.settleTransaction
+          : undefined
+        return { success: false, error, status: res.status, ...(settleTransaction ? { settleTransaction } : {}) }
       }
       return payload
     }
@@ -1944,6 +1949,8 @@ app.get('/govern_with_solar', (c: Context) => {
       sharePublicly: { type: 'boolean', required: false, default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },
       persistToChain: { type: 'boolean', required: false, default: false, description: 'Persist a non-REJECT verdict and return temporalContainer.containerId. Operator Bearer MCP_WRITE_API_KEY, or x402 exact USDC on Base capped at 0.01 USDC (PAYMENT-SIGNATURE or x402Payment).' },
       x402Payment: { type: 'string', required: false, description: 'Base64 x402 v2 exact payment. eip155:8453, Base USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, amount 10000 (0.01 USDC) to the vortex treasury. Alternative to the PAYMENT-SIGNATURE header.' },
+      paymentId: { type: 'string', required: false, description: 'EIP-3009 nonce of a paid-unfulfilled record. Finish that persist with payer and the same proposal. A caller-supplied settle tx hash is refused.' },
+      payer: { type: 'string', required: false, description: 'Payer address bound to the paid-unfulfilled record.' },
       spectralQuality: { type: 'number', required: false, description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' },
     },
     when_to_use: [
@@ -1983,6 +1990,32 @@ app.get('/govern_with_solar', (c: Context) => {
   })
 })
 
+app.post('/govern_with_solar/paid-unfulfilled', async (c: Context) => {
+  const auth = authorizeWrite(c.req.header('authorization'))
+  if (!auth.ok) {
+    const status = 'status' in auth ? auth.status : 401
+    const error = 'error' in auth ? auth.error : 'Unauthorized'
+    return c.json({ success: false, error }, status)
+  }
+  const body: unknown = await c.req.json().catch(() => null)
+  const record = body && typeof body === 'object' ? body as Record<string, unknown> : null
+  const proposalHash = record && typeof record.proposal === 'string'
+    ? hashProposalText(record.proposal)
+    : record && typeof record.proposalHash === 'string' ? record.proposalHash : ''
+  const seeded = await seedPaidUnfulfilled({
+    settleTransaction: record && typeof record.settleTransaction === 'string' ? record.settleTransaction : '',
+    payer: record && typeof record.payer === 'string' ? record.payer : '',
+    paymentId: record && typeof record.paymentId === 'string' ? record.paymentId : '',
+    proposalHash,
+  })
+  if (!seeded.ok) {
+    const status = 'status' in seeded ? seeded.status : 400
+    const error = 'error' in seeded ? seeded.error : 'Invalid paid-unfulfilled seed'
+    return c.json({ success: false, error }, status)
+  }
+  return c.json({ success: true, paymentId: seeded.paymentId, proposalHash: seeded.proposalHash })
+})
+
 app.post('/govern_with_solar', async (c: Context) => {
   const body = await c.req.json()
   const persistToChain = body.persistToChain === true
@@ -2009,6 +2042,7 @@ app.post('/govern_with_solar', async (c: Context) => {
   // The registry has no public apiKey/DID verify, so agents pay x402 exact USDC on Base.
   let persistSigningKey: string | null = null
   let x402Payment: ExactPayment | null = null
+  let resumeById: { paymentId: string; payer: string } | null = null
   if (persistToChain) {
     const headerPayment = c.req.header('payment-signature') ?? c.req.header('x-payment')
     const bodyPayment = typeof body.x402Payment === 'string' ? body.x402Payment : undefined
@@ -2017,26 +2051,53 @@ app.post('/govern_with_solar', async (c: Context) => {
       authorizationHeader: c.req.header('authorization'),
       payment,
     })
+    if (grant.ok && grant.via === 'x402') x402Payment = grant.payment
     if (!grant.ok) {
       const status = 'status' in grant ? grant.status : 401
       const error = 'error' in grant ? grant.error : 'Unauthorized'
-      if (status === 402) {
+      const paymentId = typeof body.paymentId === 'string' ? body.paymentId.trim() : ''
+      const payer = typeof body.payer === 'string' ? body.payer.trim() : ''
+      if (status === 402 && paymentId !== '' && payer !== '') {
+        resumeById = { paymentId, payer }
+      } else if (status === 402 && typeof body.settleTransaction === 'string') {
+        return c.json({ success: false, error: 'Unauthorized' }, 401)
+      } else if (status === 402) {
         const challenge = paymentRequiredChallenge(`${HAMMER}/govern_with_solar`, error)
         c.header('PAYMENT-REQUIRED', encodePaymentRequiredHeader(challenge))
         return c.json({ success: false, ...challenge }, 402)
-      }
-      if (status === 401) {
+      } else if (status === 401) {
         return c.json({ success: false, error, accepts: [exactUsdcRequirements()] }, 401)
+      } else {
+        return c.json({ success: false, error }, status as ContentfulStatusCode)
       }
-      return c.json({ success: false, error }, status as ContentfulStatusCode)
     }
-    if (grant.via === 'x402') x402Payment = grant.payment
     persistSigningKey = readVortexSigningKey()
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
     }
+    if (resumeById) {
+      const openResume = await readPaidUnfulfilled(resumeById.paymentId)
+      const resumeHash = hashProposalText(proposalText)
+      const resumeMatches = openResume
+        && openResume.state === 'open'
+        && openResume.payer.toLowerCase() === resumeById.payer.toLowerCase()
+        && openResume.nonce.toLowerCase() === resumeById.paymentId.toLowerCase()
+        && openResume.proposalHash.toLowerCase() === resumeHash.toLowerCase()
+      if (!resumeMatches) return c.json({ success: false, error: 'Unauthorized' }, 401)
+    }
     const priorSave = await replayChainSave(proposalText)
-    if (priorSave) return c.json(priorSave)
+    if (priorSave) {
+      if (resumeById) {
+        const claimed = await claimPaidUnfulfilled({
+          paymentId: resumeById.paymentId,
+          payer: resumeById.payer,
+          nonce: resumeById.paymentId,
+          proposalHash: hashProposalText(proposalText),
+        })
+        if (!claimed) return c.json({ success: false, error: 'Unauthorized' }, 401)
+      }
+      return c.json(priorSave)
+    }
   }
   const spectralQuality = body.spectralQuality !== undefined ? Number(body.spectralQuality) : undefined
   const sunNeuralEmbedding = body.sunNeuralEmbedding !== undefined ? body.sunNeuralEmbedding : await fetchSunNeuralEmbedding()
@@ -2073,14 +2134,27 @@ app.post('/govern_with_solar', async (c: Context) => {
         },
       })
     }
-    // Preconditions before any settlement: signing key, then facilitator config.
+    // Preconditions before any settlement: signing key, facilitator, then gas.
+    // An underfunded signer must not reach settleExactPayment.
     persistSigningKey = readVortexSigningKey()
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
     }
+    const proposalHash = hashProposalText(proposalText)
+    const paidAttempt = x402Payment !== null || resumeById !== null
     if (x402Payment) {
-      const configError = facilitatorConfigError()
-      if (configError) return c.json({ success: false, error: configError }, 503)
+      const existingPaid = await readPaidUnfulfilled(x402Payment.authorization.nonce)
+      if (!existingPaid) {
+        const configError = facilitatorConfigError()
+        if (configError) return c.json({ success: false, error: configError }, 503)
+      }
+    }
+    if (paidAttempt) {
+      const sourceForQuote = determineSource(isStructuredProposal(body.structuredProposal) ? body.structuredProposal : String(rawProposal))
+      const quoted = governanceToContainer(result, proposalText, sourceForQuote, latestContainerHash)
+      if (!(await deployerCanPayStoreGas(quoted))) {
+        return c.json({ success: false, error: 'deployer gas balance too low' }, 503)
+      }
     }
     const acquired = acquirePersistCooldown()
     const retryAfterSecondsHeld = cooldownDenial(acquired)
@@ -2094,7 +2168,47 @@ app.post('/govern_with_solar', async (c: Context) => {
       })
     }
     const acquiredAt = 'acquiredAt' in acquired ? acquired.acquiredAt : Date.now()
+    let settleTransaction: `0x${string}` | undefined
+    let claimedResume = false
+    const resumePaymentId = x402Payment ? x402Payment.authorization.nonce : resumeById?.paymentId
+    const paidChainFailed = async (): Promise<Response> => {
+      if (claimedResume && resumePaymentId) await reopenPaidUnfulfilled(resumePaymentId, proposalHash)
+      else if (x402Payment && settleTransaction) await notePaidUnfulfilled(x402Payment, proposalHash, settleTransaction)
+      releasePersistCooldown(acquiredAt)
+      return c.json({ error: 'Chain persist failed', settleTransaction }, 502)
+    }
     if (x402Payment) {
+      const existingPaid = await readPaidUnfulfilled(x402Payment.authorization.nonce)
+      if (existingPaid) {
+        const claimed = await claimPaidUnfulfilled({
+          paymentId: x402Payment.authorization.nonce,
+          payer: x402Payment.authorization.from,
+          nonce: x402Payment.authorization.nonce,
+          proposalHash,
+        })
+        if (!claimed) {
+          releasePersistCooldown(acquiredAt)
+          return c.json({ success: false, error: 'Unauthorized' }, 401)
+        }
+        settleTransaction = claimed
+        claimedResume = true
+      }
+    }
+    if (resumeById && !claimedResume) {
+      const claimed = await claimPaidUnfulfilled({
+        paymentId: resumeById.paymentId,
+        payer: resumeById.payer,
+        nonce: resumeById.paymentId,
+        proposalHash,
+      })
+      if (!claimed) {
+        releasePersistCooldown(acquiredAt)
+        return c.json({ success: false, error: 'Unauthorized' }, 401)
+      }
+      settleTransaction = claimed
+      claimedResume = true
+    }
+    if (x402Payment && !claimedResume) {
       const settled = await settleExactPayment(x402Payment)
       if (!settled.ok) {
         releasePersistCooldown(acquiredAt)
@@ -2102,6 +2216,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         const error = 'error' in settled ? settled.error : 'Unauthorized'
         return c.json({ success: false, error }, status)
       }
+      settleTransaction = 'transaction' in settled && typeof settled.transaction === 'string' ? settled.transaction : undefined
     }
     const claim = await claimChainSave(proposalText)
     if (claim !== 'claimed') {
@@ -2110,11 +2225,7 @@ app.post('/govern_with_solar', async (c: Context) => {
         if (x402Payment) notePaymentFulfilled(x402Payment)
         return c.json(waited)
       }
-      if (x402Payment) {
-        notePaidUnfulfilled(x402Payment)
-        releasePersistCooldown(acquiredAt)
-        return c.json({ success: false, error: 'Chain persist failed' }, 502)
-      }
+      if (x402Payment || claimedResume) return paidChainFailed()
       return c.json({
         success: true,
         ...result,
@@ -2156,14 +2267,11 @@ app.post('/govern_with_solar', async (c: Context) => {
     try {
       onChain = await getChainExecutor().persistGovernedContainer(container)
       await finishChainSave(proposalText, onChain.txHash)
-    } catch {
+    } catch (err) {
       await releaseChainSave(proposalText)
-      process.stderr.write('[govern] persist failed\n')
-      if (x402Payment) {
-        notePaidUnfulfilled(x402Payment)
-        releasePersistCooldown(acquiredAt)
-        return c.json({ success: false, error: 'Chain persist failed' }, 502)
-      }
+      const cause = persistFailureCause(err)
+      process.stderr.write(`[govern] persist failed: ${cause}\n`)
+      if (x402Payment || claimedResume) return paidChainFailed()
       return c.json({
         success: true,
         ...result,

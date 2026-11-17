@@ -1,5 +1,6 @@
 import { isAddress, verifyTypedData, type Address, type Hex } from 'viem'
 import { VORTEX_TREASURY } from './chainPort.js'
+import { notePaidUnfulfilledRecord, resetPaidUnfulfilledForTests } from './paidUnfulfilled.js'
 import { authorizeWrite, bearerToken, type WriteAuth } from './writeGate.js'
 
 /**
@@ -138,21 +139,17 @@ function isSettleTx(value: unknown): value is `0x${string}` {
  * Process memory only. A restart forgets every set.
  * The real replay guard is the on-chain USDC EIP-3009 nonce: Base USDC
  * reverts transferWithAuthorization once that nonce is consumed.
- * paidUnfulfilled means we already settled and the chain write did not finish,
- * so the same payload may persist again without a second settlement.
+ * A settled payment whose chain write did not finish is a durable paid-unfulfilled
+ * record (Redis), not this set. Resume claims that record; it does not settle again.
  */
 const usedNonces = new Set<string>()
 const inflightNonces = new Set<string>()
-const paidUnfulfilled = new Set<string>()
-/** Nonce → settle tx. Kept so a paid-unfulfilled retry can return the same receipt. */
-const settleReceipts = new Map<string, `0x${string}`>()
 let testSettler: ((payment: ExactPayment) => Promise<SettleResult>) | null = null
 
 export function resetX402ForTests(): void {
   usedNonces.clear()
   inflightNonces.clear()
-  paidUnfulfilled.clear()
-  settleReceipts.clear()
+  resetPaidUnfulfilledForTests()
   testSettler = null
 }
 
@@ -382,13 +379,11 @@ async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
 
 /**
  * Settle a payment that verifyExactPayment already accepted.
- * A paid-unfulfilled nonce returns success without calling the settler again.
  * The nonce stays in flight until notePaymentFulfilled or notePaidUnfulfilled.
+ * A paid-unfulfilled retry does not come through here: the route claims the durable record.
  */
 export async function settleExactPayment(payment: ExactPayment): Promise<SettleResult> {
   const key = nonceKey(payment.authorization.nonce)
-  const prior = settleReceipts.get(key)
-  if (paidUnfulfilled.has(key) && prior) return { ok: true, transaction: prior }
   if (usedNonces.has(key) || inflightNonces.has(key)) return unauthorized()
   inflightNonces.add(key)
   try {
@@ -397,7 +392,6 @@ export async function settleExactPayment(payment: ExactPayment): Promise<SettleR
       inflightNonces.delete(key)
       return result.ok ? unauthorized() : result
     }
-    settleReceipts.set(key, result.transaction)
     return { ok: true, transaction: result.transaction }
   } catch {
     inflightNonces.delete(key)
@@ -405,20 +399,40 @@ export async function settleExactPayment(payment: ExactPayment): Promise<SettleR
   }
 }
 
-/** Chain write failed after settlement. The same payload may retry with no second charge. */
-export function notePaidUnfulfilled(payment: ExactPayment): void {
+/** Chain write failed after settlement. The durable record is what a later resume claims. */
+export async function notePaidUnfulfilled(payment: ExactPayment, proposalHash: string, settleTransaction: `0x${string}`): Promise<void> {
   const key = nonceKey(payment.authorization.nonce)
   inflightNonces.delete(key)
-  paidUnfulfilled.add(key)
+  await notePaidUnfulfilledRecord({
+    payer: payment.authorization.from,
+    nonce: payment.authorization.nonce,
+    proposalHash,
+    settleTransaction,
+    state: 'open',
+  })
 }
 
 /** Persist succeeded. This nonce cannot authorize another persist. */
 export function notePaymentFulfilled(payment: ExactPayment): void {
   const key = nonceKey(payment.authorization.nonce)
   inflightNonces.delete(key)
-  paidUnfulfilled.delete(key)
-  settleReceipts.delete(key)
   usedNonces.add(key)
+}
+
+export function persistFailureCause(err: unknown): string {
+  const message = err instanceof Error ? err.message : ''
+  const lower = message.toLowerCase()
+  if (lower.includes('insufficient funds') || lower.includes('gas balance')) return 'deployer gas balance too low'
+  if (lower.includes('nonce')) return 'deployer transaction nonce was rejected'
+  if (lower.includes('revert') || lower.includes('execution reverted')) return 'registry rejected storeContainer'
+  if (lower.includes('timeout') || lower.includes('timed out')) return 'chain receipt timed out'
+  const cleaned = message
+    .replace(/(?:https?|wss?):\/\/\S+/gi, '[url]')
+    .replace(/0x[0-9a-fA-F]{20,}/g, '[hex]')
+    .replace(/[\r\n]/g, ' ')
+    .slice(0, 160)
+    .trim()
+  return cleaned || 'chain write failed'
 }
 
 /**

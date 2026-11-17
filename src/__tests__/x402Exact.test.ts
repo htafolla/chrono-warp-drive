@@ -7,6 +7,7 @@ import {
   PERSIST_USDC_CAP_ATOMIC,
   exactUsdcRequirements,
   resetX402ForTests,
+  persistFailureCause,
   settleExactPayment,
   transferAuthorizationTypes,
   usdcDomain,
@@ -154,6 +155,14 @@ describe('x402 exact USDC on Base', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  it('redacts http and wss urls from a persist failure cause', () => {
+    expect(persistFailureCause(new Error('insufficient funds for gas * price + value'))).toBe('deployer gas balance too low')
+    const cause = persistFailureCause(new Error('writer rejected wss://rpc.example/secret and https://rpc.example/v'))
+    expect(cause).toContain('[url]')
+    expect(cause).not.toContain('wss://')
+    expect(cause).not.toContain('https://')
   })
 
   it('does not call Clearing when the facilitator URL is set and the token is not', async () => {
