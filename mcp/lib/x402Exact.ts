@@ -1,5 +1,6 @@
 import { isAddress, verifyTypedData, type Address, type Hex } from 'viem'
 import { VORTEX_TREASURY } from './chainPort.js'
+import { notePaidUnfulfilledRecord, resetPaidUnfulfilledForTests } from './paidUnfulfilled.js'
 import { authorizeWrite, bearerToken, type WriteAuth } from './writeGate.js'
 
 /**
@@ -138,25 +139,17 @@ function isSettleTx(value: unknown): value is `0x${string}` {
  * Process memory only. A restart forgets every set.
  * The real replay guard is the on-chain USDC EIP-3009 nonce: Base USDC
  * reverts transferWithAuthorization once that nonce is consumed.
- * paidUnfulfilled means we already settled and the chain write did not finish,
- * so the same payload may persist again without a second settlement.
+ * A settled payment whose chain write did not finish is a durable paid-unfulfilled
+ * record (Redis), not this set. Resume claims that record; it does not settle again.
  */
 const usedNonces = new Set<string>()
 const inflightNonces = new Set<string>()
-const paidUnfulfilled = new Set<string>()
-/** Nonce → settle tx. Kept so a paid-unfulfilled retry can return the same receipt. */
-const settleReceipts = new Map<string, `0x${string}`>()
-/** payment id (EIP-3009 nonce) → settle tx. */
-const paymentReceipts = new Map<string, `0x${string}`>()
 let testSettler: ((payment: ExactPayment) => Promise<SettleResult>) | null = null
 
 export function resetX402ForTests(): void {
   usedNonces.clear()
   inflightNonces.clear()
-  paidUnfulfilled.clear()
-  settleReceipts.clear()
-  paymentReceipts.clear()
-  settleReceiptReader = null
+  resetPaidUnfulfilledForTests()
   testSettler = null
 }
 
@@ -386,13 +379,11 @@ async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
 
 /**
  * Settle a payment that verifyExactPayment already accepted.
- * A paid-unfulfilled nonce returns success without calling the settler again.
  * The nonce stays in flight until notePaymentFulfilled or notePaidUnfulfilled.
+ * A paid-unfulfilled retry does not come through here: the route claims the durable record.
  */
 export async function settleExactPayment(payment: ExactPayment): Promise<SettleResult> {
   const key = nonceKey(payment.authorization.nonce)
-  const prior = settleReceipts.get(key)
-  if (paidUnfulfilled.has(key) && prior) return { ok: true, transaction: prior }
   if (usedNonces.has(key) || inflightNonces.has(key)) return unauthorized()
   inflightNonces.add(key)
   try {
@@ -401,8 +392,6 @@ export async function settleExactPayment(payment: ExactPayment): Promise<SettleR
       inflightNonces.delete(key)
       return result.ok ? unauthorized() : result
     }
-    settleReceipts.set(key, result.transaction)
-    paymentReceipts.set(key, result.transaction)
     return { ok: true, transaction: result.transaction }
   } catch {
     inflightNonces.delete(key)
@@ -410,86 +399,24 @@ export async function settleExactPayment(payment: ExactPayment): Promise<SettleR
   }
 }
 
-/** Chain write failed after settlement. The same payload may retry with no second charge. */
-export function notePaidUnfulfilled(payment: ExactPayment): void {
+/** Chain write failed after settlement. The durable record is what a later resume claims. */
+export async function notePaidUnfulfilled(payment: ExactPayment, proposalHash: string, settleTransaction: `0x${string}`): Promise<void> {
   const key = nonceKey(payment.authorization.nonce)
   inflightNonces.delete(key)
-  paidUnfulfilled.add(key)
+  await notePaidUnfulfilledRecord({
+    payer: payment.authorization.from,
+    nonce: payment.authorization.nonce,
+    proposalHash,
+    settleTransaction,
+    state: 'open',
+  })
 }
 
 /** Persist succeeded. This nonce cannot authorize another persist. */
 export function notePaymentFulfilled(payment: ExactPayment): void {
   const key = nonceKey(payment.authorization.nonce)
   inflightNonces.delete(key)
-  paidUnfulfilled.delete(key)
-  settleReceipts.delete(key)
-  paymentReceipts.delete(key)
   usedNonces.add(key)
-}
-
-export function settleTxForPaymentId(paymentId: string): `0x${string}` | null {
-  if (typeof paymentId !== 'string') return null
-  return paymentReceipts.get(paymentId.toLowerCase()) ?? null
-}
-
-const USDC_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-
-export function transferLogPaysExactUsdc(log: { address?: string; topics?: string[]; data?: string }): boolean {
-  if (typeof log.address !== 'string' || !sameAddress(log.address, BASE_USDC)) return false
-  const topics = log.topics ?? []
-  if ((topics[0] ?? '').toLowerCase() !== USDC_TRANSFER_TOPIC) return false
-  const toTopic = topics[2] ?? ''
-  if (!toTopic.toLowerCase().endsWith(VORTEX_TREASURY.slice(2).toLowerCase())) return false
-  if (typeof log.data !== 'string') return false
-  try {
-    return BigInt(log.data) === PERSIST_USDC_ATOMIC
-  } catch {
-    return false
-  }
-}
-
-type SettleReceipt = { status?: string; logs?: Array<{ address?: string; topics?: string[]; data?: string }> }
-
-let settleReceiptReader: ((txHash: string) => Promise<SettleReceipt | null>) | null = null
-
-export function setSettleReceiptReaderForTests(reader: ((txHash: string) => Promise<SettleReceipt | null>) | null): void {
-  settleReceiptReader = reader
-}
-
-function knownSettleTx(txHash: string): boolean {
-  const needle = txHash.toLowerCase()
-  for (const hash of settleReceipts.values()) {
-    if (hash.toLowerCase() === needle) return true
-  }
-  for (const hash of paymentReceipts.values()) {
-    if (hash.toLowerCase() === needle) return true
-  }
-  return false
-}
-
-/** True when this tx already paid exactly 0.01 USDC to the vortex treasury. */
-export async function confirmSettledUsdc(txHash: string): Promise<boolean> {
-  if (!isSettleTx(txHash)) return false
-  if (knownSettleTx(txHash)) return true
-  const receipt = settleReceiptReader ? await settleReceiptReader(txHash) : await readSettleReceipt(txHash)
-  if (!receipt || receipt.status !== 'success') return false
-  return (receipt.logs ?? []).some((log) => transferLogPaysExactUsdc(log))
-}
-
-async function readSettleReceipt(txHash: string): Promise<SettleReceipt | null> {
-  try {
-    const { createPublicClient } = await import('viem')
-    const { baseMainnet, buildReadTransport } = await import('./contractClient.js')
-    const client = createPublicClient({ chain: baseMainnet, transport: buildReadTransport() })
-    const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` })
-    const logs = receipt.logs.map((log) => {
-      const row = log as { address?: string; topics?: readonly string[]; data?: string }
-      return { address: row.address, topics: row.topics ? [...row.topics] : [], data: row.data }
-    })
-    return { status: receipt.status, logs }
-  } catch {
-    return null
-  }
 }
 
 export function persistFailureCause(err: unknown): string {
@@ -500,7 +427,7 @@ export function persistFailureCause(err: unknown): string {
   if (lower.includes('revert') || lower.includes('execution reverted')) return 'registry rejected storeContainer'
   if (lower.includes('timeout') || lower.includes('timed out')) return 'chain receipt timed out'
   const cleaned = message
-    .replace(/https?:\/\/\S+/gi, '[url]')
+    .replace(/(?:https?|wss?):\/\/\S+/gi, '[url]')
     .replace(/0x[0-9a-fA-F]{20,}/g, '[hex]')
     .replace(/[\r\n]/g, ' ')
     .slice(0, 160)

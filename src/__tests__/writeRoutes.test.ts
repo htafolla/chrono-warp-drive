@@ -42,6 +42,8 @@ import { app, autoMintVortex, MINT_DRAIN_INTERVAL_MS, mintDrainRunCount, remembe
 import { dynamoSolarGovernance } from '../../mcp/lib/dynamoSolarGovernance.js'
 import { isReceiptTimeout, onChainMintId, setChainExecutorForTests } from '../../mcp/lib/chainPort'
 import { VORTEX_TREASURY } from '../../mcp/lib/chainPort'
+import { setDeployerGasCheckForTests } from '../../mcp/lib/contractClient'
+import { setSettleReceiptReaderForTests } from '../../mcp/lib/paidUnfulfilled'
 import {
   DEFAULT_MINT_GLOBAL_BUDGET,
   DEFAULT_MINT_GLOBAL_WINDOW_MS,
@@ -448,6 +450,43 @@ class MemoryRedis {
       await this.lpush(keys[0], args[1])
       return 1
     }
+    if (script.includes('paid-unfulfilled-claim')) {
+      const raw = await this.hget(keys[0], args[0])
+      if (!raw) return null
+      const row = JSON.parse(raw) as { state: string; payer: string; nonce: string; proposalHash: string; settleTransaction: string }
+      const eq = (left: string, right: string) => left.toLowerCase() === right.toLowerCase()
+      if (row.state !== 'open') return null
+      if (!eq(row.payer, args[1]) || !eq(row.nonce, args[2]) || !eq(row.proposalHash, args[3])) return null
+      row.state = 'consumed'
+      await this.hset(keys[0], args[0], JSON.stringify(row))
+      return row.settleTransaction
+    }
+    if (script.includes('paid-unfulfilled-note')) {
+      const raw = await this.hget(keys[0], args[0])
+      if (raw) {
+        const row = JSON.parse(raw) as { state?: string }
+        if (row.state === 'consumed') return 0
+      }
+      await this.hset(keys[0], args[0], args[1])
+      return 1
+    }
+    if (script.includes('paid-unfulfilled-reopen')) {
+      const raw = await this.hget(keys[0], args[0])
+      if (!raw) return 0
+      const row = JSON.parse(raw) as { state: string; proposalHash: string }
+      if (row.state !== 'consumed') return 0
+      if (row.proposalHash.toLowerCase() !== args[1].toLowerCase()) return 0
+      row.state = 'open'
+      await this.hset(keys[0], args[0], JSON.stringify(row))
+      return 1
+    }
+    if (script.includes('paid-unfulfilled-seed')) {
+      if (await this.get(keys[1])) return 0
+      if (await this.hget(keys[0], args[0])) return 0
+      await this.set(keys[1], '1')
+      await this.hset(keys[0], args[0], args[1])
+      return 1
+    }
     throw new Error('unexpected redis script')
   }
 
@@ -717,6 +756,7 @@ beforeEach(() => {
   counters.directChainCalls = 0
   resetWriteGuardsForTests()
   resetX402ForTests()
+  setDeployerGasCheckForTests(async () => true)
   delete process.env.X402_FACILITATOR_URL
   delete process.env.X402_FACILITATOR_TOKEN
   process.env.MCP_WRITE_API_KEY = WRITE_KEY
@@ -739,6 +779,7 @@ afterEach(() => {
   ambientField.stop()
   clearRedisClientForTests()
   setChainExecutorForTests(null)
+  setDeployerGasCheckForTests(null)
   vi.unstubAllGlobals()
 })
 
@@ -3512,7 +3553,7 @@ describe('govern_with_solar agent persist', () => {
     try {
       const failed = await postJson('/govern_with_solar', body, { 'payment-signature': header })
       expect(failed.status).toBe(502)
-      expect(failed.json.success).toBe(false)
+      expect(Object.keys(failed.json).sort()).toEqual(['error', 'settleTransaction'])
       expect(failed.json.error).toBe('Chain persist failed')
       expect(failed.json.settleTransaction).toBe(FACILITATOR_TX)
       expect(failed.json.temporalContainer).toBeUndefined()
@@ -3581,7 +3622,7 @@ describe('govern_with_solar agent persist', () => {
     }
   })
 
-  it('finishes a paid-unfulfilled persist from the settle receipt or payment id without settling again', async () => {
+  it('logs a sanitized persist cause and resumes only from the paid-unfulfilled record', async () => {
     const spy = pinVerdict('PASS')
     let settlements = 0
     setX402SettlerForTests(async () => {
@@ -3589,53 +3630,68 @@ describe('govern_with_solar agent persist', () => {
       return { ok: true, transaction: FACILITATOR_TX }
     })
     setRedisClientForTests(new MemoryRedis())
-    stub.persistError = new Error('insufficient funds for gas * price + value')
+    stub.persistError = new Error('writer rejected wss://rpc.example/secret')
     const stderr: string[] = []
     const write = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
       stderr.push(String(chunk))
       return true
     })
     const header = await exactPaymentHeader()
-    const payload = JSON.parse(Buffer.from(header, 'base64').toString('utf8')) as { payload: { authorization: { nonce: string } } }
+    const payload = JSON.parse(Buffer.from(header, 'base64').toString('utf8')) as { payload: { authorization: { from: string; nonce: string } } }
     const paymentId = payload.payload.authorization.nonce
-    const body = {
-      proposal: 'Paid persist that runs out of deployer gas',
-      persistToChain: true,
-      sunNeuralEmbedding: [0.2],
-    }
+    const payer = payload.payload.authorization.from
+    const proposal = 'Paid persist that runs out of deployer gas'
+    const body = { proposal, persistToChain: true, sunNeuralEmbedding: [0.2] }
     try {
       const failed = await postJson('/govern_with_solar', body, { 'payment-signature': header })
       expect(failed.status).toBe(502)
-      expect(failed.json.success).toBe(false)
+      expect(Object.keys(failed.json).sort()).toEqual(['error', 'settleTransaction'])
+      expect(failed.json.error).toBe('Chain persist failed')
       expect(failed.json.settleTransaction).toBe(FACILITATOR_TX)
-      expect(failed.json.cause).toBe('deployer gas balance too low')
-      expect(failed.json.temporalContainer).toBeUndefined()
-      expect(stderr.join('')).toContain('deployer gas balance too low')
-      expect(stderr.join('')).not.toContain('insufficient funds')
+      expect(JSON.stringify(failed.json)).not.toContain('wss://')
+      expect(JSON.stringify(failed.json)).not.toContain('cause')
+      expect(stderr.join('')).toContain('[url]')
+      expect(stderr.join('')).not.toContain('wss://')
       expect(settlements).toBe(1)
       expect(stub.persists).toBe(0)
 
-      stub.persistError = new Error('insufficient funds for gas * price + value')
-      const byPaymentId = await postJson('/govern_with_solar', {
-        proposal: 'Finish later with the payment id',
+      const forged = await postJson('/govern_with_solar', {
+        ...body,
+        settleTransaction: `0x${'ab'.repeat(32)}`,
+      })
+      expect(forged.status).toBe(401)
+      expect(forged.json.temporalContainer).toBeUndefined()
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(0)
+
+      const knownHash = await postJson('/govern_with_solar', {
+        ...body,
+        settleTransaction: FACILITATOR_TX,
+      })
+      expect(knownHash.status).toBe(401)
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(0)
+
+      const wrongProposal = await postJson('/govern_with_solar', {
+        proposal: 'A different proposal cannot spend this payment',
         persistToChain: true,
         sunNeuralEmbedding: [0.2],
         paymentId,
+        payer,
       })
-      expect(byPaymentId.status).toBe(502)
-      expect(byPaymentId.json.settleTransaction).toBe(FACILITATOR_TX)
-      expect(byPaymentId.json.temporalContainer).toBeUndefined()
+      expect(wrongProposal.status).toBe(401)
       expect(settlements).toBe(1)
       expect(stub.persists).toBe(0)
 
-      const byReceipt = await postJson('/govern_with_solar', {
-        proposal: 'Finish the paid persist with the settle receipt',
-        persistToChain: true,
-        sunNeuralEmbedding: [0.2],
-        settleTransaction: FACILITATOR_TX,
-      })
-      expect(byReceipt.status).toBe(200)
-      expect((byReceipt.json.temporalContainer as { containerId?: string } | undefined)?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      const resumed = await postJson('/govern_with_solar', { ...body, paymentId, payer })
+      expect(resumed.status).toBe(200)
+      expect((resumed.json.temporalContainer as { containerId?: string } | undefined)?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(1)
+
+      const second = await postJson('/govern_with_solar', { ...body, paymentId, payer })
+      expect(second.status).toBe(401)
+      expect(second.json.temporalContainer).toBeUndefined()
       expect(settlements).toBe(1)
       expect(stub.persists).toBe(1)
     } finally {
@@ -3643,4 +3699,137 @@ describe('govern_with_solar agent persist', () => {
       spy.mockRestore()
     }
   })
+
+  it('returns 503 and does not settle when the signer cannot pay gas', async () => {
+    const spy = pinVerdict('PASS')
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true, transaction: FACILITATOR_TX }
+    })
+    setDeployerGasCheckForTests(async () => false)
+    const header = await exactPaymentHeader()
+    try {
+      const low = await postJson('/govern_with_solar', {
+        proposal: 'Paid persist while the signer is underfunded',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, { 'payment-signature': header })
+      expect(low.status).toBe(503)
+      expect(low.json.error).toBe('deployer gas balance too low')
+      expect(low.json.temporalContainer).toBeUndefined()
+      expect(settlements).toBe(0)
+      expect(stub.persists).toBe(0)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('keeps a paid-unfulfilled record across an in-memory reset', async () => {
+    const spy = pinVerdict('PASS')
+    let settlements = 0
+    const settle = async () => {
+      settlements += 1
+      return { ok: true as const, transaction: FACILITATOR_TX }
+    }
+    setX402SettlerForTests(settle)
+    setRedisClientForTests(new MemoryRedis())
+    stub.persistError = new Error('chain down')
+    const header = await exactPaymentHeader()
+    const payload = JSON.parse(Buffer.from(header, 'base64').toString('utf8')) as { payload: { authorization: { from: string; nonce: string } } }
+    const body = {
+      proposal: 'Paid persist that must survive a restart',
+      persistToChain: true,
+      sunNeuralEmbedding: [0.2],
+      paymentId: payload.payload.authorization.nonce,
+      payer: payload.payload.authorization.from,
+    }
+    try {
+      const failed = await postJson('/govern_with_solar', body, { 'payment-signature': header })
+      expect(failed.status).toBe(502)
+      expect(failed.json.settleTransaction).toBe(FACILITATOR_TX)
+      resetX402ForTests()
+      setDeployerGasCheckForTests(async () => true)
+      setX402SettlerForTests(settle)
+      const resumed = await postJson('/govern_with_solar', body)
+      expect(resumed.status).toBe(200)
+      expect((resumed.json.temporalContainer as { containerId?: string } | undefined)?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(1)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('seeds one paid-unfulfilled record from a verified settle tx and refuses a second seed', async () => {
+    const spy = pinVerdict('PASS')
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true, transaction: FACILITATOR_TX }
+    })
+    const payer = privateKeyToAccount(PAYER_KEY).address
+    const paymentId = `0x${'44'.repeat(32)}`
+    const proposal = 'Finish the stranded agent-treasury payment'
+    let value = 1n
+    setSettleReceiptReaderForTests(async () => ({
+      status: 'success',
+      logs: [usdcTransferLog(payer, VORTEX_TREASURY, value)],
+    }))
+    const seedBody = { settleTransaction: FACILITATOR_TX, payer, paymentId, proposal }
+    try {
+      const anonymous = await postJson('/govern_with_solar/paid-unfulfilled', seedBody)
+      expect(anonymous.status).toBe(401)
+
+      const unproved = await postJson('/govern_with_solar/paid-unfulfilled', seedBody, authHeader())
+      expect(unproved.status).toBe(400)
+      expect(unproved.json.error).toBe('Settle transaction did not pay 0.01 USDC to the vortex treasury')
+
+      value = PERSIST_USDC_ATOMIC
+      const seeded = await postJson('/govern_with_solar/paid-unfulfilled', seedBody, authHeader())
+      expect(seeded.status).toBe(200)
+      expect(seeded.json.paymentId).toBe(paymentId)
+
+      const again = await postJson('/govern_with_solar/paid-unfulfilled', seedBody, authHeader())
+      expect(again.status).toBe(409)
+
+      const finished = await postJson('/govern_with_solar', {
+        proposal,
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+        paymentId,
+        payer,
+      })
+      expect(finished.status).toBe(200)
+      expect((finished.json.temporalContainer as { containerId?: string } | undefined)?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(settlements).toBe(0)
+      expect(stub.persists).toBe(1)
+
+      const second = await postJson('/govern_with_solar', {
+        proposal,
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+        paymentId,
+        payer,
+      })
+      expect(second.status).toBe(401)
+      expect(settlements).toBe(0)
+      expect(stub.persists).toBe(1)
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })
+
+function usdcTransferLog(from: string, to: string, value: bigint) {
+  const topic = (addr: string) => `0x${addr.slice(2).toLowerCase().padStart(64, '0')}`
+  return {
+    address: BASE_USDC,
+    topics: [
+      '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef',
+      topic(from),
+      topic(to),
+    ],
+    data: `0x${value.toString(16).padStart(64, '0')}`,
+  }
+}

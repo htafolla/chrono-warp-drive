@@ -55,7 +55,7 @@ Same as `governance`, but includes solar activity modulation (TDF, Kp index, x-r
 - `Authorization: Bearer <MCP_WRITE_API_KEY>` (operator), or
 - an x402 v2 **exact** payment on Base: `PAYMENT-SIGNATURE` header, or `x402Payment` on the MCP tool. Network `eip155:8453`, asset Base USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, amount `10000` (0.01 USDC, the cap), payTo `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43`, EIP-3009 `transferWithAuthorization` (domain name `USD Coin`, version `2`). Settlement uses `X402_FACILITATOR_URL`.
 
-REJECT does not persist and is not charged. Cooldown, replay, and the vortex signing key stay as they are. No bearer and no payment, or a payment that fails verification, is **402 Payment Required** (`PAYMENT-REQUIRED` header, x402 v2 `accepts`). An invalid operator bearer is **401**.
+REJECT does not persist and is not charged. Cooldown, replay, and the vortex signing key stay as they are. No bearer and no payment, or a payment that fails verification, is **402 Payment Required** (`PAYMENT-REQUIRED` header, x402 v2 `accepts`). An invalid operator bearer is **401**. A low deployer gas balance is **503** and is checked before settle. If settle succeeded and the chain write failed, the **502** body is `{ "error", "settleTransaction" }`. Finish it with the same proposal plus `paymentId` and `payer`. A settle tx hash alone is refused. The operator can seed one lost record at `POST /govern_with_solar/paid-unfulfilled`.
 
 **Structured (must include `source`):**
 ```json

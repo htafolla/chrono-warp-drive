@@ -1,8 +1,8 @@
-import { http, createWalletClient, createPublicClient, defineChain, fallback, nonceManager } from 'viem'
+import { http, createWalletClient, createPublicClient, defineChain, fallback, nonceManager, encodeFunctionData, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { ContainerVortex } from './temporalContainer.js'
 import { containerToContractParams } from './temporalContainer.js'
-import { writeContractTx } from './looseContract.js'
+import { readContractView, writeContractTx } from './looseContract.js'
 
 const RPC_URLS = [
   'https://mainnet.base.org',
@@ -63,11 +63,39 @@ function getContractClient() {
   return cachedClients
 }
 
-export async function persistContainerToChain(container: ContainerVortex): Promise<{ txHash: string }> {
-  const abi = (await import('./abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+/** Base L1 GasPriceOracle. getL1Fee quotes the L1 data fee for calldata. */
+const BASE_L1_BLOCK_ORACLE = '0x420000000000000000000000000000000000000F' as const
+
+const l1FeeAbi = [{
+  type: 'function',
+  name: 'getL1Fee',
+  stateMutability: 'view',
+  inputs: [{ name: '_data', type: 'bytes' }],
+  outputs: [{ type: 'uint256' }],
+}] as const
+
+/**
+ * Execution fee is estimated gasLimit × maxFeePerGas.
+ * The L1 data fee is quoted, then included again as headroom for a Base L1 price move.
+ */
+export function persistGasWei(gasLimit: bigint, maxFeePerGas: bigint, l1DataFee: bigint): bigint {
+  return gasLimit * maxFeePerGas + l1DataFee * 2n
+}
+
+type GasCheck = (container: ContainerVortex) => Promise<boolean>
+let gasCheckForTests: GasCheck | null = null
+
+export function setDeployerGasCheckForTests(check: GasCheck | null): void {
+  gasCheckForTests = check
+}
+
+async function loadRegistryAbi(): Promise<any[]> {
+  return (await import('./abi/TemporalContainerRegistry.json', { with: { type: 'json' } })).default as any[]
+}
+
+function storeContainerArgs(container: ContainerVortex): readonly unknown[] {
   const params = containerToContractParams(container)
-  const { walletClient, publicClient, account } = getContractClient()
-  const args = [
+  return [
     params.containerId as `0x${string}`,
     params.timestamp,
     params.proposalHash as `0x${string}`,
@@ -106,11 +134,61 @@ export async function persistContainerToChain(container: ContainerVortex): Promi
     params.containerHash as `0x${string}`,
     params.source,
   ]
-  // Live storeContainer on Base is about 823k gas. The public writer cannot pay that on dust.
-  const storeGas = 900_000n
-  const gasPrice = await publicClient.getGasPrice()
-  const balance = await publicClient.getBalance({ address: account.address })
-  if (balance < storeGas * gasPrice) {
+}
+
+function encodeStoreData(abi: readonly unknown[], args: readonly unknown[]): Hex {
+  const encode = encodeFunctionData as unknown as (req: {
+    abi: readonly unknown[]
+    functionName: string
+    args: readonly unknown[]
+  }) => Hex
+  return encode({ abi, functionName: 'storeContainer', args })
+}
+
+function estimateStoreGas(client: object, account: `0x${string}`, abi: readonly unknown[], args: readonly unknown[]): Promise<bigint> {
+  const estimate = (client as { estimateContractGas: (req: never) => Promise<bigint> }).estimateContractGas
+  return estimate({
+    address: CONTRACT_ADDRESS,
+    abi,
+    functionName: 'storeContainer',
+    args,
+    account,
+  } as never)
+}
+
+/**
+ * True when the signer can pay estimated gasLimit × maxFeePerGas plus L1 data-fee headroom.
+ * A test hook skips the RPC quote. A quote failure is not enough balance: the caller must not settle.
+ */
+export async function deployerCanPayStoreGas(container: ContainerVortex): Promise<boolean> {
+  if (gasCheckForTests) return gasCheckForTests(container)
+  try {
+    const { publicClient, account } = getContractClient()
+    const abi = await loadRegistryAbi()
+    const args = storeContainerArgs(container)
+    const data = encodeStoreData(abi, args)
+    const gasLimit = await estimateStoreGas(publicClient, account.address, abi, args)
+    const fees = await (publicClient as { estimateFeesPerGas: () => Promise<{ maxFeePerGas?: bigint }> }).estimateFeesPerGas()
+    if (fees.maxFeePerGas === undefined) return false
+    const l1 = await readContractView(publicClient, {
+      address: BASE_L1_BLOCK_ORACLE,
+      abi: l1FeeAbi,
+      functionName: 'getL1Fee',
+      args: [data],
+    })
+    if (typeof l1 !== 'bigint') return false
+    const balance = await publicClient.getBalance({ address: account.address })
+    return balance >= persistGasWei(gasLimit, fees.maxFeePerGas, l1)
+  } catch {
+    return false
+  }
+}
+
+export async function persistContainerToChain(container: ContainerVortex): Promise<{ txHash: string }> {
+  const abi = await loadRegistryAbi()
+  const args = storeContainerArgs(container)
+  const { walletClient, publicClient } = getContractClient()
+  if (!(await deployerCanPayStoreGas(container))) {
     throw new Error('deployer gas balance too low')
   }
 
