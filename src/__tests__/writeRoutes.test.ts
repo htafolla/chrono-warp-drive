@@ -3428,4 +3428,70 @@ describe('govern_with_solar agent persist', () => {
       spy.mockRestore()
     }
   })
+
+  it('does not settle when the vortex signing key is missing', async () => {
+    delete process.env.VORTEX_SIGNING_KEY
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true }
+    })
+    const header = await exactPaymentHeader()
+    const missing = await postJson('/govern_with_solar', {
+      proposal: 'Paid persist without a signing key',
+      persistToChain: true,
+      sunNeuralEmbedding: [0.2],
+    }, { 'payment-signature': header })
+    expect(missing.status).toBe(503)
+    expect(missing.json.success).toBe(false)
+    expect(missing.json.temporalContainer).toBeUndefined()
+    expect(settlements).toBe(0)
+    expect(stub.persists).toBe(0)
+    expectNoChainOrKey()
+  })
+
+  it('returns non-success when the chain throws after settle, then retries the same payload for free', async () => {
+    const spy = pinVerdict('PASS')
+    let settlements = 0
+    setX402SettlerForTests(async () => {
+      settlements += 1
+      return { ok: true }
+    })
+    setRedisClientForTests(new MemoryRedis())
+    stub.persistError = new Error('chain down')
+    const header = await exactPaymentHeader()
+    const body = {
+      proposal: 'Paid persist that the chain rejects once',
+      persistToChain: true,
+      sunNeuralEmbedding: [0.2],
+    }
+    try {
+      const failed = await postJson('/govern_with_solar', body, { 'payment-signature': header })
+      expect(failed.status).toBe(502)
+      expect(failed.json.success).toBe(false)
+      expect(failed.json.error).toBe('Chain persist failed')
+      expect(failed.json.temporalContainer).toBeUndefined()
+      expect(JSON.stringify(failed.json)).not.toMatch(/0x[0-9a-f]{64}/)
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(0)
+
+      const retried = await postJson('/govern_with_solar', body, { 'payment-signature': header })
+      expect(retried.status).toBe(200)
+      const container = retried.json.temporalContainer as { containerId?: string } | undefined
+      expect(container?.containerId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(1)
+
+      const reused = await postJson('/govern_with_solar', {
+        proposal: 'A second proposal cannot reuse a fulfilled payment',
+        persistToChain: true,
+        sunNeuralEmbedding: [0.2],
+      }, { 'payment-signature': header })
+      expect(reused.status).toBe(401)
+      expect(settlements).toBe(1)
+      expect(stub.persists).toBe(1)
+    } finally {
+      spy.mockRestore()
+    }
+  })
 })

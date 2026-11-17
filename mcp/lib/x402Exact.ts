@@ -98,14 +98,28 @@ export type PersistGrant =
 
 type SettleResult = { ok: true } | { ok: false; status: 401 | 503; error: string }
 
+/**
+ * Process memory only. A restart forgets every set.
+ * The real replay guard is the on-chain USDC EIP-3009 nonce: Base USDC
+ * reverts transferWithAuthorization once that nonce is consumed.
+ * paidUnfulfilled means we already settled and the chain write did not finish,
+ * so the same payload may persist again without a second settlement.
+ */
 const usedNonces = new Set<string>()
 const inflightNonces = new Set<string>()
+const paidUnfulfilled = new Set<string>()
 let testSettler: ((payment: ExactPayment) => Promise<SettleResult>) | null = null
 
 export function resetX402ForTests(): void {
   usedNonces.clear()
   inflightNonces.clear()
+  paidUnfulfilled.clear()
   testSettler = null
+}
+
+/** True when a test settler or an https facilitator can settle. */
+export function x402SettlementReady(): boolean {
+  return testSettler !== null || facilitatorBase() !== null
 }
 
 export function setX402SettlerForTests(settler: ((payment: ExactPayment) => Promise<SettleResult>) | null): void {
@@ -286,24 +300,39 @@ async function facilitatorSettle(payment: ExactPayment): Promise<SettleResult> {
   return { ok: true }
 }
 
-/** Settle a payment that verifyExactPayment already accepted. One nonce, one settlement. */
+/**
+ * Settle a payment that verifyExactPayment already accepted.
+ * A paid-unfulfilled nonce returns success without calling the settler again.
+ * The nonce stays in flight until notePaymentFulfilled or notePaidUnfulfilled.
+ */
 export async function settleExactPayment(payment: ExactPayment): Promise<SettleResult> {
   const key = nonceKey(payment.authorization.nonce)
+  if (paidUnfulfilled.has(key)) return { ok: true }
   if (usedNonces.has(key) || inflightNonces.has(key)) return unauthorized()
   inflightNonces.add(key)
   try {
     const result = testSettler ? await testSettler(payment) : await facilitatorSettle(payment)
-    if (result.ok) {
-      inflightNonces.delete(key)
-      usedNonces.add(key)
-      return result
-    }
-    inflightNonces.delete(key)
+    if (!result.ok) inflightNonces.delete(key)
     return result
   } catch {
     inflightNonces.delete(key)
     return unauthorized()
   }
+}
+
+/** Chain write failed after settlement. The same payload may retry with no second charge. */
+export function notePaidUnfulfilled(payment: ExactPayment): void {
+  const key = nonceKey(payment.authorization.nonce)
+  inflightNonces.delete(key)
+  paidUnfulfilled.add(key)
+}
+
+/** Persist succeeded. This nonce cannot authorize another persist. */
+export function notePaymentFulfilled(payment: ExactPayment): void {
+  const key = nonceKey(payment.authorization.nonce)
+  inflightNonces.delete(key)
+  paidUnfulfilled.delete(key)
+  usedNonces.add(key)
 }
 
 /**

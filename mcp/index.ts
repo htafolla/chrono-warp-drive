@@ -53,6 +53,7 @@ import {
   persistCooldownRemaining,
   readPendingMint,
   readVortexSigningKey,
+  releasePersistCooldown,
   replacePendingMint,
   rejectedMint,
   rejectedSignature,
@@ -67,7 +68,10 @@ import {
 import {
   authorizePersist,
   exactUsdcRequirements,
+  notePaidUnfulfilled,
+  notePaymentFulfilled,
   settleExactPayment,
+  x402SettlementReady,
   type ExactPayment,
 } from './lib/x402Exact.js'
 import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, isMintNotSent, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
@@ -2062,6 +2066,14 @@ app.post('/govern_with_solar', async (c: Context) => {
         },
       })
     }
+    // Preconditions before any settlement: signing key, then facilitator config.
+    persistSigningKey = readVortexSigningKey()
+    if (!persistSigningKey) {
+      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+    }
+    if (x402Payment && !x402SettlementReady()) {
+      return c.json({ success: false, error: 'x402 facilitator is not configured' }, 503)
+    }
     const acquired = acquirePersistCooldown()
     const retryAfterSecondsHeld = cooldownDenial(acquired)
     if (retryAfterSecondsHeld !== null) {
@@ -2073,22 +2085,28 @@ app.post('/govern_with_solar', async (c: Context) => {
         },
       })
     }
+    const acquiredAt = 'acquiredAt' in acquired ? acquired.acquiredAt : Date.now()
     if (x402Payment) {
       const settled = await settleExactPayment(x402Payment)
       if (!settled.ok) {
+        releasePersistCooldown(acquiredAt)
         const status = 'status' in settled ? settled.status : 401
         const error = 'error' in settled ? settled.error : 'Unauthorized'
         return c.json({ success: false, error }, status)
       }
     }
-
-    if (!persistSigningKey) {
-      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
-    }
     const claim = await claimChainSave(proposalText)
     if (claim !== 'claimed') {
       const waited = await replayChainSave(proposalText)
-      if (waited) return c.json(waited)
+      if (waited) {
+        if (x402Payment) notePaymentFulfilled(x402Payment)
+        return c.json(waited)
+      }
+      if (x402Payment) {
+        notePaidUnfulfilled(x402Payment)
+        releasePersistCooldown(acquiredAt)
+        return c.json({ success: false, error: 'Chain persist failed' }, 502)
+      }
       return c.json({
         success: true,
         ...result,
@@ -2133,6 +2151,11 @@ app.post('/govern_with_solar', async (c: Context) => {
     } catch {
       await releaseChainSave(proposalText)
       process.stderr.write('[govern] persist failed\n')
+      if (x402Payment) {
+        notePaidUnfulfilled(x402Payment)
+        releasePersistCooldown(acquiredAt)
+        return c.json({ success: false, error: 'Chain persist failed' }, 502)
+      }
       return c.json({
         success: true,
         ...result,
@@ -2151,6 +2174,7 @@ app.post('/govern_with_solar', async (c: Context) => {
 
     // Fire-and-forget, as before. The claim inside autoMintVortex is synchronous,
     // so the response does not wait for the mint receipt.
+    if (x402Payment) notePaymentFulfilled(x402Payment)
     void autoMintVortex(container, proposalText)
 
     return c.json({
