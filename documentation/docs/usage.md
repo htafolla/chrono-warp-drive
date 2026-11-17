@@ -52,6 +52,11 @@ curl -X POST https://mcp-production-80e2.up.railway.app/govern_with_solar \
 | `baseVoteWeight` | number | no | 1.0 | Vote weight (0.5–1.5) |
 | `sharePublicly` | boolean | no | false | Show in the public feed |
 | `spectralQuality` | number | no | — | NeuralFusion quality (0–1). Activates 5D mode |
+| `persistToChain` | boolean | no | false | Persist a non-REJECT verdict. Returns `temporalContainer.containerId` |
+
+### Agent path (factory-parity step 4 citation)
+
+Evaluation does not need a credential. `persistToChain: true` does. The Groover registry has no public apiKey or DID-signature verify endpoint, so a registered agent pays **x402 exact USDC on Base**, capped at **0.01 USDC** (`10000` atomic units, asset `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, network `eip155:8453`, payTo `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43`). Send the base64 x402 v2 payload in `PAYMENT-SIGNATURE`. The operator `Authorization: Bearer` key still works. The MCP tool takes the same `persistToChain` flag and the same payment (`x402Payment` or the header) and returns `temporalContainer.containerId`, which factory-parity step 4 (`mint_suit`) uses as `dynamoCitation`. REJECT is not persisted and is not charged. Set `X402_FACILITATOR_URL` so the payment can be settled.
 
 ### Response
 

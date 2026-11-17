@@ -444,13 +444,18 @@ export function persistCooldownRemaining(now = Date.now()): number {
   return Math.ceil((PERSIST_COOLDOWN_MS - (now - lastPersistAt)) / 1000)
 }
 
-export function acquirePersistCooldown(now = Date.now()): { ok: true } | { ok: false; retryAfterSeconds: number } {
+export function acquirePersistCooldown(now = Date.now()): { ok: true; acquiredAt: number } | { ok: false; retryAfterSeconds: number } {
   if (now - lastPersistAt < PERSIST_COOLDOWN_MS) {
     const retryAfterSeconds = Math.ceil((PERSIST_COOLDOWN_MS - (now - lastPersistAt)) / 1000)
     return { ok: false, retryAfterSeconds }
   }
   lastPersistAt = now
-  return { ok: true }
+  return { ok: true, acquiredAt: now }
+}
+
+/** Give back a cooldown this call acquired when persist does not succeed. */
+export function releasePersistCooldown(acquiredAt: number): void {
+  if (lastPersistAt === acquiredAt) lastPersistAt = 0
 }
 
 /** Seconds still on the cooldown, or null when the attempt acquired it. */

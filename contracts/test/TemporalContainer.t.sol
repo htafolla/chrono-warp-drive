@@ -16,6 +16,7 @@ contract TemporalContainerTest is Test {
     TemporalContainerRegistry.SolarSnapshot solarSnapshot;
     TemporalContainerRegistry.ResonanceProfile resonanceProfile;
     TemporalContainerRegistry.MoralOverlay moralOverlay;
+    TemporalContainerRegistry.PhotonOverlay photonOverlay;
 
     function setUp() public {
         registry = new TemporalContainerRegistry();
@@ -53,6 +54,13 @@ contract TemporalContainerTest is Test {
             trinitariumGematriaFusion:   0.54e18,
             moralNumerologicalTension:   "Aligned"
         });
+
+        photonOverlay = TemporalContainerRegistry.PhotonOverlay({
+            photonFactorApplied: false,
+            dualBlackHoleTotal:  0,
+            phaseCoherence:      0,
+            cti:                 0
+        });
     }
 
     function _storeContainer(bytes32 id, string memory source) internal {
@@ -64,6 +72,7 @@ contract TemporalContainerTest is Test {
             solarSnapshot,
             resonanceProfile,
             moralOverlay,
+            photonOverlay,
             "Strong resonance with current solar conditions",
             hash,
             source
@@ -164,8 +173,8 @@ contract TemporalContainerTest is Test {
         bytes32 id1 = keccak256("container-1");
         bytes32 id2 = keccak256("container-2");
 
-        registry.storeContainer(id1, TIMESTAMP, PROPOSAL_HASH, solarSnapshot, resonanceProfile, moralOverlay, "reason", keccak256("hash1"), "human");
-        registry.storeContainer(id2, TIMESTAMP, PROPOSAL_HASH, solarSnapshot, resonanceProfile, moralOverlay, "reason", keccak256("hash2"), "ambient");
+        registry.storeContainer(id1, TIMESTAMP, PROPOSAL_HASH, solarSnapshot, resonanceProfile, moralOverlay, photonOverlay, "reason", keccak256("hash1"), "human");
+        registry.storeContainer(id2, TIMESTAMP, PROPOSAL_HASH, solarSnapshot, resonanceProfile, moralOverlay, photonOverlay, "reason", keccak256("hash2"), "ambient");
 
         (bytes32[] memory ids, uint256 total) = registry.listContainers(0, 10);
         assertEq(total, 2);

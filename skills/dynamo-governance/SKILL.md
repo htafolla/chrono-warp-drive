@@ -50,6 +50,13 @@ Same as `governance`, but includes solar activity modulation (TDF, Kp index, x-r
 }
 ```
 
+**Persist a PASS citation (factory-parity step 4).** Groover `mint_suit` needs `temporalContainer.containerId`. The Groover registry does not publish a verify API for an apiKey or a DID-signed request, so set `persistToChain: true` and either:
+
+- `Authorization: Bearer <MCP_WRITE_API_KEY>` (operator), or
+- an x402 v2 **exact** payment on Base: `PAYMENT-SIGNATURE` header, or `x402Payment` on the MCP tool. Network `eip155:8453`, asset Base USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, amount `10000` (0.01 USDC, the cap), payTo `0xd45CcF98D6db5A36E7CdD10ffae0b685BF27CE43`, EIP-3009 `transferWithAuthorization` (domain name `USD Coin`, version `2`). Settlement uses `X402_FACILITATOR_URL`.
+
+REJECT does not persist and is not charged. Cooldown, replay, and the vortex signing key stay as they are. A request with neither credential is **401**.
+
 **Structured (must include `source`):**
 ```json
 {

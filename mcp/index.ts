@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { Hono, Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { cors } from 'hono/cors'
@@ -52,6 +53,7 @@ import {
   persistCooldownRemaining,
   readPendingMint,
   readVortexSigningKey,
+  releasePersistCooldown,
   replacePendingMint,
   rejectedMint,
   rejectedSignature,
@@ -63,7 +65,32 @@ import {
   signVortex,
   verifyVortexSignature,
 } from './lib/writeGate.js'
+import {
+  authorizePersist,
+  exactUsdcRequirements,
+  notePaidUnfulfilled,
+  notePaymentFulfilled,
+  settleExactPayment,
+  x402SettlementReady,
+  type ExactPayment,
+} from './lib/x402Exact.js'
 import { VORTEX_TOKEN_ADDRESS, VORTEX_TREASURY, getChainExecutor, isMintNotSent, onChainMintId, type RegistryContainer } from './lib/chainPort.js'
+
+interface PersistHttpAuth {
+  authorization?: string
+  payment?: string
+}
+
+const persistHttpAuth = new AsyncLocalStorage<PersistHttpAuth>()
+
+function persistAuthFrom(c: Context): PersistHttpAuth {
+  const authorization = c.req.header('authorization')
+  const payment = c.req.header('payment-signature') ?? c.req.header('x-payment')
+  return {
+    authorization: authorization && authorization.trim() !== '' ? authorization : undefined,
+    payment: payment && payment.trim() !== '' ? payment.trim() : undefined,
+  }
+}
 
 const NEURAL_FUSION_URL = process.env.NEURAL_FUSION_URL || 'https://neural-fusion-backend-production.up.railway.app'
 
@@ -939,7 +966,9 @@ Storm override: PASS → NEEDS_REVISION regardless of score, confidence drops 0.
 - \`momentum\` and \`peakForecast\` are display-only — computed for transparency but do not modify confidence or recommendations
 - \`spectralQuality\` is an optional 5th dimension from NeuralFusion. When provided, weights automatically rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, the original 4D formula applies. Check \`neuralContextUsed\` in the response to know which was used.
 
-**Input:** \`proposal\` (string), \`baseVoteWeight\` (0.5–1.5, default 1.0), \`sharePublicly\` (boolean, default false — if true, adds proposal to public feed), \`spectralQuality\` (number 0–1, optional — NeuralFusion spectral quality as 5th resonance dimension)
+**Input:** \`proposal\` (string), \`baseVoteWeight\` (0.5–1.5, default 1.0), \`sharePublicly\` (boolean, default false — if true, adds proposal to public feed), \`persistToChain\` (boolean — write a non-REJECT verdict and return \`temporalContainer.containerId\`), \`x402Payment\` (base64 x402 v2 exact USDC-on-Base payment, 0.01 USDC, used when persisting without the operator key), \`spectralQuality\` (number 0–1, optional — NeuralFusion spectral quality as 5th resonance dimension)
+
+**persistToChain auth:** evaluation stays open. Persisting accepts \`Authorization: Bearer <MCP_WRITE_API_KEY>\` or an x402 exact payment (header \`PAYMENT-SIGNATURE\`, or \`x402Payment\`). The Groover registry does not publish a verify route for an apiKey or a DID signature, so the agent path is the x402 payment: scheme \`exact\`, network \`eip155:8453\`, asset Base USDC, amount \`10000\` (0.01 USDC, the cap) paid to the vortex treasury. \`X402_FACILITATOR_URL\` settles it. REJECT does not persist and is not charged. Cooldown, replay, and the vortex signing key are unchanged. Factory-parity mint (step 4) uses this \`containerId\` as \`dynamoCitation\`.
 
 **When to use:**
 - Most strategic or high-impact proposals (**recommended default**)
@@ -1371,12 +1400,14 @@ app.get('/', (c: Context) => {
 
 // Streamable HTTP MCP transport — accept JSON-RPC POST at root
 app.post('/', async (c: Context) => {
-  const body = await c.req.json()
-  const result = await handleMCPMessage('streamable-http', body)
-  if (!result) {
-    return c.body(null, 202)
-  }
-  return c.json(result)
+  return persistHttpAuth.run(persistAuthFrom(c), async () => {
+    const body = await c.req.json()
+    const result = await handleMCPMessage('streamable-http', body)
+    if (!result) {
+      return c.body(null, 202)
+    }
+    return c.json(result)
+  })
 })
 
 // Health
@@ -1398,7 +1429,7 @@ app.get('/.well-known/agent-card.json', (c: Context) => {
     protocolVersion: '0.3.0',
     name: 'Dynamo Hammer',
     description:
-      'Governance MCP (solar, Hammer, triangulation). Not an x402 shop. Hangars live at clearing.rippel.ai.',
+      'Governance MCP (solar, Hammer, triangulation). Evaluation is open. persistToChain is an x402 exact 0.01 USDC payment on Base, or the operator key. Hangars live at clearing.rippel.ai.',
     url: HAMMER,
     provider: { organization: 'Rippel', url: 'https://rippel.ai' },
     version: '4.8.3',
@@ -1425,7 +1456,9 @@ app.get('/.well-known/agent-card.json', (c: Context) => {
 app.get('/.well-known/x402', (c: Context) => {
   return c.json({
     x402Version: 2,
-    note: 'Dynamo is MCP governance, not a 402 shop. Hangar shops:',
+    note: 'Dynamo governance evaluation is open. persistToChain on /govern_with_solar accepts the exact USDC payment below, capped at 0.01 USDC. Hangar shops stay on clearing.rippel.ai.',
+    accepts: [exactUsdcRequirements()],
+    resource: `${HAMMER}/govern_with_solar`,
     resources: [
       `${HANGAR}/v1/extract`,
       `${HANGAR}/v1/skim`,
@@ -1581,8 +1614,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'govern_with_solar',
-    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Accepts a raw proposal string OR a structuredDerivativeProposal object (with summary field).',
-    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },     spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now, is returned as evaluatedAt, and is the clock mixed into the 7D TDF nonce. The same timestamp reproduces the verdict.' } }, required: [] },
+    description: 'Enhanced governance with real-time solar context from NOAA GOES. Uses the Solar Isotopic Hammer (bag-of-words XOR + Gaussian similarity) for per-proposal resonance scoring. Optionally accepts spectralQuality from NeuralFusion as a 5th resonance dimension. Accepts a raw proposal string OR a structuredDerivativeProposal object (with summary field). persistToChain writes a non-REJECT verdict and returns temporalContainer.containerId. That requires the operator Bearer key or an x402 exact 0.01 USDC payment on Base (PAYMENT-SIGNATURE header or x402Payment).',
+    inputSchema: { type: 'object', properties: { proposal: { type: 'string', minLength: 10, description: 'Governance proposal text (alternative to structuredProposal)' }, structuredProposal: { type: 'object', description: 'Structured derivative proposal with summary, intent, stateDelta (alternative to proposal string)' }, baseVoteWeight: { type: 'number', default: 1.0, description: 'Base vote weight (0.5-1.5)' }, sharePublicly: { type: 'boolean', default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' }, persistToChain: { type: 'boolean', default: false, description: 'When true, persist a non-REJECT verdict and return temporalContainer.containerId. Requires the operator Bearer key or an x402 exact USDC payment on Base (0.01 USDC).' }, x402Payment: { type: 'string', description: 'Base64 x402 v2 PAYMENT-SIGNATURE payload for persistToChain. Exact scheme, eip155:8453, Base USDC, 10000 atomic units (0.01 USDC) to the vortex treasury. Same credential as the PAYMENT-SIGNATURE header.' }, spectralQuality: { type: 'number', description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' }, timestamp: { type: 'number', description: 'Evaluation time in ms. Defaults to now, is returned as evaluatedAt, and is the clock mixed into the 7D TDF nonce. The same timestamp reproduces the verdict.' } }, required: [] },
   },
   {
     name: 'call_connected_tool',
@@ -1692,6 +1725,33 @@ export const TOOL_HANDLERS: Record<string, (args: any) => any> = {
     return evaluateGovernance(TOOL_HANDLERS, args)
   },
   govern_with_solar: async (args: any) => {
+    if (args?.persistToChain === true) {
+      const ctx = persistHttpAuth.getStore()
+      const argPayment = typeof args.x402Payment === 'string' ? args.x402Payment : undefined
+      const payment = ctx?.payment ?? argPayment
+      const headers: Record<string, string> = { 'content-type': 'application/json' }
+      if (ctx?.authorization) headers.authorization = ctx.authorization
+      if (payment) headers['payment-signature'] = payment
+      const forwarded: Record<string, unknown> = {}
+      if (args && typeof args === 'object') {
+        for (const [key, value] of Object.entries(args as Record<string, unknown>)) {
+          if (key !== 'x402Payment') forwarded[key] = value
+        }
+      }
+      const res = await app.request('/govern_with_solar', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(forwarded),
+      })
+      const payload: unknown = await res.json()
+      if (res.status !== 200) {
+        const error = payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+          ? payload.error
+          : 'Unauthorized'
+        return { success: false, error, status: res.status }
+      }
+      return payload
+    }
     const rawProposal = args?.proposal ?? args?.structuredProposal
     if (!rawProposal) return { error: 'Either proposal (string) or structuredProposal (object with summary) is required.' }
 
@@ -1880,6 +1940,8 @@ app.get('/govern_with_solar', (c: Context) => {
       structuredProposal: { type: 'object', required: false, description: 'Structured derivative proposal with summary, intent, stateDelta' },
       baseVoteWeight: { type: 'number', required: false, default: 1.0, min: 0.5, max: 1.5, description: 'Base vote weight (0.5-1.5)' },
       sharePublicly: { type: 'boolean', required: false, default: false, description: 'If true, adds this proposal to the public feed (GET /public_feed)' },
+      persistToChain: { type: 'boolean', required: false, default: false, description: 'Persist a non-REJECT verdict and return temporalContainer.containerId. Operator Bearer MCP_WRITE_API_KEY, or x402 exact USDC on Base capped at 0.01 USDC (PAYMENT-SIGNATURE or x402Payment).' },
+      x402Payment: { type: 'string', required: false, description: 'Base64 x402 v2 exact payment. eip155:8453, Base USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, amount 10000 (0.01 USDC) to the vortex treasury. Alternative to the PAYMENT-SIGNATURE header.' },
       spectralQuality: { type: 'number', required: false, description: 'Optional NeuralFusion spectral quality (0-1). When provided, used as 5th resonance dimension at 10% weight. Weights rebalance to 0.18/0.18/0.27/0.27/0.10. When absent, 4D formula 0.20/0.20/0.30/0.30 applies.' },
     },
     when_to_use: [
@@ -1942,11 +2004,26 @@ app.post('/govern_with_solar', async (c: Context) => {
   }
   const proposalSource = structuredInput?.source || 'human'
   // Auth comes after validation so a 400 does not start the persist cooldown.
+  // The registry has no public apiKey/DID verify, so agents pay x402 exact USDC on Base.
   let persistSigningKey: string | null = null
+  let x402Payment: ExactPayment | null = null
   if (persistToChain) {
-    const auth = authorizeWrite(c.req.header('authorization'))
-    const denied = rejectedWrite(auth)
-    if (denied) return c.json({ success: false, error: denied.error }, denied.status)
+    const headerPayment = c.req.header('payment-signature') ?? c.req.header('x-payment')
+    const bodyPayment = typeof body.x402Payment === 'string' ? body.x402Payment : undefined
+    const payment = headerPayment && headerPayment.trim() !== '' ? headerPayment.trim() : bodyPayment
+    const grant = await authorizePersist({
+      authorizationHeader: c.req.header('authorization'),
+      payment,
+    })
+    if (!grant.ok) {
+      const status = 'status' in grant ? grant.status : 401
+      const error = 'error' in grant ? grant.error : 'Unauthorized'
+      if (status === 401) {
+        return c.json({ success: false, error, accepts: [exactUsdcRequirements()] }, status)
+      }
+      return c.json({ success: false, error }, status)
+    }
+    if (grant.via === 'x402') x402Payment = grant.payment
     persistSigningKey = readVortexSigningKey()
     if (!persistSigningKey) {
       return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
@@ -1989,6 +2066,14 @@ app.post('/govern_with_solar', async (c: Context) => {
         },
       })
     }
+    // Preconditions before any settlement: signing key, then facilitator config.
+    persistSigningKey = readVortexSigningKey()
+    if (!persistSigningKey) {
+      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+    }
+    if (x402Payment && !x402SettlementReady()) {
+      return c.json({ success: false, error: 'x402 facilitator is not configured' }, 503)
+    }
     const acquired = acquirePersistCooldown()
     const retryAfterSecondsHeld = cooldownDenial(acquired)
     if (retryAfterSecondsHeld !== null) {
@@ -2000,14 +2085,28 @@ app.post('/govern_with_solar', async (c: Context) => {
         },
       })
     }
-
-    if (!persistSigningKey) {
-      return c.json({ success: false, error: 'Vortex signing key is not configured' }, 503)
+    const acquiredAt = 'acquiredAt' in acquired ? acquired.acquiredAt : Date.now()
+    if (x402Payment) {
+      const settled = await settleExactPayment(x402Payment)
+      if (!settled.ok) {
+        releasePersistCooldown(acquiredAt)
+        const status = 'status' in settled ? settled.status : 401
+        const error = 'error' in settled ? settled.error : 'Unauthorized'
+        return c.json({ success: false, error }, status)
+      }
     }
     const claim = await claimChainSave(proposalText)
     if (claim !== 'claimed') {
       const waited = await replayChainSave(proposalText)
-      if (waited) return c.json(waited)
+      if (waited) {
+        if (x402Payment) notePaymentFulfilled(x402Payment)
+        return c.json(waited)
+      }
+      if (x402Payment) {
+        notePaidUnfulfilled(x402Payment)
+        releasePersistCooldown(acquiredAt)
+        return c.json({ success: false, error: 'Chain persist failed' }, 502)
+      }
       return c.json({
         success: true,
         ...result,
@@ -2052,6 +2151,11 @@ app.post('/govern_with_solar', async (c: Context) => {
     } catch {
       await releaseChainSave(proposalText)
       process.stderr.write('[govern] persist failed\n')
+      if (x402Payment) {
+        notePaidUnfulfilled(x402Payment)
+        releasePersistCooldown(acquiredAt)
+        return c.json({ success: false, error: 'Chain persist failed' }, 502)
+      }
       return c.json({
         success: true,
         ...result,
@@ -2070,6 +2174,7 @@ app.post('/govern_with_solar', async (c: Context) => {
 
     // Fire-and-forget, as before. The claim inside autoMintVortex is synchronous,
     // so the response does not wait for the mint receipt.
+    if (x402Payment) notePaymentFulfilled(x402Payment)
     void autoMintVortex(container, proposalText)
 
     return c.json({
@@ -2256,18 +2361,21 @@ app.get('/call_connected_tool', (c: Context) => {
 })
 
 app.post('/call_connected_tool', async (c: Context) => {
-  const body = await c.req.json()
-  const toolName = body.tool_name
-  const params = body.params ?? {}
-  if (!toolName) return c.json({ error: 'Missing tool_name parameter' }, 400)
-  const handler = TOOL_HANDLERS[toolName]
-  if (!handler) return c.json({ error: `Unknown tool: ${toolName}`, available_tools: Object.keys(TOOL_HANDLERS) }, 404)
-  try {
-    const result = await handler(params)
-    return c.json({ success: true, tool: toolName, result })
-  } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500)
-  }
+  return persistHttpAuth.run(persistAuthFrom(c), async () => {
+    const body = await c.req.json()
+    const toolName = body.tool_name
+    const params = body.params ?? {}
+    if (!toolName) return c.json({ error: 'Missing tool_name parameter' }, 400)
+    const handler = TOOL_HANDLERS[toolName]
+    if (!handler) return c.json({ error: `Unknown tool: ${toolName}`, available_tools: Object.keys(TOOL_HANDLERS) }, 404)
+    try {
+      const result = await handler(params)
+      return c.json({ success: true, tool: toolName, result })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Tool call failed'
+      return c.json({ success: false, error: message }, 500)
+    }
+  })
 })
 
 export default app
@@ -2514,14 +2622,14 @@ app.post('/messages', async (c: Context) => {
     return c.json({ error: 'Missing session ID — include ?sessionId= in URL' }, 400)
   }
 
-
-  const body = await c.req.json()
-  const result = await handleMCPMessage(sessionId, body)
-  if (result) {
-    await publish(`session:${sessionId}`, JSON.stringify(result))
-  }
-
-  return c.json({ ok: true })
+  return persistHttpAuth.run(persistAuthFrom(c), async () => {
+    const body = await c.req.json()
+    const result = await handleMCPMessage(sessionId, body)
+    if (result) {
+      await publish(`session:${sessionId}`, JSON.stringify(result))
+    }
+    return c.json({ ok: true })
+  })
 })
 
 // ---------- Vortex Token endpoints ----------
